@@ -1,0 +1,295 @@
+// =============================================================
+// 全局样式 + 运行时 CSS 变量覆盖（§5.9③）
+// 入口：src/main.ts -> import './styles/index.scss'
+// =============================================================
+@use './variables.scss' as *;
+
+:root {
+  --el-color-primary: #2563eb;
+  --el-color-primary-light-3: #60a5fa;
+  --el-color-primary-light-5: #93c5fd;
+  --el-color-primary-light-7: #bfdbfe;
+  --el-color-primary-light-8: #dbeafe;
+  --el-color-primary-light-9: #eff6ff;
+  --el-color-primary-dark-2: #1d4ed8;
+  --el-border-radius-base: 10px;
+  --el-bg-color-page: #f5f7fb;
+  --el-fill-color-light: #f1f5f9;
+  --el-text-color-primary: #0f172a;
+  --el-text-color-regular: #64748b;
+  --el-border-color: #e2e8f0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  color: $text-primary;
+  background-color: $bg-page;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// 卡片：圆角 + 阴影
+.el-card {
+  border-radius: $radius-base;
+  border-color: $border-color;
+}
+
+// 表格：表头底色 + 行 hover
+.el-table th.el-table__cell {
+  background-color: $color-table-head;
+  color: $text-primary;
+  font-weight: 600;
+}
+
+.el-table .el-table__body tr:hover > td.el-table__cell {
+  background-color: $color-table-hover;
+}
+
+// 滚动条
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+// =============================================================
+// v1.2 视觉升级：全局质感与组件统一精修
+// =============================================================
+
+::selection {
+  background: $color-primary-50;
+  color: $color-primary-dark;
+}
+
+// ---------- Element Plus 运行时统一精修 ----------
+
+// 卡片：圆角 + 细边框 + 常态极浅阴影（避免整屏"灰底白块"过重）
+.el-card {
+  border-radius: $radius-lg;
+  border-color: $border-color;
+  box-shadow: $shadow-sm;
+  transition: box-shadow $transition-base, transform $transition-base, border-color $transition-base;
+
+  > .el-card__header {
+    padding: 14px 20px;
+    border-bottom-color: $border-color;
+    font-weight: 600;
+  }
+}
+
+// 可交互卡片：悬停轻微上浮 + 阴影加深（由页面按需挂载）
+.hover-lift {
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: $shadow-lg;
+    border-color: $color-primary-light;
+  }
+}
+
+// 按钮：统一圆角、字重与主按钮层次
+.el-button {
+  font-weight: 500;
+  border-radius: $radius-sm;
+
+  &--primary:not(.is-text):not(.is-link) {
+    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.24);
+
+    &:hover {
+      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+    }
+  }
+
+  &.is-text,
+  &.is-link {
+    font-weight: 500;
+  }
+}
+
+// 表格：表头更轻盈、行高更舒展、去默认边框噪音
+.el-table {
+  --el-table-header-bg-color: #{$color-table-head};
+  --el-table-header-text-color: #{$text-secondary};
+  --el-table-row-hover-bg-color: #{$color-table-hover};
+  --el-table-border-color: #{$border-color};
+
+  font-size: 13.5px;
+
+  th.el-table__cell {
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .el-table__cell {
+    padding: 11px 0;
+  }
+}
+
+// 输入框：聚焦时用主色描边 + 柔和外发光
+.el-input__wrapper,
+.el-textarea__inner {
+  border-radius: $radius-sm;
+}
+
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px $color-primary inset, 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+// 对话框：更圆润 + 头部留白
+.el-dialog {
+  border-radius: $radius-lg;
+  overflow: hidden;
+
+  .el-dialog__header {
+    padding: 18px 24px;
+    margin-right: 0;
+    border-bottom: 1px solid $border-color;
+  }
+
+  .el-dialog__title {
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .el-dialog__body {
+    padding: 20px 24px;
+  }
+
+  .el-dialog__footer {
+    padding: 14px 24px;
+    border-top: 1px solid $border-color;
+    background: #fcfdff;
+  }
+}
+
+// 分页：圆角按钮
+.el-pagination {
+  .el-pager li,
+  button.btn-prev,
+  button.btn-next {
+    border-radius: $radius-sm;
+  }
+
+  .el-pager li.is-active {
+    font-weight: 600;
+  }
+}
+
+// 标签：圆润、去下划线噪音
+.el-tag {
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+// 空状态更紧凑
+.el-empty {
+  padding: 32px 0;
+}
+
+// ---------- v1.3 列表页统一版式 ----------
+
+// 列表容器卡：统一「工具栏 / 表格 / 分页」的承载面
+.table-card {
+  border-radius: $radius-lg;
+
+  .table-card__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .table-card__toolbar-filters {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .table-card__pagination {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 14px;
+  }
+
+  .el-table {
+    --el-table-border-color: #eef2f7;
+  }
+
+  .el-table--border {
+    border-radius: $radius-sm;
+    overflow: hidden;
+  }
+}
+
+// 通用表格边框柔化（未包卡的页面同样受益）
+.el-table--border {
+  &::after,
+  &::before {
+    background-color: #eef2f7;
+  }
+}
+
+// 描述列表（成绩明细 / 预览页）更透气
+.el-descriptions {
+  --el-descriptions-item-bordered-label-background: #f8fafc;
+
+  .el-descriptions__label {
+    font-weight: 600;
+  }
+}
+
+// ---------- 通用工具类 ----------
+
+// 页面级容器（与 PageHeader 配合）
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+// 数字/等宽
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+// 动效：入场淡入上移（配合 RouterView 过渡）
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}

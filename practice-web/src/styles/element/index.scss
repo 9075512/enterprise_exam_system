@@ -1,0 +1,36 @@
+// =============================================================
+// Element Plus 编译期 SCSS 变量覆盖
+// 必须用 @forward ... with 包裹 EP 的 var.scss（§5.9①）
+// 该文件经 vite.config.ts 的 additionalData 注入到每个 SFC 样式
+// =============================================================
+@forward 'element-plus/theme-chalk/src/common/var.scss' with (
+  $colors: (
+    'primary': (
+      'base': #2563eb,
+    ),
+    'success': (
+      'base': #16a34a,
+    ),
+    'warning': (
+      'base': #f59e0b,
+    ),
+    'danger': (
+      'base': #dc2626,
+    ),
+    'error': (
+      'base': #dc2626,
+    ),
+    'info': (
+      'base': #0ea5e9,
+    ),
+  ),
+  $border-radius: (
+    'base': 10px,
+    'small': 8px,
+    'round': 20px,
+    'circle': 100%,
+  ),
+  $font-family: (
+    '': "'-apple-system', 'PingFang SC', 'Microsoft YaHei', sans-serif",
+  )
+);
