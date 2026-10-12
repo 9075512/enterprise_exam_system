@@ -1,0 +1,208 @@
+classDiagram
+    %% ===== 后端：公共基础设施（不变） =====
+    class Env {
+        +PORT number
+        +DB_HOST string
+        +DB_PORT number
+        +DB_USER string
+        +DB_PASSWORD string
+        +DB_NAME string
+        +JWT_SECRET string
+        +JWT_EXPIRES_IN string
+        +load() Env
+    }
+    class DbPool {
+        +getConnection() PoolConnection
+        +query(sql, params) Promise
+        +withTransaction(fn) Promise
+    }
+    class DatetimeUtil {
+        +toDbDate(iso) string
+        +fromDbDate(v) string
+        +nowDb() string
+    }
+    class IdUtil {
+        +genId(prefix) string
+    }
+
+    %% ===== 后端：service 层（不变） =====
+    class AuthService {
+        +login(username, password) Promise~LoginResult~
+        +me(userId) User
+        +changePassword(userId, oldPwd, newPwd) void
+        +signToken(payload) string
+    }
+    class UserService {
+        +list(filter) User[]
+        +create(input) User
+        +update(id, input) User
+        +remove(id) void
+        +resetPassword(id) void
+    }
+    class DepartmentService {
+        +list() Department[]
+        +create(input) Department
+        +update(id, input) Department
+        +remove(id) void
+    }
+    class BankService {
+        +list(filter) Bank[]
+        +get(id) BankDetail
+        +create(input) Bank
+        +update(id, input) Bank
+        +remove(id, cascade) void
+        +migrateQuestions(targetBankId, questionIds) number
+    }
+    class QuestionService {
+        +list(filter, page) Page~Question~
+        +listSubjects(bankIds) string[]
+        +create(input) Question
+        +update(id, input) Question
+        +remove(id) void
+        +validate(input) void
+    }
+    class ImportService {
+        +buildTemplate() Buffer
+        +preview(fileBuffer, bankId) PreviewResult
+        +commit(bankId, fileName, validRows, errors) CommitResult
+        +listBatches(filter, page) Page~ImportBatch~
+        -parseRow(row) RowResult
+    }
+    class PaperService {
+        +list() Paper[]
+        +get(id) PaperDetail
+        +create(input) Paper
+        +update(id, input) Paper
+        +remove(id) void
+        +drawQuestions(bankIds, rules) DrawResult
+        +getSnapshot(paperId) PaperSnapshot
+    }
+    class ExamService {
+        +list() Exam[]
+        +listForExaminee(user) ExamMyDto[]
+        +get(id) Exam
+        +create(input) Exam
+        +update(id, input) Exam
+        +remove(id) void
+    }
+    class ExamRecordService {
+        +start(examId, user) ExamRecord
+        +getById(id) ExamRecord
+        +listByUser(userId, page) Page~ExamRecord~
+        +listByExam(examId, page) Page~ExamRecord~
+        +saveAnswers(id, answers) void
+        +addCheatEvent(id, awaySeconds) void
+        +submit(id, auto) ExamRecord
+        +isAnswerCorrect(q, answer) boolean
+        +grade(record) number
+    }
+    class ReportService {
+        +examReport(examId) ReportDto
+        -summary(records, passScore) ExamSummary
+        -scoreBands(records) BandItem[]
+        -departmentCompare(records, passScore) DeptItem[]
+        -wrongRateRank(records) WrongItem[]
+    }
+    class ReportRepo {
+        +listLatestSubmittedByExam(examId) ExamRecordRow[]
+    }
+
+    %% ===== 前端：api 模块（axios 薄封装） =====
+    class ApiHttp {
+        +get~T~(url, params) Promise~T~
+        +post~T~(url, body) Promise~T~
+        +put~T~(url, body) Promise~T~
+        +del~T~(url, params) Promise~T~
+        +upload~T~(url, formData) Promise~T~
+        +setUnauthorizedHandler(fn) void
+    }
+    class AuthApi {
+        +login(u, p) Promise~{token,user}~
+        +logout() Promise~void~
+        +me() Promise~User~
+        +changePassword(old,next) Promise~void~
+    }
+    class BanksApi {
+        +listBanks(filter) Promise~Bank[]~
+        +getBank(id) Promise~BankDetail~
+        +createBank/updateBank/removeBank(...) Promise
+        +listBankQuestions(bankId, filter, page) Promise~Page~
+    }
+    class QuestionsApi {
+        +listQuestions(filter, page) Promise~Page~
+        +listSubjects(bankIds) Promise~string[]~
+        +saveQuestion(input) Promise~Question~
+        +removeQuestion(id) Promise~void~
+    }
+    class ImportsApi {
+        +downloadTemplate() Promise~Blob~
+        +previewImport(bankId, file) Promise~PreviewResult~
+        +commitImport(payload) Promise~CommitResult~
+    }
+    class PapersApi {
+        +listPapers() Promise~Paper[]~
+        +getPaper(id) Promise~PaperDetail~
+        +savePaper(input) Promise~Paper~
+        +removePaper(id) Promise~void~
+        +drawQuestions(bankIds, rules) Promise~DrawResult~
+    }
+
+    %% ===== 前端：组合式函数与 store =====
+    class UseRequest {
+        +data Ref~T~
+        +loading Ref~boolean~
+        +error Ref~Error~
+        +run() Promise~T~
+        +refresh() Promise~T~
+    }
+    class UsePagination {
+        +page Ref~number~
+        +pageSize Ref~number~
+        +total Ref~number~
+        +apply(result) T[]
+        +reset() void
+    }
+    class UseConfirm {
+        +confirm(message) Promise~boolean~
+    }
+    class AuthStore {
+        +currentUser Ref~User~
+        +initializing Ref~boolean~
+        +isLoggedIn Computed
+        +hasRole(roles) boolean
+        +login(u, p) Promise~User~
+        +logout() void
+        +fetchMe() Promise~void~
+    }
+    class AppStore {
+        +sidebarCollapsed Ref~boolean~
+        +toggleSidebar() void
+    }
+    class ExamRules {
+        +getExamStatus(exam, now) ExamStatus
+        +calcTotalScore(questions) number
+    }
+
+    %% ===== 关系 =====
+    AuthService ..> UserService : 校验用户
+    AuthService ..> DbPool
+    UserService ..> DbPool
+    DepartmentService ..> DbPool
+    BankService ..> DbPool
+    QuestionService ..> BankService : 校验归属
+    ImportService ..> QuestionService : 复用校验/写入
+    PaperService ..> QuestionService : 抽题/快照
+    ExamService ..> PaperService : 校验试卷
+    ExamRecordService ..> ExamService : 时间窗校验
+    ExamRecordService ..> PaperService : getSnapshot
+    ReportService ..> ExamRecordService : 读取记录
+    ReportService ..> ReportRepo : 每人取 MAX(attempt_no) 已交卷记录
+    AuthApi ..> ApiHttp
+    BanksApi ..> ApiHttp
+    QuestionsApi ..> ApiHttp
+    ImportsApi ..> ApiHttp
+    PapersApi ..> ApiHttp
+    AuthStore ..> AuthApi : login/logout/me
+    AuthStore ..> ApiHttp : setUnauthorizedHandler
+    UseRequest ..> ApiHttp : 间接（经 api 模块）
+    UsePagination ..> UseRequest : 分页结果

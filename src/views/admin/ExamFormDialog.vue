@@ -1,0 +1,241 @@
+<script setup lang="ts">
+/**
+ * 考试新建 / 编辑弹窗（W3-T2，新建/编辑复用）。
+ * 提交前把本地时间字符串转为 ISO 8601（后端 DATETIME(3)）。
+ */
+import { computed, reactive, ref, watch } from 'vue';
+import dayjs from 'dayjs';
+import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
+import * as examsApi from '@/api/exams';
+import { useSettingsStore } from '@/stores/settings';
+import type { Department, Exam, Paper } from '@/types';
+
+const props = defineProps<{
+  visible: boolean;
+  exam?: Exam | null;
+  papers: Paper[];
+  departments: Department[];
+}>();
+
+const emit = defineEmits<{
+  (e: 'update:visible', value: boolean): void;
+  (e: 'saved'): void;
+}>();
+
+const dialogVisible = computed<boolean>({
+  get: () => props.visible,
+  set: (value) => emit('update:visible', value),
+});
+
+const isEdit = computed<boolean>(() => Boolean(props.exam?.id));
+
+const settingsStore = useSettingsStore();
+
+const LOCAL_FORMAT = 'YYYY-MM-DD HH:mm:ss';
+
+const formRef = ref<FormInstance>();
+const submitting = ref(false);
+const form = reactive({
+  name: '',
+  paperId: '',
+  departmentIds: [] as string[],
+  startTime: '',
+  endTime: '',
+  durationMinutes: 60,
+  passScore: 60,
+  maxAttempts: 1,
+});
+
+const rules: FormRules = {
+  name: [{ required: true, message: '请输入考试名称', trigger: 'blur' }],
+  paperId: [{ required: true, message: '请选择关联试卷', trigger: 'change' }],
+  departmentIds: [{ required: true, type: 'array', min: 1, message: '请至少选择一个参与科室', trigger: 'change' }],
+  startTime: [{ required: true, message: '请选择开始时间', trigger: 'change' }],
+  endTime: [{ required: true, message: '请选择截止时间', trigger: 'change' }],
+};
+
+function resetForm(): void {
+  const exam = props.exam;
+  if (exam) {
+    form.name = exam.name;
+    form.paperId = exam.paperId;
+    form.departmentIds = [...exam.departmentIds];
+    form.startTime = dayjs(exam.startTime).format(LOCAL_FORMAT);
+    form.endTime = dayjs(exam.endTime).format(LOCAL_FORMAT);
+    form.durationMinutes = exam.durationMinutes;
+    form.passScore = exam.passScore;
+    form.maxAttempts = exam.maxAttempts;
+  } else {
+    form.name = '';
+    form.paperId = '';
+    form.departmentIds = [];
+    form.startTime = '';
+    form.endTime = '';
+    form.durationMinutes = settingsStore.settings.examDefaultDuration;
+    form.passScore = settingsStore.settings.examDefaultPassScore;
+    form.maxAttempts = settingsStore.settings.examDefaultMaxAttempts;
+  }
+}
+
+watch(
+  () => props.visible,
+  (visible) => {
+    if (!visible) return;
+    void settingsStore.load();
+    resetForm();
+    formRef.value?.clearValidate();
+  },
+);
+
+async function handleSubmit(): Promise<void> {
+  if (!formRef.value) return;
+  const valid = await formRef.value.validate().catch(() => false);
+  if (!valid) return;
+
+  const start = new Date(form.startTime).getTime();
+  const end = new Date(form.endTime).getTime();
+  if (!(end > start)) {
+    ElMessage.error('截止时间必须晚于开始时间');
+    return;
+  }
+
+  submitting.value = true;
+  try {
+    const payload = {
+      name: form.name.trim(),
+      paperId: form.paperId,
+      departmentIds: [...form.departmentIds],
+      startTime: new Date(form.startTime).toISOString(),
+      endTime: new Date(form.endTime).toISOString(),
+      durationMinutes: form.durationMinutes,
+      passScore: form.passScore,
+      maxAttempts: form.maxAttempts,
+    };
+    if (isEdit.value && props.exam) {
+      await examsApi.update(props.exam.id, payload);
+      ElMessage.success('考试已更新');
+    } else {
+      await examsApi.create(payload);
+      ElMessage.success('考试已创建');
+    }
+    emit('saved');
+    dialogVisible.value = false;
+  } catch {
+    // 错误提示已由 http.ts 响应拦截器统一弹出
+  } finally {
+    submitting.value = false;
+  }
+}
+
+function handleCancel(): void {
+  dialogVisible.value = false;
+}
+</script>
+
+<template>
+  <el-dialog
+    v-model="dialogVisible"
+    :title="isEdit ? '编辑考试' : '新建考试'"
+    width="560px"
+    top="6vh"
+    append-to-body
+    destroy-on-close
+  >
+    <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
+      <el-form-item label="考试名称" prop="name">
+        <el-input v-model="form.name" maxlength="120" show-word-limit placeholder="如：安全知识月考" />
+      </el-form-item>
+
+      <el-form-item label="关联试卷" prop="paperId">
+        <el-select v-model="form.paperId" class="exam-form__full" placeholder="请选择试卷">
+          <el-option
+            v-for="paper in papers"
+            :key="paper.id"
+            :label="`${paper.name}（${paper.totalScore} 分）`"
+            :value="paper.id"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="参与科室（可多选）" prop="departmentIds">
+        <el-select
+          v-model="form.departmentIds"
+          class="exam-form__full"
+          multiple
+          placeholder="请选择参与科室"
+        >
+          <el-option
+            v-for="dept in departments"
+            :key="dept.id"
+            :label="dept.name"
+            :value="dept.id"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-row :gutter="12">
+        <el-col :span="12">
+          <el-form-item label="开始时间" prop="startTime">
+            <el-date-picker
+              v-model="form.startTime"
+              type="datetime"
+              class="exam-form__full"
+              placeholder="选择开始时间"
+              value-format="YYYY-MM-DD HH:mm:ss"
+            />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="截止时间" prop="endTime">
+            <el-date-picker
+              v-model="form.endTime"
+              type="datetime"
+              class="exam-form__full"
+              placeholder="选择截止时间"
+              value-format="YYYY-MM-DD HH:mm:ss"
+            />
+          </el-form-item>
+        </el-col>
+      </el-row>
+
+      <el-row :gutter="12">
+        <el-col :span="12">
+          <el-form-item label="考试时长（分钟）">
+            <el-input-number v-model="form.durationMinutes" :min="1" :max="600" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="及格分数线">
+            <el-input-number v-model="form.passScore" :min="1" :max="1000" :step="1" />
+          </el-form-item>
+        </el-col>
+      </el-row>
+
+      <el-form-item label="答题次数（每人最多）" prop="maxAttempts">
+        <el-input-number v-model="form.maxAttempts" :min="1" :max="10" />
+        <span class="exam-form__hint">同一考生可重复作答的最大次数</span>
+      </el-form-item>
+    </el-form>
+
+    <template #footer>
+      <el-button @click="handleCancel">取消</el-button>
+      <el-button type="primary" :loading="submitting" @click="handleSubmit">
+        {{ isEdit ? '保存' : '创建' }}
+      </el-button>
+    </template>
+  </el-dialog>
+</template>
+
+<style scoped lang="scss">
+@use '@/styles/variables.scss' as *;
+
+.exam-form__full {
+  width: 100%;
+}
+
+.exam-form__hint {
+  margin-left: 12px;
+  font-size: 12px;
+  color: $text-secondary;
+}
+</style>

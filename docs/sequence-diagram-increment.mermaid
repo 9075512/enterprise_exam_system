@@ -1,0 +1,214 @@
+%% 增量时序图（v1.3 · 前端 Vue 3 + 多次作答）
+%% (a) 登录与 JWT 鉴权（含 401 自动登出）
+sequenceDiagram
+    actor U as 用户
+    participant LP as LoginPage.vue
+    participant AS as useAuthStore
+    participant AA as api/auth.ts
+    participant H as api/http.ts
+    participant BE as Express 后端
+    participant DB as MySQL
+
+    U->>LP: 输入账号密码，点击登录
+    LP->>AS: login(username, password)
+    AS->>AA: login(username, password)
+    AA->>H: post('/auth/login', body)
+    H->>BE: POST /api/auth/login
+    BE->>DB: SELECT * FROM users WHERE username=?
+    DB-->>BE: 用户行(含 password_hash)
+    BE->>BE: bcrypt.compare(password, hash)
+    alt 校验失败 / 账号停用
+        BE-->>H: 401/1002 {code,message}
+        H-->>LP: ElMessage.error + reject
+    else 校验通过
+        BE->>BE: jwt.sign({sub,role,departmentId}, JWT_SECRET, 12h)
+        BE-->>H: 200 {code:0,data:{token,user}}
+        H->>H: 响应拦截解包 → 返回 data
+        H-->>AS: {token,user}
+        AS->>AS: localStorage.setItem(TOKEN_KEY, token)（仅存 Token）
+        AS->>AS: currentUser = user
+        AS-->>LP: 按角色 router.push(homePath)
+    end
+
+    Note over H,BE: 后续请求：请求拦截注入 Authorization: Bearer <token>
+    U->>LP: 操作触发受保护接口（Token 过期/被改）
+    H->>BE: GET /api/xxx (无效 Token)
+    BE-->>H: 401 {code:1002}
+    H->>H: 清 Token + ElMessage.error
+    H->>AS: onUnauthorized()（setUnauthorizedHandler 已注册）
+    AS->>AS: currentUser = null
+    AS-->>LP: router.replace('/login')（自动登出）
+
+%% (b) Excel 批量导入（预览 → 确认 → 事务写入）
+sequenceDiagram
+    actor A as 出题人
+    participant DLG as QuestionImportDialog.vue
+    participant IA as api/imports.ts
+    participant H as api/http.ts
+    participant BE as ImportService(后端)
+    participant EX as exceljs
+    participant DB as MySQL
+
+    A->>DLG: 步骤1 选择目标题库
+    A->>DLG: 点击「下载模板」
+    DLG->>IA: downloadTemplate()
+    IA->>H: get('/questions/import/template', { responseType:'blob' })
+    H->>BE: GET /api/questions/import/template
+    BE->>EX: new Workbook().xlsx.writeBuffer()
+    BE-->>H: 二进制 .xlsx (Content-Disposition)
+    H-->>DLG: Blob → 触发浏览器下载
+
+    A->>DLG: 步骤2 上传 .xlsx（≤5MB）
+    DLG->>IA: previewImport(bankId, file)
+    IA->>H: upload('/questions/import/preview', formData)
+    H->>BE: multer 内存 + zod 校验（大小/行数）
+    BE->>EX: workbook.xlsx.load(buffer)
+    loop 逐行解析校验（≤2000 行）
+        BE->>BE: 题型/题干/选项/答案/分值校验
+        alt 通过
+            BE->>BE: push validRows（科目缺省继承题库 category）
+        else 失败
+            BE->>BE: push errors{row,column,value,reason}
+        end
+    end
+    BE-->>H: {totalRows,successCount,failCount,errors,warnings,validRows}
+    H-->>DLG: 步骤3 展示成功/失败 + 失败明细
+
+    A->>DLG: 步骤4 点击「确认导入」
+    DLG->>IA: commitImport({bankId,fileName,validRows,errors})
+    IA->>H: post('/questions/import/commit', payload)
+    H->>BE: commit(...)
+    BE->>DB: BEGIN
+    loop 成功行
+        BE->>DB: INSERT INTO questions(...)
+    end
+    BE->>DB: INSERT INTO import_batches(...)  (P1)
+    alt 全部成功
+        BE->>DB: COMMIT
+        BE-->>H: {batchId,successCount,totalRows}
+        H-->>DLG: ElMessage.success + 刷新题库题目数
+    else 中途异常
+        BE->>DB: ROLLBACK
+        BE-->>H: 500/5000
+        H-->>DLG: ElMessage.error（无脏数据）
+    end
+
+%% (c) 多题库组卷（选题库 → 随机抽题 → 保存试卷与来源关联）
+sequenceDiagram
+    actor A as 出题人
+    participant PCP as PaperComposerPage.vue
+    participant BA as api/banks.ts
+    participant PA as api/papers.ts
+    participant H as api/http.ts
+    participant BE as PaperService(后端)
+    participant DB as MySQL
+
+    A->>PCP: 打开组卷页
+    PCP->>BA: listBanks()
+    BA->>H: get('/banks')
+    H->>BE: BankService.list()
+    BE->>DB: SELECT banks LEFT JOIN questions(计数)
+    BE-->>H: Bank[]
+    H-->>PCP: 题库多选列表
+
+    A->>PCP: 勾选 1~N 个题库
+    PCP->>PA: drawQuestions(bankIds, rules)
+    PA->>H: post('/papers/draw-questions', {bankIds, rules})
+    H->>BE: drawQuestions(bankIds, rules)
+    BE->>DB: SELECT id,type FROM questions WHERE bank_id IN (...)
+    DB-->>BE: 题目池（并集）
+    BE->>BE: 逐题型比较 available vs required
+    alt 某题型题量不足
+        BE-->>H: {questions:[], shortages:[{type,required,available}]}
+        H-->>PCP: 阻止生成，提示缺口（如：单选需10题，实际8题）
+    else 题量充足
+        BE->>DB: 各题型 ORDER BY RAND() LIMIT n
+        BE-->>H: {questions:[{questionId,score,type,stem}]}
+        H-->>PCP: 抽题结果（固化为草稿，可手动增删/改分）
+    end
+
+    PCP->>PCP: 实时计算总卷面分（保留 1 位小数，ExamRules.calcTotalScore）
+    A->>PCP: 填写名称，点击「保存试卷」
+    PCP->>PA: savePaper({name, description, bankIds, questions})
+    PA->>H: post('/papers', payload)
+    H->>BE: create(input)
+    BE->>DB: BEGIN
+    BE->>DB: INSERT INTO papers(...)
+    loop 每题
+        BE->>DB: INSERT INTO paper_questions(paper_id,question_id,score,sort_order)
+    end
+    loop 每个来源题库
+        BE->>DB: INSERT INTO paper_bank_refs(paper_id,bank_id)
+    end
+    BE->>DB: COMMIT
+    BE-->>H: PaperDto(含 bankIds)
+    H-->>PCP: 保存成功 → 返回试卷列表
+
+%% (d) 开考：多次作答 + 次数上限 + 续考幂等
+sequenceDiagram
+    actor E as 考生
+    participant MP as MyExamPage.vue
+    participant RE as api/records.ts
+    participant H as api/http.ts
+    participant BE as ExamRecordService(后端)
+    participant DB as MySQL
+
+    E->>MP: 打开「我的考试」
+    MP->>H: GET /api/exams/my
+    H->>BE: ExamService.listForExaminee(user)
+    BE->>DB: 科室隔离查考试 + 本人记录
+    DB-->>BE: exams + records
+    BE-->>H: ExamMyDto[]（recordStatus / attemptsUsed / maxAttempts）
+    H-->>MP: 列表（次数已用完则禁用入口）
+
+    E->>MP: 点击「开始考试」
+    MP->>RE: startExam(examId)
+    RE->>H: POST /api/exams/:id/start
+    H->>BE: startExam(examId, user)
+    BE->>DB: 查考试（时间窗状态）
+    alt not_started / ended
+        BE-->>H: 400/1001（尚未开始 / 已结束）
+        H-->>MP: ElMessage.error
+    else 时间窗内
+        BE->>DB: 查本人 in_progress 记录
+        alt 存在进行中记录
+            DB-->>BE: in_progress 记录
+            BE-->>H: 200 {code:0,data:ExamRecord}（续考幂等）
+        else 无进行中记录
+            BE->>DB: 统计已交卷次数 used
+            alt used >= maxAttempts
+                BE-->>H: 409/1008 答题次数已用完（最多 N 次）
+                H-->>MP: ElMessage.error（禁用入口）
+            else 未用尽
+                BE->>BE: attemptNo = used + 1
+                BE->>DB: getSnapshot(paperId) 冻结试卷快照
+                BE->>DB: INSERT exam_records(attempt_no=attemptNo, status=in_progress)
+                Note over BE,DB: 并发由唯一键 uk_records_exam_user_attempt 兜底；冲突回读同 attempt_no
+                BE-->>H: 200 {code:0,data:ExamRecord(attemptNo)}
+            end
+        end
+    end
+    H-->>RE: 拦截器解包 data
+    RE-->>MP: 进入答题页（ExamTakingPage.vue）
+
+%% (e) 成绩报表聚合（每人取最近一次已交卷）
+sequenceDiagram
+    actor M as 管理员
+    participant SR as ScoreReportPage.vue
+    participant RA as api/reports.ts
+    participant H as api/http.ts
+    participant BE as ReportService(后端)
+    participant RP as ReportRepo
+    participant DB as MySQL
+
+    M->>SR: 选择某场考试
+    SR->>RA: getReport(examId)
+    RA->>H: GET /api/reports/exams/:id
+    H->>BE: getReport(examId)
+    BE->>RP: listLatestSubmittedByExam(examId)
+    RP->>DB: JOIN (SELECT user_id, MAX(attempt_no) GROUP BY user_id) → 每人取最大 attempt_no
+    DB-->>RP: 每位考生最近一条已交卷记录
+    RP-->>BE: ExamRecordRow[]（一人一条）
+    BE->>BE: summary / bands / departments / wrongRate 四段共用同一数据源
+    BE-->>H: {summary,bands,departments,wrongRate}
+    H-->>SR: 渲染四 Tab（vue-echarts）

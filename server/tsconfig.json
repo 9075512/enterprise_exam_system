@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    /* 目标与模块系统：Node 22 原生 ESM，相对 import 必须带 .js 后缀 */
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "types": ["node"],
+
+    /* 严格性与互操作 */
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+
+    /* 输出 */
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": false,
+    "sourceMap": true,
+
+    /* 其它 */
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitOverride": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.d.ts"],
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts"]
+}

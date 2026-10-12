@@ -1,0 +1,69 @@
+%% 时序图：企业在线考试系统调用流程（v1.0 基线快照）
+%% 注：「一考一次」相关逻辑已被 v1.3 取代，现支持多次作答（start 续考幂等 / 次数用完 1008）。
+%% 最新开考与报表时序见 docs/sequence-diagram-increment.mermaid（(d)/(e)）。
+%% 时序图 1：登录鉴权
+sequenceDiagram
+    actor U as 用户
+    participant LP as LoginPage
+    participant AC as AuthContext
+    participant AS as AuthService
+    participant SS as StorageService
+    participant LS as localStorage
+    U->>LP: 输入账号密码，点击登录
+    LP->>AC: login(username, password)
+    AC->>AS: login(username, password)
+    AS->>SS: read(users)
+    SS->>LS: getItem("exam_sys.users")
+    LS-->>SS: User[]
+    SS-->>AS: User[]
+    AS->>AS: 校验账号存在、状态active、密码hash匹配
+    alt 校验失败
+        AS-->>AC: 抛出错误(账号或密码不正确/已停用)
+        AC-->>LP: 显示错误提示
+    else 校验通过
+        AS->>SS: write(session, {userId, loginAt})
+        SS->>LS: setItem("exam_sys.session", ...)
+        AS-->>AC: User
+        AC-->>LP: 更新currentUser
+        LP->>LP: 按角色跳转首页
+    end
+
+%% 时序图 2：参加考试（开考→作答→切屏检测→交卷判分）
+sequenceDiagram
+    actor E as 考生
+    participant ME as MyExamPage
+    participant ES as ExamService
+    participant ERS as ExamRecordService
+    participant SS as StorageService
+    participant TP as ExamTakingPage
+    participant CT as CountdownTimer
+    participant VG as VisibilityGuard
+    E->>ME: 打开"我的考试"
+    ME->>ES: listForExaminee(currentUser)
+    ES->>ES: 按科室过滤departmentIds包含本科室的考试
+    ES-->>ME: 可参加考试列表(含实时状态)
+    E->>ME: 点击"开始考试"
+    ME->>ERS: start(examId, user)
+    ERS->>ERS: 校验时间窗、无进行中/已完成记录（一考一次；已被 v1.3 取代为多次作答）
+    ERS->>SS: read(paper) 冻结为paperSnapshot
+    ERS->>SS: write(examRecords, 新记录in_progress)
+    ERS-->>TP: ExamRecord（全屏答题页）
+    loop 作答过程中
+        E->>TP: 选择答案
+        TP->>ERS: saveAnswers(recordId, answers)（暂存可恢复）
+        E->>VG: 切出标签页/窗口
+        VG->>VG: visibilitychange→记录时刻、显示遮罩
+        E-->>VG: 切回
+        VG->>VG: 计算离开时长
+        VG->>ERS: addCheatEvent(recordId, awaySeconds)
+    end
+    alt 手动交卷
+        E->>TP: 点击交卷→ConfirmDialog二次确认
+    else 自动交卷
+        CT->>TP: 倒计时归零 onTimeout()
+    end
+    TP->>ERS: submit(recordId, autoSubmitted)
+    ERS->>ERS: grade(): 逐题比对(多选须完全一致)
+    ERS->>SS: write(examRecords, 成绩+cheatEvents)
+    ERS-->>TP: ExamRecord(含score)
+    TP-->>E: 跳转ScoreDetailPage展示得分与明细

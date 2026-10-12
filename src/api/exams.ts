@@ -1,0 +1,41 @@
+/** 考试 API（§4.5 考试 / 记录 / 报表） */
+import { del, get, post, put } from './http';
+import type { Exam, ExamMy, ExamRecord, ExamSaveInput } from '@/types';
+
+/** 考试保存入参（不含 id） */
+export type ExamPayload = Omit<ExamSaveInput, 'id'>;
+
+/** 考试列表（admin） */
+export function list(): Promise<Exam[]> {
+  return get<Exam[]>('/exams');
+}
+
+/** 考生可见考试（科室隔离 + recordStatus） */
+export function my(): Promise<ExamMy[]> {
+  return get<ExamMy[]>('/exams/my');
+}
+
+/** 考试详情 */
+export function detail(id: string): Promise<Exam> {
+  return get<Exam>(`/exams/${id}`);
+}
+
+/** 新建考试 */
+export function create(payload: ExamPayload): Promise<Exam> {
+  return post<Exam>('/exams', payload);
+}
+
+/** 编辑考试 */
+export function update(id: string, payload: ExamPayload): Promise<Exam> {
+  return put<Exam>(`/exams/${id}`, payload);
+}
+
+/** 删除考试（有记录 1005） */
+export function remove(id: string): Promise<null> {
+  return del<null>(`/exams/${id}`);
+}
+
+/** 开始考试（生成记录 + 快照，幂等续考） */
+export function start(id: string): Promise<ExamRecord> {
+  return post<ExamRecord>(`/exams/${id}/start`);
+}

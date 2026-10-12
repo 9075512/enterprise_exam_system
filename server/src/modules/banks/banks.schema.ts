@@ -1,0 +1,33 @@
+/**
+ * 题库模块 —— zod 校验 schema（中文错误信息）。
+ */
+import { z } from 'zod';
+import { paginationQuery } from '../../utils/pagination.js';
+
+/** 新建 / 编辑题库入参。 */
+export const bankSchema = z.object({
+  name: z.string().min(1, '题库名称不能为空'),
+  description: z.string().optional().default(''),
+  category: z.string().optional().default('未分类'),
+  /** 对外开放练题开关（默认关闭，安全默认） */
+  allowPractice: z.boolean({ invalid_type_error: '对外开放练题开关必须为布尔值' }).optional().default(false),
+});
+
+/** 列表查询入参。 */
+export const bankListQuerySchema = z.object({
+  category: z.string().optional().default(''),
+  keyword: z.string().optional().default(''),
+});
+
+/** 题库内试题列表查询入参（筛选 + 分页）。 */
+export const bankQuestionsQuerySchema = z.object({
+  type: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.enum(['single', 'multiple', 'judge'], { errorMap: () => ({ message: '题型不合法' }) }).optional(),
+  ),
+  subject: z.string().optional().default(''),
+  keyword: z.string().optional().default(''),
+  ...paginationQuery,
+});
+
+export type BankInput = z.infer<typeof bankSchema>;

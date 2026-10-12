@@ -1,0 +1,275 @@
+<script setup lang="ts">
+/**
+ * 题库管理页（W3-T3，PRD §7.3）。
+ * 卡片网格 + 分类/关键字筛选（服务端）+ 新建/编辑/删除（删除走「空库直接删 / 有题二次强确认级联」双分支）。
+ */
+import { ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
+import { ElMessage } from 'element-plus';
+import { Plus, Search, Refresh } from '@element-plus/icons-vue';
+import * as banksApi from '@/api/banks';
+import { useRequest } from '@/composables/useRequest';
+import { useConfirm } from '@/composables/useConfirm';
+import { formatDateTime } from '@/utils/datetime';
+import { BANK_TEXT } from '@/constants';
+import PageHeader from '@/components/common/PageHeader.vue';
+import CardGrid from '@/components/common/CardGrid.vue';
+import EmptyState from '@/components/common/EmptyState.vue';
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
+import QuestionBankFormDialog from './QuestionBankFormDialog.vue';
+import type { QuestionBank } from '@/types';
+
+const router = useRouter();
+const { confirm } = useConfirm();
+
+/** 分类 / 关键字输入（点击「查询」才应用，均走后端参数） */
+const keyword = ref('');
+const filterCategory = ref('');
+
+/** 分类候选：从每次加载结果中去重累积，保证过滤后仍可切换其他分类 */
+const categoryOptions = ref<string[]>([]);
+
+const {
+  data: banks,
+  loading,
+  refresh,
+} = useRequest(() =>
+  banksApi.list({
+    category: filterCategory.value.trim() || undefined,
+    keyword: keyword.value.trim() || undefined,
+  }),
+);
+
+watch(banks, (list) => {
+  if (!list) return;
+  const set = new Set(categoryOptions.value);
+  list.forEach((b) => {
+    if (b.category) set.add(b.category);
+  });
+  categoryOptions.value = Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
+});
+
+function onSearch(): void {
+  void refresh();
+}
+
+function onReset(): void {
+  keyword.value = '';
+  filterCategory.value = '';
+  void refresh();
+}
+
+/** 表单弹窗状态 */
+const formVisible = ref(false);
+const editingBank = ref<QuestionBank | null>(null);
+
+function openCreate(): void {
+  editingBank.value = null;
+  formVisible.value = true;
+}
+
+function openEdit(bank: QuestionBank): void {
+  editingBank.value = bank;
+  formVisible.value = true;
+}
+
+function goDetail(bank: QuestionBank): void {
+  void router.push(`/author/banks/${bank.id}`);
+}
+
+const deleting = ref(false);
+
+/**
+ * 删除题库（双分支语义，PRD §3.3）：
+ * - 先取详情拿到精确统计；
+ * - 空库 → 一次确认后直接删；
+ * - 有题 → 二次强确认（给出试题数与被引用试卷数）后带 cascade 删。
+ */
+async function handleDelete(bank: QuestionBank): Promise<void> {
+  let detail;
+  try {
+    detail = await banksApi.detail(bank.id);
+  } catch {
+    return; // 错误提示由拦截器弹出
+  }
+
+  const questionCount = detail.questionCount;
+  let cascade = false;
+
+  if (questionCount === 0) {
+    const ok = await confirm(`确认删除题库「${bank.name}」？`, {
+      title: '删除题库',
+      confirmButtonText: '确认删除',
+      type: 'warning',
+    });
+    if (!ok) return;
+  } else {
+    const refClause =
+      detail.referencedQuestionCount !== undefined
+        ? `（其中 ${detail.referencedQuestionCount} 道已被 ${detail.referencedPaperCount} 份试卷引用）`
+        : detail.referencedPaperCount > 0
+          ? `（其中部分试题已被 ${detail.referencedPaperCount} 份试卷引用）`
+          : '';
+    const ok = await confirm(
+      `该题库下存在 ${questionCount} 道试题${refClause}。确认将题库连同其试题一起删除？此操作不可恢复。`,
+      { title: BANK_TEXT.CASCADE_CONFIRM_TITLE, confirmButtonText: '确认删除', type: 'warning' },
+    );
+    if (!ok) return;
+    cascade = true;
+  }
+
+  deleting.value = true;
+  try {
+    await banksApi.remove(bank.id, cascade);
+    ElMessage.success('题库已删除');
+    void refresh();
+  } catch {
+    // 错误提示已由 http.ts 响应拦截器统一弹出
+  } finally {
+    deleting.value = false;
+  }
+}
+</script>
+
+<template>
+  <div class="bank-list">
+    <PageHeader title="题库管理" description="维护题库分类与题目，支持 Excel 批量导入">
+      <template #actions>
+        <el-button type="primary" :icon="Plus" @click="openCreate">新建题库</el-button>
+      </template>
+    </PageHeader>
+
+    <!-- 筛选行 -->
+    <div class="bank-list__filter">
+      <el-select
+        v-model="filterCategory"
+        class="bank-list__category"
+        placeholder="全部分类"
+        clearable
+      >
+        <el-option label="全部分类" value="" />
+        <el-option v-for="category in categoryOptions" :key="category" :label="category" :value="category" />
+      </el-select>
+      <el-input
+        v-model="keyword"
+        class="bank-list__keyword"
+        placeholder="按题库名称 / 分类搜索"
+        clearable
+        :prefix-icon="Search"
+        @keyup.enter="onSearch"
+      />
+      <el-button type="primary" :icon="Search" @click="onSearch">查询</el-button>
+      <el-button :icon="Refresh" @click="onReset">重置</el-button>
+    </div>
+
+    <!-- 加载中 -->
+    <LoadingSkeleton v-if="loading && !banks" :rows="4" />
+
+    <!-- 空态 -->
+    <EmptyState v-else-if="!banks || banks.length === 0" :text="BANK_TEXT.EMPTY_LIST" />
+
+    <!-- 卡片网格 -->
+    <CardGrid v-else>
+      <el-card
+        v-for="bank in banks"
+        :key="bank.id"
+        class="bank-card hover-lift"
+        @click="goDetail(bank)"
+      >
+        <div class="bank-card__head">
+          <h3 class="bank-card__name" :title="bank.name">{{ bank.name }}</h3>
+          <el-tag size="small" type="info" effect="plain">{{ bank.category }}</el-tag>
+        </div>
+        <p class="bank-card__count">题目数：{{ bank.questionCount }}</p>
+        <p class="bank-card__meta">
+          创建人：{{ bank.createdBy }} · {{ formatDateTime(bank.createdAt) }}
+        </p>
+        <p v-if="bank.description" class="bank-card__desc" :title="bank.description">
+          {{ bank.description }}
+        </p>
+        <div class="bank-card__actions" @click.stop>
+          <el-button type="primary" link @click="goDetail(bank)">详情</el-button>
+          <el-button link @click="openEdit(bank)">编辑</el-button>
+          <el-button type="danger" link :loading="deleting" @click="handleDelete(bank)">
+            删除
+          </el-button>
+        </div>
+      </el-card>
+    </CardGrid>
+
+    <!-- 新建 / 编辑弹窗 -->
+    <QuestionBankFormDialog v-model:visible="formVisible" :bank="editingBank" @saved="refresh" />
+  </div>
+</template>
+
+<style scoped lang="scss">
+@use '@/styles/variables.scss' as *;
+
+.bank-list__filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.bank-list__keyword {
+  max-width: 320px;
+}
+
+.bank-list__category {
+  width: 180px;
+}
+
+.bank-card {
+  border-radius: $radius-lg;
+
+  &__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  &__name {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: $text-primary;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__count {
+    margin: 12px 0 0;
+    font-size: 13px;
+    color: $text-primary;
+  }
+
+  &__meta {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: $text-secondary;
+  }
+
+  &__desc {
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: $text-secondary;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 12px;
+    border-top: 1px solid $border-color;
+    padding-top: 8px;
+  }
+}
+</style>

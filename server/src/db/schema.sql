@@ -1,0 +1,274 @@
+-- ============================================================
+-- 企业内部在线考试系统 v1.1 —— MySQL 建表脚本（文档副本）
+-- 库：enterprise_exam_system  字符集：utf8mb4  排序规则：utf8mb4_unicode_ci  引擎：InnoDB
+-- 时间字段一律 DATETIME(3)（UTC）。执行入口：server/src/db/init.ts
+--
+-- 注意：权威 DDL 常量为 server/src/db/schema.ts（纯 TS 内联，避免构建后 SQL 文件拷贝问题）；
+-- 本文件仅作可读文档，内容与 schema.ts 保持一致，便于评审。
+-- ============================================================
+SET NAMES utf8mb4;
+
+-- 1. 科室
+CREATE TABLE IF NOT EXISTS departments (
+  id            VARCHAR(64)  NOT NULL,
+  name          VARCHAR(100) NOT NULL,
+  description   VARCHAR(255) NOT NULL DEFAULT '',
+  created_at    DATETIME(3)  NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_departments_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 2. 用户（口令 bcrypt 加盐；department_id 为 NULL 表示不归属科室）
+CREATE TABLE IF NOT EXISTS users (
+  id            VARCHAR(64)  NOT NULL,
+  username      VARCHAR(64)  NOT NULL,
+  password_hash VARCHAR(100) NOT NULL,
+  name          VARCHAR(64)  NOT NULL,
+  role          ENUM('admin','author','examinee') NOT NULL,
+  department_id VARCHAR(64)  NULL,
+  status        ENUM('active','disabled') NOT NULL DEFAULT 'active',
+  created_at    DATETIME(3)  NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_users_username (username),
+  KEY idx_users_department (department_id),
+  CONSTRAINT fk_users_department FOREIGN KEY (department_id)
+    REFERENCES departments(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 3. 题库（试题容器；admin/author 可管理；allow_practice=1 表示对外开放公网练题）
+CREATE TABLE IF NOT EXISTS question_banks (
+  id            VARCHAR(64)  NOT NULL,
+  name          VARCHAR(120) NOT NULL,
+  description   VARCHAR(255) NOT NULL DEFAULT '',
+  category      VARCHAR(64)  NOT NULL DEFAULT '未分类',
+  allow_practice TINYINT(1)  NOT NULL DEFAULT 0,
+  created_by    VARCHAR(64)  NOT NULL,
+  created_at    DATETIME(3)  NOT NULL,
+  PRIMARY KEY (id),
+  KEY idx_banks_category (category)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 4. 试题（1:N 归属题库；options/answer 为 JSON）
+CREATE TABLE IF NOT EXISTS questions (
+  id            VARCHAR(64)  NOT NULL,
+  bank_id       VARCHAR(64)  NOT NULL,
+  type          ENUM('single','multiple','judge') NOT NULL,
+  stem          TEXT         NOT NULL,
+  options       JSON         NOT NULL,
+  answer        JSON         NOT NULL,
+  default_score DECIMAL(6,1) NOT NULL DEFAULT 10.0,
+  analysis      TEXT         NULL,
+  subject       VARCHAR(64)  NOT NULL DEFAULT '未分类',
+  created_by    VARCHAR(64)  NOT NULL,
+  created_at    DATETIME(3)  NOT NULL,
+  PRIMARY KEY (id),
+  KEY idx_questions_bank (bank_id),
+  KEY idx_questions_type (type),
+  KEY idx_questions_subject (subject),
+  CONSTRAINT fk_questions_bank FOREIGN KEY (bank_id)
+    REFERENCES question_banks(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 5. 试卷
+CREATE TABLE IF NOT EXISTS papers (
+  id            VARCHAR(64)  NOT NULL,
+  name          VARCHAR(120) NOT NULL,
+  description   VARCHAR(255) NOT NULL DEFAULT '',
+  total_score   DECIMAL(7,1) NOT NULL DEFAULT 0.0,
+  created_by    VARCHAR(64)  NOT NULL,
+  created_at    DATETIME(3)  NOT NULL,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 6. 试卷题目（题目引用 + 分值 + 顺序；外键级联随题/卷删除）
+CREATE TABLE IF NOT EXISTS paper_questions (
+  paper_id      VARCHAR(64)  NOT NULL,
+  question_id   VARCHAR(64)  NOT NULL,
+  score         DECIMAL(6,1) NOT NULL,
+  sort_order    INT          NOT NULL DEFAULT 0,
+  PRIMARY KEY (paper_id, question_id),
+  KEY idx_pq_question (question_id),
+  CONSTRAINT fk_pq_paper FOREIGN KEY (paper_id)
+    REFERENCES papers(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_pq_question FOREIGN KEY (question_id)
+    REFERENCES questions(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 7. 试卷-题库关联（来源题库，用于回显与追溯；多对多）
+CREATE TABLE IF NOT EXISTS paper_bank_refs (
+  paper_id      VARCHAR(64) NOT NULL,
+  bank_id       VARCHAR(64) NOT NULL,
+  PRIMARY KEY (paper_id, bank_id),
+  KEY idx_pbr_bank (bank_id),
+  CONSTRAINT fk_pbr_paper FOREIGN KEY (paper_id)
+    REFERENCES papers(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_pbr_bank FOREIGN KEY (bank_id)
+    REFERENCES question_banks(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 8. 考试（department_ids 为参与科室 JSON 数组；max_attempts 为每人可作答次数上限）
+CREATE TABLE IF NOT EXISTS exams (
+  id               VARCHAR(64)  NOT NULL,
+  name             VARCHAR(120) NOT NULL,
+  paper_id         VARCHAR(64)  NOT NULL,
+  department_ids   JSON         NOT NULL,
+  start_time       DATETIME(3)  NOT NULL,
+  end_time         DATETIME(3)  NOT NULL,
+  duration_minutes INT          NOT NULL,
+  pass_score       DECIMAL(7,1) NOT NULL,
+  max_attempts     INT          NOT NULL DEFAULT 1,
+  created_by       VARCHAR(64)  NOT NULL,
+  created_at       DATETIME(3)  NOT NULL,
+  PRIMARY KEY (id),
+  KEY idx_exams_paper (paper_id),
+  CONSTRAINT fk_exams_paper FOREIGN KEY (paper_id)
+    REFERENCES papers(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 9. 考试记录（一人一场可作答多次：attempt_no 区分第几次；快照/答案/切屏事件为 JSON）
+CREATE TABLE IF NOT EXISTS exam_records (
+  id              VARCHAR(64)  NOT NULL,
+  exam_id         VARCHAR(64)  NOT NULL,
+  user_id         VARCHAR(64)  NOT NULL,
+  attempt_no      INT          NOT NULL DEFAULT 1,
+  department_id   VARCHAR(64)  NULL,
+  paper_snapshot  JSON         NOT NULL,
+  status          ENUM('in_progress','submitted') NOT NULL DEFAULT 'in_progress',
+  answers         JSON         NOT NULL,
+  started_at      DATETIME(3)  NOT NULL,
+  submitted_at    DATETIME(3)  NULL,
+  auto_submitted  TINYINT(1)   NOT NULL DEFAULT 0,
+  score           DECIMAL(7,1) NOT NULL DEFAULT 0.0,
+  cheat_events    JSON         NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_records_exam_user_attempt (exam_id, user_id, attempt_no),
+  KEY idx_records_user (user_id),
+  CONSTRAINT fk_records_exam FOREIGN KEY (exam_id)
+    REFERENCES exams(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_records_user FOREIGN KEY (user_id)
+    REFERENCES users(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 10. 导入批次（P1 导入历史；errors_json 为逐行错误明细）
+CREATE TABLE IF NOT EXISTS import_batches (
+  id             VARCHAR(64)  NOT NULL,
+  bank_id        VARCHAR(64)  NOT NULL,
+  file_name      VARCHAR(255) NOT NULL,
+  total_rows     INT          NOT NULL DEFAULT 0,
+  success_count  INT          NOT NULL DEFAULT 0,
+  fail_count     INT          NOT NULL DEFAULT 0,
+  errors_json    JSON         NOT NULL,
+  operator_id    VARCHAR(64)  NOT NULL,
+  created_at     DATETIME(3)  NOT NULL,
+  PRIMARY KEY (id),
+  KEY idx_batches_bank (bank_id),
+  CONSTRAINT fk_batches_bank FOREIGN KEY (bank_id)
+    REFERENCES question_banks(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 11. 系统设置（全局单行表，应用层永远使用 id = 1；无需外键）
+CREATE TABLE IF NOT EXISTS system_settings (
+  id         TINYINT      NOT NULL DEFAULT 1,
+  settings   JSON         NOT NULL,
+  updated_by VARCHAR(64)  NOT NULL DEFAULT '',
+  updated_at DATETIME(3)  NOT NULL,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 练题域（增量 · 公网练题）
+-- 一期：practice_progress / practice_answers / practice_wrong_book
+-- 二期：practice_favorites / practice_daily_tasks / practice_settings
+-- 隔离约定：命名独立；user_id 弱关联内网 users.id（**无外键**）；
+--          question_id / bank_id 保留外键（题域内 CASCADE）；绝不关联考试域表。
+-- ============================================================
+
+-- 12. 练题进度（按 用户×题库 唯一）
+CREATE TABLE IF NOT EXISTS practice_progress (
+  id               VARCHAR(64) NOT NULL,
+  user_id          VARCHAR(64) NOT NULL,
+  bank_id          VARCHAR(64) NOT NULL,
+  last_question_id VARCHAR(64) NULL,
+  done_count       INT NOT NULL DEFAULT 0,
+  correct_count    INT NOT NULL DEFAULT 0,
+  updated_at       DATETIME(3) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_pp_user_bank (user_id, bank_id),
+  KEY idx_pp_user (user_id),
+  CONSTRAINT fk_pp_bank FOREIGN KEY (bank_id) REFERENCES question_banks(id)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 13. 练题作答明细（正确率/错题本/学习报告数据源；「首次作答为准」统计口径）
+--     idx_pa_user_answered：学习报告按「用户 + 时间区间」聚合与每日任务当日统计用
+--     （旧库由 init.ts 的 applyMigrations 幂等补建）
+CREATE TABLE IF NOT EXISTS practice_answers (
+  id          VARCHAR(64) NOT NULL,
+  user_id     VARCHAR(64) NOT NULL,
+  question_id VARCHAR(64) NOT NULL,
+  answer      JSON NOT NULL,
+  is_correct  TINYINT(1) NOT NULL,
+  answered_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (id),
+  KEY idx_pa_user (user_id),
+  KEY idx_pa_user_question (user_id, question_id),
+  KEY idx_pa_user_answered (user_id, answered_at),
+  CONSTRAINT fk_pa_question FOREIGN KEY (question_id) REFERENCES questions(id)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 14. 错题本（由 practice_answers 派生维护）
+CREATE TABLE IF NOT EXISTS practice_wrong_book (
+  id            VARCHAR(64) NOT NULL,
+  user_id       VARCHAR(64) NOT NULL,
+  question_id   VARCHAR(64) NOT NULL,
+  wrong_count   INT NOT NULL DEFAULT 1,
+  last_wrong_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_pwb_user_question (user_id, question_id),
+  CONSTRAINT fk_pwb_question FOREIGN KEY (question_id) REFERENCES questions(id)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 15. 收藏夹（二期；按 用户×题目 唯一。上限由 practice_settings.favoriteLimit 控制）
+CREATE TABLE IF NOT EXISTS practice_favorites (
+  id          VARCHAR(64) NOT NULL,
+  user_id     VARCHAR(64) NOT NULL,
+  question_id VARCHAR(64) NOT NULL,
+  created_at  DATETIME(3) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_pf_user_question (user_id, question_id),
+  KEY idx_pf_user (user_id),
+  CONSTRAINT fk_pf_question FOREIGN KEY (question_id) REFERENCES questions(id)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 16. 每日一练任务（二期；按 用户×自然日 唯一）
+--     question_ids 为当日**固定题序**（生成后不再变化，防刷新换题）；
+--     practice_date 为服务端按 PRACTICE_TZ_OFFSET 折算的自然日；
+--     done/correct 由服务端从 practice_answers 按当日 UTC 半开区间重算。
+CREATE TABLE IF NOT EXISTS practice_daily_tasks (
+  id            VARCHAR(64) NOT NULL,
+  user_id       VARCHAR(64) NOT NULL,
+  practice_date DATE        NOT NULL,
+  question_ids  JSON        NOT NULL,
+  total         INT         NOT NULL DEFAULT 0,
+  done_count    INT         NOT NULL DEFAULT 0,
+  correct_count INT         NOT NULL DEFAULT 0,
+  completed_at  DATETIME(3) NULL,
+  created_at    DATETIME(3) NOT NULL,
+  updated_at    DATETIME(3) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_pdt_user_date (user_id, practice_date),
+  KEY idx_pdt_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 17. 练题配置（二期；单行表，应用层永远使用 id = 1）
+--     写入方 = 内网实例（管理端 /api/settings/practice）；**练题实例只读**（practice_app 仅授 SELECT）
+CREATE TABLE IF NOT EXISTS practice_settings (
+  id         TINYINT      NOT NULL DEFAULT 1,
+  settings   JSON         NOT NULL,
+  updated_by VARCHAR(64)  NOT NULL DEFAULT '',
+  updated_at DATETIME(3)  NOT NULL,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

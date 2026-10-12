@@ -1,0 +1,16 @@
+{
+  "pass": 29,
+  "fail": 0,
+  "fails": [],
+  "dlBehavior": "Browser.setDownloadBehavior",
+  "files": [
+    "综合能力测验（每人可考 3 次）-成绩-20261012-1758.xlsx"
+  ],
+  "expectedHdr": [
+    "考生姓名",
+    "开考时间",
+    "得分",
+    "是否及格",
+    "切屏次数"
+  ]
+}

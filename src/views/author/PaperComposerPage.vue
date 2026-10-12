@@ -1,0 +1,741 @@
+<script setup lang="ts">
+/**
+ * 组卷页（W3-T6，PRD §7.6）。
+ * 三区：顶部（试卷名称/描述 + 来源题库多选）/ 左中（手动勾选 或 按题型抽题）/ 右侧（已选清单 + 总卷面分）。
+ * 编辑模式：route.query.paperId 存在时回填并走 papers.update。
+ */
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { ElMessage } from 'element-plus';
+import { Delete, Plus, ArrowLeft, Search, Refresh } from '@element-plus/icons-vue';
+import * as banksApi from '@/api/banks';
+import * as papersApi from '@/api/papers';
+import * as questionsApi from '@/api/questions';
+import { useRequest } from '@/composables/useRequest';
+import { usePagination } from '@/composables/usePagination';
+import {
+  QUESTION_TYPE_LABELS,
+  QUESTION_TYPE_OPTIONS,
+} from '@/constants';
+import { useSettingsStore } from '@/stores/settings';
+import { calcTotalScore } from '@/services/examRules';
+import DataTablePagination from '@/components/common/DataTablePagination.vue';
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
+import type {
+  DrawRules,
+  DrawShortage,
+  Question,
+  QuestionType,
+} from '@/types';
+
+/** 已选题目项（组卷工作态） */
+interface SelectedQuestion {
+  questionId: string;
+  score: number;
+  stem: string;
+  type: QuestionType;
+}
+
+const route = useRoute();
+const router = useRouter();
+const settingsStore = useSettingsStore();
+
+/* ------------------------------ 试卷基本信息 ------------------------------ */
+const paperId = computed<string>(() => (route.query.paperId as string) || '');
+const name = ref('');
+const description = ref('');
+const selectedBankIds = ref<string[]>([]);
+const mode = ref<'manual' | 'draw'>('manual');
+const selected = ref<SelectedQuestion[]>([]);
+const saving = ref(false);
+
+const hasBanks = computed<boolean>(() => selectedBankIds.value.length > 0);
+
+/** 抽题规则表格行（QUESTION_TYPE_OPTIONS 为只读数组，转成可变副本供 el-table 使用） */
+const typeOptions = QUESTION_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }));
+
+/* ------------------------------ 来源题库 ------------------------------ */
+const { data: banks, loading: banksLoading } = useRequest(() => banksApi.list());
+
+/* ------------------------------ 抽题规则 ------------------------------ */
+const drawRules = reactive<Record<QuestionType, { count: number; score: number }>>({
+  single: { count: 0, score: 2 },
+  multiple: { count: 0, score: 4 },
+  judge: { count: 0, score: 4 },
+});
+const shortages = ref<DrawShortage[]>([]);
+const drawing = ref(false);
+
+/** 生成试卷草稿（按题型随机抽题） */
+async function generateDraft(): Promise<void> {
+  if (!hasBanks.value) {
+    ElMessage.warning('请先选择至少一个题库');
+    return;
+  }
+  const rules: DrawRules = {};
+  for (const opt of QUESTION_TYPE_OPTIONS) {
+    const rule = drawRules[opt.value];
+    if (rule.count > 0) rules[opt.value] = { count: rule.count, score: rule.score };
+  }
+  if (Object.keys(rules).length === 0) {
+    ElMessage.warning('请至少配置一种题型的抽题数量');
+    return;
+  }
+
+  drawing.value = true;
+  try {
+    const result = await papersApi.drawQuestions({ bankIds: [...selectedBankIds.value], rules });
+    if (result.shortages.length > 0) {
+      // 题量不足：不生成任何题目，保留原有已选清单
+      shortages.value = result.shortages;
+      return;
+    }
+    shortages.value = [];
+    const existing = new Set(selected.value.map((q) => q.questionId));
+    let added = 0;
+    for (const item of result.questions) {
+      if (existing.has(item.questionId)) continue;
+      selected.value.push({
+        questionId: item.questionId,
+        score: item.score,
+        stem: item.stem,
+        type: item.type,
+      });
+      existing.add(item.questionId);
+      added += 1;
+    }
+    sortSelected();
+    ElMessage.success(`已生成 ${added} 道题目草稿`);
+  } catch {
+    // 错误提示已由 http.ts 响应拦截器统一弹出
+  } finally {
+    drawing.value = false;
+  }
+}
+
+/* ------------------------------ 手动题池 ------------------------------ */
+const poolType = ref<QuestionType | ''>('');
+const poolSubject = ref('');
+const poolKeyword = ref('');
+const subjects = ref<string[]>([]);
+
+const {
+  list: poolList,
+  page: poolPage,
+  pageSize: poolPageSize,
+  total: poolTotal,
+  loading: poolLoading,
+  load: loadPool,
+  onPageChange: onPoolPageChange,
+  onSizeChange: onPoolSizeChange,
+  reset: resetPool,
+} = usePagination<Question>(
+  (p, ps) =>
+    questionsApi.pool({
+      bankIds: selectedBankIds.value,
+      type: poolType.value,
+      subject: poolSubject.value,
+      keyword: poolKeyword.value.trim(),
+      page: p,
+      pageSize: ps,
+    }),
+  settingsStore.settings.defaultPageSize,
+);
+
+async function loadPoolSubjects(): Promise<void> {
+  if (selectedBankIds.value.length === 0) {
+    subjects.value = [];
+    return;
+  }
+  try {
+    subjects.value = await questionsApi.subjects([...selectedBankIds.value]);
+  } catch {
+    subjects.value = [];
+  }
+}
+
+/** 按当前题库/筛选重新拉题池；未选题库则清空 */
+function refreshPool(): void {
+  if (!hasBanks.value) {
+    poolList.value = [];
+    poolTotal.value = 0;
+    return;
+  }
+  resetPool();
+}
+
+function onPoolSearch(): void {
+  resetPool();
+}
+
+function onPoolResetFilters(): void {
+  poolType.value = '';
+  poolSubject.value = '';
+  poolKeyword.value = '';
+  resetPool();
+}
+
+/* ------------------------------ 已选清单 ------------------------------ */
+const selectedIds = computed<Set<string>>(() => new Set(selected.value.map((q) => q.questionId)));
+
+/** 题型展示顺序：单选 → 多选 → 判断（与后端保存及答题页题号一致） */
+const QUESTION_TYPE_ORDER: Record<QuestionType, number> = {
+  single: 0,
+  multiple: 1,
+  judge: 2,
+};
+
+/** 已选题目按题型稳定排序（题型内部保持原有相对顺序），保证组卷页所见即所得。 */
+function sortSelected(): void {
+  selected.value = selected.value
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const diff = QUESTION_TYPE_ORDER[a.item.type] - QUESTION_TYPE_ORDER[b.item.type];
+      return diff !== 0 ? diff : a.index - b.index;
+    })
+    .map((entry) => entry.item);
+}
+
+function isSelected(questionId: string): boolean {
+  return selectedIds.value.has(questionId);
+}
+
+function addSelected(questionId: string, score: number, stem: string, type: QuestionType): void {
+  if (isSelected(questionId)) return;
+  selected.value.push({ questionId, score, stem, type });
+  sortSelected();
+}
+
+function removeSelected(questionId: string): void {
+  selected.value = selected.value.filter((q) => q.questionId !== questionId);
+}
+
+function togglePoolQuestion(row: Question, checked: boolean): void {
+  if (checked) {
+    addSelected(row.id, row.defaultScore, row.stem, row.type);
+  } else {
+    removeSelected(row.id);
+  }
+}
+
+const totalScore = computed<number>(() => calcTotalScore(selected.value));
+
+/* ------------------------------ 交互 ------------------------------ */
+function goBack(): void {
+  void router.push('/author/papers');
+}
+
+function onBanksChanged(): void {
+  shortages.value = [];
+  // 来源题库变化会影响题池与科目选项；已选清单保留（用户可手动微调）
+  if (mode.value === 'manual') {
+    void loadPoolSubjects();
+    refreshPool();
+  }
+}
+
+// 模式切换 / 题库变化 → 题池与科目联动
+watch(mode, (value) => {
+  if (value === 'manual') {
+    void loadPoolSubjects();
+    refreshPool();
+  }
+});
+watch(
+  selectedBankIds,
+  () => {
+    onBanksChanged();
+  },
+  { deep: true },
+);
+
+/* ------------------------------ 保存 ------------------------------ */
+async function handleSave(): Promise<void> {
+  if (!name.value.trim()) {
+    ElMessage.warning('请输入试卷名称');
+    return;
+  }
+  if (selectedBankIds.value.length === 0) {
+    ElMessage.warning('请至少选择一个题库');
+    return;
+  }
+  if (selected.value.length === 0) {
+    ElMessage.warning('试卷至少需要包含一道题目');
+    return;
+  }
+  if (selected.value.some((q) => !(q.score > 0))) {
+    ElMessage.warning('每题分值必须为正数');
+    return;
+  }
+
+  const payload = {
+    name: name.value.trim(),
+    description: description.value.trim(),
+    bankIds: [...selectedBankIds.value],
+    questions: selected.value.map((q) => ({ questionId: q.questionId, score: q.score })),
+  };
+
+  saving.value = true;
+  try {
+    if (paperId.value) {
+      await papersApi.update(paperId.value, payload);
+      ElMessage.success('试卷已更新');
+    } else {
+      await papersApi.create(payload);
+      ElMessage.success('试卷已保存');
+    }
+    void router.push('/author/papers');
+  } catch {
+    // 错误提示已由 http.ts 响应拦截器统一弹出
+  } finally {
+    saving.value = false;
+  }
+}
+
+/* ------------------------------ 编辑回填 ------------------------------ */
+onMounted(async () => {
+  void settingsStore.load();
+  if (!paperId.value) return;
+  try {
+    const detail = await papersApi.detail(paperId.value);
+    name.value = detail.name;
+    description.value = detail.description;
+    selectedBankIds.value = [...detail.bankIds];
+    selected.value = detail.questions.map((q) => ({
+      questionId: q.questionId,
+      score: q.score,
+      stem: q.question.stem,
+      type: q.question.type,
+    }));
+    sortSelected();
+    await loadPoolSubjects();
+    refreshPool();
+  } catch {
+    // 错误提示已由拦截器统一弹出
+  }
+});
+</script>
+
+<template>
+  <div class="composer">
+    <PageHeader :title="paperId ? '编辑试卷' : '开始组卷'" description="从多个题库组合生成试卷">
+      <template #actions>
+        <el-button :icon="ArrowLeft" @click="goBack">返回列表</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave">保存试卷</el-button>
+      </template>
+    </PageHeader>
+
+    <!-- 顶部：基本信息 + 来源题库 -->
+    <el-card class="composer__panel" shadow="never">
+      <el-form label-position="top">
+        <el-form-item label="试卷名称">
+          <el-input v-model="name" maxlength="120" show-word-limit placeholder="如：安全知识月考卷" />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input
+            v-model="description"
+            type="textarea"
+            :rows="2"
+            maxlength="255"
+            show-word-limit
+            placeholder="选填"
+          />
+        </el-form-item>
+        <el-form-item label="来源题库（可多选，至少选 1 个）">
+          <LoadingSkeleton v-if="banksLoading && !banks" :rows="2" />
+          <el-checkbox-group v-else v-model="selectedBankIds" class="composer__banks">
+            <el-checkbox
+              v-for="bank in banks || []"
+              :key="bank.id"
+              :value="bank.id"
+              class="composer__bank-item"
+            >
+              <span class="composer__bank-name">{{ bank.name }}</span>
+              <el-tag size="small" type="info" effect="plain">{{ bank.category }}</el-tag>
+              <span class="composer__bank-count">（{{ bank.questionCount }} 题）</span>
+            </el-checkbox>
+          </el-checkbox-group>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <div class="composer__body">
+      <!-- 左中：抽题 / 题池 -->
+      <section class="composer__main">
+        <el-radio-group v-model="mode" class="composer__mode">
+          <el-radio-button value="manual">手动勾选</el-radio-button>
+          <el-radio-button value="draw">按题型抽题</el-radio-button>
+        </el-radio-group>
+
+        <el-alert
+          v-if="!hasBanks"
+          class="composer__notice"
+          type="info"
+          :closable="false"
+          title="请先选择至少一个题库"
+        />
+
+        <!-- 抽题模式 -->
+        <template v-if="mode === 'draw'">
+          <el-table :data="typeOptions" class="composer__rule-table">
+            <el-table-column label="题型" width="140">
+              <template #default="{ row }">{{ row.label }}</template>
+            </el-table-column>
+            <el-table-column label="抽题数量" width="180">
+              <template #default="{ row }">
+                <el-input-number
+                  v-model="drawRules[row.value as QuestionType].count"
+                  :min="0"
+                  :max="200"
+                  :disabled="!hasBanks"
+                />
+              </template>
+            </el-table-column>
+            <el-table-column label="每题分值">
+              <template #default="{ row }">
+                <el-input-number
+                  v-model="drawRules[row.value as QuestionType].score"
+                  :min="0.5"
+                  :max="100"
+                  :step="0.5"
+                  :disabled="!hasBanks"
+                />
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <el-alert
+            v-if="shortages.length > 0"
+            class="composer__shortage"
+            type="error"
+            :closable="false"
+            title="题量不足，未生成任何题目"
+          >
+            <ul class="composer__shortage-list">
+              <li v-for="s in shortages" :key="s.type">
+                {{ QUESTION_TYPE_LABELS[s.type] }}题量不足：需要 {{ s.required }} 题，实际 {{ s.available }} 题
+              </li>
+            </ul>
+          </el-alert>
+
+          <el-button
+            type="primary"
+            :icon="Plus"
+            :loading="drawing"
+            :disabled="!hasBanks"
+            @click="generateDraft"
+          >
+            生成试卷草稿
+          </el-button>
+        </template>
+
+        <!-- 手动勾选题池 -->
+        <template v-else>
+          <div class="composer__filter">
+            <el-select v-model="poolType" class="composer__filter-item" placeholder="全部题型" clearable>
+              <el-option label="全部题型" value="" />
+              <el-option
+                v-for="opt in QUESTION_TYPE_OPTIONS"
+                :key="opt.value"
+                :label="opt.label"
+                :value="opt.value"
+              />
+            </el-select>
+            <el-select v-model="poolSubject" class="composer__filter-item" placeholder="全部科目" clearable>
+              <el-option label="全部科目" value="" />
+              <el-option v-for="s in subjects" :key="s" :label="s" :value="s" />
+            </el-select>
+            <el-input
+              v-model="poolKeyword"
+              class="composer__filter-keyword"
+              placeholder="按题干搜索"
+              clearable
+              :prefix-icon="Search"
+              :disabled="!hasBanks"
+              @keyup.enter="onPoolSearch"
+            />
+            <el-button type="primary" :icon="Search" :disabled="!hasBanks" @click="onPoolSearch">查询</el-button>
+            <el-button :icon="Refresh" :disabled="!hasBanks" @click="onPoolResetFilters">重置</el-button>
+          </div>
+
+          <el-table
+            v-loading="poolLoading"
+            :data="poolList"
+            row-key="id"
+            stripe
+            :empty-text="hasBanks ? '没有匹配的题目' : '请先选择题库'"
+          >
+            <el-table-column width="52" align="center">
+              <template #default="{ row }">
+                <el-checkbox
+                  :model-value="isSelected((row as Question).id)"
+                  :disabled="!hasBanks"
+                  @change="(val: unknown) => togglePoolQuestion(row as Question, Boolean(val))"
+                />
+              </template>
+            </el-table-column>
+            <el-table-column label="题干" min-width="240">
+              <template #default="{ row }">
+                <el-tooltip :content="row.stem" placement="top" :show-after="300">
+                  <span class="composer__stem">{{ row.stem }}</span>
+                </el-tooltip>
+              </template>
+            </el-table-column>
+            <el-table-column label="题型" width="100">
+              <template #default="{ row }">
+                <el-tag size="small" effect="plain" :type="row.type === 'judge' ? 'warning' : 'primary'">
+                  {{ QUESTION_TYPE_LABELS[row.type as QuestionType] }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="subject" label="科目" width="120" show-overflow-tooltip />
+            <el-table-column label="默认分值" width="100" align="center">
+              <template #default="{ row }">{{ row.defaultScore }}</template>
+            </el-table-column>
+          </el-table>
+
+          <DataTablePagination
+            :page="poolPage"
+            :page-size="poolPageSize"
+            :total="poolTotal"
+            @update:page="onPoolPageChange"
+            @update:page-size="onPoolSizeChange"
+          />
+        </template>
+      </section>
+
+      <!-- 右侧：已选清单 -->
+      <aside class="composer__aside">
+        <div class="composer__aside-head">已选题目（{{ selected.length }}）</div>
+
+        <div v-if="selected.length === 0" class="composer__selected-empty">尚未选择题目</div>
+
+        <ul v-else class="composer__selected-list">
+          <li v-for="(item, index) in selected" :key="item.questionId" class="composer__selected-item">
+            <span class="composer__selected-index">{{ index + 1 }}</span>
+            <el-tooltip :content="item.stem" placement="top" :show-after="300">
+              <span class="composer__selected-stem">{{ item.stem }}</span>
+            </el-tooltip>
+            <el-input-number
+              v-model="item.score"
+              class="composer__selected-score"
+              :min="0.5"
+              :max="100"
+              :step="0.5"
+              size="small"
+              controls-position="right"
+            />
+            <el-button type="danger" link :icon="Delete" @click="removeSelected(item.questionId)" />
+          </li>
+        </ul>
+
+        <div class="composer__total">
+          <span>总卷面分</span>
+          <strong class="composer__total-value">{{ totalScore }} 分</strong>
+        </div>
+
+        <el-button type="primary" class="composer__save" :loading="saving" @click="handleSave">
+          保存试卷
+        </el-button>
+      </aside>
+    </div>
+  </div>
+</template>
+
+<style scoped lang="scss">
+@use '@/styles/variables.scss' as *;
+
+.composer {
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &__header-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  &__panel.el-card {
+    border-radius: $radius-lg;
+    box-shadow: $shadow-sm;
+    margin-bottom: 16px;
+  }
+
+  &__banks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+  }
+
+  &__bank-item {
+    margin-right: 0;
+  }
+
+  &__bank-name {
+    margin-right: 6px;
+    font-weight: 500;
+  }
+
+  &__bank-count {
+    margin-left: 6px;
+    color: $text-secondary;
+    font-size: 12px;
+  }
+
+  &__body {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  &__main {
+    flex: 1;
+    min-width: 0;
+    background: $bg-paper;
+    border: 1px solid $border-color;
+    border-radius: $radius-lg;
+    box-shadow: $shadow-sm;
+    padding: 16px;
+  }
+
+  &__mode {
+    margin-bottom: 16px;
+  }
+
+  &__notice {
+    margin-bottom: 12px;
+  }
+
+  &__rule-table {
+    margin-bottom: 16px;
+  }
+
+  &__shortage {
+    margin-bottom: 16px;
+
+    &-list {
+      margin: 4px 0 0;
+      padding-left: 18px;
+      font-size: 13px;
+    }
+  }
+
+  &__filter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  &__filter-item {
+    width: 140px;
+  }
+
+  &__filter-keyword {
+    width: 200px;
+  }
+
+  &__stem {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+  }
+
+  &__aside {
+    flex: 0 0 380px;
+    width: 380px;
+    position: sticky;
+    top: 80px;
+    background: $bg-paper;
+    border: 1px solid $border-color;
+    border-radius: $radius-lg;
+    box-shadow: $shadow-sm;
+    padding: 16px;
+  }
+
+  &__aside-head {
+    font-weight: 600;
+    color: $text-primary;
+    margin-bottom: 12px;
+  }
+
+  &__selected-empty {
+    padding: 24px 0;
+    text-align: center;
+    color: $text-secondary;
+    font-size: 13px;
+  }
+
+  &__selected-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-height: 420px;
+    overflow-y: auto;
+  }
+
+  &__selected-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px dashed $border-color;
+  }
+
+  &__selected-index {
+    flex: 0 0 20px;
+    text-align: center;
+    color: $text-secondary;
+    font-size: 12px;
+  }
+
+  &__selected-stem {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    color: $text-primary;
+  }
+
+  &__selected-score {
+    flex: 0 0 110px;
+    width: 110px;
+  }
+
+  &__total {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin: 16px 0;
+    padding-top: 12px;
+    border-top: 1px solid $border-color;
+    color: $text-secondary;
+
+    &-value {
+      font-size: 22px;
+      color: $color-primary;
+    }
+  }
+
+  &__save {
+    width: 100%;
+  }
+}
+</style>

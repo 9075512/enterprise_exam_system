@@ -1,0 +1,191 @@
+%% 类图：企业在线考试系统数据结构与服务接口
+%% 注：本文件为 v1.0 基线快照。其中「一场考试每人仅一条记录」相关假设已被 v1.3 取代：
+%% 现支持多次作答（ExamRecord.attemptNo + Exam.maxAttempts，唯一键 (exam_id,user_id,attempt_no)）；
+%% User.departmentName / Exam.maxAttempts / ExamRecord.attemptNo 为 v1.3 新增字段。
+%% 权威定义见 docs/04-architecture-increment.md（v1.3）及 docs/class-diagram-increment.mermaid。
+classDiagram
+    class Role {
+        <<enumeration>>
+        admin
+        author
+        examinee
+    }
+    class QuestionType {
+        <<enumeration>>
+        single 单选
+        multiple 多选
+        judge 判断
+    }
+    class ExamStatus {
+        <<enumeration>>
+        not_started 未开始
+        ongoing 进行中
+        ended 已结束
+    }
+    class RecordStatus {
+        <<enumeration>>
+        in_progress 答题中
+        submitted 已交卷
+    }
+    class Department {
+        +string id
+        +string name
+        +string description
+        +string createdAt
+    }
+    class User {
+        +string id
+        +string username
+        +string passwordHash
+        +string name
+        +Role role
+        +string departmentId
+        +string departmentName
+        +string status
+        +string createdAt
+    }
+    class Question {
+        +string id
+        +QuestionType type
+        +string stem
+        +string[] options
+        +number[] answer
+        +number defaultScore
+        +string analysis
+        +string subject
+        +string createdBy
+        +string createdAt
+    }
+    class PaperQuestion {
+        +string questionId
+        +number score
+    }
+    class Paper {
+        +string id
+        +string name
+        +string description
+        +PaperQuestion[] questions
+        +number totalScore
+        +string createdBy
+        +string createdAt
+    }
+    class Exam {
+        +string id
+        +string name
+        +string paperId
+        +string[] departmentIds
+        +string startTime
+        +string endTime
+        +number durationMinutes
+        +number passScore
+        +number maxAttempts
+        +string createdBy
+        +string createdAt
+    }
+    class CheatEvent {
+        +string at
+        +number awaySeconds
+    }
+    class ExamRecord {
+        +string id
+        +string examId
+        +string userId
+        +number attemptNo
+        +string departmentId
+        +Paper paperSnapshot
+        +RecordStatus status
+        +Record~string, number[]~ answers
+        +string startedAt
+        +string submittedAt
+        +boolean autoSubmitted
+        +number score
+        +CheatEvent[] cheatEvents
+    }
+    class Session {
+        +string userId
+        +string loginAt
+    }
+    class StorageService {
+        -read$T$(string key) T
+        -write(string key, unknown value) void
+        +initSeedData() void
+    }
+    class AuthService {
+        +login(username, password) User
+        +logout() void
+        +restoreSession() User | null
+    }
+    class UserService {
+        +list() User[]
+        +save(User) void
+        +remove(string id) void
+        +resetPassword(string id) void
+    }
+    class DepartmentService {
+        +list() Department[]
+        +save(Department) void
+        +remove(string id) void
+    }
+    class QuestionService {
+        +list(filter) Question[]
+        +save(Question) void
+        +remove(string id) void
+    }
+    class PaperService {
+        +list() Paper[]
+        +save(Paper) void
+        +remove(string id) void
+        +calcTotalScore(PaperQuestion[]) number
+    }
+    class ExamService {
+        +list(User) Exam[]
+        +listForExaminee(User) Exam[]
+        +getExamStatus(Exam) ExamStatus
+        +save(Exam) void
+        +remove(string id) void
+    }
+    class ExamRecordService {
+        +start(examId, User) ExamRecord
+        +getRecord(examId, userId) ExamRecord | null
+        +saveAnswers(recordId, answers) void
+        +addCheatEvent(recordId, awaySeconds) void
+        +submit(recordId, auto) ExamRecord
+        -grade(ExamRecord) number
+        +listByExam(examId) ExamRecord[]
+        +listByUser(userId) ExamRecord[]
+    }
+    class StatisticsService {
+        +examSummary(examId) ExamSummary
+        +scoreBands(examId) BandItem[]
+        +departmentCompare(examId) DeptItem[]
+        +wrongRateRank(examId) WrongItem[]
+    }
+    class AuthContext {
+        +User | null currentUser
+        +login(u, p) Promise~void~
+        +logout() void
+    }
+    Paper *-- PaperQuestion : 组成
+    Exam --> Paper : paperId 关联
+    Exam }o-- Department : departmentIds 多对多
+    ExamRecord --> Exam : examId
+    ExamRecord --> User : userId
+    ExamRecord *-- CheatEvent : 切屏记录
+    ExamRecord ..> Paper : paperSnapshot 冻结副本
+    User --> Department : departmentId 归属
+    Question --> User : createdBy
+    AuthService ..> StorageService
+    UserService ..> StorageService
+    DepartmentService ..> StorageService
+    QuestionService ..> StorageService
+    PaperService ..> StorageService
+    ExamService ..> StorageService
+    ExamRecordService ..> StorageService
+    StatisticsService ..> ExamRecordService
+    ExamRecordService ..> ExamService
+    AuthContext ..> AuthService
+    ExamService ..> ExamStatus
+    Question ..> QuestionType
+    Exam ..> ExamStatus
+    ExamRecord ..> RecordStatus
+    User ..> Role

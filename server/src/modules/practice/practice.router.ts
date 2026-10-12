@@ -1,0 +1,348 @@
+/**
+ * 练题模块 —— 路由层（公网前缀 `/api/practice`）。
+ *
+ * 安全要点（架构 §4.2 / §13）：
+ * - 除 `auth/login` 与 `auth/captcha` 外，**所有**接口挂 `practiceAuthRequired`（强制登录）；
+ * - 登录接口挂 `practiceLoginGuard`（失败锁定 + 验证码）与 `practiceRateLimit('login')`；
+ * - 判分 / 题库列表挂限流；
+ * - 全部响应 `Cache-Control: no-store`；
+ * - 题库访问始终以 `allow_practice = 1` 为前置条件。
+ */
+import { Router } from 'express';
+import { asyncHandler } from '../../utils/asyncHandler.js';
+import { validate } from '../../middleware/validate.js';
+import { ok } from '../../utils/response.js';
+import { AppError, ERROR_CODES } from '../../utils/errors.js';
+import { practiceAuthRequired } from '../../middleware/practiceAuth.js';
+import {
+  clientIp,
+  clearLoginFailures,
+  issueCaptcha,
+  practiceLoginGuard,
+  recordLoginAudit,
+  recordLoginFailure,
+} from '../../middleware/practiceLoginGuard.js';
+import { practiceRateLimit } from '../../middleware/practiceRateLimit.js';
+import {
+  practiceCheckSchema,
+  practiceFavoriteBodySchema,
+  practiceFavoriteIdsQuerySchema,
+  practiceFavoriteListQuerySchema,
+  practiceFavoriteParamsSchema,
+  practiceFavoriteReansSchema,
+  practiceLoginSchema,
+  practiceProgressPutSchema,
+  practiceProgressQuerySchema,
+  practiceQuestionsByIdsQuerySchema,
+  practiceQuestionsQuerySchema,
+  practiceReportTrendQuerySchema,
+  practiceSessionSchema,
+  practiceWrongBookQuerySchema,
+  practiceWrongReansSchema,
+  type PracticeLoginInput,
+} from './practice.schema.js';
+import * as service from './practice.service.js';
+import type {
+  PracticeCheckInput,
+  PracticeProgressPutInput,
+  PracticeSessionInput,
+} from './practice.schema.js';
+import type { QuestionType } from '../../types/domain.js';
+
+export const practiceRouter = Router();
+
+/** 练题所有响应禁止缓存（架构共享约定 §10-14）。 */
+practiceRouter.use((_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
+
+/* ------------------------------ 登录（公开） ------------------------------ */
+
+/** GET /api/practice/auth/captcha —— 下发算术验证码（失败达阈值后需要）。 */
+practiceRouter.get(
+  '/auth/captcha',
+  practiceRateLimit('login'),
+  asyncHandler(async (_req, res) => ok(res, issueCaptcha())),
+);
+
+/** POST /api/practice/auth/login —— 练题登录（复用内网账号 bcrypt 校验，只读 users）。 */
+practiceRouter.post(
+  '/auth/login',
+  practiceRateLimit('login'),
+  validate(practiceLoginSchema, 'body'),
+  practiceLoginGuard,
+  asyncHandler(async (req, res) => {
+    const { username, password } = req.body as PracticeLoginInput;
+    const ip = clientIp(req);
+    const ua = String(req.headers['user-agent'] ?? '');
+    try {
+      const result = await service.login(username, password);
+      clearLoginFailures(username, ip);
+      recordLoginAudit({ username, ip, userAgent: ua, success: true });
+      return ok(res, result);
+    } catch (err) {
+      // 仅凭据错误计入失败；其余错误（如限流）不计
+      if (err instanceof AppError && err.code === ERROR_CODES.UNAUTHORIZED) {
+        recordLoginFailure(username, ip);
+        recordLoginAudit({ username, ip, userAgent: ua, success: false, reason: 'credentials' });
+      }
+      throw err;
+    }
+  }),
+);
+
+/** GET /api/practice/auth/me —— 当前练题登录用户。 */
+practiceRouter.get(
+  '/auth/me',
+  practiceAuthRequired,
+  asyncHandler(async (req, res) => ok(res, await service.me(req.practiceUser!.id))),
+);
+
+/** POST /api/practice/auth/logout —— 登出（无状态，仅返回 ok）。 */
+practiceRouter.post(
+  '/auth/logout',
+  practiceAuthRequired,
+  asyncHandler(async (_req, res) => ok(res, null)),
+);
+
+/* ------------------------------ 题库 / 题目（需登录） ------------------------------ */
+
+/** GET /api/practice/banks —— 对外开放练题的题库列表。 */
+practiceRouter.get(
+  '/banks',
+  practiceAuthRequired,
+  practiceRateLimit('banks'),
+  asyncHandler(async (_req, res) => ok(res, await service.listBanks())),
+);
+
+/** GET /api/practice/banks/:id/questions —— 题库题目（**不含**答案/解析）。 */
+practiceRouter.get(
+  '/banks/:id/questions',
+  practiceAuthRequired,
+  practiceRateLimit('banks'),
+  validate(practiceQuestionsQuerySchema, 'query'),
+  asyncHandler(async (req, res) => {
+    const q = req.query as unknown as {
+      type?: QuestionType;
+      subject: string;
+      page: number;
+      pageSize: number;
+    };
+    return ok(
+      res,
+      await service.listQuestions(req.params.id, {
+        type: q.type,
+        subject: q.subject,
+        page: q.page,
+        pageSize: q.pageSize,
+      }),
+    );
+  }),
+);
+
+/** GET /api/practice/questions?ids=a,b,c —— 按 id 批量取题（仅开放题库，**不含**答案/解析）。 */
+practiceRouter.get(
+  '/questions',
+  practiceAuthRequired,
+  practiceRateLimit('banks'),
+  validate(practiceQuestionsByIdsQuerySchema, 'query'),
+  asyncHandler(async (req, res) => {
+    const { ids } = req.query as unknown as { ids: string[] };
+    return ok(res, await service.getQuestionsByIds(ids));
+  }),
+);
+
+/* ------------------------------ 练习会话（需登录） ------------------------------ */
+
+/** POST /api/practice/sessions —— 生成一次练习序列（顺序/随机、题量、题型）。 */
+practiceRouter.post(
+  '/sessions',
+  practiceAuthRequired,
+  practiceRateLimit('session'),
+  validate(practiceSessionSchema, 'body'),
+  asyncHandler(async (req, res) => {
+    const body = req.body as PracticeSessionInput;
+    return ok(res, await service.createSession(req.practiceUser!.id, body));
+  }),
+);
+
+/** POST /api/practice/check —— 提交单题作答 → 即时判分（正误 + 正确答案 + 解析）。 */
+practiceRouter.post(
+  '/check',
+  practiceAuthRequired,
+  practiceRateLimit('check'),
+  validate(practiceCheckSchema, 'body'),
+  asyncHandler(async (req, res) => {
+    const body = req.body as PracticeCheckInput;
+    return ok(res, await service.check(req.practiceUser!.id, body));
+  }),
+);
+
+/* ------------------------------ 进度 / 错题本（需登录） ------------------------------ */
+
+/** GET /api/practice/progress?bankId= —— 查询我的练题进度与统计。 */
+practiceRouter.get(
+  '/progress',
+  practiceAuthRequired,
+  practiceRateLimit('progress'),
+  validate(practiceProgressQuerySchema, 'query'),
+  asyncHandler(async (req, res) => {
+    const { bankId } = req.query as unknown as { bankId: string };
+    return ok(res, await service.getProgress(req.practiceUser!.id, bankId));
+  }),
+);
+
+/** PUT /api/practice/progress —— 保存练题进度（计数由服务端重算）。 */
+practiceRouter.put(
+  '/progress',
+  practiceAuthRequired,
+  practiceRateLimit('progress'),
+  validate(practiceProgressPutSchema, 'body'),
+  asyncHandler(async (req, res) => {
+    const body = req.body as PracticeProgressPutInput;
+    return ok(res, await service.saveProgress(req.practiceUser!.id, body));
+  }),
+);
+
+/** GET /api/practice/wrong-book —— 错题本列表（分页）。 */
+practiceRouter.get(
+  '/wrong-book',
+  practiceAuthRequired,
+  practiceRateLimit('wrongbook'),
+  validate(practiceWrongBookQuerySchema, 'query'),
+  asyncHandler(async (req, res) => {
+    const q = req.query as unknown as { page: number; pageSize: number };
+    return ok(res, await service.listWrongBook(req.practiceUser!.id, q.page, q.pageSize));
+  }),
+);
+
+/** POST /api/practice/wrong-book/reans —— 从错题本生成练习序列。 */
+practiceRouter.post(
+  '/wrong-book/reans',
+  practiceAuthRequired,
+  practiceRateLimit('wrongbook'),
+  validate(practiceWrongReansSchema, 'body'),
+  asyncHandler(async (req, res) => {
+    const { bankId } = req.body as { bankId?: string };
+    return ok(res, await service.createWrongReansSession(req.practiceUser!.id, bankId));
+  }),
+);
+
+/* ------------------------------ 收藏夹（需登录，二期） ------------------------------ */
+
+/** GET /api/practice/favorites —— 我的收藏（分页，可按题库筛选）。 */
+practiceRouter.get(
+  '/favorites',
+  practiceAuthRequired,
+  practiceRateLimit('favorites'),
+  validate(practiceFavoriteListQuerySchema, 'query'),
+  asyncHandler(async (req, res) => {
+    const q = req.query as unknown as { bankId: string; page: number; pageSize: number };
+    return ok(res, await service.listFavorites(req.practiceUser!.id, q));
+  }),
+);
+
+/** GET /api/practice/favorites/ids —— 我收藏的题目 id 列表（作答页批量回显收藏态）。 */
+practiceRouter.get(
+  '/favorites/ids',
+  practiceAuthRequired,
+  practiceRateLimit('favorites'),
+  validate(practiceFavoriteIdsQuerySchema, 'query'),
+  asyncHandler(async (req, res) => {
+    const { bankId } = req.query as unknown as { bankId: string };
+    return ok(res, await service.listFavoriteIds(req.practiceUser!.id, bankId));
+  }),
+);
+
+/** POST /api/practice/favorites —— 收藏一题（幂等；超上限 → 1013）。 */
+practiceRouter.post(
+  '/favorites',
+  practiceAuthRequired,
+  practiceRateLimit('favorites'),
+  validate(practiceFavoriteBodySchema, 'body'),
+  asyncHandler(async (req, res) => {
+    const { questionId } = req.body as { questionId: string };
+    return ok(res, await service.addFavorite(req.practiceUser!.id, questionId));
+  }),
+);
+
+/** POST /api/practice/favorites/reans —— 从收藏夹生成练习序列（可选按题库过滤）。 */
+practiceRouter.post(
+  '/favorites/reans',
+  practiceAuthRequired,
+  practiceRateLimit('favorites'),
+  validate(practiceFavoriteReansSchema, 'body'),
+  asyncHandler(async (req, res) => {
+    const { bankId } = req.body as { bankId?: string };
+    return ok(res, await service.createFavoriteReansSession(req.practiceUser!.id, bankId));
+  }),
+);
+
+/** DELETE /api/practice/favorites/:questionId —— 取消收藏（幂等）。 */
+practiceRouter.delete(
+  '/favorites/:questionId',
+  practiceAuthRequired,
+  practiceRateLimit('favorites'),
+  validate(practiceFavoriteParamsSchema, 'params'),
+  asyncHandler(async (req, res) => {
+    const { questionId } = req.params as unknown as { questionId: string };
+    return ok(res, await service.removeFavorite(req.practiceUser!.id, questionId));
+  }),
+);
+
+/* ------------------------------ 每日一练（需登录，二期） ------------------------------ */
+
+/** GET /api/practice/daily —— 今日任务（关闭时返回 enabled=false 降级结构）。 */
+practiceRouter.get(
+  '/daily',
+  practiceAuthRequired,
+  practiceRateLimit('daily'),
+  asyncHandler(async (req, res) => ok(res, await service.getDaily(req.practiceUser!.id))),
+);
+
+/** POST /api/practice/daily/session —— 生成今日任务练习会话（关闭时 1014）。 */
+practiceRouter.post(
+  '/daily/session',
+  practiceAuthRequired,
+  practiceRateLimit('daily'),
+  asyncHandler(async (req, res) => ok(res, await service.createDailySession(req.practiceUser!.id))),
+);
+
+/* ------------------------------ 学习报告（需登录，二期） ------------------------------ */
+
+/** GET /api/practice/report/summary —— 报告总览。 */
+practiceRouter.get(
+  '/report/summary',
+  practiceAuthRequired,
+  practiceRateLimit('report'),
+  asyncHandler(async (req, res) => ok(res, await service.getReportSummary(req.practiceUser!.id))),
+);
+
+/** GET /api/practice/report/trend?days=7|30 —— 逐日趋势（无记录日补 0）。 */
+practiceRouter.get(
+  '/report/trend',
+  practiceAuthRequired,
+  practiceRateLimit('report'),
+  validate(practiceReportTrendQuerySchema, 'query'),
+  asyncHandler(async (req, res) => {
+    const { days } = req.query as unknown as { days: 7 | 30 };
+    return ok(res, await service.getReportTrend(req.practiceUser!.id, days));
+  }),
+);
+
+/** GET /api/practice/report/subjects —— 科目掌握度（正确率升序，weak 标记）。 */
+practiceRouter.get(
+  '/report/subjects',
+  practiceAuthRequired,
+  practiceRateLimit('report'),
+  asyncHandler(async (req, res) => ok(res, await service.getReportSubjects(req.practiceUser!.id))),
+);
+
+/** GET /api/practice/report/banks —— 开放题库概览。 */
+practiceRouter.get(
+  '/report/banks',
+  practiceAuthRequired,
+  practiceRateLimit('report'),
+  asyncHandler(async (req, res) => ok(res, await service.getReportBanks(req.practiceUser!.id))),
+);
