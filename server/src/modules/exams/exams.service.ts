@@ -6,10 +6,14 @@ import * as repo from './exams.repo.js';
 import { mapExamRow } from './exams.mapper.js';
 import * as papersRepo from '../papers/papers.repo.js';
 import * as recordsRepo from '../records/records.repo.js';
+import * as retakesRepo from '../retakes/retakes.repo.js';
+import * as usersRepo from '../users/users.repo.js';
 import { badRequest, conflict, notFound } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
 import { nowDb, toDbDate } from '../../utils/datetime.js';
-import type { ExamDto, ExamMyDto, RecordStatus } from '../../types/domain.js';
+import { getSettings } from '../settings/settings.service.js';
+import { notifyUsers } from '../../utils/notify.js';
+import type { ExamDto, ExamMyDto, RecordStatus, RetakeStatus } from '../../types/domain.js';
 
 /** 校验并归一化考试入参（照搬 v1.0 examService.save 规则）。 */
 async function validateExamInput(input: {
@@ -23,6 +27,7 @@ async function validateExamInput(input: {
   maxAttempts: number;
   shuffleEnabled?: boolean | null;
   shuffleOptions?: boolean | null;
+  allowRetake?: boolean | null;
 }): Promise<{
   name: string;
   paperId: string;
@@ -34,6 +39,7 @@ async function validateExamInput(input: {
   maxAttempts: number;
   shuffleEnabled: boolean | null;
   shuffleOptions: boolean | null;
+  allowRetake: boolean | null;
 }> {
   const name = input.name.trim();
   if (!name) throw badRequest('考试名称不能为空');
@@ -70,6 +76,7 @@ async function validateExamInput(input: {
     maxAttempts,
     shuffleEnabled: input.shuffleEnabled ?? null,
     shuffleOptions: input.shuffleOptions ?? null,
+    allowRetake: input.allowRetake ?? null,
   };
 }
 
@@ -86,33 +93,62 @@ export async function getById(id: string): Promise<ExamDto> {
   return mapExamRow(row);
 }
 
-/** 考生可见考试（科室隔离）+ 本人作答状态与已交卷次数。 */
+/** 考生可见考试（科室隔离）+ 本人作答状态、已交卷次数与补考资格。 */
 export async function listForExaminee(userId: string, departmentId: string): Promise<ExamMyDto[]> {
   if (!departmentId) return [];
-  const [rows, records] = await Promise.all([
+  const [rows, records, retakes, settings] = await Promise.all([
     repo.listForDepartment(departmentId),
     recordsRepo.listByUser(userId),
+    retakesRepo.listExamStatusByUser(userId),
+    getSettings(),
   ]);
 
   // recordStatus：存在进行中记录则优先返回 in_progress，否则取已交卷；attemptsUsed = 已交卷记录数
   const statusMap = new Map<string, RecordStatus>();
   const usedMap = new Map<string, number>();
+  const inProgressSet = new Set<string>();
+  const latestSubmitted = new Map<string, number>(); // exam_id → 最近一次已交卷分数
+  const prevAttempt = new Map<string, number>(); // exam_id → 已交卷的最大 attempt_no
   for (const r of records) {
     if (r.status === 'submitted') {
       usedMap.set(r.exam_id, (usedMap.get(r.exam_id) ?? 0) + 1);
       if (!statusMap.has(r.exam_id)) statusMap.set(r.exam_id, 'submitted');
+      const attemptNo = Number(r.attempt_no);
+      if (attemptNo > (prevAttempt.get(r.exam_id) ?? 0)) {
+        latestSubmitted.set(r.exam_id, Number(r.score));
+        prevAttempt.set(r.exam_id, attemptNo);
+      }
     }
   }
   for (const r of records) {
-    if (r.status === 'in_progress') statusMap.set(r.exam_id, 'in_progress');
+    if (r.status === 'in_progress') {
+      statusMap.set(r.exam_id, 'in_progress');
+      inProgressSet.add(r.exam_id);
+    }
   }
+
+  const retakeMap = new Map<string, RetakeStatus>();
+  for (const rt of retakes) retakeMap.set(rt.exam_id, rt.status);
 
   return rows.map((row) => {
     const dto = mapExamRow(row);
+    const allowRetake = dto.allowRetake ?? settings.retakeDefaultEnabled;
+    const retakeStatus = retakeMap.get(dto.id) ?? null;
+    const latestScore = latestSubmitted.get(dto.id);
+    const failed = latestScore !== undefined && latestScore < Number(dto.passScore);
+    const canApplyRetake =
+      allowRetake &&
+      dto.maxAttempts === 1 &&
+      failed &&
+      retakeStatus !== 'approved' &&
+      retakeStatus !== 'pending' &&
+      !inProgressSet.has(dto.id);
     return {
       ...dto,
       recordStatus: statusMap.get(dto.id) ?? null,
       attemptsUsed: usedMap.get(dto.id) ?? 0,
+      retakeStatus,
+      canApplyRetake,
     };
   });
 }
@@ -123,7 +159,20 @@ export async function create(input: Parameters<typeof validateExamInput>[0], ope
   const id = genId('exam-');
   await repo.insert({ id, ...data, createdBy: operatorId, createdAt: nowDb() });
   const created = await repo.findById(id);
-  return mapExamRow(created!);
+  const dto = mapExamRow(created!);
+
+  // 考试发布通知（fail-open，不影响创建）
+  const settings = await getSettings();
+  if (settings.notifyOnPublish) {
+    const examineeIds = await usersRepo.findIdsByDepartments(dto.departmentIds, 'examinee');
+    await notifyUsers(examineeIds, {
+      type: 'publish',
+      title: `新考试发布：${dto.name}`,
+      content: `你有一个新的考试「${dto.name}」，请留意考试时间并准时参加。`,
+    });
+  }
+
+  return dto;
 }
 
 /** 编辑考试。 */

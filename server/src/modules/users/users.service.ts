@@ -30,6 +30,12 @@ function normalizeDepartmentId(departmentId: string | undefined): string | null 
   return v === '' ? null : v;
 }
 
+/** 空字符串邮箱视为无邮箱（null）。 */
+function normalizeEmail(email: string | undefined): string | null {
+  const v = (email ?? '').trim();
+  return v === '' ? null : v;
+}
+
 /** 列表（可按角色 / 关键字过滤）。 */
 export async function list(filter: { role?: Role; keyword?: string }): Promise<UserDto[]> {
   const rows = await repo.list(filter);
@@ -42,6 +48,7 @@ export async function create(input: {
   name: string;
   role: Role;
   departmentId?: string;
+  email?: string;
   status?: UserStatus;
   password?: string;
 }): Promise<UserDto> {
@@ -54,6 +61,7 @@ export async function create(input: {
   if (input.role === 'examinee' && !departmentId) {
     throw badRequest('考生必须归属一个科室');
   }
+  const email = normalizeEmail(input.email);
 
   const existing = await repo.findByUsername(username);
   if (existing) {
@@ -74,6 +82,7 @@ export async function create(input: {
     name,
     role: input.role,
     departmentId,
+    email,
     status: input.status ?? 'active',
     createdAt: nowDb(),
   });
@@ -89,6 +98,7 @@ export async function update(
     name: string;
     role: Role;
     departmentId?: string;
+    email?: string;
     status?: UserStatus;
     password?: string;
   },
@@ -105,6 +115,7 @@ export async function update(
   if (input.role === 'examinee' && !departmentId) {
     throw badRequest('考生必须归属一个科室');
   }
+  const email = normalizeEmail(input.email);
 
   const duplicate = await repo.findByUsername(username);
   if (duplicate && duplicate.id !== id) {
@@ -116,6 +127,7 @@ export async function update(
     name,
     role: input.role,
     departmentId,
+    email,
     status: input.status ?? current.status,
   });
   if (input.password && input.password !== '') {

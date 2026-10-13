@@ -11,6 +11,7 @@ declare module 'vue' {
     ConfirmDialog: typeof import('./components/common/ConfirmDialog.vue')['default']
     DataTablePagination: typeof import('./components/common/DataTablePagination.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']
+    ElBadge: typeof import('element-plus/es')['ElBadge']
     ElBreadcrumb: typeof import('element-plus/es')['ElBreadcrumb']
     ElBreadcrumbItem: typeof import('element-plus/es')['ElBreadcrumbItem']
     ElButton: typeof import('element-plus/es')['ElButton']

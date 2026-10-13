@@ -19,6 +19,7 @@ export interface ExamRow extends RowDataPacket {
   max_attempts: number | string;
   shuffle_enabled: number | boolean | null;
   shuffle_options: number | boolean | null;
+  allow_retake: number | boolean | null;
   created_by: string;
   created_at: string;
 }
@@ -43,6 +44,7 @@ export function mapExamRow(row: ExamRow): ExamDto {
     maxAttempts: Number(row.max_attempts),
     shuffleEnabled: nullableBool(row.shuffle_enabled),
     shuffleOptions: nullableBool(row.shuffle_options),
+    allowRetake: nullableBool(row.allow_retake),
     createdBy: row.created_by,
     createdAt: fromDbDateSafe(row.created_at),
   };

@@ -5,8 +5,10 @@
  */
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { Refresh } from '@element-plus/icons-vue';
 import * as examsApi from '@/api/exams';
+import { applyRetake } from '@/api/retakes';
 import { useRequest } from '@/composables/useRequest';
 import { EXAM_STATUS_LABELS } from '@/constants';
 import { formatRange } from '@/utils/datetime';
@@ -15,10 +17,22 @@ import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import StatusTag from '@/components/common/StatusTag.vue';
-import type { ExamMy, ExamStatus } from '@/types';
+import type { ExamMy, ExamStatus, RetakeStatus } from '@/types';
 
 const router = useRouter();
-const { data: exams, loading } = useRequest(() => examsApi.my());
+const { data: exams, loading, refresh: refreshExams } = useRequest(() => examsApi.my());
+
+/** 补考申请状态文案与标签色 */
+const RETAKE_STATUS_LABELS: Record<RetakeStatus, string> = {
+  pending: '补考待审批',
+  approved: '补考已通过',
+  rejected: '补考已驳回',
+};
+const RETAKE_STATUS_TAG: Record<RetakeStatus, 'warning' | 'success' | 'danger'> = {
+  pending: 'warning',
+  approved: 'success',
+  rejected: 'danger',
+};
 
 /** 作答状态筛选值：pending=待作答（无记录）/ in_progress=答题中 / submitted=已交卷 */
 type AnswerFilter = '' | 'pending' | 'in_progress' | 'submitted';
@@ -60,6 +74,43 @@ function goScores(): void {
   void router.push('/exam/scores');
 }
 
+function goMyRetakes(): void {
+  void router.push('/exam/retakes');
+}
+
+/** 补考申请提交中（记录 examId） */
+const applying = ref('');
+
+/** 发起补考申请（仅 canApplyRetake 为 true 时展示入口） */
+async function handleApplyRetake(exam: ExamMy): Promise<void> {
+  let reason = '';
+  try {
+    const { value } = await ElMessageBox.prompt(
+      `请填写「${exam.name}」的补考申请说明`,
+      '申请补考',
+      {
+        confirmButtonText: '提交申请',
+        cancelButtonText: '取消',
+        inputType: 'textarea',
+        inputValidator: (v) => (v && v.trim() ? true : '请填写申请说明'),
+      },
+    );
+    reason = (value as string).trim();
+  } catch {
+    return;
+  }
+  applying.value = exam.id;
+  try {
+    await applyRetake(exam.id, reason);
+    ElMessage.success('补考申请已提交，请等待管理员审批');
+    await refreshExams();
+  } catch {
+    // 错误已由拦截器提示
+  } finally {
+    applying.value = '';
+  }
+}
+
 interface ActionState {
   /** 主按钮文案 */
   label: string;
@@ -73,6 +124,7 @@ interface ActionState {
  * 操作列主按钮状态：
  * - 时间窗内：进行中「继续考试」；未超次数「开始考试 / 再考一次」；次数用尽禁用
  * - 未开始 / 已结束：沿用既有时间窗提示
+ * - 补考：存在「已通过」申请时，可用次数 = maxAttempts + 1
  */
 function actionState(row: ExamMy): ActionState {
   const status = getExamStatus(row);
@@ -86,20 +138,25 @@ function actionState(row: ExamMy): ActionState {
   if (row.recordStatus === 'in_progress') {
     return { label: '继续考试', enabled: true, tip: '' };
   }
-  if (row.attemptsUsed < row.maxAttempts) {
+  const maxAllowed = row.maxAttempts + (row.retakeStatus === 'approved' ? 1 : 0);
+  if (row.attemptsUsed < maxAllowed) {
     return { label: row.attemptsUsed > 0 ? '再考一次' : '开始考试', enabled: true, tip: '' };
   }
   return {
     label: '开始考试',
     enabled: false,
-    tip: `答题次数已用完（最多 ${row.maxAttempts} 次）`,
+    tip: `答题次数已用完（最多 ${maxAllowed} 次）`,
   };
 }
 </script>
 
 <template>
   <div class="my-exam">
-    <PageHeader title="我的考试" description="仅显示你所在科室的考试" />
+    <PageHeader title="我的考试" description="仅显示你所在科室的考试">
+      <template #actions>
+        <el-button @click="goMyRetakes">我的补考</el-button>
+      </template>
+    </PageHeader>
 
     <LoadingSkeleton v-if="loading && !exams" :rows="5" />
 
@@ -158,7 +215,20 @@ function actionState(row: ExamMy): ActionState {
             <span v-else>—</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="补考" width="130" align="center">
+          <template #default="{ row }">
+            <el-tag
+              v-if="(row as ExamMy).retakeStatus"
+              :type="RETAKE_STATUS_TAG[(row as ExamMy).retakeStatus as RetakeStatus]"
+              size="small"
+              effect="light"
+            >
+              {{ RETAKE_STATUS_LABELS[(row as ExamMy).retakeStatus as RetakeStatus] }}
+            </el-tag>
+            <span v-else>—</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
             <div class="my-exam__actions">
               <el-tooltip
@@ -184,6 +254,16 @@ function actionState(row: ExamMy): ActionState {
                 @click="goScores"
               >
                 查看成绩
+              </el-button>
+
+              <el-button
+                v-if="(row as ExamMy).canApplyRetake"
+                type="warning"
+                link
+                :loading="applying === (row as ExamMy).id"
+                @click="handleApplyRetake(row as ExamMy)"
+              >
+                申请补考
               </el-button>
             </div>
           </template>

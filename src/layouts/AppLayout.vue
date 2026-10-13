@@ -5,10 +5,12 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
-import { ArrowDown, Expand, Fold, Key, SwitchButton } from '@element-plus/icons-vue';
+import { ArrowDown, Bell, Expand, Fold, Key, SwitchButton } from '@element-plus/icons-vue';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
 import { useSettingsStore } from '@/stores/settings';
+import { usePermissionsStore } from '@/stores/permissions';
+import { getUnreadCount } from '@/api/notifications';
 import { ROLE_LABELS } from '@/constants';
 import { getMenuItems } from './menuConfig';
 
@@ -17,16 +19,38 @@ const router = useRouter();
 const auth = useAuthStore();
 const app = useAppStore();
 const settingsStore = useSettingsStore();
+const permissions = usePermissionsStore();
 
 /** 侧边栏品牌名（系统简称）；设置加载失败时 store 保留默认值 */
 const brandName = computed(() => settingsStore.settings.systemShortName || '在线考试系统');
 
+/** 站内信未读数 */
+const unreadCount = ref(0);
+
 // 拉取全局设置（store 内部只加载一次，失败静默）
 onMounted(() => {
   void settingsStore.load();
+  void permissions.load();
+  void refreshUnread();
 });
 
-const menus = computed(() => (auth.currentUser ? getMenuItems(auth.currentUser.role) : []));
+/** 刷新未读数（静默失败） */
+async function refreshUnread(): Promise<void> {
+  try {
+    unreadCount.value = (await getUnreadCount()).unreadCount;
+  } catch {
+    unreadCount.value = 0;
+  }
+}
+
+/** 打开消息中心 */
+function openNotifications(): void {
+  void router.push('/notifications');
+}
+
+const menus = computed(() =>
+  auth.currentUser ? getMenuItems(auth.currentUser.role, permissions.myMenus) : [],
+);
 const activeMenu = computed(() => route.path);
 const userName = computed(() => auth.currentUser?.name ?? '');
 const roleLabel = computed(() => (auth.currentUser ? ROLE_LABELS[auth.currentUser.role] : ''));
@@ -123,6 +147,11 @@ async function submitPassword(): Promise<void> {
           </el-breadcrumb-item>
         </el-breadcrumb>
         <div class="layout__spacer" />
+        <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99" class="layout__bell">
+          <el-button text class="layout__bell-btn" @click="openNotifications">
+            <el-icon :size="18"><Bell /></el-icon>
+          </el-button>
+        </el-badge>
         <el-dropdown @command="handleCommand">
           <span class="layout__user">
             <span class="layout__avatar">{{ userName.slice(0, 1) }}</span>
@@ -310,6 +339,25 @@ async function submitPassword(): Promise<void> {
 
   &__spacer {
     flex: 1;
+  }
+
+  &__bell {
+    margin-right: 4px;
+
+    :deep(.el-badge__content) {
+      top: 4px;
+      right: 6px;
+    }
+  }
+
+  &__bell-btn {
+    padding: 6px;
+    color: $text-secondary;
+
+    &:hover {
+      color: $color-primary;
+      background: $color-primary-50;
+    }
   }
 
   &__user {

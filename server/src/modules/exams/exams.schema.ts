@@ -21,6 +21,7 @@ export const examSchema = z.object({
   maxAttempts: z.coerce.number().int().min(1, '答题次数至少为 1').max(10, '答题次数最多为 10').default(1),
   shuffleEnabled: z.boolean({ invalid_type_error: '人手一卷开关必须为布尔值' }).nullable().optional().default(null),
   shuffleOptions: z.boolean({ invalid_type_error: '选项乱序开关必须为布尔值' }).nullable().optional().default(null),
+  allowRetake: z.boolean({ invalid_type_error: '补考申请开关必须为布尔值' }).nullable().optional().default(null),
 });
 
 export type ExamInput = z.infer<typeof examSchema>;

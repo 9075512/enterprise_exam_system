@@ -32,6 +32,7 @@ export const DDL_STATEMENTS: readonly string[] = [
     name          VARCHAR(64)  NOT NULL,
     role          ENUM('admin','author','examinee') NOT NULL,
     department_id VARCHAR(64)  NULL,
+    email         VARCHAR(120) NULL,
     status        ENUM('active','disabled') NOT NULL DEFAULT 'active',
     created_at    DATETIME(3)  NOT NULL,
     PRIMARY KEY (id),
@@ -125,6 +126,7 @@ export const DDL_STATEMENTS: readonly string[] = [
     max_attempts     INT          NOT NULL DEFAULT 1,
     shuffle_enabled  TINYINT(1)   NULL,
     shuffle_options  TINYINT(1)   NULL,
+    allow_retake     TINYINT(1)   NULL,
     created_by       VARCHAR(64)  NOT NULL,
     created_at       DATETIME(3)  NOT NULL,
     PRIMARY KEY (id),
@@ -296,6 +298,60 @@ export const DDL_STATEMENTS: readonly string[] = [
     updated_at   DATETIME(3)  NOT NULL,
     PRIMARY KEY (bucket_key)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  // 20. 站内信通知（v1.5；user_id 弱关联，无外键以便清理与降级）
+  `CREATE TABLE IF NOT EXISTS notifications (
+    id         VARCHAR(64)  NOT NULL,
+    user_id    VARCHAR(64)  NOT NULL,
+    type       VARCHAR(32)  NOT NULL DEFAULT 'system',
+    title      VARCHAR(120) NOT NULL,
+    content    VARCHAR(500) NOT NULL DEFAULT '',
+    is_read    TINYINT(1)   NOT NULL DEFAULT 0,
+    created_at DATETIME(3)  NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_notif_user (user_id, is_read),
+    KEY idx_notif_user_created (user_id, created_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  // 21. 补考申请（v1.5；按 考试×考生 唯一，申请-审批流；仅 max_attempts=1 的考试可补考）
+  `CREATE TABLE IF NOT EXISTS exam_retakes (
+    id          VARCHAR(64)  NOT NULL,
+    exam_id     VARCHAR(64)  NOT NULL,
+    user_id     VARCHAR(64)  NOT NULL,
+    status      ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+    reason      VARCHAR(255) NOT NULL DEFAULT '',
+    applied_at  DATETIME(3)  NOT NULL,
+    reviewed_by VARCHAR(64)  NULL,
+    reviewed_at DATETIME(3)  NULL,
+    created_at  DATETIME(3)  NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_retakes_exam_user (exam_id, user_id),
+    KEY idx_retakes_status (status),
+    CONSTRAINT fk_retakes_exam FOREIGN KEY (exam_id)
+      REFERENCES exams(id) ON DELETE CASCADE ON UPDATE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  // 22. 用户导入批次（v1.5；同 import_batches 结构但无 bank_id）
+  `CREATE TABLE IF NOT EXISTS user_import_batches (
+    id            VARCHAR(64)  NOT NULL,
+    file_name     VARCHAR(255) NOT NULL,
+    total_rows    INT          NOT NULL DEFAULT 0,
+    success_count INT          NOT NULL DEFAULT 0,
+    fail_count    INT          NOT NULL DEFAULT 0,
+    errors_json   JSON         NOT NULL,
+    operator_id   VARCHAR(64)  NOT NULL,
+    created_at    DATETIME(3)  NOT NULL,
+    PRIMARY KEY (id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  // 23. 菜单权限（v1.5；按角色一行，menu_keys = 该角色可见的菜单 key 列表；无行=使用内置默认）
+  `CREATE TABLE IF NOT EXISTS menu_permissions (
+    role       ENUM('admin','author','examinee') NOT NULL,
+    menu_keys  JSON         NOT NULL,
+    updated_by VARCHAR(64)  NOT NULL DEFAULT '',
+    updated_at DATETIME(3)  NOT NULL,
+    PRIMARY KEY (role)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 ];
 
 /** 建表完成后用于统计的核心表名列表（含练题域 6 张表）。 */
@@ -319,4 +375,8 @@ export const TABLE_NAMES: readonly string[] = [
   'practice_settings',
   'login_attempts',
   'rate_limit_buckets',
+  'notifications',
+  'exam_retakes',
+  'user_import_batches',
+  'menu_permissions',
 ];

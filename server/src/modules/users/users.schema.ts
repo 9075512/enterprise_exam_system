@@ -16,6 +16,7 @@ export const createUserSchema = z.object({
   name: z.string().min(1, '姓名不能为空'),
   role: roleEnum,
   departmentId: z.string().optional().default(''),
+  email: z.string().optional().default(''),
   status: statusEnum.optional(),
   password: z.string().optional(),
 });
@@ -26,6 +27,7 @@ export const updateUserSchema = z.object({
   name: z.string().min(1, '姓名不能为空'),
   role: roleEnum,
   departmentId: z.string().optional().default(''),
+  email: z.string().optional().default(''),
   status: statusEnum.optional(),
   password: z.string().optional(),
 });

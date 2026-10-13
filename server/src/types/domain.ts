@@ -34,6 +34,8 @@ export interface UserDto {
   departmentId: string;
   /** 所属科室名称；无科室时为 '' */
   departmentName: string;
+  /** 邮箱（邮件通知接收地址；可为空串） */
+  email: string;
   status: UserStatus;
   /** ISO 8601（UTC） */
   createdAt: string;
@@ -230,6 +232,8 @@ export interface ExamDto {
   shuffleEnabled: boolean | null;
   /** 选项乱序开关；null=继承全局默认 shuffleOptionsDefault */
   shuffleOptions: boolean | null;
+  /** 补考申请开关；null=继承全局默认 retakeDefaultEnabled（仅 maxAttempts=1 时生效） */
+  allowRetake: boolean | null;
   createdBy: string;
   createdAt: string;
 }
@@ -240,6 +244,10 @@ export interface ExamMyDto extends ExamDto {
   recordStatus: RecordStatus | null;
   /** 本人已交卷次数（用于展示剩余次数） */
   attemptsUsed: number;
+  /** 本人补考申请状态；无申请时为 null */
+  retakeStatus: RetakeStatus | null;
+  /** 本人当前是否可发起补考申请 */
+  canApplyRetake: boolean;
 }
 
 /** 切屏事件（只增不改） */
@@ -389,6 +397,30 @@ export interface SystemSettings {
   loginSlogan: string;
   /** 登录页版权/页脚文案 */
   copyright: string;
+  /** 补考申请全局默认开关（单场考试可覆盖；仅 maxAttempts=1 的考试可补考） */
+  retakeDefaultEnabled: boolean;
+  /** 站内信通知总开关 */
+  notifySiteEnabled: boolean;
+  /** 邮件通知总开关 */
+  notifyEmailEnabled: boolean;
+  /** 考试发布通知开关 */
+  notifyOnPublish: boolean;
+  /** 成绩通知开关 */
+  notifyOnResult: boolean;
+  /** 补考审批结果通知开关 */
+  notifyOnRetake: boolean;
+  /** SMTP 服务器地址（空 = 未配置） */
+  smtpHost: string;
+  /** SMTP 端口 */
+  smtpPort: number;
+  /** SMTP 是否使用 SSL */
+  smtpSecure: boolean;
+  /** SMTP 账号 */
+  smtpUser: string;
+  /** SMTP 密码/授权码（敏感：仅管理员可写，接口不回传明文） */
+  smtpPass: string;
+  /** 发件人地址 */
+  smtpFrom: string;
 }
 
 /** 公开设置：无需登录即可读取，仅含登录页品牌展示所需字段。 */
@@ -595,4 +627,128 @@ export interface PracticeBankStatDto {
   totalCount: number;
   /** 正确率（0~100 整数） */
   accuracy: number;
+}
+
+// ============================================================
+// v1.5 增量 DTO：补考 / 消息通知 / 菜单权限 / 用户导入
+// ============================================================
+
+/** 补考申请状态 */
+export type RetakeStatus = 'pending' | 'approved' | 'rejected';
+
+/** 补考申请 DTO */
+export interface RetakeDto {
+  id: string;
+  examId: string;
+  /** 考试名称（列表回显用） */
+  examName: string;
+  userId: string;
+  /** 考生姓名 */
+  userName: string;
+  /** 考生登录账号 */
+  username: string;
+  /** 科室名称 */
+  departmentName: string;
+  status: RetakeStatus;
+  /** 申请说明（考生填写，可能为空） */
+  reason: string;
+  appliedAt: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+}
+
+/** 补考申请 DTO（考生本人视角，含申请资格说明） */
+export interface RetakeMyDto extends RetakeDto {
+  /** 该考试是否开放补考申请（maxAttempts=1 且 allowRetake 生效） */
+  retakeEnabled: boolean;
+  /** 本人是否已有待审批/已通过的补考 */
+  hasActive: boolean;
+  /** 本人是否可发起新申请 */
+  canApply: boolean;
+}
+
+/** 站内信 DTO */
+export interface NotificationDto {
+  id: string;
+  type: string;
+  title: string;
+  content: string;
+  isRead: boolean;
+  /** ISO 8601（UTC） */
+  createdAt: string;
+}
+
+/** 站内信未读数 */
+export interface NotificationUnreadDto {
+  unreadCount: number;
+}
+
+/** 菜单目录项（后端用于校验 + 管理端回显） */
+export interface MenuCatalogItemDto {
+  key: string;
+  name: string;
+  /** 内置默认可见角色 */
+  defaultRoles: Role[];
+  /** 是否管理员不可关闭（防自锁） */
+  adminRequired: boolean;
+}
+
+/** 菜单权限：角色 → 可见菜单 key 列表 */
+export type MenuGrantsDto = Record<Role, string[]>;
+
+/** 菜单权限完整视图（管理端用） */
+export interface MenuPermissionDto {
+  catalog: MenuCatalogItemDto[];
+  grants: MenuGrantsDto;
+}
+
+/** 当前用户可见菜单 key 列表（前端菜单渲染用） */
+export interface MyMenusDto {
+  menus: string[];
+}
+
+/** 用户导入的合法行 */
+export interface UserValidRow {
+  row: number;
+  username: string;
+  name: string;
+  role: Role;
+  /** 科室名称（考生必填） */
+  departmentName: string;
+  /** 科室 id（服务端按名称解析；考生必填，其余角色为空串） */
+  departmentId: string;
+  /** 邮箱；空串 = 无 */
+  email: string;
+  /** 初始密码；空 = 使用系统默认密码 */
+  password: string;
+}
+
+/** 用户导入预览结果 */
+export interface UserPreviewResult {
+  totalRows: number;
+  successCount: number;
+  failCount: number;
+  errors: RowIssue[];
+  warnings: RowIssue[];
+  validRows: UserValidRow[];
+}
+
+/** 用户导入提交结果 */
+export interface UserCommitResult {
+  batchId: string;
+  successCount: number;
+  failCount: number;
+  totalRows: number;
+}
+
+/** 用户导入批次 DTO */
+export interface UserBatchDto {
+  id: string;
+  fileName: string;
+  totalRows: number;
+  successCount: number;
+  failCount: number;
+  errors: RowIssue[];
+  operatorId: string;
+  createdAt: string;
 }

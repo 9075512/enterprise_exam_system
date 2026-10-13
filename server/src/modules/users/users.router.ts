@@ -37,6 +37,7 @@ usersRouter.post(
       name: string;
       role: Role;
       departmentId: string;
+      email?: string;
       status?: UserStatus;
       password?: string;
     };
@@ -55,6 +56,7 @@ usersRouter.put(
       name: string;
       role: Role;
       departmentId: string;
+      email?: string;
       status?: UserStatus;
       password?: string;
     };

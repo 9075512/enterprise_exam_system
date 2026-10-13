@@ -18,6 +18,7 @@ export interface UserRow extends RowDataPacket {
   role: Role;
   department_id: string | null;
   department_name: string | null;
+  email: string | null;
   status: UserStatus;
   created_at: string;
 }
@@ -31,6 +32,7 @@ export function mapUserRow(row: UserRow): UserDto {
     role: row.role,
     departmentId: row.department_id ?? '',
     departmentName: row.department_name ?? '',
+    email: row.email ?? '',
     status: row.status,
     createdAt: fromDbDateSafe(row.created_at),
   };

@@ -3,7 +3,7 @@
  * users 表的全部 SQL 统一收敛于此，auth 模块通过 auth.repo 委托复用，避免重复实现。
  */
 import type { RowDataPacket } from 'mysql2/promise';
-import { query } from '../../db/pool.js';
+import { query, type QueryParams } from '../../db/pool.js';
 import type { UserRow } from './user.mapper.js';
 import type { Role, UserStatus } from '../../types/domain.js';
 
@@ -30,7 +30,7 @@ export interface UserListFilter {
 }
 
 const USER_COLUMNS =
-  'u.id, u.username, u.password_hash, u.name, u.role, u.department_id, d.name AS department_name, u.status, u.created_at';
+  'u.id, u.username, u.password_hash, u.name, u.role, u.department_id, d.name AS department_name, u.email, u.status, u.created_at';
 const USER_FROM = 'FROM users u LEFT JOIN departments d ON d.id = u.department_id';
 
 /** 按 id 查询。 */
@@ -88,24 +88,25 @@ export async function insert(row: {
   name: string;
   role: Role;
   departmentId: string | null;
+  email: string | null;
   status: UserStatus;
   createdAt: string;
 }): Promise<void> {
   await query<RowDataPacket[]>(
-    `INSERT INTO users (id, username, password_hash, name, role, department_id, status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [row.id, row.username, row.passwordHash, row.name, row.role, row.departmentId, row.status, row.createdAt],
+    `INSERT INTO users (id, username, password_hash, name, role, department_id, email, status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [row.id, row.username, row.passwordHash, row.name, row.role, row.departmentId, row.email, row.status, row.createdAt],
   );
 }
 
 /** 更新用户基础信息（不改密码）。 */
 export async function update(
   id: string,
-  row: { username: string; name: string; role: Role; departmentId: string | null; status: UserStatus },
+  row: { username: string; name: string; role: Role; departmentId: string | null; email: string | null; status: UserStatus },
 ): Promise<void> {
   await query<RowDataPacket[]>(
-    `UPDATE users SET username = ?, name = ?, role = ?, department_id = ?, status = ? WHERE id = ?`,
-    [row.username, row.name, row.role, row.departmentId, row.status, id],
+    `UPDATE users SET username = ?, name = ?, role = ?, department_id = ?, email = ?, status = ? WHERE id = ?`,
+    [row.username, row.name, row.role, row.departmentId, row.email, row.status, id],
   );
 }
 
@@ -135,4 +136,28 @@ export async function hasExamRecords(userId: string): Promise<boolean> {
     [userId],
   );
   return Number(rows[0]?.c ?? 0) > 0;
+}
+
+/** 按 id 列表批量取邮箱（邮件通知用；无邮箱返回 null）。 */
+export async function findEmailsByIds(ids: string[]): Promise<Array<{ id: string; email: string | null }>> {
+  if (ids.length === 0) return [];
+  const placeholders = ids.map(() => '?').join(',');
+  const rows = await query<Array<RowDataPacket & { id: string; email: string | null }>>(
+    `SELECT id, email FROM users WHERE id IN (${placeholders})`,
+    ids,
+  );
+  return rows.map((r) => ({ id: r.id, email: r.email ?? null }));
+}
+
+/** 取属于给定科室集合的用户 id（可按角色过滤；考试发布通知用）。 */
+export async function findIdsByDepartments(departmentIds: string[], role?: Role): Promise<string[]> {
+  if (departmentIds.length === 0) return [];
+  const placeholders = departmentIds.map(() => '?').join(',');
+  const roleCond = role ? ' AND role = ?' : '';
+  const params: QueryParams = role ? [...departmentIds, role] : [...departmentIds];
+  const rows = await query<RowDataPacket[]>(
+    `SELECT id FROM users WHERE department_id IN (${placeholders})${roleCond}`,
+    params,
+  );
+  return rows.map((r) => String(r.id));
 }

@@ -8,7 +8,7 @@ import type { ExamRow } from './exams.mapper.js';
 export type { ExamRow } from './exams.mapper.js';
 
 const COLUMNS =
-  'id, name, paper_id, department_ids, start_time, end_time, duration_minutes, pass_score, max_attempts, shuffle_enabled, shuffle_options, created_by, created_at';
+  'id, name, paper_id, department_ids, start_time, end_time, duration_minutes, pass_score, max_attempts, shuffle_enabled, shuffle_options, allow_retake, created_by, created_at';
 
 /** 全部考试（按开始时间倒序）。 */
 export async function list(): Promise<ExamRow[]> {
@@ -51,6 +51,7 @@ export async function insert(
     maxAttempts: number;
     shuffleEnabled: boolean | null;
     shuffleOptions: boolean | null;
+    allowRetake: boolean | null;
     createdBy: string;
     createdAt: string;
   },
@@ -59,8 +60,8 @@ export async function insert(
   await runQuery(
     exec,
     `INSERT INTO exams
-       (id, name, paper_id, department_ids, start_time, end_time, duration_minutes, pass_score, max_attempts, shuffle_enabled, shuffle_options, created_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, name, paper_id, department_ids, start_time, end_time, duration_minutes, pass_score, max_attempts, shuffle_enabled, shuffle_options, allow_retake, created_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       row.id,
       row.name,
@@ -73,6 +74,7 @@ export async function insert(
       row.maxAttempts,
       row.shuffleEnabled === null ? null : row.shuffleEnabled ? 1 : 0,
       row.shuffleOptions === null ? null : row.shuffleOptions ? 1 : 0,
+      row.allowRetake === null ? null : row.allowRetake ? 1 : 0,
       row.createdBy,
       row.createdAt,
     ],
@@ -93,13 +95,14 @@ export async function update(
     maxAttempts: number;
     shuffleEnabled: boolean | null;
     shuffleOptions: boolean | null;
+    allowRetake: boolean | null;
   },
   exec?: SqlExecutor,
 ): Promise<void> {
   await runQuery(
     exec,
     `UPDATE exams
-       SET name = ?, paper_id = ?, department_ids = ?, start_time = ?, end_time = ?, duration_minutes = ?, pass_score = ?, max_attempts = ?, shuffle_enabled = ?, shuffle_options = ?
+       SET name = ?, paper_id = ?, department_ids = ?, start_time = ?, end_time = ?, duration_minutes = ?, pass_score = ?, max_attempts = ?, shuffle_enabled = ?, shuffle_options = ?, allow_retake = ?
      WHERE id = ?`,
     [
       row.name,
@@ -112,6 +115,7 @@ export async function update(
       row.maxAttempts,
       row.shuffleEnabled === null ? null : row.shuffleEnabled ? 1 : 0,
       row.shuffleOptions === null ? null : row.shuffleOptions ? 1 : 0,
+      row.allowRetake === null ? null : row.allowRetake ? 1 : 0,
       id,
     ],
   );

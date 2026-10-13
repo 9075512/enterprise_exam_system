@@ -114,6 +114,33 @@ export const settingsSchema = z.object({
   copyright: z
     .string({ invalid_type_error: '版权信息不能超过 120 个字符' })
     .max(120, '版权信息不能超过 120 个字符'),
+
+  retakeDefaultEnabled: z.boolean({ invalid_type_error: '补考申请默认开关必须为布尔值' }),
+
+  notifySiteEnabled: z.boolean({ invalid_type_error: '站内信通知开关必须为布尔值' }),
+  notifyEmailEnabled: z.boolean({ invalid_type_error: '邮件通知开关必须为布尔值' }),
+  notifyOnPublish: z.boolean({ invalid_type_error: '考试发布通知开关必须为布尔值' }),
+  notifyOnResult: z.boolean({ invalid_type_error: '成绩通知开关必须为布尔值' }),
+  notifyOnRetake: z.boolean({ invalid_type_error: '补考审批通知开关必须为布尔值' }),
+
+  smtpHost: z
+    .string({ invalid_type_error: 'SMTP 服务器地址不能超过 120 个字符' })
+    .max(120, 'SMTP 服务器地址不能超过 120 个字符'),
+  smtpPort: z
+    .number({ invalid_type_error: 'SMTP 端口必须为 1~65535' })
+    .int('SMTP 端口必须为 1~65535')
+    .min(1, 'SMTP 端口必须为 1~65535')
+    .max(65535, 'SMTP 端口必须为 1~65535'),
+  smtpSecure: z.boolean({ invalid_type_error: 'SMTP 加密开关必须为布尔值' }),
+  smtpUser: z
+    .string({ invalid_type_error: 'SMTP 账号不能超过 120 个字符' })
+    .max(120, 'SMTP 账号不能超过 120 个字符'),
+  smtpPass: z
+    .string({ invalid_type_error: 'SMTP 授权码不能超过 200 个字符' })
+    .max(200, 'SMTP 授权码不能超过 200 个字符'),
+  smtpFrom: z
+    .string({ invalid_type_error: '发件人地址不能超过 120 个字符' })
+    .max(120, '发件人地址不能超过 120 个字符'),
 });
 
 /** PUT /settings 入参类型（完整设置对象）。 */

@@ -16,6 +16,9 @@ export type ExamStatus = 'not_started' | 'ongoing' | 'ended';
 /** 考试记录状态 */
 export type RecordStatus = 'in_progress' | 'submitted';
 
+/** 补考申请状态 */
+export type RetakeStatus = 'pending' | 'approved' | 'rejected';
+
 /** 账号状态 */
 export type UserStatus = 'active' | 'disabled';
 
@@ -46,6 +49,8 @@ export interface User {
   departmentId: string;
   /** 所属科室名称；无科室时为 ''（由后端 login / me / users 列表返回） */
   departmentName: string;
+  /** 邮箱（邮件通知接收地址；可为空串） */
+  email: string;
   status: UserStatus;
   /** ISO 8601 */
   createdAt: string;
@@ -163,6 +168,8 @@ export interface Exam {
   shuffleEnabled: boolean | null;
   /** 选项乱序开关；null=继承全局默认 */
   shuffleOptions: boolean | null;
+  /** 补考申请开关；null=继承全局默认（仅 maxAttempts=1 时生效） */
+  allowRetake: boolean | null;
   createdBy: string;
   /** ISO 8601 */
   createdAt: string;
@@ -174,6 +181,10 @@ export interface ExamMy extends Exam {
   recordStatus: RecordStatus | null;
   /** 本人已交卷次数 */
   attemptsUsed: number;
+  /** 本人补考申请状态；无申请时为 null */
+  retakeStatus: RetakeStatus | null;
+  /** 本人当前是否可发起补考申请 */
+  canApplyRetake: boolean;
 }
 
 /** 切屏（离开考试页面）事件，只增不改 */
@@ -334,6 +345,7 @@ export interface UserSaveInput {
   name: string;
   role: Role;
   departmentId: string;
+  email?: string;
   status?: UserStatus;
   /** 新建时未提供则使用默认密码；编辑时留空表示不修改密码 */
   password?: string;
@@ -379,6 +391,8 @@ export interface ExamSaveInput {
   shuffleEnabled?: boolean | null;
   /** 选项乱序开关；null=继承全局默认 */
   shuffleOptions?: boolean | null;
+  /** 补考申请开关；null=继承全局默认 */
+  allowRetake?: boolean | null;
 }
 
 /** 单场考试统计摘要（passRate 为 0~1 小数） */
@@ -475,6 +489,30 @@ export interface SystemSettings {
   loginSlogan: string;
   /** 登录页版权/页脚文案 */
   copyright: string;
+  /** 补考申请全局默认开关（单场可覆盖；仅 maxAttempts=1 可补考） */
+  retakeDefaultEnabled: boolean;
+  /** 站内信通知总开关 */
+  notifySiteEnabled: boolean;
+  /** 邮件通知总开关 */
+  notifyEmailEnabled: boolean;
+  /** 考试发布通知开关 */
+  notifyOnPublish: boolean;
+  /** 成绩通知开关 */
+  notifyOnResult: boolean;
+  /** 补考审批结果通知开关 */
+  notifyOnRetake: boolean;
+  /** SMTP 服务器地址（空 = 未配置） */
+  smtpHost: string;
+  /** SMTP 端口 */
+  smtpPort: number;
+  /** SMTP 是否使用 SSL */
+  smtpSecure: boolean;
+  /** SMTP 账号 */
+  smtpUser: string;
+  /** SMTP 密码/授权码（敏感） */
+  smtpPass: string;
+  /** 发件人地址 */
+  smtpFrom: string;
 }
 
 /** 公开设置：无需登录即可读取，仅含登录页品牌展示所需字段 */
@@ -504,4 +542,105 @@ export interface PracticeSettings {
   dailyBankScope: PracticeDailyBankScope;
   /** 收藏夹上限（1~2000） */
   favoriteLimit: number;
+}
+
+// ============================================================
+// v1.5 增量类型：补考 / 消息通知 / 菜单权限 / 用户导入
+// ============================================================
+
+/** 站内信 */
+export interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  content: string;
+  isRead: boolean;
+  /** ISO 8601 */
+  createdAt: string;
+}
+
+/** 站内信未读数 */
+export interface NotificationUnread {
+  unreadCount: number;
+}
+
+/** 补考申请 */
+export interface Retake {
+  id: string;
+  examId: string;
+  examName: string;
+  userId: string;
+  userName: string;
+  username: string;
+  departmentName: string;
+  status: RetakeStatus;
+  reason: string;
+  appliedAt: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+}
+
+/** 菜单目录项 */
+export interface MenuCatalogItem {
+  key: string;
+  name: string;
+  defaultRoles: Role[];
+  /** 是否管理员不可关闭（防自锁） */
+  adminRequired: boolean;
+}
+
+/** 菜单权限：角色 → 可见菜单 key 列表 */
+export type MenuGrants = Record<Role, string[]>;
+
+/** 菜单权限完整视图（管理端用） */
+export interface MenuPermission {
+  catalog: MenuCatalogItem[];
+  grants: MenuGrants;
+}
+
+/** 当前用户可见菜单 key 列表 */
+export interface MyMenus {
+  menus: string[];
+}
+
+/** 用户导入的合法行 */
+export interface UserValidRow {
+  row: number;
+  username: string;
+  name: string;
+  role: Role;
+  departmentName: string;
+  departmentId: string;
+  email: string;
+  password: string;
+}
+
+/** 用户导入预览结果 */
+export interface UserPreviewResult {
+  totalRows: number;
+  successCount: number;
+  failCount: number;
+  errors: RowIssue[];
+  warnings: RowIssue[];
+  validRows: UserValidRow[];
+}
+
+/** 用户导入提交结果 */
+export interface UserCommitResult {
+  batchId: string;
+  successCount: number;
+  failCount: number;
+  totalRows: number;
+}
+
+/** 用户导入批次 */
+export interface UserImportBatch {
+  id: string;
+  fileName: string;
+  totalRows: number;
+  successCount: number;
+  failCount: number;
+  errors: RowIssue[];
+  operatorId: string;
+  createdAt: string;
 }

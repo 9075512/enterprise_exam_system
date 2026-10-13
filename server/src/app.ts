@@ -13,6 +13,7 @@ import { ok } from './utils/response.js';
 import { env } from './config/env.js';
 import { authRouter } from './modules/auth/auth.router.js';
 import { usersRouter } from './modules/users/users.router.js';
+import { userImportRouter } from './modules/users/userImport.router.js';
 import { departmentsRouter } from './modules/departments/departments.router.js';
 import { banksRouter } from './modules/banks/banks.router.js';
 import { questionsRouter } from './modules/questions/questions.router.js';
@@ -22,6 +23,9 @@ import { examsRouter } from './modules/exams/exams.router.js';
 import { recordsRouter } from './modules/records/records.router.js';
 import { reportsRouter } from './modules/reports/reports.router.js';
 import { settingsRouter } from './modules/settings/settings.router.js';
+import { permissionsRouter } from './modules/permissions/permissions.router.js';
+import { notificationsRouter } from './modules/notifications/notifications.router.js';
+import { retakesRouter } from './modules/retakes/retakes.router.js';
 import { practiceRouter } from './modules/practice/practice.router.js';
 import { practiceEdgeGuard } from './middleware/practiceEdge.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
@@ -54,6 +58,7 @@ export function createApp(): Express {
   // 考试域（内网）路由：PRACTICE_ONLY=true（公网练题实例）时**不注册**，进程内物理不可达。
   if (!env.PRACTICE_ONLY) {
     api.use('/auth', authRouter);
+    api.use('/users/import', userImportRouter);
     api.use('/users', usersRouter);
     api.use('/departments', departmentsRouter);
     // 注意：/questions/import 必须在 /questions 之前挂载，避免被通配路由抢先匹配
@@ -66,6 +71,9 @@ export function createApp(): Express {
     api.use('/records', recordsRouter);
     api.use('/reports', reportsRouter);
     api.use('/settings', settingsRouter);
+    api.use('/permissions', permissionsRouter);
+    api.use('/notifications', notificationsRouter);
+    api.use('/retakes', retakesRouter);
   }
 
   app.use('/api', api);

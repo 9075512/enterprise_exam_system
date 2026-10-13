@@ -81,6 +81,18 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     changes.push('exams.shuffle_options');
   }
 
+  // v1.5：补考申请开关（NULL=继承全局默认）
+  if (!(await columnExists(conn, 'exams', 'allow_retake'))) {
+    await conn.query(`ALTER TABLE exams ADD COLUMN allow_retake TINYINT(1) NULL AFTER shuffle_options`);
+    changes.push('exams.allow_retake');
+  }
+
+  // v1.5：用户邮箱（邮件通知接收地址，可空）
+  if (!(await columnExists(conn, 'users', 'email'))) {
+    await conn.query(`ALTER TABLE users ADD COLUMN email VARCHAR(120) NULL AFTER department_id`);
+    changes.push('users.email');
+  }
+
   if (!(await columnExists(conn, 'exam_records', 'attempt_no'))) {
     await conn.query(`ALTER TABLE exam_records ADD COLUMN attempt_no INT NOT NULL DEFAULT 1 AFTER user_id`);
     changes.push('exam_records.attempt_no');

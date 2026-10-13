@@ -46,10 +46,11 @@ const form = reactive({
   maxAttempts: 1,
 });
 
-/** 人手一卷 / 选项乱序：三态（inherit=跟随全局默认，on=开启，off=关闭） */
+/** 人手一卷 / 选项乱序 / 补考申请：三态（inherit=跟随全局默认，on=开启，off=关闭） */
 type TriState = 'inherit' | 'on' | 'off';
 const shuffleMode = ref<TriState>('inherit');
 const shuffleOptionsMode = ref<TriState>('inherit');
+const allowRetakeMode = ref<TriState>('inherit');
 
 /** boolean|null → TriState */
 function toTri(v: boolean | null | undefined): TriState {
@@ -78,6 +79,7 @@ function resetForm(): void {
     form.maxAttempts = exam.maxAttempts;
     shuffleMode.value = toTri(exam.shuffleEnabled);
     shuffleOptionsMode.value = toTri(exam.shuffleOptions);
+    allowRetakeMode.value = toTri(exam.allowRetake);
   } else {
     form.name = '';
     form.paperId = '';
@@ -89,6 +91,7 @@ function resetForm(): void {
     form.maxAttempts = settingsStore.settings.examDefaultMaxAttempts;
     shuffleMode.value = 'inherit';
     shuffleOptionsMode.value = 'inherit';
+    allowRetakeMode.value = 'inherit';
   }
 }
 
@@ -127,6 +130,7 @@ async function handleSubmit(): Promise<void> {
       maxAttempts: form.maxAttempts,
       shuffleEnabled: shuffleMode.value === 'inherit' ? null : shuffleMode.value === 'on',
       shuffleOptions: shuffleOptionsMode.value === 'inherit' ? null : shuffleOptionsMode.value === 'on',
+      allowRetake: allowRetakeMode.value === 'inherit' ? null : allowRetakeMode.value === 'on',
     };
     if (isEdit.value && props.exam) {
       await examsApi.update(props.exam.id, payload);
@@ -249,6 +253,18 @@ function handleCancel(): void {
           <el-radio value="off">关闭</el-radio>
         </el-radio-group>
         <span class="exam-form__hint">人手一卷开启时，进一步打乱每道题的选项顺序</span>
+      </el-form-item>
+
+      <el-form-item label="补考申请">
+        <el-radio-group v-model="allowRetakeMode">
+          <el-radio value="inherit">跟随全局默认</el-radio>
+          <el-radio value="on">开启</el-radio>
+          <el-radio value="off">关闭</el-radio>
+        </el-radio-group>
+        <span v-if="form.maxAttempts !== 1" class="exam-form__hint">
+          仅答题次数为 1 次的考试可补考（当前为 {{ form.maxAttempts }} 次）
+        </span>
+        <span v-else class="exam-form__hint">不及格考生可申请补考，经管理员审批通过后追加一次答题机会</span>
       </el-form-item>
     </el-form>
 

@@ -55,8 +55,13 @@ settingsRouter.put(
 settingsRouter.get(
   '/',
   authRequired,
-  asyncHandler(async (_req, res) => {
-    return ok(res, await settingsService.getSettings());
+  asyncHandler(async (req, res) => {
+    const settings = await settingsService.getSettings();
+    // 敏感字段脱敏：SMTP 授权码仅管理员可见，避免泄露给考生/出题人
+    if (req.user!.role !== 'admin') {
+      settings.smtpPass = '';
+    }
+    return ok(res, settings);
   }),
 );
 

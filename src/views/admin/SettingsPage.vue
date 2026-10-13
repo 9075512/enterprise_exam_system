@@ -1,14 +1,12 @@
 <script setup lang="ts">
 /**
  * 系统设置（管理员）。
- * 全局单例参数，按**标签页**分组：考试规则 / 账号安全 / 列表与导入 / 系统品牌 / 公网练题。
+ * 全局单例参数，按**标签页**分组：考试规则 / 账号安全 / 列表与导入 / 网站信息 / 消息通知。
  *
  * 采用「本地表单草稿」模式：从 store 深拷贝到 form，只有点击「保存设置」才写回全局，
  * 避免编辑过程污染其它页面已读到的设置。
  *
- * 「公网练题」为二期增量：数据存于**独立的单行表** `practice_settings`（与 `system_settings` 分离），
- * 因此使用**独立的表单与独立保存按钮**（`PUT /api/settings/practice`），不与上方整体替换语义互相覆盖。
- * 顶部操作区随当前标签页切换：前 4 个标签为「恢复默认 / 保存设置」，练题标签为「保存练题配置」。
+ * 注：练题端配置已拆为独立菜单「练题端设置」（独立单行表 practice_settings）。
  */
 import { onMounted, reactive, ref } from 'vue';
 import {
@@ -19,30 +17,14 @@ import {
   type FormRules,
 } from 'element-plus';
 import { useSettingsStore } from '@/stores/settings';
-import { getPracticeSettings, updatePracticeSettings } from '@/api/settings';
-import {
-  DAILY_BANK_SCOPE_OPTIONS,
-  DAILY_COUNT_MAX,
-  DAILY_COUNT_MIN,
-  FAVORITE_LIMIT_MAX,
-  FAVORITE_LIMIT_MIN,
-  PRACTICE_SETTINGS_DEFAULTS,
-} from '@/constants/practiceSettings';
 import PageHeader from '@/components/common/PageHeader.vue';
-import type { PracticeSettings, QuestionType, SystemSettings } from '@/types';
+import type { SystemSettings } from '@/types';
 
 const settingsStore = useSettingsStore();
 
-/** 题型多选项（每日一练题型范围） */
-const TYPE_OPTIONS: Array<{ label: string; value: QuestionType }> = [
-  { label: '单选题', value: 'single' },
-  { label: '多选题', value: 'multiple' },
-  { label: '判断题', value: 'judge' },
-];
-
 /* ------------------------------ 标签页 ------------------------------ */
 
-type SettingsTab = 'exam' | 'account' | 'list' | 'brand' | 'practice';
+type SettingsTab = 'exam' | 'account' | 'list' | 'brand' | 'notify';
 
 /** 当前激活标签页 */
 const activeTab = ref<SettingsTab>('exam');
@@ -52,8 +34,8 @@ const TAB_LABEL: Record<SettingsTab, string> = {
   exam: '考试规则',
   account: '账号安全',
   list: '列表与导入',
-  brand: '系统品牌',
-  practice: '公网练题',
+  brand: '网站信息',
+  notify: '消息通知',
 };
 
 /** 表单字段 → 所属标签页（保存校验失败时自动定位到出错标签） */
@@ -66,6 +48,7 @@ const FIELD_TAB: Record<string, SettingsTab> = {
   cheatAutoSubmitEnabled: 'exam',
   shuffleDefaultEnabled: 'exam',
   shuffleOptionsDefault: 'exam',
+  retakeDefaultEnabled: 'exam',
   countdownWarningMinutes: 'exam',
   defaultPassword: 'account',
   minPasswordLength: 'account',
@@ -79,6 +62,17 @@ const FIELD_TAB: Record<string, SettingsTab> = {
   systemShortName: 'brand',
   loginSlogan: 'brand',
   copyright: 'brand',
+  notifySiteEnabled: 'notify',
+  notifyEmailEnabled: 'notify',
+  notifyOnPublish: 'notify',
+  notifyOnResult: 'notify',
+  notifyOnRetake: 'notify',
+  smtpHost: 'notify',
+  smtpPort: 'notify',
+  smtpSecure: 'notify',
+  smtpUser: 'notify',
+  smtpPass: 'notify',
+  smtpFrom: 'notify',
 };
 
 /* ------------------------------ 表单草稿 ------------------------------ */
@@ -157,47 +151,19 @@ const rules: FormRules = {
   systemShortName: strRules('系统简称', 1, 40),
   loginSlogan: strRules('登录页标语', 0, 80),
   copyright: strRules('版权/页脚', 0, 120),
+  // 消息通知（SMTP）
+  smtpHost: strRules('SMTP 服务器地址', 0, 120),
+  smtpPort: numRules('SMTP 端口', 1, 65535, { unit: '' }),
+  smtpUser: strRules('SMTP 账号', 0, 120),
+  smtpPass: strRules('SMTP 授权码', 0, 200),
+  smtpFrom: strRules('发件人地址', 0, 120),
 };
 
 /* ------------------------------ 加载 ------------------------------ */
 onMounted(async () => {
   await settingsStore.load(true);
   Object.assign(form, settingsStore.settings);
-  void loadPractice();
 });
-
-/* ------------------------------ 公网练题配置（独立表单 + 独立保存） ------------------------------ */
-
-/** 练题配置草稿（与上方系统设置完全解耦） */
-const practiceForm = reactive<PracticeSettings>({ ...PRACTICE_SETTINGS_DEFAULTS });
-const practiceLoading = ref(true);
-const practiceSaving = ref(false);
-
-/** 读取练题配置（失败回退默认值，不阻塞页面其余部分） */
-async function loadPractice(): Promise<void> {
-  practiceLoading.value = true;
-  try {
-    Object.assign(practiceForm, await getPracticeSettings());
-  } catch {
-    Object.assign(practiceForm, PRACTICE_SETTINGS_DEFAULTS);
-  } finally {
-    practiceLoading.value = false;
-  }
-}
-
-/** 保存练题配置（走独立接口，不影响 system_settings） */
-async function handleSavePractice(): Promise<void> {
-  practiceSaving.value = true;
-  try {
-    const saved = await updatePracticeSettings({ ...practiceForm });
-    Object.assign(practiceForm, saved);
-    ElMessage.success('公网练题配置已保存，练题端即时生效');
-  } catch {
-    // 错误提示已由 http.ts 响应拦截器统一弹出
-  } finally {
-    practiceSaving.value = false;
-  }
-}
 
 /* ------------------------------ 保存 ------------------------------ */
 async function handleSave(): Promise<void> {
@@ -253,16 +219,8 @@ async function handleReset(): Promise<void> {
   <div class="settings-page">
     <PageHeader title="系统设置" description="全局参数对所有用户实时生效，仅管理员可修改">
       <template #actions>
-        <!-- 顶部操作区随标签页切换：练题配置走独立接口与独立保存 -->
-        <template v-if="activeTab === 'practice'">
-          <el-button type="primary" :loading="practiceSaving" @click="handleSavePractice">
-            保存练题配置
-          </el-button>
-        </template>
-        <template v-else>
-          <el-button @click="handleReset">恢复默认</el-button>
-          <el-button type="primary" :loading="saving" @click="handleSave">保存设置</el-button>
-        </template>
+        <el-button @click="handleReset">恢复默认</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave">保存设置</el-button>
       </template>
     </PageHeader>
 
@@ -396,6 +354,20 @@ async function handleReset(): Promise<void> {
                     />
                     <p class="settings-page__hint">
                       人手一卷开启时，进一步打乱每道题的选项顺序（同步调整正确答案）。
+                    </p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="补考申请（默认）" prop="retakeDefaultEnabled">
+                  <div class="settings-page__control">
+                    <el-switch
+                      v-model="form.retakeDefaultEnabled"
+                      active-text="开启"
+                      inactive-text="关闭"
+                    />
+                    <p class="settings-page__hint">
+                      开启后，新建考试默认开放补考申请；补考仅限答题次数为 1 次的考试，且需管理员审批。
                     </p>
                   </div>
                 </el-form-item>
@@ -544,8 +516,8 @@ async function handleReset(): Promise<void> {
             </el-row>
           </el-tab-pane>
 
-          <!-- 4. 系统品牌 -->
-          <el-tab-pane label="系统品牌" name="brand">
+          <!-- 4. 网站信息 -->
+          <el-tab-pane label="网站信息" name="brand">
             <el-row :gutter="24">
               <el-col :xs="24" :sm="24" :md="12">
                 <el-form-item label="系统全称（登录页品牌名）" prop="systemName">
@@ -602,119 +574,103 @@ async function handleReset(): Promise<void> {
             </el-row>
           </el-tab-pane>
 
-          <!-- 5. 公网练题（二期；独立表单 + 独立保存，不与 system_settings 互相覆盖） -->
-          <el-tab-pane label="公网练题" name="practice">
-            <div v-loading="practiceLoading" class="settings-page__practice">
-              <el-alert
-                class="settings-page__alert"
-                type="info"
-                show-icon
-                :closable="false"
-                title="仅作用于公网练题端（题库练习、每日一练、收藏夹），不影响内网考试功能"
-              />
-
-              <el-row :gutter="24">
-                <el-col :xs="24" :sm="24" :md="12">
-                  <div class="settings-page__item">
-                    <label class="settings-page__label">每日一练</label>
-                    <div class="settings-page__control">
-                      <el-switch
-                        v-model="practiceForm.dailyEnabled"
-                        active-text="开启"
-                        inactive-text="关闭"
-                      />
-                      <p class="settings-page__hint">
-                        关闭后练题端首页不再显示每日一练入口，且无法新建当日任务；已产生的打卡记录保留。
-                      </p>
-                    </div>
+          <!-- 5. 消息通知 -->
+          <el-tab-pane label="消息通知" name="notify">
+            <el-alert
+              class="settings-page__alert"
+              type="info"
+              show-icon
+              :closable="false"
+              title="站内信零依赖；邮件需配置 SMTP。各事件可独立开关，邮件发送失败自动降级为仅站内信"
+            />
+            <el-row :gutter="24">
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="站内信通知" prop="notifySiteEnabled">
+                  <div class="settings-page__control">
+                    <el-switch v-model="form.notifySiteEnabled" active-text="开启" inactive-text="关闭" />
+                    <p class="settings-page__hint">关闭后不再写入站内信（消息中心）。</p>
                   </div>
-                </el-col>
-
-                <el-col :xs="24" :sm="24" :md="12">
-                  <div class="settings-page__item">
-                    <label class="settings-page__label">每日题量（题）</label>
-                    <div class="settings-page__control">
-                      <el-input-number
-                        v-model="practiceForm.dailyQuestionCount"
-                        :min="DAILY_COUNT_MIN"
-                        :max="DAILY_COUNT_MAX"
-                        :step="1"
-                        :disabled="!practiceForm.dailyEnabled"
-                        class="settings-page__num"
-                      />
-                      <p class="settings-page__hint">
-                        默认 10 题；开放题库题量不足时按实际题量生成。当日已生成的任务不受修改影响。
-                      </p>
-                    </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="邮件通知" prop="notifyEmailEnabled">
+                  <div class="settings-page__control">
+                    <el-switch v-model="form.notifyEmailEnabled" active-text="开启" inactive-text="关闭" />
+                    <p class="settings-page__hint">需在下方配置 SMTP；未配置或发送失败自动降级为仅站内信。</p>
                   </div>
-                </el-col>
-
-                <el-col :xs="24" :sm="24" :md="12">
-                  <div class="settings-page__item">
-                    <label class="settings-page__label">题型范围</label>
-                    <div class="settings-page__control">
-                      <el-select
-                        v-model="practiceForm.dailyTypes"
-                        multiple
-                        collapse-tags
-                        placeholder="全部题型"
-                        :disabled="!practiceForm.dailyEnabled"
-                        class="settings-page__select"
-                      >
-                        <el-option
-                          v-for="opt in TYPE_OPTIONS"
-                          :key="opt.value"
-                          :label="opt.label"
-                          :value="opt.value"
-                        />
-                      </el-select>
-                      <p class="settings-page__hint">留空表示包含全部题型。</p>
-                    </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="考试发布通知" prop="notifyOnPublish">
+                  <div class="settings-page__control">
+                    <el-switch v-model="form.notifyOnPublish" active-text="开启" inactive-text="关闭" />
+                    <p class="settings-page__hint">新建考试时通知参与科室的考生。</p>
                   </div>
-                </el-col>
-
-                <el-col :xs="24" :sm="24" :md="12">
-                  <div class="settings-page__item">
-                    <label class="settings-page__label">抽题范围</label>
-                    <div class="settings-page__control">
-                      <el-radio-group
-                        v-model="practiceForm.dailyBankScope"
-                        :disabled="!practiceForm.dailyEnabled"
-                      >
-                        <el-radio
-                          v-for="opt in DAILY_BANK_SCOPE_OPTIONS"
-                          :key="opt.value"
-                          :value="opt.value"
-                        >
-                          {{ opt.label }}
-                        </el-radio>
-                      </el-radio-group>
-                      <p class="settings-page__hint">仅每日一练抽题时生效，题库练习不受影响。</p>
-                    </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="成绩通知" prop="notifyOnResult">
+                  <div class="settings-page__control">
+                    <el-switch v-model="form.notifyOnResult" active-text="开启" inactive-text="关闭" />
+                    <p class="settings-page__hint">交卷出成绩后通知考生本人。</p>
                   </div>
-                </el-col>
-
-                <el-col :xs="24" :sm="24" :md="12">
-                  <div class="settings-page__item">
-                    <label class="settings-page__label">收藏夹上限（题）</label>
-                    <div class="settings-page__control">
-                      <el-input-number
-                        v-model="practiceForm.favoriteLimit"
-                        :min="FAVORITE_LIMIT_MIN"
-                        :max="FAVORITE_LIMIT_MAX"
-                        :step="10"
-                        class="settings-page__num"
-                      />
-                      <p class="settings-page__hint">调小仅限制新增收藏，不会删除已有收藏。</p>
-                    </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="补考审批通知" prop="notifyOnRetake">
+                  <div class="settings-page__control">
+                    <el-switch v-model="form.notifyOnRetake" active-text="开启" inactive-text="关闭" />
+                    <p class="settings-page__hint">补考申请通过/驳回后通知考生本人。</p>
                   </div>
-                </el-col>
-              </el-row>
-
-              <p class="settings-page__practice-note">
-                该配置保存在独立的练题配置表中，与「系统设置」分开读写，互不影响。
-              </p>
-            </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="SMTP 服务器地址" prop="smtpHost">
+                  <div class="settings-page__control">
+                    <el-input v-model="form.smtpHost" maxlength="120" placeholder="如 smtp.exmail.qq.com" class="settings-page__input" />
+                    <p class="settings-page__hint">留空表示未配置邮件发送。</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="SMTP 端口" prop="smtpPort">
+                  <div class="settings-page__control">
+                    <el-input-number v-model="form.smtpPort" :min="1" :max="65535" :step="1" class="settings-page__num" />
+                    <p class="settings-page__hint">默认 465（SSL）。</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="SMTP 加密（SSL）" prop="smtpSecure">
+                  <div class="settings-page__control">
+                    <el-switch v-model="form.smtpSecure" active-text="开启" inactive-text="关闭" />
+                    <p class="settings-page__hint">465 端口建议开启，25 端口建议关闭。</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="SMTP 账号" prop="smtpUser">
+                  <div class="settings-page__control">
+                    <el-input v-model="form.smtpUser" maxlength="120" class="settings-page__input" />
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="SMTP 授权码 / 密码" prop="smtpPass">
+                  <div class="settings-page__control">
+                    <el-input v-model="form.smtpPass" type="password" show-password maxlength="200" class="settings-page__input" />
+                    <p class="settings-page__hint">仅管理员可见；保存后接口不回传明文，请勿重复提交空值覆盖。</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="发件人地址" prop="smtpFrom">
+                  <div class="settings-page__control">
+                    <el-input v-model="form.smtpFrom" maxlength="120" placeholder="如 noreply@example.com" class="settings-page__input" />
+                  </div>
+                </el-form-item>
+              </el-col>
+            </el-row>
           </el-tab-pane>
         </el-tabs>
       </el-form>

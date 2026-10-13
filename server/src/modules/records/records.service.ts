@@ -8,6 +8,7 @@ import { mapRecordRow, mapRecordDetailRow } from './records.mapper.js';
 import * as examsRepo from '../exams/exams.repo.js';
 import { mapExamRow } from '../exams/exams.mapper.js';
 import * as papersService from '../papers/papers.service.js';
+import * as retakesService from '../retakes/retakes.service.js';
 import { getExamStatus } from '../../utils/examStatus.js';
 import { badRequest, forbidden, notFound, attemptsExhausted } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
@@ -17,6 +18,7 @@ import { normalizePaging, buildPage } from '../../utils/pagination.js';
 import { isAnswerCorrect } from '../../utils/grading.js';
 import { getSettings } from '../settings/settings.service.js';
 import { shuffleSnapshot } from '../../utils/shuffle.js';
+import { notifyUsers } from '../../utils/notify.js';
 import crypto from 'node:crypto';
 import type {
   CheatEvent,
@@ -70,10 +72,12 @@ export async function startExam(
   const inProgress = await repo.findInProgressByExamAndUser(examId, user.id);
   if (inProgress) return mapRecordRow(inProgress);
 
-  // 次数上限校验
+  // 次数上限校验（补考：存在已通过申请时额外授予 1 次）
   const used = await repo.countSubmittedByExamAndUser(examId, user.id);
-  if (used >= exam.maxAttempts) {
-    throw attemptsExhausted(`答题次数已用完（最多 ${exam.maxAttempts} 次）`);
+  const retakeGranted = await retakesService.isRetakeGranted(examId, user.id);
+  const maxAllowed = exam.maxAttempts + (retakeGranted ? 1 : 0);
+  if (used >= maxAllowed) {
+    throw attemptsExhausted(`答题次数已用完（最多 ${maxAllowed} 次）`);
   }
 
   const attemptNo = used + 1;
@@ -152,7 +156,20 @@ export async function submit(recordId: string, userId: string, auto: boolean): P
   const score = grade(record);
   await repo.submit(recordId, { submittedAt: nowDb(), autoSubmitted: auto, score });
   const updated = await repo.findById(recordId);
-  return mapRecordRow(updated!);
+  const dto = mapRecordRow(updated!);
+
+  // 成绩通知（交卷出成绩；fail-open，不影响交卷）
+  const exam = await examsRepo.findById(record.examId);
+  if (exam) {
+    const passed = score >= Number(exam.pass_score);
+    await notifyUsers([record.userId], {
+      type: 'result',
+      title: `考试成绩已发布：${exam.name}`,
+      content: `你的考试成绩为 ${score} 分，${passed ? '已及格' : '未及格'}。`,
+    });
+  }
+
+  return dto;
 }
 
 /** 记录详情（考生仅本人，管理员任意）。 */

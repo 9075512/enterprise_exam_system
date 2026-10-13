@@ -8,6 +8,7 @@ export interface UserPayload {
   name: string;
   role: Role;
   departmentId?: string;
+  email?: string;
   status?: UserStatus;
   password?: string;
 }

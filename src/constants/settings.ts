@@ -39,6 +39,18 @@ export const SETTINGS_DEFAULTS: SystemSettings = {
   systemShortName: '在线考试系统',
   loginSlogan: '让考核更简单，让能力看得见。',
   copyright: '© 2026 Enterprise Exam System',
+  retakeDefaultEnabled: false,
+  notifySiteEnabled: true,
+  notifyEmailEnabled: false,
+  notifyOnPublish: true,
+  notifyOnResult: true,
+  notifyOnRetake: true,
+  smtpHost: '',
+  smtpPort: 465,
+  smtpSecure: true,
+  smtpUser: '',
+  smtpPass: '',
+  smtpFrom: '',
 };
 
 /** 公开设置的默认值 */

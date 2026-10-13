@@ -5,7 +5,7 @@
  */
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
-import { Plus, Search, Refresh } from '@element-plus/icons-vue';
+import { Plus, Search, Refresh, Upload } from '@element-plus/icons-vue';
 import * as departmentsApi from '@/api/departments';
 import * as usersApi from '@/api/users';
 import { useRequest } from '@/composables/useRequest';
@@ -16,10 +16,14 @@ import { formatDateTime } from '@/utils/datetime';
 import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
+import UserImportDialog from '@/views/admin/UserImportDialog.vue';
 import type { Role, User } from '@/types';
 
 const { confirm } = useConfirm();
 const settingsStore = useSettingsStore();
+
+/** 批量导入账号弹窗 */
+const importDialogVisible = ref(false);
 
 onMounted(() => {
   void settingsStore.load();
@@ -66,6 +70,7 @@ const form = reactive({
   name: '',
   role: 'examinee' as Role,
   departmentId: '',
+  email: '',
   status: 'active' as User['status'],
   password: '',
 });
@@ -77,6 +82,13 @@ const rules = computed<FormRules>(() => ({
   ],
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
   role: [{ required: true, message: '请选择角色', trigger: 'change' }],
+  email: [
+    {
+      pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+      message: '邮箱格式不正确',
+      trigger: 'blur',
+    },
+  ],
   password: [
     {
       // 留空表示使用默认密码 / 不修改密码；非空时校验长度
@@ -102,6 +114,7 @@ function openCreate(): void {
   form.name = '';
   form.role = 'examinee';
   form.departmentId = '';
+  form.email = '';
   form.status = 'active';
   form.password = '';
   dialogVisible.value = true;
@@ -114,6 +127,7 @@ function openEdit(user: User): void {
   form.name = user.name;
   form.role = user.role;
   form.departmentId = user.departmentId;
+  form.email = user.email;
   form.status = user.status;
   form.password = '';
   dialogVisible.value = true;
@@ -137,6 +151,7 @@ async function handleSubmit(): Promise<void> {
       name: form.name.trim(),
       role: form.role,
       departmentId: form.departmentId,
+      email: form.email.trim() ? form.email.trim() : undefined,
       status: form.status,
       password: form.password ? form.password : undefined,
     };
@@ -186,6 +201,7 @@ async function handleToggleStatus(user: User): Promise<void> {
       name: user.name,
       role: user.role,
       departmentId: user.departmentId,
+      email: user.email,
       status: next,
     });
     ElMessage.success(next === 'active' ? '账号已启用' : '账号已停用');
@@ -221,6 +237,7 @@ async function handleDelete(user: User): Promise<void> {
   <div class="user-page">
     <PageHeader title="用户管理" description="维护系统账号、角色与所属科室">
       <template #actions>
+        <el-button :icon="Upload" @click="importDialogVisible = true">批量导入账号</el-button>
         <el-button type="primary" :icon="Plus" @click="openCreate">新建用户</el-button>
       </template>
     </PageHeader>
@@ -263,6 +280,9 @@ async function handleDelete(user: User): Promise<void> {
         </el-table-column>
         <el-table-column label="所属科室" min-width="140">
           <template #default="{ row }">{{ departmentNameMap[row.departmentId] || '—' }}</template>
+        </el-table-column>
+        <el-table-column label="邮箱" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.email || '—' }}</template>
         </el-table-column>
         <el-table-column label="状态" width="90" align="center">
           <template #default="{ row }">
@@ -321,6 +341,9 @@ async function handleDelete(user: User): Promise<void> {
             />
           </el-select>
         </el-form-item>
+        <el-form-item label="邮箱" prop="email">
+          <el-input v-model="form.email" maxlength="120" placeholder="用于邮件通知，可留空" />
+        </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="form.status">
             <el-radio value="active">启用</el-radio>
@@ -343,6 +366,8 @@ async function handleDelete(user: User): Promise<void> {
         </el-button>
       </template>
     </el-dialog>
+
+    <UserImportDialog v-model:visible="importDialogVisible" @imported="refresh" />
   </div>
 </template>
 
