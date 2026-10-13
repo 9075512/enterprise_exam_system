@@ -12,6 +12,7 @@ import type {
   BannerInput,
   ContentFeed,
   ContentTarget,
+  ContentTouchStats,
   Page,
 } from '@/types';
 
@@ -84,4 +85,21 @@ export function deleteBanner(id: string): Promise<null> {
 /** 考生端当前生效的公告 + 轮播图（考试端首页 / 我的考试页展示用） */
 export function fetchFeed(scope: 'exam' | 'practice' = 'exam'): Promise<ContentFeed> {
   return get<ContentFeed>('/content/feed', { scope });
+}
+
+/* ------------------------------ 触达回执（v2.0③） ------------------------------ */
+
+/** 记录公告已读（幂等；考试端 scope='exam'） */
+export function markAnnouncementRead(id: string): Promise<null> {
+  return post<null>(`/content/announcements/${encodeURIComponent(id)}/read`);
+}
+
+/** 记录轮播点击（幂等；考试端 scope='exam'） */
+export function markBannerClick(id: string): Promise<null> {
+  return post<null>(`/content/banners/${encodeURIComponent(id)}/click`);
+}
+
+/** 内容触达看板（管理端：受众规模 + 阅读数/率、点击数/率） */
+export function getTouchStats(): Promise<ContentTouchStats> {
+  return get<ContentTouchStats>('/content/stats');
 }

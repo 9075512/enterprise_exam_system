@@ -21,9 +21,12 @@ import * as auditService from '../audit/audit.service.js';
 import type {
   AnnouncementDto,
   AnnouncementLevel,
+  AnnouncementTouchDto,
   BannerDto,
+  BannerTouchDto,
   ContentFeedDto,
   ContentTarget,
+  ContentTouchStatsDto,
   Page,
 } from '../../types/domain.js';
 import type { AnnouncementBodyInput, BannerBodyInput, ContentListQueryInput } from './content.schema.js';
@@ -111,7 +114,14 @@ export async function listAnnouncements(query: ContentListQueryInput): Promise<P
     repo.countAnnouncements(filter),
   ]);
   const now = nowDb();
-  return buildPage(rows.map((r) => mapAnnouncement(r, now)), total, page, pageSize);
+  // 触达数（v2.0③）：列表页展示每条公告的已读人数
+  const counts = await repo.countReadsForAnnouncements(rows.map((r) => r.id));
+  return buildPage(
+    rows.map((r) => ({ ...mapAnnouncement(r, now), readCount: counts.get(r.id)?.total ?? 0 })),
+    total,
+    page,
+    pageSize,
+  );
 }
 
 /** 新建公告。 */
@@ -204,7 +214,13 @@ export async function listBanners(query: ContentListQueryInput): Promise<Page<Ba
     repo.countBanners(filter),
   ]);
   const now = nowDb();
-  return buildPage(rows.map((r) => mapBanner(r, now)), total, page, pageSize);
+  const counts = await repo.countClicksForBanners(rows.map((r) => r.id));
+  return buildPage(
+    rows.map((r) => ({ ...mapBanner(r, now), clickCount: counts.get(r.id)?.total ?? 0 })),
+    total,
+    page,
+    pageSize,
+  );
 }
 
 /** 新建轮播图。 */
@@ -296,4 +312,82 @@ export async function getFeed(scope: 'exam' | 'practice'): Promise<ContentFeedDt
     announcements: annRows.map((r) => mapAnnouncement(r, now)),
     banners: bannerRows.map((r) => mapBanner(r, now)),
   };
+}
+
+/* ------------------------------ 触达回执（v2.0③） ------------------------------ */
+
+/** 单条触达看板上限（防止一次性拉回全部历史内容）。 */
+const TOUCH_STATS_LIMIT = 100;
+
+/** 记录公告已读（幂等：同一用户同一端只记一条）。内容不存在 → 404。 */
+export async function markAnnouncementRead(scope: 'exam' | 'practice', id: string, userId: string): Promise<void> {
+  const existing = await repo.findAnnouncementById(id);
+  if (!existing) throw notFound('公告不存在或已被删除');
+  await repo.insertAnnouncementRead({
+    id: genId('anr-'),
+    announcementId: id,
+    userId,
+    scope,
+    readAt: nowDb(),
+  });
+}
+
+/** 记录轮播点击（幂等）。内容不存在 → 404。 */
+export async function markBannerClick(scope: 'exam' | 'practice', id: string, userId: string): Promise<void> {
+  const existing = await repo.findBannerById(id);
+  if (!existing) throw notFound('轮播图不存在或已被删除');
+  await repo.insertBannerClick({
+    id: genId('bnc-'),
+    bannerId: id,
+    userId,
+    scope,
+    clickedAt: nowDb(),
+  });
+}
+
+/** 触达率（0~100 整数；分母为 0 时为 0）。 */
+function touchRate(part: number, whole: number): number {
+  return whole > 0 ? Math.round((part / whole) * 100) : 0;
+}
+
+/**
+ * 内容触达看板（管理端）：受众规模 + 最近 100 条公告 / 轮播的阅读数、阅读率与点击数、点击率。
+ * 触达率分母按发布范围取对应端受众（practice → 在职账号数，其余 → 在职考生数）。
+ */
+export async function getTouchStats(): Promise<ContentTouchStatsDto> {
+  const [audience, anns, banners] = await Promise.all([
+    repo.countAudience(),
+    repo.listAnnouncementsForStats(TOUCH_STATS_LIMIT),
+    repo.listBannersForStats(TOUCH_STATS_LIMIT),
+  ]);
+  const [annCounts, bannerCounts] = await Promise.all([
+    repo.countReadsForAnnouncements(anns.map((a) => a.id)),
+    repo.countClicksForBanners(banners.map((b) => b.id)),
+  ]);
+
+  const announcements: AnnouncementTouchDto[] = anns.map((a) => {
+    const count = annCounts.get(a.id)?.total ?? 0;
+    const denom = a.target === 'practice' ? audience.practice : audience.exam;
+    return {
+      id: a.id,
+      title: a.title,
+      target: a.target as ContentTarget,
+      readCount: count,
+      readRate: touchRate(count, denom),
+    };
+  });
+
+  const bannerDtos: BannerTouchDto[] = banners.map((b) => {
+    const count = bannerCounts.get(b.id)?.total ?? 0;
+    const denom = b.target === 'practice' ? audience.practice : audience.exam;
+    return {
+      id: b.id,
+      title: b.title,
+      target: b.target as ContentTarget,
+      clickCount: count,
+      clickRate: touchRate(count, denom),
+    };
+  });
+
+  return { audience, announcements, banners: bannerDtos, generatedAt: new Date().toISOString() };
 }

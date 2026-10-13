@@ -59,6 +59,7 @@ export interface ContentListFilter {
 function buildFilter(
   alias: string,
   filter: ContentListFilter,
+  opts: { withContent?: boolean } = {},
 ): { sql: string; params: Array<string | number | boolean | Date | null> } {
   const conds: string[] = [];
   const params: Array<string | number | boolean | Date | null> = [];
@@ -71,9 +72,13 @@ function buildFilter(
     params.push(filter.enabled ? 1 : 0);
   }
   if (filter.keyword) {
-    conds.push(`(${alias}.title LIKE ? OR ${alias}.content LIKE ? OR ${alias}.id LIKE ?)`);
+    // banners 表无 content 列（仅公告有正文），必须按表区分，否则 SQL 会因未知列报错
+    const cols = opts.withContent
+      ? `(${alias}.title LIKE ? OR ${alias}.content LIKE ? OR ${alias}.id LIKE ?)`
+      : `(${alias}.title LIKE ? OR ${alias}.id LIKE ?)`;
+    conds.push(cols);
     const like = `%${filter.keyword}%`;
-    params.push(like, like, like);
+    params.push(...(opts.withContent ? [like, like, like] : [like, like]));
   }
   return { sql: conds.length ? `WHERE ${conds.join(' AND ')}` : '', params };
 }
@@ -85,7 +90,7 @@ export async function listAnnouncements(
   filter: ContentListFilter,
   paging: { pageSize: number; offset: number },
 ): Promise<AnnouncementRow[]> {
-  const f = buildFilter('a', filter);
+  const f = buildFilter('a', filter, { withContent: true });
   return query<AnnouncementRow[]>(
     `SELECT ${ANN_COLUMNS} FROM announcements a
        LEFT JOIN users u ON u.id = a.created_by
@@ -98,7 +103,7 @@ export async function listAnnouncements(
 
 /** 管理端公告总数（与列表同口径）。 */
 export async function countAnnouncements(filter: ContentListFilter): Promise<number> {
-  const f = buildFilter('a', filter);
+  const f = buildFilter('a', filter, { withContent: true });
   const rows = await query<RowDataPacket[]>(`SELECT COUNT(*) AS c FROM announcements a ${f.sql}`, f.params);
   return Number(rows[0]?.c ?? 0);
 }
@@ -338,4 +343,119 @@ export async function updateBanner(
 /** 删除轮播图。 */
 export async function deleteBanner(id: string): Promise<void> {
   await runQuery(undefined, `DELETE FROM banners WHERE id = ?`, [id]);
+}
+
+/* ------------------------------ 触达回执（v2.0③） ------------------------------ */
+
+/** 已读人数统计（total = 去重人数；exam / practice 按端拆分）。 */
+export interface TouchCount {
+  total: number;
+  exam: number;
+  practice: number;
+}
+
+/**
+ * 记录公告已读（同一用户同一端幂等）。
+ * `INSERT IGNORE` 依赖唯一键 `uk_ann_read(announcement_id, user_id, scope)`。
+ */
+export async function insertAnnouncementRead(row: {
+  id: string;
+  announcementId: string;
+  userId: string;
+  scope: string;
+  readAt: string;
+}): Promise<void> {
+  await runQuery(
+    undefined,
+    `INSERT IGNORE INTO announcement_reads (id, announcement_id, user_id, scope, read_at)
+     VALUES (?, ?, ?, ?, ?)`,
+    [row.id, row.announcementId, row.userId, row.scope, row.readAt],
+  );
+}
+
+/** 记录轮播点击（同一用户同一端幂等）。 */
+export async function insertBannerClick(row: {
+  id: string;
+  bannerId: string;
+  userId: string;
+  scope: string;
+  clickedAt: string;
+}): Promise<void> {
+  await runQuery(
+    undefined,
+    `INSERT IGNORE INTO banner_clicks (id, banner_id, user_id, scope, clicked_at)
+     VALUES (?, ?, ?, ?, ?)`,
+    [row.id, row.bannerId, row.userId, row.scope, row.clickedAt],
+  );
+}
+
+/** 批量统计公告已读人数（按端拆分）。 */
+export async function countReadsForAnnouncements(ids: string[]): Promise<Map<string, TouchCount>> {
+  const map = new Map<string, TouchCount>();
+  if (ids.length === 0) return map;
+  const placeholders = ids.map(() => '?').join(',');
+  const rows = await query<RowDataPacket[]>(
+    `SELECT announcement_id AS id,
+            COUNT(DISTINCT user_id) AS total,
+            COUNT(DISTINCT CASE WHEN scope = 'exam' THEN user_id END) AS exam,
+            COUNT(DISTINCT CASE WHEN scope = 'practice' THEN user_id END) AS practice
+       FROM announcement_reads
+      WHERE announcement_id IN (${placeholders})
+      GROUP BY announcement_id`,
+    ids,
+  );
+  for (const r of rows) {
+    map.set(String(r.id), { total: Number(r.total), exam: Number(r.exam), practice: Number(r.practice) });
+  }
+  return map;
+}
+
+/** 批量统计轮播点击人数（按端拆分）。 */
+export async function countClicksForBanners(ids: string[]): Promise<Map<string, TouchCount>> {
+  const map = new Map<string, TouchCount>();
+  if (ids.length === 0) return map;
+  const placeholders = ids.map(() => '?').join(',');
+  const rows = await query<RowDataPacket[]>(
+    `SELECT banner_id AS id,
+            COUNT(DISTINCT user_id) AS total,
+            COUNT(DISTINCT CASE WHEN scope = 'exam' THEN user_id END) AS exam,
+            COUNT(DISTINCT CASE WHEN scope = 'practice' THEN user_id END) AS practice
+       FROM banner_clicks
+      WHERE banner_id IN (${placeholders})
+      GROUP BY banner_id`,
+    ids,
+  );
+  for (const r of rows) {
+    map.set(String(r.id), { total: Number(r.total), exam: Number(r.exam), practice: Number(r.practice) });
+  }
+  return map;
+}
+
+/** 触达看板：最近公告 / 轮播及其触达数（管理端）。 */
+export async function listAnnouncementsForStats(limit: number): Promise<Array<{ id: string; title: string; target: string }>> {
+  const rows = await query<RowDataPacket[]>(
+    `SELECT id, title, target FROM announcements ORDER BY created_at DESC, id DESC LIMIT ?`,
+    [limit],
+  );
+  return rows.map((r) => ({ id: String(r.id), title: String(r.title), target: String(r.target) }));
+}
+
+export async function listBannersForStats(limit: number): Promise<Array<{ id: string; title: string; target: string }>> {
+  const rows = await query<RowDataPacket[]>(
+    `SELECT id, title, target FROM banners ORDER BY created_at DESC, id DESC LIMIT ?`,
+    [limit],
+  );
+  return rows.map((r) => ({ id: String(r.id), title: String(r.title), target: String(r.target) }));
+}
+
+/** 统计受众人数（触达率分母）。 */
+export async function countAudience(): Promise<{ exam: number; practice: number }> {
+  const rows = await query<RowDataPacket[]>(
+    `SELECT
+        SUM(CASE WHEN role = 'examinee' THEN 1 ELSE 0 END) AS examinee,
+        COUNT(*) AS all_users
+       FROM users
+      WHERE status = 'active'`,
+  );
+  return { exam: Number(rows[0]?.examinee ?? 0), practice: Number(rows[0]?.all_users ?? 0) };
 }

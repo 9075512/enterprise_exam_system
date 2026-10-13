@@ -1,11 +1,11 @@
 /**
- * 内容运营（公告 / 轮播图）—— 路由层（v1.9⑥）。
+ * 内容运营（公告 / 轮播图）—— 路由层（v1.9⑥，v2.0③ 增触达）。
  *
  * 前缀：`/api/content`（**考试域**；PRACTICE_ONLY 公网实例不注册本 router）。
- * - 管理端 `/announcements`、`/banners`：需登录 + admin；
- * - 考生端 `GET /feed?scope=exam`：需登录（考生在「我的考试」等页面读取）；
- * - 练题端不经过本 router，展示接口挂在 `/api/practice/announcements`、`/api/practice/banners`
- *   （见 practice.router.ts），二者共用 content.service 的 `getFeed('practice')`。
+ * - 管理端 `/announcements`、`/banners`、`/stats`：需登录 + admin；
+ * - 考生端 `GET /feed?scope=exam`、`POST /announcements/:id/read`、`POST /banners/:id/click`：需登录；
+ * - 练题端展示与回执接口不经过本 router，挂在 `/api/practice/feed*`
+ *   （见 practice.router.ts），与考试端**共用 content.service**。
  */
 import { Router } from 'express';
 import { asyncHandler } from '../../utils/asyncHandler.js';
@@ -36,6 +36,38 @@ contentRouter.get(
     const { scope } = req.query as unknown as { scope: 'exam' | 'practice' };
     return ok(res, await service.getFeed(scope));
   }),
+);
+
+/**
+ * POST /api/content/announcements/:id/read —— 考生侧记录公告已读（v2.0③）。
+ * 幂等：同一用户同一端同一公告只记一条；公告不存在 → 404。
+ */
+contentRouter.post(
+  '/announcements/:id/read',
+  validate(contentIdParamsSchema, 'params'),
+  asyncHandler(async (req, res) => {
+    await service.markAnnouncementRead('exam', req.params.id, req.user!.id);
+    return ok(res, null);
+  }),
+);
+
+/** POST /api/content/banners/:id/click —— 考生侧记录轮播点击（v2.0③，幂等）。 */
+contentRouter.post(
+  '/banners/:id/click',
+  validate(contentIdParamsSchema, 'params'),
+  asyncHandler(async (req, res) => {
+    await service.markBannerClick('exam', req.params.id, req.user!.id);
+    return ok(res, null);
+  }),
+);
+
+/* ------------------------------ 触达看板（admin，v2.0③） ------------------------------ */
+
+/** GET /api/content/stats —— 内容触达看板（受众规模 + 阅读数/率、点击数/率）。 */
+contentRouter.get(
+  '/stats',
+  requireRole('admin'),
+  asyncHandler(async (_req, res) => ok(res, await service.getTouchStats())),
 );
 
 /* ------------------------------ 公告管理（admin） ------------------------------ */

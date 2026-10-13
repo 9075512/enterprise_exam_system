@@ -136,6 +136,16 @@ export function feed(): Promise<ContentFeed> {
   return get<ContentFeed>('/practice/feed', undefined, AUTHED);
 }
 
+/** 记录公告已读（练题端 scope='practice'，幂等，v2.0③） */
+export function markAnnouncementRead(id: string): Promise<null> {
+  return post<null>(`/practice/feed/announcements/${encodeURIComponent(id)}/read`, undefined, AUTHED);
+}
+
+/** 记录轮播点击（练题端 scope='practice'，幂等，v2.0③） */
+export function markBannerClick(id: string): Promise<null> {
+  return post<null>(`/practice/feed/banners/${encodeURIComponent(id)}/click`, undefined, AUTHED);
+}
+
 /** 提交单题作答 → 即时判分 */
 export function check(payload: PracticeCheckPayload): Promise<PracticeCheckResult> {
   return post<PracticeCheckResult>('/practice/check', payload, AUTHED);

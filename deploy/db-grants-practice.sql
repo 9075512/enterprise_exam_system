@@ -57,6 +57,13 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON `enterprise_exam_system`.`rate_limit_buc
 GRANT SELECT ON `enterprise_exam_system`.`announcements` TO 'practice_app'@'%';
 GRANT SELECT ON `enterprise_exam_system`.`banners`       TO 'practice_app'@'%';
 
+-- 5.5 v2.0③ 新增：内容触达回执（练题端需写入，实现「双端都统计」）
+--     announcement_reads / banner_clicks 为**运行态回执表**（仅追加、按用户+端去重），
+--     不承载业务主数据；练题实例可读写，业务表（announcements / banners 等）仍只读。
+--     无 SELECT 时无法回读去重结果，故一并授予 SELECT。
+GRANT SELECT, INSERT ON `enterprise_exam_system`.`announcement_reads` TO 'practice_app'@'%';
+GRANT SELECT, INSERT ON `enterprise_exam_system`.`banner_clicks`      TO 'practice_app'@'%';
+
 -- 6. 说明：以下考试域表**不授予任何权限**（物理隔离）：
 --    papers / paper_questions / paper_bank_refs /
 --    exams / exam_records / import_batches / system_settings

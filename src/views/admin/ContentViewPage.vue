@@ -15,6 +15,7 @@ import {
   createBanner,
   deleteAnnouncement,
   deleteBanner,
+  getTouchStats,
   listAnnouncements,
   listBanners,
   updateAnnouncement,
@@ -25,7 +26,7 @@ import { formatRange } from '@/utils/datetime';
 import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import RichTextEditor from '@/components/common/RichTextEditor.vue';
-import type { Announcement, AnnouncementLevel, Banner, ContentTarget } from '@/types';
+import type { Announcement, AnnouncementLevel, Banner, ContentTarget, ContentTouchStats } from '@/types';
 
 /* ============================ 通用 ============================ */
 
@@ -70,6 +71,25 @@ function windowText(input: unknown): string {
 }
 
 const activeTab = ref<'announcement' | 'banner'>('announcement');
+
+/* ------------------------------ 触达看板（v2.0③） ------------------------------ */
+
+const touchVisible = ref(false);
+const touchLoading = ref(false);
+const touchStats = ref<ContentTouchStats | null>(null);
+const touchTab = ref<'announcement' | 'banner'>('announcement');
+
+async function openTouchStats(): Promise<void> {
+  touchVisible.value = true;
+  touchLoading.value = true;
+  try {
+    touchStats.value = await getTouchStats();
+  } catch {
+    touchStats.value = null;
+  } finally {
+    touchLoading.value = false;
+  }
+}
 
 /** 富文本是否为空（仅标签 / 空白；含图片视为非空）——与后端 isRichTextEmpty 同口径。 */
 function richTextEmpty(html: string): boolean {
@@ -418,7 +438,11 @@ onMounted(() => {
     <PageHeader
       title="公告与轮播"
       description="面向考生发布公告与轮播图；可选择同步两端，或只发布到考试端 / 练题端"
-    />
+    >
+      <template #actions>
+        <el-button @click="openTouchStats">触达概览</el-button>
+      </template>
+    </PageHeader>
 
     <el-card class="content-page__panel" shadow="never">
       <el-tabs v-model="activeTab">
@@ -475,6 +499,9 @@ onMounted(() => {
             </el-table-column>
             <el-table-column label="生效时间" min-width="200" show-overflow-tooltip>
               <template #default="{ row }">{{ windowText(row) }}</template>
+            </el-table-column>
+            <el-table-column label="阅读" width="80" align="right">
+              <template #default="{ row }">{{ row.readCount ?? 0 }}</template>
             </el-table-column>
             <el-table-column prop="createdByName" label="创建人" width="110" show-overflow-tooltip />
             <el-table-column label="操作" width="140" fixed="right">
@@ -555,6 +582,9 @@ onMounted(() => {
             </el-table-column>
             <el-table-column label="生效时间" min-width="200" show-overflow-tooltip>
               <template #default="{ row }">{{ windowText(row) }}</template>
+            </el-table-column>
+            <el-table-column label="点击" width="80" align="right">
+              <template #default="{ row }">{{ row.clickCount ?? 0 }}</template>
             </el-table-column>
             <el-table-column label="操作" width="140" fixed="right">
               <template #default="{ row }">
@@ -705,6 +735,51 @@ onMounted(() => {
         <el-button type="primary" :loading="bnSubmitting" @click="submitBanner">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- ------------------------------ 触达概览（v2.0③） ------------------------------ -->
+    <el-dialog v-model="touchVisible" title="内容触达概览" width="760px" destroy-on-close>
+      <div v-loading="touchLoading" class="content-page__touch">
+        <div class="content-page__touch-audience">
+          <span>受众规模：考试端 <b>{{ touchStats?.audience.exam ?? 0 }}</b> 人</span>
+          <span>练题端 <b>{{ touchStats?.audience.practice ?? 0 }}</b> 人</span>
+        </div>
+        <el-tabs v-model="touchTab">
+          <el-tab-pane label="公告阅读" name="announcement">
+            <el-table :data="touchStats?.announcements ?? []" size="small" max-height="360">
+              <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
+              <el-table-column label="范围" width="90">
+                <template #default="{ row }">{{ TARGET_LABELS[row.target as ContentTarget] }}</template>
+              </el-table-column>
+              <el-table-column prop="readCount" label="阅读人数" width="100" align="right" />
+              <el-table-column label="阅读率" width="100" align="right">
+                <template #default="{ row }">{{ row.readRate }}%</template>
+              </el-table-column>
+              <template #empty>
+                <EmptyState text="暂无公告" />
+              </template>
+            </el-table>
+          </el-tab-pane>
+          <el-tab-pane label="轮播点击" name="banner">
+            <el-table :data="touchStats?.banners ?? []" size="small" max-height="360">
+              <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
+              <el-table-column label="范围" width="90">
+                <template #default="{ row }">{{ TARGET_LABELS[row.target as ContentTarget] }}</template>
+              </el-table-column>
+              <el-table-column prop="clickCount" label="点击人数" width="100" align="right" />
+              <el-table-column label="点击率" width="100" align="right">
+                <template #default="{ row }">{{ row.clickRate }}%</template>
+              </el-table-column>
+              <template #empty>
+                <EmptyState text="暂无轮播图" />
+              </template>
+            </el-table>
+          </el-tab-pane>
+        </el-tabs>
+        <p class="content-page__touch-tip">
+          阅读 / 点击均为去重人数（同一用户同一端只计一次）；触达率分母按发布范围取对应端受众。
+        </p>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -807,6 +882,33 @@ onMounted(() => {
 
   &__upload-url {
     width: 100%;
+  }
+
+  &__touch {
+    min-height: 200px;
+  }
+
+  &__touch-audience {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 8px;
+    padding: 10px 14px;
+    background: $color-table-head;
+    border: 1px solid $border-color;
+    border-radius: 4px;
+    font-size: 13px;
+    color: $text-secondary;
+
+    b {
+      color: $color-primary;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  &__touch-tip {
+    margin: 10px 0 0;
+    font-size: 12px;
+    color: $text-disabled;
   }
 }
 </style>

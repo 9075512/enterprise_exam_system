@@ -1199,6 +1199,8 @@ export interface Announcement {
   updatedAt: string;
   /** 服务端判定的「正在生效」（enabled 且在时间窗内） */
   active: boolean;
+  /** 已读人数（仅管理端列表返回，v2.0③） */
+  readCount?: number;
 }
 
 /** 轮播图 */
@@ -1217,12 +1219,44 @@ export interface Banner {
   createdAt: string;
   updatedAt: string;
   active: boolean;
+  /** 点击人数（仅管理端列表返回，v2.0③） */
+  clickCount?: number;
 }
 
 /** 考生侧内容聚合（考试端与练题端共用结构） */
 export interface ContentFeed {
   announcements: Announcement[];
   banners: Banner[];
+}
+
+/* ============================================================
+ * v2.0③ 内容触达看板（GET /api/content/stats）
+ * ============================================================ */
+
+/** 公告触达条目 */
+export interface AnnouncementTouch {
+  id: string;
+  title: string;
+  target: ContentTarget;
+  readCount: number;
+  readRate: number;
+}
+
+/** 轮播触达条目 */
+export interface BannerTouch {
+  id: string;
+  title: string;
+  target: ContentTarget;
+  clickCount: number;
+  clickRate: number;
+}
+
+/** 内容触达看板 */
+export interface ContentTouchStats {
+  audience: { exam: number; practice: number };
+  announcements: AnnouncementTouch[];
+  banners: BannerTouch[];
+  generatedAt: string;
 }
 
 /** 公告新建 / 编辑入参 */

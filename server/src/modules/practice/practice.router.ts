@@ -160,6 +160,29 @@ practiceRouter.get(
   asyncHandler(async (_req, res) => ok(res, await contentService.getFeed('practice'))),
 );
 
+/**
+ * POST /api/practice/feed/announcements/:id/read —— 练题端记录公告已读（v2.0③）。
+ * 与考试端共用 content.service，仅 scope = 'practice'；幂等。
+ */
+practiceRouter.post(
+  '/feed/announcements/:id/read',
+  practiceAuthRequired,
+  asyncHandler(async (req, res) => {
+    await contentService.markAnnouncementRead('practice', req.params.id, req.practiceUser!.id);
+    return ok(res, null);
+  }),
+);
+
+/** POST /api/practice/feed/banners/:id/click —— 练题端记录轮播点击（v2.0③，幂等）。 */
+practiceRouter.post(
+  '/feed/banners/:id/click',
+  practiceAuthRequired,
+  asyncHandler(async (req, res) => {
+    await contentService.markBannerClick('practice', req.params.id, req.practiceUser!.id);
+    return ok(res, null);
+  }),
+);
+
 /** GET /api/practice/banks/:id/questions —— 题库题目（**不含**答案/解析）。 */
 practiceRouter.get(
   '/banks/:id/questions',

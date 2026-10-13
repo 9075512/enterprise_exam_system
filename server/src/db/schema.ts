@@ -567,6 +567,38 @@ export const DDL_STATEMENTS: readonly string[] = [
     KEY idx_banner_target_enabled (target, enabled),
     KEY idx_banner_sort (sort_order)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  // ============================================================
+  // v2.0③ 内容触达（已读回执 / 轮播点击）
+  // 说明：练题端首次需要写入内容域表 → 已在 deploy/db-grants-practice.sql
+  //       中追加本两表的 SELECT, INSERT 授权（其余业务表仍只读）。
+  // ============================================================
+
+  // 35. 公告已读回执（同一用户同一端同一公告仅记一条）
+  `CREATE TABLE IF NOT EXISTS announcement_reads (
+    id              VARCHAR(64) NOT NULL,
+    announcement_id VARCHAR(64) NOT NULL,
+    user_id         VARCHAR(64) NOT NULL,
+    scope           ENUM('exam','practice') NOT NULL,
+    read_at         DATETIME(3) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_ann_read (announcement_id, user_id, scope),
+    KEY idx_ann_read_ann (announcement_id),
+    KEY idx_ann_read_user (user_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  // 36. 轮播图点击回执（按用户 + 端去重）
+  `CREATE TABLE IF NOT EXISTS banner_clicks (
+    id         VARCHAR(64) NOT NULL,
+    banner_id  VARCHAR(64) NOT NULL,
+    user_id    VARCHAR(64) NOT NULL,
+    scope      ENUM('exam','practice') NOT NULL,
+    clicked_at DATETIME(3) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_banner_click (banner_id, user_id, scope),
+    KEY idx_banner_click_banner (banner_id),
+    KEY idx_banner_click_user (user_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 ];
 
 /** 建表完成后用于统计的核心表名列表（含练题域 6 张表）。 */
@@ -605,4 +637,6 @@ export const TABLE_NAMES: readonly string[] = [
   'attachments',
   'announcements',
   'banners',
+  'announcement_reads',
+  'banner_clicks',
 ];

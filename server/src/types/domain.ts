@@ -1358,6 +1358,8 @@ export interface AnnouncementDto {
   updatedAt: string;
   /** 服务端按当前时刻判定的「正在生效」（enabled 且落在时间窗内） */
   active: boolean;
+  /** 已读人数（仅管理端列表返回；去重人数，v2.0③） */
+  readCount?: number;
 }
 
 /** 轮播图 DTO */
@@ -1379,12 +1381,47 @@ export interface BannerDto {
   createdAt: string;
   updatedAt: string;
   active: boolean;
+  /** 点击人数（仅管理端列表返回；去重人数，v2.0③） */
+  clickCount?: number;
 }
 
 /** 考生侧内容聚合（考试端与练题端首页共用结构） */
 export interface ContentFeedDto {
   announcements: AnnouncementDto[];
   banners: BannerDto[];
+}
+
+/* ============================================================
+ * v2.0③ 内容触达看板（GET /api/content/stats）
+ * ============================================================ */
+
+/** 公告触达条目 */
+export interface AnnouncementTouchDto {
+  id: string;
+  title: string;
+  target: ContentTarget;
+  readCount: number;
+  /** 阅读率（0~100 整数；分母按发布范围取对应端受众） */
+  readRate: number;
+}
+
+/** 轮播触达条目 */
+export interface BannerTouchDto {
+  id: string;
+  title: string;
+  target: ContentTarget;
+  clickCount: number;
+  /** 点击率（0~100 整数） */
+  clickRate: number;
+}
+
+/** 内容触达看板 */
+export interface ContentTouchStatsDto {
+  /** 受众规模（触达率分母）：exam = 在职考生数，practice = 在职账号数 */
+  audience: { exam: number; practice: number };
+  announcements: AnnouncementTouchDto[];
+  banners: BannerTouchDto[];
+  generatedAt: string;
 }
 
 /* ============================================================

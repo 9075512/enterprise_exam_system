@@ -57,6 +57,8 @@ function markImportantSeen(id: string): void {
 function popForce(): void {
   const next = forceQueue.value.shift();
   if (next) {
+    // 强提醒弹出即视为触达（v2.0③）
+    void practiceApi.markAnnouncementRead(next.id).catch(() => undefined);
     forceItem.value = next;
     forceVisible.value = true;
   } else {
@@ -91,9 +93,10 @@ onMounted(async () => {
   }
 });
 
-function openBanner(): void {
-  const link = banners.value.find((b) => b.linkUrl)?.linkUrl;
-  if (link) window.open(link, '_blank', 'noopener,noreferrer');
+function openBanner(banner: Banner): void {
+  // 触达回执（v2.0③）：无论是否可跳转都记录一次点击
+  void practiceApi.markBannerClick(banner.id).catch(() => undefined);
+  if (banner.linkUrl) window.open(banner.linkUrl, '_blank', 'noopener,noreferrer');
 }
 
 /** 简化日期（YYYY-MM-DD） */
@@ -102,6 +105,8 @@ function shortDate(iso: string): string {
 }
 
 function openDetail(item: Announcement): void {
+  // 触达回执（v2.0③）：打开详情即记录已读（幂等）
+  void practiceApi.markAnnouncementRead(item.id).catch(() => undefined);
   detail.value = item;
   detailVisible.value = true;
 }
@@ -113,7 +118,7 @@ function openDetail(item: Announcement): void {
     <div v-if="banners.length > 0" class="notice__carousel">
       <el-carousel height="130px" :interval="5000" :autoplay="banners.length > 1" indicator-position="none">
         <el-carousel-item v-for="banner in banners" :key="banner.id">
-          <div class="notice__slide" :class="{ 'is-link': !!banner.linkUrl }" @click="openBanner">
+          <div class="notice__slide" :class="{ 'is-link': !!banner.linkUrl }" @click="openBanner(banner)">
             <img class="notice__image" :src="banner.imageUrl" :alt="banner.title" />
           </div>
         </el-carousel-item>

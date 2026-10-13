@@ -8,7 +8,7 @@
  * v1.9⑦ 的考试端首页会复用本组件。
  */
 import { computed, onMounted, ref } from 'vue';
-import { fetchFeed } from '@/api/content';
+import { fetchFeed, markAnnouncementRead, markBannerClick } from '@/api/content';
 import { formatDateTime } from '@/utils/datetime';
 import type { Announcement, Banner } from '@/types';
 
@@ -54,6 +54,8 @@ function markImportantSeen(id: string): void {
 function popForce(): void {
   const next = forceQueue.value.shift();
   if (next) {
+    // 强提醒弹出即视为触达（v2.0③）
+    void markAnnouncementRead(next.id).catch(() => undefined);
     forceItem.value = next;
     forceVisible.value = true;
   } else {
@@ -89,11 +91,15 @@ onMounted(async () => {
 });
 
 function openBanner(banner: Banner): void {
+  // 触达回执（v2.0③）：无论是否可跳转都记录一次点击
+  void markBannerClick(banner.id).catch(() => undefined);
   if (!banner.linkUrl) return;
   window.open(banner.linkUrl, '_blank', 'noopener,noreferrer');
 }
 
 function openDetail(item: Announcement): void {
+  // 触达回执（v2.0③）：打开详情即记录已读（幂等）
+  void markAnnouncementRead(item.id).catch(() => undefined);
   detail.value = item;
   detailVisible.value = true;
 }

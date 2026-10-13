@@ -22,11 +22,12 @@ import { prepareTestDb } from './db.js';
 import { closePool, query } from '../db/pool.js';
 import { nowDb } from '../utils/datetime.js';
 import { signToken } from '../middleware/auth.js';
-import type { AnnouncementDto, Page } from '../types/domain.js';
+import type { AnnouncementDto, BannerDto, Page } from '../types/domain.js';
 
 const bearer = (token: string): { Authorization: string } => ({ Authorization: `Bearer ${token}` });
 
 const admin = signToken({ sub: 'user-admin', role: 'admin', departmentId: '' });
+const author = signToken({ sub: 'user-author', role: 'author', departmentId: '' });
 const P_USER = { id: 'user-qa-v20a', username: 'qa_v20a', password: 'qa-v20a-123' };
 let practiceToken = '';
 
@@ -35,10 +36,28 @@ function annPayload(over: Record<string, unknown> = {}): Record<string, unknown>
   return { title: '富文本公告', content: '<p>公告正文</p>', target: 'both', level: 'normal', ...over };
 }
 
+/** 轮播默认入参（可覆盖）。 */
+function bannerPayload(over: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    title: '测试轮播',
+    imageUrl: 'https://example.com/a.png',
+    linkUrl: '',
+    target: 'both',
+    sortOrder: 0,
+    ...over,
+  };
+}
+
 async function createAnn(payload: Record<string, unknown>): Promise<AnnouncementDto> {
   const res = await request(app).post('/api/content/announcements').set(bearer(admin)).send(payload);
   expect(res.body.code, JSON.stringify(res.body)).toBe(0);
   return res.body.data as AnnouncementDto;
+}
+
+async function createBanner(payload: Record<string, unknown>): Promise<BannerDto> {
+  const res = await request(app).post('/api/content/banners').set(bearer(admin)).send(payload);
+  expect(res.body.code, JSON.stringify(res.body)).toBe(0);
+  return res.body.data as BannerDto;
 }
 
 /** 新建（期望失败），返回响应体。 */
@@ -166,5 +185,79 @@ describe('公告富文本净化（v2.0①）', () => {
     const pracItem = (pracRes.body.data.announcements as AnnouncementDto[]).find((a) => a.title === '双端净化核验');
     expect(pracItem?.content).toContain('<p>两端可见</p>');
     expect(pracItem?.content).not.toMatch(/script/i);
+  });
+});
+
+/* ============================ v2.0③ 触达回执 ============================ */
+
+describe('内容触达回执与看板（v2.0③）', () => {
+  it('未登录回执 → 401', async () => {
+    const res = await request(app).post('/api/content/announcements/x/read');
+    expect(res.status).toBe(401);
+  });
+
+  it('考试端已读回执幂等，管理端列表回传阅读人数', async () => {
+    const dto = await createAnn(annPayload({ title: '回执核验' }));
+    // 同一用户重复上报 → 去重为 1
+    for (let i = 0; i < 3; i += 1) {
+      const res = await request(app).post(`/api/content/announcements/${dto.id}/read`).set(bearer(admin));
+      expect(res.body.code, JSON.stringify(res.body)).toBe(0);
+    }
+    const list = await request(app)
+      .get('/api/content/announcements')
+      .query({ keyword: '回执核验', page: 1, pageSize: 5 })
+      .set(bearer(admin));
+    const hit = (list.body.data as Page<AnnouncementDto>).list.find((a) => a.id === dto.id);
+    expect(hit?.readCount).toBe(1);
+  });
+
+  it('练题端回执与考试端分端去重（同内容累计去重人数）', async () => {
+    const dto = await createAnn(annPayload({ title: '双端回执核验', target: 'both' }));
+    await request(app).post(`/api/content/announcements/${dto.id}/read`).set(bearer(admin));
+    await request(app).post(`/api/practice/feed/announcements/${dto.id}/read`).set(bearer(practiceToken));
+    // 练题端重复
+    await request(app).post(`/api/practice/feed/announcements/${dto.id}/read`).set(bearer(practiceToken));
+
+    const list = await request(app)
+      .get('/api/content/announcements')
+      .query({ keyword: '双端回执核验', page: 1, pageSize: 5 })
+      .set(bearer(admin));
+    const hit = (list.body.data as Page<AnnouncementDto>).list.find((a) => a.id === dto.id);
+    // admin（考试端）1 人 + 练题用户 1 人 = 2
+    expect(hit?.readCount).toBe(2);
+  });
+
+  it('轮播点击回执幂等', async () => {
+    const dto = await createBanner(bannerPayload({ title: '点击核验' }));
+    await request(app).post(`/api/content/banners/${dto.id}/click`).set(bearer(admin));
+    await request(app).post(`/api/content/banners/${dto.id}/click`).set(bearer(admin));
+    const list = await request(app)
+      .get('/api/content/banners')
+      .query({ keyword: '点击核验', page: 1, pageSize: 5 })
+      .set(bearer(admin));
+    const hit = (list.body.data as Page<BannerDto>).list.find((b) => b.id === dto.id);
+    expect(hit?.clickCount).toBe(1);
+  });
+
+  it('回执目标不存在 → 404', async () => {
+    const a = await request(app).post('/api/content/announcements/no-such/read').set(bearer(admin));
+    expect(a.body.code).toBe(1004);
+    const b = await request(app).post('/api/content/banners/no-such/click').set(bearer(admin));
+    expect(b.body.code).toBe(1004);
+  });
+
+  it('触达看板仅 admin 可访问，返回受众规模与条目', async () => {
+    const forbidden = await request(app).get('/api/content/stats').set(bearer(author));
+    expect(forbidden.status).toBe(403);
+
+    await createAnn(annPayload({ title: '看板核验', target: 'both' }));
+    const res = await request(app).get('/api/content/stats').set(bearer(admin));
+    expect(res.body.code, JSON.stringify(res.body)).toBe(0);
+    const data = res.body.data as {
+      audience: { exam: number; practice: number };
+      announcements: Array<{ title: string; readRate: number }>;
+    };
+    expect(data.audience.exam).toBeGreaterThanOrEqual(0);
+    expect(data.announcements.some((a) => a.title === '看板核验')).toBe(true);
   });
 });
