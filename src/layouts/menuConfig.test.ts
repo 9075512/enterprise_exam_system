@@ -46,10 +46,10 @@ describe('getMenuGroups · 默认（未下发菜单权限）', () => {
     ]);
   });
 
-  it('examinee 只看到考生中心，且组内 2 项', () => {
+  it('examinee 只看到考生中心，且组内 3 项（首页 / 我的考试 / 我的成绩）', () => {
     const groups = getMenuGroups('examinee');
     expect(groups.map((g) => g.key)).toEqual(['examinee']);
-    expect(groups[0].items.map((i) => i.key)).toEqual(['my-exams', 'my-scores']);
+    expect(groups[0].items.map((i) => i.key)).toEqual(['home', 'my-exams', 'my-scores']);
   });
 
   it('author 得到 教学资源(2) + 考试运营(1，仅人工阅卷)', () => {

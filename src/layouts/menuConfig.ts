@@ -22,6 +22,7 @@ import {
   DataBoard,
   Document,
   EditPen,
+  HomeFilled,
   Lock,
   Notebook,
   OfficeBuilding,
@@ -97,6 +98,7 @@ const ALL_MENUS: MenuItem[] = [
   { key: 'audit', text: '审计日志', path: '/admin/audit', icon: Tickets, roles: ['admin'], group: 'system' },
   { key: 'login-logs', text: '登录日志', path: '/admin/login-logs', icon: Lock, roles: ['admin'], group: 'system' },
   { key: 'maintenance', text: '系统维护', path: '/admin/maintenance', icon: Tools, roles: ['admin'], group: 'system' },
+  { key: 'home', text: '首页', path: '/exam/home', icon: HomeFilled, roles: ['examinee'], group: 'examinee' },
   { key: 'my-exams', text: '我的考试', path: '/exam/my', icon: AlarmClock, roles: ['examinee'], group: 'examinee' },
   { key: 'my-scores', text: '我的成绩', path: '/exam/scores', icon: TrendCharts, roles: ['examinee'], group: 'examinee' },
 ];
@@ -149,9 +151,9 @@ export function getMenuGroups(role: Role, grantedKeys?: string[] | null): Render
   }));
 }
 
-/** 角色首页路径 */
+/** 角色首页路径（考生自 v1.9⑦ 起落「首页」而非「我的考试」）。 */
 export function getHomePath(role: Role): string {
   if (role === 'admin') return '/admin/dashboard';
   if (role === 'author') return '/author/banks';
-  return '/exam/my';
+  return '/exam/home';
 }

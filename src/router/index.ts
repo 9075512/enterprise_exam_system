@@ -138,6 +138,11 @@ const routes: RouteRecordRaw[] = [
       },
       // 考生
       {
+        path: 'exam/home',
+        component: () => import('@/views/exam/ExamHomePage.vue'),
+        meta: { roles: ['examinee'], menuKey: 'home', title: '首页' },
+      },
+      {
         path: 'exam/my',
         component: () => import('@/views/exam/MyExamPage.vue'),
         meta: { roles: ['examinee'], menuKey: 'my-exams', title: '我的考试' },
@@ -171,11 +176,11 @@ const routes: RouteRecordRaw[] = [
 
 const router = createRouter({ history: createWebHistory(), routes });
 
-/** 角色首页 */
+/** 角色首页（v1.9⑦：考生落地「首页」，聚合公告 / 消息 / 统计 / 快捷入口） */
 function homePath(role: Role): string {
   if (role === 'admin') return '/admin/dashboard';
   if (role === 'author') return '/author/banks';
-  return '/exam/my';
+  return '/exam/home';
 }
 
 // 全局守卫（内网异步恢复会话 + 角色/菜单权限校验）
