@@ -2,7 +2,7 @@
  * 考试记录模块 —— zod 校验 schema（中文错误信息）。
  */
 import { z } from 'zod';
-import { paginationQuery } from '../../utils/pagination.js';
+import { optionalIdQuery, paginationQuery } from '../../utils/pagination.js';
 
 /** 暂存答案入参（客观题为选项索引数组；填空/简答为文本数组）。 */
 export const saveAnswersSchema = z.object({
@@ -41,7 +41,13 @@ export const cheatQuerySchema = z.object({
   examId: z.string().min(1, '请指定考试'),
 });
 
-/** 待阅卷列表入参（分页）。 */
+/**
+ * 待阅卷列表入参（分页 + 可选按考试过滤）。
+ *
+ * v1.9④：新增 `examId` —— 支持从「考试管理」行操作直达某场考试的待阅卷队列，
+ * 补考/复核/阅卷三类考务队列都能落到具体考试维度。
+ */
 export const pendingQuerySchema = z.object({
   ...paginationQuery,
+  examId: optionalIdQuery('考试筛选值不合法'),
 });

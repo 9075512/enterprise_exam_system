@@ -12,11 +12,16 @@ export function listMyRetakes(page?: number, pageSize?: number): Promise<Page<Re
   return get<Page<Retake>>('/retakes/my', { page, pageSize });
 }
 
-/** 管理员审批列表 */
-export function listRetakes(params: { status?: RetakeStatus; page?: number; pageSize?: number } = {}): Promise<
-  Page<Retake>
-> {
-  return get<Page<Retake>>('/retakes', { status: params.status, page: params.page, pageSize: params.pageSize });
+/** 管理员审批列表（v1.9④ 支持按考试过滤） */
+export function listRetakes(
+  params: { status?: RetakeStatus; examId?: string; page?: number; pageSize?: number } = {},
+): Promise<Page<Retake>> {
+  return get<Page<Retake>>('/retakes', {
+    status: params.status,
+    examId: params.examId,
+    page: params.page,
+    pageSize: params.pageSize,
+  });
 }
 
 /** 管理员通过 */

@@ -12,7 +12,12 @@ import { validate } from '../../middleware/validate.js';
 import { authRequired } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/role.js';
 import { ok } from '../../utils/response.js';
-import { applyAppealSchema, approveAppealSchema, rejectAppealSchema } from './appeals.schema.js';
+import {
+  appealListQuerySchema,
+  applyAppealSchema,
+  approveAppealSchema,
+  rejectAppealSchema,
+} from './appeals.schema.js';
 import * as appealsService from './appeals.service.js';
 import type { AppealStatus } from '../../types/domain.js';
 
@@ -40,17 +45,19 @@ appealsRouter.get(
   }),
 );
 
-/** 管理员复核列表。 */
+/** 管理员复核列表（可按状态 / 考试过滤）。 */
 appealsRouter.get(
   '/',
   requireRole('admin'),
+  validate(appealListQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
-    const { status, page, pageSize } = req.query as unknown as {
+    const q = req.query as unknown as {
       status?: AppealStatus;
-      page?: number;
-      pageSize?: number;
+      examId?: string;
+      page: number;
+      pageSize: number;
     };
-    return ok(res, await appealsService.list({ status }, page, pageSize));
+    return ok(res, await appealsService.list({ status: q.status, examId: q.examId }, q.page, q.pageSize));
   }),
 );
 

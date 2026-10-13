@@ -112,9 +112,9 @@ export async function reapply(id: string, reason: string, appliedAt: string): Pr
   );
 }
 
-/** 分页查询（可按状态过滤；admin 审批列表用）。 */
+/** 分页查询（可按状态 / 考试过滤；admin 审批列表用）。 */
 export async function list(
-  filter: { status?: RetakeStatus },
+  filter: { status?: RetakeStatus; examId?: string },
   paging: { pageSize: number; offset: number },
 ): Promise<RetakeRow[]> {
   const conds: string[] = [];
@@ -123,6 +123,10 @@ export async function list(
     conds.push('r.status = ?');
     params.push(filter.status);
   }
+  if (filter.examId) {
+    conds.push('r.exam_id = ?');
+    params.push(filter.examId);
+  }
   const where = conds.length > 0 ? `WHERE ${conds.join(' AND ')}` : '';
   return query<RetakeRow[]>(
     `${RETAKES_SELECT} ${where} ORDER BY r.applied_at DESC LIMIT ? OFFSET ?`,
@@ -130,13 +134,17 @@ export async function list(
   );
 }
 
-/** 统计（可按状态过滤）。 */
-export async function count(filter: { status?: RetakeStatus }): Promise<number> {
+/** 统计（可按状态 / 考试过滤）。 */
+export async function count(filter: { status?: RetakeStatus; examId?: string }): Promise<number> {
   const conds: string[] = [];
   const params: Array<string | number | boolean | Date | null> = [];
   if (filter.status) {
     conds.push('status = ?');
     params.push(filter.status);
+  }
+  if (filter.examId) {
+    conds.push('exam_id = ?');
+    params.push(filter.examId);
   }
   const where = conds.length > 0 ? `WHERE ${conds.join(' AND ')}` : '';
   const rows = await query<RowDataPacket[]>(`SELECT COUNT(*) AS c FROM exam_retakes ${where}`, params);

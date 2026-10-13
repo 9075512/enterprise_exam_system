@@ -1,14 +1,19 @@
 <script setup lang="ts">
 /**
  * 补考管理（v1.5，管理员审批）。
- * 按状态筛选补考申请，对待审批申请执行「通过 / 驳回」。
+ * 按状态 + 考试筛选补考申请，对待审批申请执行「通过 / 驳回」。
+ *
+ * v1.9④：新增「考试范围」选择器（与路由 `?examId=` 同步）——
+ * 可从「考试管理」行操作直达某场考试的补考队列，队列真正对应到每一场考试。
  */
-import { ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { approveRetake, listRetakes, rejectRetake } from '@/api/retakes';
+import { useExamScope } from '@/composables/useExamScope';
 import { formatDateTime } from '@/utils/datetime';
 import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
+import ExamScopeSelect from '@/components/common/ExamScopeSelect.vue';
 import type { Retake, RetakeStatus } from '@/types';
 
 const STATUS_LABELS: Record<RetakeStatus, string> = {
@@ -26,6 +31,9 @@ const STATUS_TAG: Record<RetakeStatus, 'warning' | 'success' | 'danger'> = {
 type Filter = '' | RetakeStatus;
 const filter = ref<Filter>('');
 
+/** 考试范围（与路由 ?examId= 双向同步） */
+const { examId } = useExamScope();
+
 const loading = ref(false);
 const page = ref(1);
 const pageSize = ref(20);
@@ -37,6 +45,7 @@ async function load(): Promise<void> {
   try {
     const data = await listRetakes({
       status: filter.value || undefined,
+      examId: examId.value || undefined,
       page: page.value,
       pageSize: pageSize.value,
     });
@@ -50,6 +59,15 @@ async function load(): Promise<void> {
 }
 
 load();
+
+/** 考试范围变化 → 回到第 1 页重查（无论来自选择器还是 URL 直达） */
+watch(examId, () => {
+  page.value = 1;
+  void load();
+});
+
+/** 空态文案随筛选范围变化，避免「明明选了某场考试却提示没有申请」造成误解 */
+const emptyText = computed(() => (examId.value ? '该考试暂无补考申请' : '暂无补考申请'));
 
 function handleFilterChange(): void {
   page.value = 1;
@@ -108,6 +126,7 @@ async function handleReject(row: Retake): Promise<void> {
 
     <el-card class="retake-manage-page__panel" shadow="never">
       <div class="retake-manage-page__toolbar">
+        <ExamScopeSelect v-model="examId" />
         <el-radio-group v-model="filter" @change="handleFilterChange">
           <el-radio-button value="">全部</el-radio-button>
           <el-radio-button value="pending">待审批</el-radio-button>
@@ -146,7 +165,7 @@ async function handleReject(row: Retake): Promise<void> {
           </template>
         </el-table-column>
         <template #empty>
-          <EmptyState text="暂无补考申请" />
+          <EmptyState :text="emptyText" />
         </template>
       </el-table>
 
@@ -172,6 +191,11 @@ async function handleReject(row: Retake): Promise<void> {
   }
 
   &__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
     margin-bottom: 16px;
   }
 

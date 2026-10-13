@@ -100,7 +100,7 @@ export async function updateReject(
 
 /** 分页查询（可按状态过滤；admin 复核列表用）。 */
 export async function list(
-  filter: { status?: AppealStatus },
+  filter: { status?: AppealStatus; examId?: string },
   paging: { pageSize: number; offset: number },
 ): Promise<AppealRow[]> {
   const conds: string[] = [];
@@ -109,6 +109,10 @@ export async function list(
     conds.push('a.status = ?');
     params.push(filter.status);
   }
+  if (filter.examId) {
+    conds.push('a.exam_id = ?');
+    params.push(filter.examId);
+  }
   const where = conds.length > 0 ? `WHERE ${conds.join(' AND ')}` : '';
   return query<AppealRow[]>(
     `${SELECT_SQL} ${where} ORDER BY a.applied_at DESC LIMIT ? OFFSET ?`,
@@ -116,13 +120,17 @@ export async function list(
   );
 }
 
-/** 统计（可按状态过滤）。 */
-export async function count(filter: { status?: AppealStatus }): Promise<number> {
+/** 统计（可按状态 / 考试过滤）。 */
+export async function count(filter: { status?: AppealStatus; examId?: string }): Promise<number> {
   const conds: string[] = [];
   const params: Array<string | number> = [];
   if (filter.status) {
     conds.push('status = ?');
     params.push(filter.status);
+  }
+  if (filter.examId) {
+    conds.push('exam_id = ?');
+    params.push(filter.examId);
   }
   const where = conds.length > 0 ? `WHERE ${conds.join(' AND ')}` : '';
   const rows = await query<RowDataPacket[]>(`SELECT COUNT(*) AS c FROM score_appeals ${where}`, params);

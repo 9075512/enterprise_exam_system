@@ -266,10 +266,17 @@ export async function listCheatByExam(examId: string): Promise<ExamRecordDto[]> 
   return rows.map(mapRecordDetailRow);
 }
 
-/** 待阅卷列表（admin/author，分页，按交卷时间升序）。 */
-export async function listPending(page?: number, pageSize?: number): Promise<Page<ExamRecordDto>> {
+/**
+ * 待阅卷列表（admin/author，分页，按交卷时间升序）。
+ * @param examId 可选，按考试过滤（v1.9④：支持从考试管理直达某场考试的阅卷队列）
+ */
+export async function listPending(
+  page?: number,
+  pageSize?: number,
+  examId?: string,
+): Promise<Page<ExamRecordDto>> {
   const paging = normalizePaging(page, pageSize);
-  const [rows, total] = await Promise.all([repo.listPending(paging), repo.countPending()]);
+  const [rows, total] = await Promise.all([repo.listPending(paging, examId), repo.countPending(examId)]);
   return buildPage(rows.map(mapRecordDetailRow), total, paging.page, paging.pageSize);
 }
 

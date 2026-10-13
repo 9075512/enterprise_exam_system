@@ -259,7 +259,17 @@ export async function submit(
 }
 
 /** 待阅卷记录（含主观题、status=pending_review，分页，按交卷时间升序——先交先阅）。 */
-export async function listPending(paging: { pageSize: number; offset: number }): Promise<ExamRecordDetailRow[]> {
+/** 待阅卷列表（可选按考试过滤）。 */
+export async function listPending(
+  paging: { pageSize: number; offset: number },
+  examId?: string,
+): Promise<ExamRecordDetailRow[]> {
+  const conds = [`r.status = 'pending_review'`];
+  const params: Array<string | number> = [];
+  if (examId) {
+    conds.push('r.exam_id = ?');
+    params.push(examId);
+  }
   return query<ExamRecordDetailRow[]>(
     `SELECT r.id, r.exam_id, r.user_id, r.attempt_no, r.department_id, r.paper_snapshot, r.status, r.answers,
             r.started_at, r.submitted_at, r.auto_submitted, r.score, r.subjective_scores, r.cheat_events,
@@ -270,16 +280,25 @@ export async function listPending(paging: { pageSize: number; offset: number }):
        LEFT JOIN users u ON u.id = r.user_id
        LEFT JOIN departments d ON d.id = r.department_id
        LEFT JOIN departments du ON du.id = u.department_id
-      WHERE r.status = 'pending_review'
+      WHERE ${conds.join(' AND ')}
       ORDER BY r.submitted_at ASC
       LIMIT ? OFFSET ?`,
-    [paging.pageSize, paging.offset],
+    [...params, paging.pageSize, paging.offset],
   );
 }
 
-/** 待阅卷记录数。 */
-export async function countPending(): Promise<number> {
-  const rows = await query<RowDataPacket[]>(`SELECT COUNT(*) AS c FROM ${RECORD_SOURCE} WHERE status = 'pending_review'`);
+/** 待阅卷记录数（可选按考试过滤）。 */
+export async function countPending(examId?: string): Promise<number> {
+  const conds = [`status = 'pending_review'`];
+  const params: Array<string | number> = [];
+  if (examId) {
+    conds.push('exam_id = ?');
+    params.push(examId);
+  }
+  const rows = await query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS c FROM ${RECORD_SOURCE} WHERE ${conds.join(' AND ')}`,
+    params,
+  );
   return Number(rows[0]?.c ?? 0);
 }
 

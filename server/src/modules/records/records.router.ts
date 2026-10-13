@@ -46,14 +46,14 @@ recordsRouter.get(
   }),
 );
 
-/** GET /api/records/pending —— 待阅卷列表（admin/author，分页）。 */
+/** GET /api/records/pending —— 待阅卷列表（admin/author，分页；可选按考试过滤）。 */
 recordsRouter.get(
   '/pending',
   requireRole('admin', 'author'),
   validate(pendingQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
-    const q = req.query as unknown as { page: number; pageSize: number };
-    return ok(res, await recordsService.listPending(q.page, q.pageSize));
+    const q = req.query as unknown as { page: number; pageSize: number; examId?: string };
+    return ok(res, await recordsService.listPending(q.page, q.pageSize, q.examId));
   }),
 );
 

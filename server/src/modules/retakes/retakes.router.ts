@@ -12,7 +12,7 @@ import { validate } from '../../middleware/validate.js';
 import { authRequired } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/role.js';
 import { ok } from '../../utils/response.js';
-import { applyRetakeSchema, rejectRetakeSchema } from './retakes.schema.js';
+import { applyRetakeSchema, rejectRetakeSchema, retakeListQuerySchema } from './retakes.schema.js';
 import * as retakesService from './retakes.service.js';
 import type { RetakeStatus } from '../../types/domain.js';
 
@@ -40,17 +40,19 @@ retakesRouter.get(
   }),
 );
 
-/** 管理员审批列表。 */
+/** 管理员审批列表（可按状态 / 考试过滤）。 */
 retakesRouter.get(
   '/',
   requireRole('admin'),
+  validate(retakeListQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
-    const { status, page, pageSize } = req.query as unknown as {
+    const q = req.query as unknown as {
       status?: RetakeStatus;
-      page?: number;
-      pageSize?: number;
+      examId?: string;
+      page: number;
+      pageSize: number;
     };
-    return ok(res, await retakesService.list({ status }, page, pageSize));
+    return ok(res, await retakesService.list({ status: q.status, examId: q.examId }, q.page, q.pageSize));
   }),
 );
 

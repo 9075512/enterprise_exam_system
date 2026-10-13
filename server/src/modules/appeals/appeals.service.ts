@@ -170,7 +170,7 @@ export async function reject(id: string, adminId: string, comment: string): Prom
 
 /** 复核申请列表（admin，可按状态过滤）。 */
 export async function list(
-  filter: { status?: AppealStatus },
+  filter: { status?: AppealStatus; examId?: string },
   page?: number,
   pageSize?: number,
 ): Promise<Page<ScoreAppealDto>> {

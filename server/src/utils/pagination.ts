@@ -30,8 +30,20 @@ export const paginationQuery = {
     .default(DEFAULT_PAGE_SIZE),
 };
 
-/** 归一化分页参数并给出 SQL 偏移量。 */
-export function normalizePaging(
+/**
+ * 可选 id 类查询参数（v1.9④）：`?examId=` 这类「范围过滤」参数。
+ *
+ * 空串 / 纯空白一律视为「未提供」——前端清空选择器时可能残留 `?examId=`，
+ * 若按 `.min(1)` 校验会误报 400；语义上「空」本就等价于「不过滤」。
+ */
+export function optionalIdQuery(message = '参数不合法') {
+  return z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string({ invalid_type_error: message }).trim().min(1, message).optional(),
+  );
+}
+
+/** 归一化分页参数并给出 SQL 偏移量。 */export function normalizePaging(
   page?: number,
   pageSize?: number,
 ): { page: number; pageSize: number; offset: number } {

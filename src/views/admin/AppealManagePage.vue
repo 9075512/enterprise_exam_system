@@ -1,19 +1,27 @@
 <script setup lang="ts">
 /**
  * 成绩复核管理（v1.7①，管理员）。
- * 按状态筛选复核申请，对待复核申请执行「通过（改分）」或「驳回」。
+ * 按状态 + 考试筛选复核申请，对待复核申请执行「通过（改分）」或「驳回」。
+ *
+ * v1.9④：新增「考试范围」选择器（与路由 `?examId=` 同步）——
+ * 可从「考试管理」行操作直达某场考试的复核队列。
  */
-import { ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import * as appealsApi from '@/api/appeals';
 import { APPEAL_STATUS_LABELS, APPEAL_STATUS_OPTIONS, APPEAL_STATUS_TAG_TYPES } from '@/constants';
+import { useExamScope } from '@/composables/useExamScope';
 import { formatDateTime } from '@/utils/datetime';
 import { formatScore } from '@/utils/format';
 import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
+import ExamScopeSelect from '@/components/common/ExamScopeSelect.vue';
 import type { AppealStatus, ScoreAppeal } from '@/types';
 
 const filter = ref<'' | AppealStatus>('');
+
+/** 考试范围（与路由 ?examId= 双向同步） */
+const { examId } = useExamScope();
 
 const loading = ref(false);
 const page = ref(1);
@@ -26,6 +34,7 @@ async function load(): Promise<void> {
   try {
     const data = await appealsApi.list({
       status: filter.value || undefined,
+      examId: examId.value || undefined,
       page: page.value,
       pageSize: pageSize.value,
     });
@@ -39,6 +48,15 @@ async function load(): Promise<void> {
 }
 
 void load();
+
+/** 考试范围变化 → 回到第 1 页重查 */
+watch(examId, () => {
+  page.value = 1;
+  void load();
+});
+
+/** 空态文案随筛选范围变化 */
+const emptyText = computed(() => (examId.value ? '该考试暂无复核申请' : '暂无复核申请'));
 
 function handleFilterChange(): void {
   page.value = 1;
@@ -117,6 +135,7 @@ async function submitReject(): Promise<void> {
 
     <el-card class="appeal-manage-page__panel" shadow="never">
       <div class="appeal-manage-page__toolbar">
+        <ExamScopeSelect v-model="examId" />
         <el-radio-group v-model="filter" @change="handleFilterChange">
           <el-radio-button value="">全部</el-radio-button>
           <el-radio-button v-for="opt in APPEAL_STATUS_OPTIONS" :key="opt.value" :value="opt.value">
@@ -161,7 +180,7 @@ async function submitReject(): Promise<void> {
           </template>
         </el-table-column>
         <template #empty>
-          <EmptyState text="暂无成绩复核申请" />
+          <EmptyState :text="emptyText" />
         </template>
       </el-table>
 
@@ -230,6 +249,11 @@ async function submitReject(): Promise<void> {
   }
 
   &__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
     margin-bottom: 16px;
   }
 

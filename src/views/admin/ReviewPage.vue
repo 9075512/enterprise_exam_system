@@ -3,19 +3,26 @@
  * 人工阅卷（v1.6②，管理员 + 出题人）。
  * 列出待阅卷答卷（含简答题、status=pending_review），点击「阅卷」逐题给分。
  * 提交后总分 = 客观题（含填空）自动判分 + 主观题（简答）人工给分，状态转 submitted。
+ *
+ * v1.9④：支持按考试收窄（`?examId=`，与「考试管理」行操作直达链接打通）。
  */
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import * as recordsApi from '@/api/records';
+import { useExamScope } from '@/composables/useExamScope';
 import { usePagination } from '@/composables/usePagination';
 import { useSettingsStore } from '@/stores/settings';
 import { formatDateTime } from '@/utils/datetime';
 import { formatScore } from '@/utils/format';
 import EmptyState from '@/components/common/EmptyState.vue';
+import ExamScopeSelect from '@/components/common/ExamScopeSelect.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
 import type { ExamRecord, PaperSnapshotQuestion, RubricBand } from '@/types';
 
 const settingsStore = useSettingsStore();
+
+/** 考试范围（与路由 ?examId= 双向同步） */
+const { examId } = useExamScope();
 
 const {
   list,
@@ -24,14 +31,23 @@ const {
   total,
   loading,
   load,
+  reset,
   onPageChange,
   onSizeChange,
-} = usePagination<ExamRecord>((p, ps) => recordsApi.listPending({ page: p, pageSize: ps }));
+} = usePagination<ExamRecord>((p, ps) =>
+  recordsApi.listPending({ page: p, pageSize: ps, examId: examId.value || undefined }),
+);
 
 onMounted(() => {
   void settingsStore.load();
   void load();
 });
+
+/** 考试范围变化 → 回到第 1 页重查 */
+watch(examId, () => reset());
+
+/** 空态文案随筛选范围变化 */
+const emptyText = computed(() => (examId.value ? '该考试暂无待阅卷答卷' : '暂无待阅卷答卷'));
 
 /* ------------------------------ 阅卷弹窗 ------------------------------ */
 const reviewVisible = ref(false);
@@ -103,6 +119,10 @@ async function handleSubmitReview(): Promise<void> {
     <PageHeader title="人工阅卷" description="对含简答题的答卷进行逐题评分；客观题已自动判分" />
 
     <el-card class="review-page__panel" shadow="never">
+      <div class="review-page__toolbar">
+        <ExamScopeSelect v-model="examId" />
+      </div>
+
       <el-table v-loading="loading" :data="list" row-key="id" stripe>
         <el-table-column prop="examName" label="考试名称" min-width="160" show-overflow-tooltip>
           <template #default="{ row }">{{ row.examName || row.paperSnapshot.paperName }}</template>
@@ -131,7 +151,7 @@ async function handleSubmitReview(): Promise<void> {
           </template>
         </el-table-column>
         <template #empty>
-          <EmptyState text="暂无待阅卷答卷" />
+          <EmptyState :text="emptyText" />
         </template>
       </el-table>
 
@@ -251,6 +271,14 @@ async function handleSubmitReview(): Promise<void> {
 .review-page {
   &__panel {
     border-radius: $radius-lg;
+  }
+
+  &__toolbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
   }
 
   &__pager {

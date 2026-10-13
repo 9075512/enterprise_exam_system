@@ -117,9 +117,9 @@ export async function reject(id: string, adminId: string, reason: string): Promi
   return mapRow(updated!);
 }
 
-/** 补考申请列表（管理员，可按状态过滤）。 */
+/** 补考申请列表（管理员，可按状态 / 考试过滤）。 */
 export async function list(
-  filter: { status?: RetakeStatus },
+  filter: { status?: RetakeStatus; examId?: string },
   page?: number,
   pageSize?: number,
 ): Promise<Page<RetakeDto>> {

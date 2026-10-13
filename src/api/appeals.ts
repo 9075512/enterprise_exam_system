@@ -12,10 +12,13 @@ export function my(query: { page?: number; pageSize?: number } = {}): Promise<Pa
   return get<Page<ScoreAppeal>>('/appeals/my', { page: query.page, pageSize: query.pageSize });
 }
 
-/** 管理员复核列表（可按状态过滤） */
-export function list(query: { status?: string; page?: number; pageSize?: number } = {}): Promise<Page<ScoreAppeal>> {
+/** 管理员复核列表（可按状态 / 考试过滤；v1.9④ 支持 examId） */
+export function list(
+  query: { status?: string; examId?: string; page?: number; pageSize?: number } = {},
+): Promise<Page<ScoreAppeal>> {
   return get<Page<ScoreAppeal>>('/appeals', {
     status: query.status,
+    examId: query.examId,
     page: query.page,
     pageSize: query.pageSize,
   });
