@@ -506,6 +506,20 @@ export const DDL_STATEMENTS: readonly string[] = [
     KEY idx_recovery_user (user_id),
     KEY idx_recovery_user_used (user_id, used_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  // 32. 富文本附件（v1.8④ U4；服务端对象存储元数据，文件本体由 utils/attachmentStore 管理）
+  `CREATE TABLE IF NOT EXISTS attachments (
+    id          VARCHAR(64)  NOT NULL,
+    owner_id    VARCHAR(64)  NOT NULL,
+    kind        VARCHAR(16)  NOT NULL,
+    mime        VARCHAR(64)  NOT NULL,
+    size        INT          NOT NULL,
+    storage_key VARCHAR(255) NOT NULL,
+    created_at  DATETIME(3)  NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_attachments_owner (owner_id),
+    KEY idx_attachments_created (created_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 ];
 
 /** 建表完成后用于统计的核心表名列表（含练题域 6 张表）。 */
@@ -541,4 +555,5 @@ export const TABLE_NAMES: readonly string[] = [
   'user_sessions',
   'exam_records_archive',
   'user_recovery_codes',
+  'attachments',
 ];

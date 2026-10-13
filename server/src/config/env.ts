@@ -9,7 +9,7 @@ import path from 'node:path';
 
 // 以本文件为锚点定位 server 根目录下的 .env，保证 tsx / dist 两种运行方式均可用。
 const here = path.dirname(fileURLToPath(import.meta.url));
-const serverRoot = path.resolve(here, '..', '..');
+export const serverRoot = path.resolve(here, '..', '..');
 loadDotenv({ path: path.join(serverRoot, '.env') });
 
 /** 读取必填环境变量，缺失或空串则抛错。 */
@@ -69,6 +69,13 @@ export const env = {
 
   JWT_SECRET: required('JWT_SECRET'),
   JWT_EXPIRES_IN: optional('JWT_EXPIRES_IN', '12h'),
+
+  // —— 富文本附件对象存储（v1.8④ U4） ——
+  /**
+   * 附件落盘根目录（相对路径以 server 根目录为锚点）。
+   * 默认 `storage/attachments`，按 `yyyy/MM/` 分目录存放。
+   */
+  STORAGE_DIR: optional('STORAGE_DIR', 'storage/attachments'),
 
   // —— 练题（增量，架构 §10-20） ——
   /** 内网实例是否注册练题路由（默认 true，便于联调） */

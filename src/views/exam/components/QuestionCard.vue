@@ -8,6 +8,7 @@
  */
 import { computed } from 'vue';
 import { QUESTION_TYPE_LABELS } from '@/constants';
+import { useSettingsStore } from '@/stores/settings';
 import RichTextEditor from '@/components/common/RichTextEditor.vue';
 import type { Question } from '@/types';
 
@@ -20,6 +21,12 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{ (e: 'update:modelValue', value: number[] | string[]): void }>();
+
+const settingsStore = useSettingsStore();
+
+/** 图片作答上限（与后端设置一致，服务端仍会二次校验，v1.8④ U4） */
+const maxImages = computed<number>(() => settingsStore.settings.richTextImageMaxCount);
+const maxImageBytes = computed<number>(() => settingsStore.settings.richTextImageMaxMb * 1024 * 1024);
 
 const isMultiple = computed<boolean>(() => props.question.type === 'multiple');
 const isFill = computed<boolean>(() => props.question.type === 'fill');
@@ -102,11 +109,13 @@ const shortValue = computed<string>({
       </div>
     </div>
 
-    <!-- 简答（v1.7③ S1：富文本 + 图片作答） -->
+    <!-- 简答（v1.7③ S1：富文本 + 图片作答；v1.8④ U4：图片走服务端对象存储） -->
     <RichTextEditor
       v-else-if="isShort"
       v-model="shortValue"
-      placeholder="请输入你的答案（支持加粗、列表与插入图片）"
+      placeholder="请输入你的答案（支持加粗、列表与粘贴/插入图片）"
+      :max-images="maxImages"
+      :max-image-bytes="maxImageBytes"
     />
   </div>
 </template>

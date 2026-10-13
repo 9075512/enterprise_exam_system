@@ -75,6 +75,8 @@ const FIELD_TAB: Record<string, SettingsTab> = {
   archiveAutoHour: 'list',
   monitorPushEnabled: 'exam',
   monitorPushIntervalSeconds: 'exam',
+  richTextImageMaxMb: 'exam',
+  richTextImageMaxCount: 'exam',
   notifyTemplates: 'notify',
   systemName: 'brand',
   systemShortName: 'brand',
@@ -527,6 +529,36 @@ async function handleReset(): Promise<void> {
                     <p class="settings-page__hint">
                       3~60 秒（默认 5）。同一场考试的全部监考页共享一次查库，间隔越短实时性越好。
                     </p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="简答作图片：单张上限（MB）" prop="richTextImageMaxMb">
+                  <div class="settings-page__control">
+                    <el-input-number
+                      v-model="form.richTextImageMaxMb"
+                      :min="1"
+                      :max="10"
+                      :step="1"
+                      class="settings-page__num"
+                    />
+                    <p class="settings-page__hint">
+                      1~10MB（默认 2）。图片上传至服务端存储后以站内链接插入答案，不再内联 base64。
+                    </p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="简答作图片：最多张数" prop="richTextImageMaxCount">
+                  <div class="settings-page__control">
+                    <el-input-number
+                      v-model="form.richTextImageMaxCount"
+                      :min="1"
+                      :max="10"
+                      :step="1"
+                      class="settings-page__num"
+                    />
+                    <p class="settings-page__hint">1~10 张（默认 3）。前端提示 + 服务端净化双重把关。</p>
                   </div>
                 </el-form-item>
               </el-col>

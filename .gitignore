@@ -5,6 +5,8 @@ node_modules
 server/.env
 server/node_modules
 server/dist
+# 富文本附件本地对象存储（v1.8④ U4：运行时产物，不入库）
+server/storage
 
 # 构建产物
 dist

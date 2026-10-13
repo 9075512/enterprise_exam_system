@@ -785,6 +785,18 @@ export interface MonitorStreamInfo {
   at: string;
 }
 
+/** 富文本附件（v1.8④ U4；图片作答对象存储） */
+export interface Attachment {
+  id: string;
+  /** 访问地址（含签名，可直接用于 `<img src>`） */
+  url: string;
+  kind: string;
+  mime: string;
+  /** 字节数 */
+  size: number;
+  createdAt: string;
+}
+
 /* ============================ v1.7④ T5：归档与维护 ============================ */
 
 /** 归档结果 */
@@ -958,6 +970,10 @@ export interface SystemSettings {
   monitorPushEnabled: boolean;
   /** 监考推送间隔（秒，3~60；默认 5，v1.8① U1） */
   monitorPushIntervalSeconds: number;
+  /** 简答题作图片单张体积上限（MB，默认 2，v1.8④ U4） */
+  richTextImageMaxMb: number;
+  /** 简答题作图片数量上限（默认 3，v1.8④ U4） */
+  richTextImageMaxCount: number;
   /** SMTP 服务器地址（空 = 未配置） */
   smtpHost: string;
   /** SMTP 端口 */

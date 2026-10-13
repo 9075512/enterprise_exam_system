@@ -63,6 +63,8 @@ export const SETTINGS_DEFAULTS: SystemSettings = {
   archiveAutoHour: 3,
   monitorPushEnabled: true,
   monitorPushIntervalSeconds: 5,
+  richTextImageMaxMb: 2,
+  richTextImageMaxCount: 3,
   smtpHost: '',
   smtpPort: 465,
   smtpSecure: true,

@@ -54,53 +54,69 @@ export function verifyChallengeToken(token: string): string | null {
   }
 }
 
+/** 令牌解析结果：成功返回用户，失败返回可选的提示文案。 */
+type ResolveResult = { ok: true; user: AuthUser } | { ok: false; message?: string };
+
+/** 解析 `Authorization: Bearer` 为当前用户（不含响应逻辑，供强弱两档中间件复用）。 */
+async function resolveUser(req: Request): Promise<ResolveResult> {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer ')) return { ok: false };
+  const token = header.slice('Bearer '.length).trim();
+  if (!token) return { ok: false };
+  try {
+    const decoded = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] });
+    if (typeof decoded === 'string' || !decoded.sub) return { ok: false };
+    const payload = decoded as unknown as JwtPayload;
+    // 两步验证挑战令牌不可作为访问令牌
+    if (payload.scope === '2fa') return { ok: false };
+    // 会话校验：带 jti 的令牌必须对应有效会话（支持强制下线）
+    if (payload.jti) {
+      const { valid, lastSeenAt } = await checkSession(payload.jti);
+      if (!valid) return { ok: false, message: '登录状态已失效，请重新登录' };
+      void touchSession(payload.jti, lastSeenAt).catch(() => {
+        /* 活跃时间刷新失败不影响鉴权 */
+      });
+    }
+    return {
+      ok: true,
+      user: {
+        id: String(decoded.sub),
+        role: payload.role,
+        departmentId: payload.departmentId ?? '',
+        sessionId: payload.jti ?? '',
+      },
+    };
+  } catch {
+    return { ok: false };
+  }
+}
+
 /**
  * 鉴权守卫：无 Token / Token 非法或过期 → 1002/401。
  * 成功时挂载 `req.user = { id, role, departmentId, sessionId }`。
  */
 export async function authRequired(req: Request, _res: Response, next: NextFunction): Promise<void> {
-  const header = req.headers.authorization;
-  if (!header || !header.startsWith('Bearer ')) {
-    next(unauthorized());
+  const result = await resolveUser(req);
+  if (!result.ok) {
+    next(unauthorized(result.message));
     return;
   }
-  const token = header.slice('Bearer '.length).trim();
-  if (!token) {
-    next(unauthorized());
-    return;
-  }
+  req.user = result.user;
+  next();
+}
+
+/**
+ * 可选鉴权（v1.8④ U4）：有合法 Bearer 则挂载 `req.user`；无/非法则**静默放行**（保持 undefined）。
+ *
+ * 用途：附件读取接口既要支持程序化访问（带 Bearer，校验归属/角色），
+ * 又要支持浏览器 `<img src>`（**无法带 header**，改由签名 URL 通道鉴权）。
+ */
+export async function authOptional(req: Request, _res: Response, next: NextFunction): Promise<void> {
   try {
-    const decoded = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] });
-    if (typeof decoded === 'string' || !decoded.sub) {
-      next(unauthorized());
-      return;
-    }
-    const payload = decoded as unknown as JwtPayload;
-    // 两步验证挑战令牌不可作为访问令牌
-    if (payload.scope === '2fa') {
-      next(unauthorized());
-      return;
-    }
-    // 会话校验：带 jti 的令牌必须对应有效会话（支持强制下线）
-    if (payload.jti) {
-      const { valid, lastSeenAt } = await checkSession(payload.jti);
-      if (!valid) {
-        next(unauthorized('登录状态已失效，请重新登录'));
-        return;
-      }
-      void touchSession(payload.jti, lastSeenAt).catch(() => {
-        /* 活跃时间刷新失败不影响鉴权 */
-      });
-    }
-    const user: AuthUser = {
-      id: String(decoded.sub),
-      role: payload.role,
-      departmentId: payload.departmentId ?? '',
-      sessionId: payload.jti ?? '',
-    };
-    req.user = user;
-    next();
+    const result = await resolveUser(req);
+    if (result.ok) req.user = result.user;
   } catch {
-    next(unauthorized());
+    /* 可选鉴权失败不影响后续流程 */
   }
+  next();
 }

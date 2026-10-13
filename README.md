@@ -37,7 +37,7 @@ Vue 3 (Vite, Element Plus, Pinia, Vue Router)  ──REST/JSON──▶  Express
 │  ├─ src/db/                # init.ts（建表 + 幂等迁移 + 种子）、seed.ts
 │  ├─ src/middleware/        # auth / role / validate / error
 │  ├─ src/utils/             # 响应、错误、分页、Excel（exceljs）、PDF（pdfkit）、鉴权、JWT 等
-│  └─ src/test/              # vitest + supertest（354 用例）
+│  └─ src/test/              # vitest + supertest（368 用例）
 ├─ practice-web/             # 公网练题端（独立前端工程）
 ├─ docs/                     # 增量 PRD 与架构设计文档
 ├─ deploy/                   # 部署脚本（Nginx / DB 授权）
@@ -64,6 +64,7 @@ Vue 3 (Vite, Element Plus, Pinia, Vue Router)  ──REST/JSON──▶  Express
    DB_NAME=enterprise_exam_system
    DB_NAME_TEST=enterprise_exam_system_test
    JWT_SECRET=请替换为随机字符串
+   STORAGE_DIR=storage/attachments
    ```
 
 2. 安装依赖（**Windows 下建议加 `--ignore-scripts`**，规避 esbuild/rollup 安装脚本锁定问题）：
@@ -102,7 +103,7 @@ npm run preview          # 预览构建产物
 
 # 后端
 npm --prefix server run typecheck   # tsc --noEmit
-npm --prefix server run test        # vitest + supertest（354 用例）
+npm --prefix server run test        # vitest + supertest（368 用例）
 npm --prefix server run build       # 编译到 server/dist
 npm --prefix server run start       # 运行编译产物
 ```
@@ -140,8 +141,9 @@ npm --prefix server run start       # 运行编译产物
 - **两步验证增强（v1.8②）**：恢复码（10 个，一次性、仅存哈希、可重新生成）+ 管理员强制重置（清空密钥、作废恢复码、撤销会话并通知本人）。
 - **归档自动化（v1.8③）**：归档定时任务（开关 + 执行时点可配，单飞 + 每天一次 + 系统 actor 审计；默认关闭），支持「立即执行一次」。
 - **监考实时推送（v1.8①）**：监考大屏由 15s 轮询升级为 **SSE 推送**（零依赖；同一场考试的全部监考页**共享一次查库**，按考试聚合广播；15s 心跳 + 连接数上限），推送不可用时前端**自动回退轮询**。
+- **富文本附件对象存储（v1.8④）**：简答作答图片支持**粘贴/选图上传**（服务端落盘 `storage/attachments/yyyy/MM`，可替换为云对象存储），答案回填站内带签名 URL，不再内联 base64；读取走**双通道鉴权**（Bearer 归属校验 / HMAC 签名 URL），净化白名单收敛到站内前缀。
 
-## 数据表（31 张，一句话说明）
+## 数据表（32 张，一句话说明）
 
 | 表 | 说明 |
 | --- | --- |
@@ -176,8 +178,9 @@ npm --prefix server run start       # 运行编译产物
 | `user_sessions` | 登录会话与设备（v1.7③，支持远程下线与强制登出） |
 | `exam_records_archive` | 考试记录归档表（v1.7④，无外键可长期保留；历史读路径 union 合并） |
 | `user_recovery_codes` | 两步验证恢复码（v1.8②，仅存 bcrypt 哈希，一次性使用） |
+| `attachments` | 富文本附件（v1.8④，图片作答对象存储元数据；文件本体落盘 `server/storage/attachments`） |
 
 ## ⚠️ 红线说明
 
-- 本系统只使用数据库 **`enterprise_exam_system`**（31 张表）。
+- 本系统只使用数据库 **`enterprise_exam_system`**（32 张表）。
 - 同名/同实例下的 **`exam_system`** 库属于**其他项目**（17 张表），**严禁对其执行任何 DDL/DML 操作**。所有脚本、测试与初始化均仅针对 `enterprise_exam_system`（及测试库 `enterprise_exam_system_test`）。

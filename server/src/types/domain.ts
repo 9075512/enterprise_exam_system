@@ -568,6 +568,19 @@ export interface MonitorStreamInfoDto {
   at: string;
 }
 
+/** 富文本附件（v1.8④ U4；图片作答对象存储元数据） */
+export interface AttachmentDto {
+  id: string;
+  /** 访问地址（含签名，可直接用于 `<img src>`） */
+  url: string;
+  /** 附件类型，本期恒为 `image` */
+  kind: string;
+  mime: string;
+  /** 字节数 */
+  size: number;
+  createdAt: string;
+}
+
 /** 归档结果（v1.7④ T5） */
 export interface ArchiveResultDto {
   /** 本次归档（搬入归档表并自业务表移除）的记录数 */
@@ -701,6 +714,10 @@ export interface SystemSettings {
   monitorPushEnabled: boolean;
   /** 监考推送间隔（秒，3~60；默认 5，v1.8① U1） */
   monitorPushIntervalSeconds: number;
+  /** 简答题作图片：单张体积上限（MB，1~10；默认 2，v1.8④ U4） */
+  richTextImageMaxMb: number;
+  /** 简答题作图片：最多图片数（1~10；默认 3，v1.8④ U4） */
+  richTextImageMaxCount: number;
   /** 站内信通知总开关 */
   notifySiteEnabled: boolean;
   /** 邮件通知总开关 */

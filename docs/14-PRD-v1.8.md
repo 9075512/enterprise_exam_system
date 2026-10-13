@@ -24,7 +24,8 @@
 | ② | U2 两步验证增强（恢复码 + 管理员强制重置） | ✅ 已完成 |
 | ③ | U3 归档自动定时任务 | ✅ 已完成 |
 | ① | U1 实时监控 SSE 推送 | ✅ 已完成 |
-| ④ | U4 富文本附件对象存储 | ⏳ 进行中 |
+| ④ | U4 富文本附件对象存储 | ✅ 已完成 |
+| ⑤ | U5 题库复制内容去重复用 | ⏳ 进行中 |
 | ⑤ | U5 题库复制内容去重复用 | ⏳ 待开始 |
 
 ---
@@ -100,6 +101,12 @@
 - **前端**：`RichTextEditor.vue` 增粘贴上传 + 上传进度；`ReviewPage` / `ScoreDetailPage` 的 `v-html` 渲染站内图片 URL 原样可用。
 - **风险与缓解**：XSS（`img[src]` 白名单收敛到站内前缀 + data URI；其余一律拒绝）、路径穿越（文件名服务端生成，不接受客户端路径）、孤儿文件（`ref_count` + 后续清理任务）、越权读取（`GET` 校验归属/角色）。
 - **验收**：粘贴图片作答 → 请求体不再含 base64 → 服务端落盘 + 记录 + 回显；非法类型/超限被拒；渲染正常。
+
+> **实际实现与本节差异（见 §11）**：
+> 1. 图片读取改为**双通道鉴权**——浏览器 `<img>` 无法携带 `Authorization` 头，故上传返回的 URL 带
+>    `HMAC` 签名（`?t=`），否则作答图片会全部裂图；
+> 2. 不做 `ref_count` 引用计数与孤儿清理（本期先保证「可读、可管、不可越权」，清理任务留待后续）；
+> 3. `express.json` 上限**保持 8mb**（兼容历史内联 base64 数据的续考与编辑，下一版再降）。
 
 ### ⑤ U5 题库跨库题目引用共享
 
@@ -298,3 +305,76 @@
 - `db:init` 幂等复跑：**表数量 31**，「结构升级：无需变更（已是最新）」（本期无新表）。
 - **已知限制**：连接中心为**进程内**状态（多实例部署时各实例各自维护订阅，推送仍正确，仅容量计数不全局）；
   SSE 经 Nginx 时依赖 `X-Accel-Buffering: no` 关闭缓冲（已设置）。
+
+---
+
+## 11. U4 交付详情（④ 富文本附件对象存储，已交付）
+
+### 11.1 存储抽象（可替换为云对象存储）
+
+- 新增 `server/src/utils/attachmentStore.ts`：`AttachmentStore` 接口（`save` / `read` / `createStream` /
+  `exists` / `remove`）+ **本地磁盘实现**；导出单例 `attachmentStore` 作为替换点。
+- 目录规则：`<STORAGE_DIR>/yyyy/MM/<id>.<ext>`（`STORAGE_DIR` 默认 `storage/attachments`，相对路径以
+  **server 根目录**为锚点；已加入 `.gitignore` 与 `.env.example`）。
+- **文件名完全由服务端生成**（时间戳 base36 + 随机串 + 白名单扩展名），客户端不参与路径拼接；
+  `isSafeStorageKey()` 以 `^\d{4}/\d{2}/[A-Za-z0-9_-]+\.[a-z0-9]{2,5}$` 强校验，**天然杜绝路径穿越**。
+
+### 11.2 数据表（表 32）
+
+```sql
+attachments(id, owner_id, kind, mime, size, storage_key, created_at)
+  PRIMARY KEY(id) · KEY idx_attachments_owner(owner_id) · KEY idx_attachments_created(created_at)
+```
+
+无外键（账号删除后记录自包含）；**不做引用计数**（孤儿文件清理留待后续）。
+
+### 11.3 接口
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| POST | `/api/attachments` | 登录 | multipart（字段 `file`）；类型白名单 `png/jpeg/gif/webp/bmp`；上限按设置 `richTextImageMaxMb` **每次请求动态构造 multer**（改设置即时生效）；返回 `{ id, url, kind, mime, size, createdAt }` |
+| GET | `/api/attachments/:id` | **双通道** | 流式返回图片；`Content-Type` 取记录值、`Cache-Control: private, max-age=31536000, immutable`、`X-Content-Type-Options: nosniff` |
+
+**双通道鉴权（本期关键设计）**：
+
+1. `Authorization: Bearer`（新增 `authOptional` 可选鉴权中间件解析）→ 要求**本人**或角色为 `admin` / `author`（阅卷需要）；
+2. URL 查询串 `?t=<签名>`：`HMAC-SHA256(JWT_SECRET, 'attachment:' + id)` 取前 32 位十六进制。
+   原因：富文本以 `v-html` 渲染，浏览器 `<img>` **无法携带请求头**，仅靠 Bearer 会导致图片全裂；
+   签名**不含用户信息**且确定性（附件不可变、无需轮换），校验用 `timingSafeEqual` 防时序侧信道。
+   校验前置 `attachmentStore.exists()`，文件缺失直接 1004，**不产生半截流式响应**。
+
+### 11.4 富文本净化扩展与作答链路
+
+- `sanitizeRichText` 的 `img[src]` 白名单由「仅 data URI」扩为**两种**：
+  a. `data:image/*;base64,`（历史数据兼容，仍校验体积）；
+  b. 站内附件 URL `/api/attachments/<id>?t=<签名>`（正则严格锚定前缀，`//evil.com`、`/uploads/x.png`、
+     路径穿越 `../` 一律拒绝，且计入图片张数上限）。
+- `records.service.saveAnswers` 改为按**系统设置**传入 `{ maxImages, maxImageBytes }`
+  （`richTextImageMaxCount` / `richTextImageMaxMb` 实时生效）。
+
+### 11.5 设置项与前端
+
+| 键 | 默认 | 范围 |
+| --- | --- | --- |
+| `richTextImageMaxMb` | 2 | 1~10（MB） |
+| `richTextImageMaxCount` | 3 | 1~10（张） |
+
+- `src/api/attachments.ts`（新）：`uploadImage(file)` → 复用 `http.upload`（自动带 multipart 边界）。
+- `components/common/RichTextEditor.vue`：**改为上传后回填站内 URL**（不再 data URI 内联）；
+  新增「**Ctrl+V 粘贴图片**（含截图工具）」、上传中禁用与「图片上传中…」提示、URL 属性转义。
+- `views/exam/components/QuestionCard.vue`：从设置 store 注入 `maxImages` / `maxImageBytes`（与后端同源）。
+- `views/admin/SettingsPage.vue`：「考试规则」页新增两个数字项。
+- 渲染侧（`ReviewPage` / `ScoreDetailPage` 的 `v-html`）**无需改动**：站内 URL 带签名即可直接显示。
+
+### 11.6 验证结论
+
+- 后端 typecheck **0 错**；新增 `server/src/test/v18d.test.ts`（14 用例：设置默认值/越界、上传成功
+  （落盘 + 落库 + 存储键形态）、未登录 1002、非图片 1006、超限 1006、**无 Authorization 头凭签名读取**
+  并逐字节比对、无签名时本人/阅卷角色可读而他人与匿名 1003、篡改签名 1003、不存在 1004、文件被清理
+  后 1004、净化保留站内 URL 而丢弃外链/协议相对/路径穿越、张数上限、作答链路端到端暂存即净化）
+  全通过；全量 **368/368（25 文件）**。
+- 前端 typecheck **0 错**、vitest **28/28**、`vite build` **成功**；练题端 typecheck **0 错**。
+- `db:init` 幂等复跑：**表数量 32**（新增 `attachments`），「结构升级：无需变更（已是最新）」。
+- **已知限制**：孤儿文件与附件清理任务未实现（不做引用计数）；本地磁盘为单机存储，
+  多实例部署需共享存储或改接云对象存储（替换 `attachmentStore` 单例即可）。
+

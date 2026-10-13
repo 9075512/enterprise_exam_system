@@ -178,6 +178,18 @@ export const settingsSchema = z.object({
     .min(3, '监考推送间隔必须为 3~60 秒')
     .max(60, '监考推送间隔必须为 3~60 秒'),
 
+  richTextImageMaxMb: z
+    .number({ invalid_type_error: '作答题图片单张上限必须为 1~10MB' })
+    .int('作答题图片单张上限必须为 1~10MB')
+    .min(1, '作答题图片单张上限必须为 1~10MB')
+    .max(10, '作答题图片单张上限必须为 1~10MB'),
+
+  richTextImageMaxCount: z
+    .number({ invalid_type_error: '作答题图片数量上限必须为 1~10 张' })
+    .int('作答题图片数量上限必须为 1~10 张')
+    .min(1, '作答题图片数量上限必须为 1~10 张')
+    .max(10, '作答题图片数量上限必须为 1~10 张'),
+
   notifySiteEnabled: z.boolean({ invalid_type_error: '站内信通知开关必须为布尔值' }),
   notifyEmailEnabled: z.boolean({ invalid_type_error: '邮件通知开关必须为布尔值' }),
   notifyOnPublish: z.boolean({ invalid_type_error: '考试发布通知开关必须为布尔值' }),

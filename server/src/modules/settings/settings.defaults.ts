@@ -49,6 +49,8 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   archiveAutoHour: 3,
   monitorPushEnabled: true,
   monitorPushIntervalSeconds: 5,
+  richTextImageMaxMb: 2,
+  richTextImageMaxCount: 3,
   notifySiteEnabled: true,
   notifyEmailEnabled: false,
   notifyOnPublish: true,

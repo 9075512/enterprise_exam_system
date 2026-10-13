@@ -10,7 +10,10 @@
  * 2. 逐个标签重建：标签名不在白名单 → 丢弃标签、保留内部文本；
  * 3. 属性同样按白名单过滤（`on*` 事件属性因此天然被剔除）；
  * 4. `a[href]` 仅允许 http/https/mailto/tel 与站内相对地址，杜绝 `javascript:`；
- * 5. `img[src]` 仅允许 `data:image/*;base64,` 内联图片，并限制单图体积与图片数量；
+ * 5. `img[src]` 仅允许**两种**来源，并限制单图体积与图片数量（v1.8④ U4 起）：
+ *    a. `data:image/*;base64,` 内联图片（历史数据兼容，仍校验体积）；
+ *    b. **站内附件 URL** `/api/attachments/<id>?t=<签名>`（v1.8④ 对象存储；不接受其它任何站内路径）。
+ *    其余一律丢弃整张图片（杜绝外链追踪、协议相对地址 `//evil.com` 与 `javascript:`）。
  * 6. 输出长度上限，超限截断（未闭合标签由浏览器自动补全，无脚本风险）。
  */
 
@@ -90,15 +93,23 @@ export interface RichTextOptions {
 /** 数据 URI 图片：`data:image/<type>;base64,<payload>`。 */
 const DATA_IMAGE_RE = /^data:image\/(png|jpe?g|gif|webp|bmp);base64,([a-z0-9+/=\s]+)$/i;
 
+/**
+ * 站内附件图片（v1.8④ U4）：`/api/attachments/<id>?t=<签名>`。
+ * 严格锚定前缀（`//evil.com` 因不含 `api/attachments/` 而被拒），签名段限定为安全字符。
+ */
+const ATTACHMENT_IMAGE_RE = /^\/api\/attachments\/[A-Za-z0-9_-]{4,64}(?:\?[A-Za-z0-9_=&%.-]{0,200})?$/;
+
 /** `a[href]` 允许的地址形态。 */
 const SAFE_LINK_RE = /^(https?:\/\/|mailto:|tel:|\/|#)/i;
 
 /**
  * 解析并过滤 `img[src]`：非法 → 返回 ''（整张图片被丢弃）。
- * 体积按 base64 解码后估算（len * 3 / 4）。
+ * - 站内附件 URL：原样放行（服务端已签名，体积在上传时已受限）；
+ * - data URI：按 base64 解码后估算体积（len * 3 / 4）。
  */
 function sanitizeImageSrc(raw: string, maxImageBytes: number): string {
   const value = raw.trim();
+  if (ATTACHMENT_IMAGE_RE.test(value)) return value;
   const match = DATA_IMAGE_RE.exec(value);
   if (!match) return '';
   const payload = match[2].replace(/\s+/g, '');

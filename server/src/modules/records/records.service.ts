@@ -141,6 +141,12 @@ export async function saveAnswers(
 
   const record = mapRecordRow(row);
   const typeMap = new Map(record.paperSnapshot.questions.map((sq) => [sq.questionId, sq.question.type]));
+  // v1.8④ U4：图片作答改走对象存储（站内 URL），体积/张数上限由系统设置实时生效
+  const settings = await getSettings();
+  const richTextOptions = {
+    maxImages: settings.richTextImageMaxCount,
+    maxImageBytes: settings.richTextImageMaxMb * 1024 * 1024,
+  };
   const normalized: Record<string, number[] | string[]> = {};
   for (const [qid, arr] of Object.entries(answers)) {
     if (!Array.isArray(arr)) {
@@ -153,7 +159,7 @@ export async function saveAnswers(
     } else if (type === 'short') {
       // v1.7③ S1：简答支持富文本/图片作答，服务端白名单净化（前端渲染不得作为安全边界）
       const raw = String(arr[0] ?? '');
-      normalized[qid] = [isRichTextEmpty(raw) ? '' : sanitizeRichText(raw)];
+      normalized[qid] = [isRichTextEmpty(raw) ? '' : sanitizeRichText(raw, richTextOptions)];
     } else {
       normalized[qid] = [...arr].map((n) => Number(n)).filter((n) => Number.isInteger(n)).sort((a, b) => a - b);
     }
