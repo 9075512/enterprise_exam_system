@@ -78,11 +78,17 @@ export const announcementBodySchema = z
       .trim()
       .min(1, '公告标题不能为空')
       .max(120, '公告标题最多 120 个字'),
+    /**
+     * 公告正文（v2.0① 起支持富文本 + 图片）。
+     * 入参为编辑器输出的 HTML；**服务端**用 `utils/richText.sanitizeRichText`
+     * 白名单净化后落库（前端渲染不构成安全边界）。
+     * 长度上限放宽到 20000，与净化上限保持一致。
+     */
     content: z
       .string({ invalid_type_error: '公告内容不能为空' })
       .trim()
       .min(1, '公告内容不能为空')
-      .max(5000, '公告内容最多 5000 个字'),
+      .max(20000, '公告内容最多 20000 个字符'),
     target: contentTargetSchema,
     level: announcementLevelSchema.optional().default('normal'),
     pinned: z.boolean({ invalid_type_error: '置顶开关必须为布尔值' }).optional().default(false),

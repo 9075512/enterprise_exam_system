@@ -16,6 +16,12 @@ const announcements = ref<Announcement[]>([]);
 const detailVisible = ref(false);
 const detail = ref<Announcement | null>(null);
 
+/* 重要公告「首次进入强提醒」（v2.0①）：本地记录已提醒过的公告 id */
+const IMPORTANT_SEEN_KEY = 'practice-important-seen';
+const forceVisible = ref(false);
+const forceItem = ref<Announcement | null>(null);
+const forceQueue = ref<Announcement[]>([]);
+
 const visible = computed<boolean>(() => banners.value.length > 0 || announcements.value.length > 0);
 
 /** 公告列表默认只展示前 3 条，其余折叠 */
@@ -25,11 +31,61 @@ const shownAnnouncements = computed<Announcement[]>(() =>
 );
 const hasMore = computed<boolean>(() => announcements.value.length > 3);
 
+/** 读取本地已提醒的重要公告 id 集合。 */
+function loadSeenImportant(): Set<string> {
+  try {
+    const raw = localStorage.getItem(IMPORTANT_SEEN_KEY);
+    const arr = raw ? (JSON.parse(raw) as unknown) : [];
+    return new Set(Array.isArray(arr) ? arr.map(String) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/** 标记重要公告已提醒（一次性）。 */
+function markImportantSeen(id: string): void {
+  const seen = loadSeenImportant();
+  seen.add(id);
+  try {
+    localStorage.setItem(IMPORTANT_SEEN_KEY, JSON.stringify([...seen].slice(-200)));
+  } catch {
+    /* 忽略存储异常 */
+  }
+}
+
+/** 依次弹出重要公告强提醒。 */
+function popForce(): void {
+  const next = forceQueue.value.shift();
+  if (next) {
+    forceItem.value = next;
+    forceVisible.value = true;
+  } else {
+    forceVisible.value = false;
+    forceItem.value = null;
+  }
+}
+
+function closeForce(): void {
+  forceVisible.value = false;
+  popForce();
+}
+
+/** 把「未提醒过的重要公告」入队并立即弹出（首次进入才触发）。 */
+function queueImportantReminders(): void {
+  const seen = loadSeenImportant();
+  const pending = announcements.value.filter((a) => a.level === 'important' && !seen.has(a.id));
+  if (pending.length === 0) return;
+  pending.forEach((a) => markImportantSeen(a.id));
+  forceQueue.value = pending;
+  popForce();
+}
+
 onMounted(async () => {
   try {
     const data = await practiceApi.feed();
     banners.value = data.banners;
     announcements.value = data.announcements;
+    queueImportantReminders();
   } catch {
     // 首页装饰性内容，失败静默降级（不阻断题库列表）
   }
@@ -94,7 +150,19 @@ function openDetail(item: Announcement): void {
         <span v-if="detail?.level === 'important'" class="notice__detail-flag">重要</span>
         {{ shortDate(detail?.createdAt ?? '') }}
       </p>
-      <div class="notice__detail-body">{{ detail?.content }}</div>
+      <div class="notice__detail-body" v-html="detail?.content ?? ''" />
+    </el-dialog>
+
+    <!-- 重要公告首次进入强提醒（v2.0①） -->
+    <el-dialog v-model="forceVisible" title="重要公告" width="86%" align-center @close="closeForce">
+      <p class="notice__detail-meta">
+        <span class="notice__detail-flag">重要</span>
+        {{ forceItem?.title }}
+      </p>
+      <div class="notice__detail-body" v-html="forceItem?.content ?? ''" />
+      <template #footer>
+        <el-button type="primary" @click="closeForce">我知道了</el-button>
+      </template>
     </el-dialog>
   </div>
 </template>
@@ -241,6 +309,23 @@ function openDetail(item: Announcement): void {
     color: $text-primary;
     white-space: pre-wrap;
     word-break: break-word;
+
+    /* 富文本（服务端已白名单净化后再 v-html） */
+    :deep(img) {
+      max-width: 100%;
+      height: auto;
+      border-radius: 4px;
+    }
+
+    :deep(p) {
+      margin: 0 0 6px;
+    }
+
+    :deep(ul),
+    :deep(ol) {
+      margin: 6px 0;
+      padding-left: 20px;
+    }
   }
 }
 </style>

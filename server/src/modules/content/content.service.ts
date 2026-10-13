@@ -12,7 +12,8 @@
  */
 import * as repo from './content.repo.js';
 import type { AnnouncementRow, BannerRow } from './content.repo.js';
-import { notFound } from '../../utils/errors.js';
+import { badRequest, notFound } from '../../utils/errors.js';
+import { isRichTextEmpty, sanitizeRichText } from '../../utils/richText.js';
 import { genId } from '../../utils/id.js';
 import { nowDb, toDbDate, fromDbDateSafe } from '../../utils/datetime.js';
 import { normalizePaging, buildPage } from '../../utils/pagination.js';
@@ -31,15 +32,19 @@ import type { AnnouncementBodyInput, BannerBodyInput, ContentListQueryInput } fr
 const FEED_ANNOUNCEMENT_LIMIT = 20;
 const FEED_BANNER_LIMIT = 10;
 
-const MAX_ANNOUNCEMENT_LEN = 2000;
+/** 公告富文本净化上限（与 content.schema 的 20000 长度上限一致）。 */
+const ANNOUNCEMENT_RICH = { maxLength: 20000, maxImages: 5, maxImageBytes: 1024 * 1024 };
 
 /**
- * 顶部公告列表只回传摘要（超出部分在两端以「详情弹层」展示全文），
- * 但管理端列表需要原文；这里仅对 feed 做截断，管理端保留全文。
+ * 公告正文净化（v2.0①）：
+ * 采用与简答题作答相同的白名单策略（`utils/richText.sanitizeRichText`），
+ * 仅保留安全标签 / 属性，图片仅接受内联 data URI 与站内附件签名 URL。
+ * 净化后为空（如只提交 `<p><br></p>`）→ 1001。
  */
-function excerpt(text: string, max = 120): string {
-  const flat = text.replace(/\s+/g, ' ').trim();
-  return flat.length <= max ? flat : `${flat.slice(0, max)}…`;
+function sanitizeAnnouncementContent(raw: string): string {
+  const html = sanitizeRichText(raw, ANNOUNCEMENT_RICH);
+  if (isRichTextEmpty(html)) throw badRequest('公告内容不能为空');
+  return html;
 }
 
 /** 是否处于「正在生效」状态（服务端口径）。 */
@@ -113,10 +118,11 @@ export async function listAnnouncements(query: ContentListQueryInput): Promise<P
 export async function createAnnouncement(actorId: string, input: AnnouncementBodyInput): Promise<AnnouncementDto> {
   const id = genId('ann-');
   const now = nowDb();
+  const content = sanitizeAnnouncementContent(input.content);
   await repo.insertAnnouncement({
     id,
     title: input.title,
-    content: input.content,
+    content,
     target: input.target,
     level: input.level,
     pinned: input.pinned,
@@ -148,9 +154,10 @@ export async function updateAnnouncement(
   const existing = await repo.findAnnouncementById(id);
   if (!existing) throw notFound('公告不存在或已被删除');
   const now = nowDb();
+  const content = sanitizeAnnouncementContent(input.content);
   await repo.updateAnnouncement(id, {
     title: input.title,
-    content: input.content,
+    content,
     target: input.target,
     level: input.level,
     pinned: input.pinned,
@@ -286,11 +293,7 @@ export async function getFeed(scope: 'exam' | 'practice'): Promise<ContentFeedDt
     repo.listVisibleBanners(scope, now, FEED_BANNER_LIMIT),
   ]);
   return {
-    announcements: annRows.map((r) => {
-      const dto = mapAnnouncement(r, now);
-      // 两端只展示摘要，点击后在弹层中查看全文
-      return dto.content.length > MAX_ANNOUNCEMENT_LEN ? { ...dto, content: excerpt(dto.content) } : dto;
-    }),
+    announcements: annRows.map((r) => mapAnnouncement(r, now)),
     banners: bannerRows.map((r) => mapBanner(r, now)),
   };
 }

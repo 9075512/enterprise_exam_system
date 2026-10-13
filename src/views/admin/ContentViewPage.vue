@@ -24,6 +24,7 @@ import { uploadImage } from '@/api/attachments';
 import { formatRange } from '@/utils/datetime';
 import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
+import RichTextEditor from '@/components/common/RichTextEditor.vue';
 import type { Announcement, AnnouncementLevel, Banner, ContentTarget } from '@/types';
 
 /* ============================ 通用 ============================ */
@@ -69,6 +70,12 @@ function windowText(input: unknown): string {
 }
 
 const activeTab = ref<'announcement' | 'banner'>('announcement');
+
+/** 富文本是否为空（仅标签 / 空白；含图片视为非空）——与后端 isRichTextEmpty 同口径。 */
+function richTextEmpty(html: string): boolean {
+  if (/<img\b/i.test(html)) return false;
+  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').trim() === '';
+}
 
 /* ============================ 公告 ============================ */
 
@@ -171,7 +178,7 @@ async function submitAnnouncement(): Promise<void> {
     ElMessage.warning('请填写公告标题');
     return;
   }
-  if (!annForm.content.trim()) {
+  if (richTextEmpty(annForm.content)) {
     ElMessage.warning('请填写公告内容');
     return;
   }
@@ -183,7 +190,7 @@ async function submitAnnouncement(): Promise<void> {
   try {
     const payload = {
       title: annForm.title.trim(),
-      content: annForm.content.trim(),
+      content: annForm.content,
       target: annForm.target,
       level: annForm.level,
       pinned: annForm.pinned,
@@ -583,13 +590,12 @@ onMounted(() => {
           <el-input v-model="annForm.title" maxlength="120" show-word-limit placeholder="请输入公告标题" />
         </el-form-item>
         <el-form-item label="公告内容" required>
-          <el-input
+          <RichTextEditor
             v-model="annForm.content"
-            type="textarea"
-            :rows="6"
-            maxlength="5000"
-            show-word-limit
-            placeholder="请输入公告正文"
+            :max-images="5"
+            :max-image-bytes="1024 * 1024"
+            :min-height="180"
+            placeholder="请输入公告正文（支持加粗、列表与插入图片）"
           />
         </el-form-item>
         <el-form-item label="发布范围">
