@@ -64,6 +64,8 @@ const FIELD_TAB: Record<string, SettingsTab> = {
   cheatCountThreshold: 'exam',
   cheatSecondsThreshold: 'exam',
   cheatAutoSubmitEnabled: 'exam',
+  shuffleDefaultEnabled: 'exam',
+  shuffleOptionsDefault: 'exam',
   countdownWarningMinutes: 'exam',
   defaultPassword: 'account',
   minPasswordLength: 'account',
@@ -365,6 +367,35 @@ async function handleReset(): Promise<void> {
                     />
                     <p class="settings-page__hint">
                       开启后，考生切屏次数或累计离开秒数达到上方阈值时将自动强制交卷；关闭则仅记录异常。
+                    </p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="人手一卷（默认）" prop="shuffleDefaultEnabled">
+                  <div class="settings-page__control">
+                    <el-switch
+                      v-model="form.shuffleDefaultEnabled"
+                      active-text="开启"
+                      inactive-text="关闭"
+                    />
+                    <p class="settings-page__hint">
+                      开启后，新建考试默认人手一卷（题目顺序随机）；可在单场考试中单独覆盖。
+                    </p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="选项乱序（默认）" prop="shuffleOptionsDefault">
+                  <div class="settings-page__control">
+                    <el-switch
+                      v-model="form.shuffleOptionsDefault"
+                      active-text="开启"
+                      inactive-text="关闭"
+                      :disabled="!form.shuffleDefaultEnabled"
+                    />
+                    <p class="settings-page__hint">
+                      人手一卷开启时，进一步打乱每道题的选项顺序（同步调整正确答案）。
                     </p>
                   </div>
                 </el-form-item>

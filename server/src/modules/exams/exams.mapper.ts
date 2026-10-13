@@ -17,8 +17,16 @@ export interface ExamRow extends RowDataPacket {
   duration_minutes: number | string;
   pass_score: number | string;
   max_attempts: number | string;
+  shuffle_enabled: number | boolean | null;
+  shuffle_options: number | boolean | null;
   created_by: string;
   created_at: string;
+}
+
+/** TINYINT(1) NULL → boolean | null（NULL=继承全局默认）。 */
+function nullableBool(value: number | boolean | null | undefined): boolean | null {
+  if (value === null || value === undefined) return null;
+  return Boolean(Number(value));
 }
 
 /** 映射为对外 DTO（JSON 列归一、时间转 ISO）。 */
@@ -33,6 +41,8 @@ export function mapExamRow(row: ExamRow): ExamDto {
     durationMinutes: Number(row.duration_minutes),
     passScore: Number(row.pass_score),
     maxAttempts: Number(row.max_attempts),
+    shuffleEnabled: nullableBool(row.shuffle_enabled),
+    shuffleOptions: nullableBool(row.shuffle_options),
     createdBy: row.created_by,
     createdAt: fromDbDateSafe(row.created_at),
   };

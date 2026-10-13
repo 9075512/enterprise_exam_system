@@ -15,6 +15,8 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   cheatCountThreshold: 3,
   cheatSecondsThreshold: 120,
   cheatAutoSubmitEnabled: false,
+  shuffleDefaultEnabled: false,
+  shuffleOptionsDefault: true,
   loginLockEnabled: true,
   loginMaxFails: 5,
   loginLockMinutes: 15,

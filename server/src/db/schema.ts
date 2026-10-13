@@ -123,6 +123,8 @@ export const DDL_STATEMENTS: readonly string[] = [
     duration_minutes INT          NOT NULL,
     pass_score       DECIMAL(7,1) NOT NULL,
     max_attempts     INT          NOT NULL DEFAULT 1,
+    shuffle_enabled  TINYINT(1)   NULL,
+    shuffle_options  TINYINT(1)   NULL,
     created_by       VARCHAR(64)  NOT NULL,
     created_at       DATETIME(3)  NOT NULL,
     PRIMARY KEY (id),

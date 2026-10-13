@@ -71,6 +71,16 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     changes.push('exams.max_attempts');
   }
 
+  // v1.4：人手一卷 / 选项乱序开关（NULL=继承全局默认）
+  if (!(await columnExists(conn, 'exams', 'shuffle_enabled'))) {
+    await conn.query(`ALTER TABLE exams ADD COLUMN shuffle_enabled TINYINT(1) NULL AFTER max_attempts`);
+    changes.push('exams.shuffle_enabled');
+  }
+  if (!(await columnExists(conn, 'exams', 'shuffle_options'))) {
+    await conn.query(`ALTER TABLE exams ADD COLUMN shuffle_options TINYINT(1) NULL AFTER shuffle_enabled`);
+    changes.push('exams.shuffle_options');
+  }
+
   if (!(await columnExists(conn, 'exam_records', 'attempt_no'))) {
     await conn.query(`ALTER TABLE exam_records ADD COLUMN attempt_no INT NOT NULL DEFAULT 1 AFTER user_id`);
     changes.push('exam_records.attempt_no');

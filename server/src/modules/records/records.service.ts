@@ -15,6 +15,9 @@ import { nowDb } from '../../utils/datetime.js';
 import { parseJsonColumn } from '../../utils/json.js';
 import { normalizePaging, buildPage } from '../../utils/pagination.js';
 import { isAnswerCorrect } from '../../utils/grading.js';
+import { getSettings } from '../settings/settings.service.js';
+import { shuffleSnapshot } from '../../utils/shuffle.js';
+import crypto from 'node:crypto';
 import type {
   CheatEvent,
   ExamRecordDto,
@@ -74,7 +77,17 @@ export async function startExam(
   }
 
   const attemptNo = used + 1;
-  const snapshot = await papersService.getSnapshot(exam.paperId);
+  let snapshot = await papersService.getSnapshot(exam.paperId);
+
+  // 人手一卷：考试级开关优先，NULL 时继承全局默认（shuffleDefaultEnabled / shuffleOptionsDefault）
+  const settings = await getSettings();
+  const shuffleEnabled = exam.shuffleEnabled ?? settings.shuffleDefaultEnabled;
+  if (shuffleEnabled) {
+    const shuffleOptions = exam.shuffleOptions ?? settings.shuffleOptionsDefault;
+    const seed = crypto.createHash('sha1').update(`${examId}:${user.id}:${attemptNo}`).digest('hex');
+    snapshot = shuffleSnapshot(snapshot, seed, shuffleOptions);
+  }
+
   const id = genId('rec-');
   try {
     await repo.insert({

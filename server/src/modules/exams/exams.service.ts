@@ -21,6 +21,8 @@ async function validateExamInput(input: {
   durationMinutes: number;
   passScore: number;
   maxAttempts: number;
+  shuffleEnabled?: boolean | null;
+  shuffleOptions?: boolean | null;
 }): Promise<{
   name: string;
   paperId: string;
@@ -30,6 +32,8 @@ async function validateExamInput(input: {
   durationMinutes: number;
   passScore: number;
   maxAttempts: number;
+  shuffleEnabled: boolean | null;
+  shuffleOptions: boolean | null;
 }> {
   const name = input.name.trim();
   if (!name) throw badRequest('考试名称不能为空');
@@ -64,6 +68,8 @@ async function validateExamInput(input: {
     durationMinutes,
     passScore,
     maxAttempts,
+    shuffleEnabled: input.shuffleEnabled ?? null,
+    shuffleOptions: input.shuffleOptions ?? null,
   };
 }
 

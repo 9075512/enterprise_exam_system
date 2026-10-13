@@ -226,6 +226,10 @@ export interface ExamDto {
   passScore: number;
   /** 每名考生对该考试可作答的次数上限 */
   maxAttempts: number;
+  /** 人手一卷开关；null=继承全局默认 shuffleDefaultEnabled */
+  shuffleEnabled: boolean | null;
+  /** 选项乱序开关；null=继承全局默认 shuffleOptionsDefault */
+  shuffleOptions: boolean | null;
   createdBy: string;
   createdAt: string;
 }
@@ -259,6 +263,10 @@ export interface PaperSnapshot {
   paperName: string;
   totalScore: number;
   questions: PaperSnapshotQuestion[];
+  /** 人手一卷乱序种子（可复现 / 审计）；未乱序时为空 */
+  seed?: string;
+  /** 是否已做题目顺序乱序 */
+  shuffled?: boolean;
 }
 
 /** 考试记录 DTO */
@@ -351,6 +359,10 @@ export interface SystemSettings {
   cheatSecondsThreshold: number;
   /** 切屏超阈值是否自动强制交卷（开关） */
   cheatAutoSubmitEnabled: boolean;
+  /** 人手一卷全局默认开关（单场考试可覆盖） */
+  shuffleDefaultEnabled: boolean;
+  /** 选项乱序全局默认开关（单场考试可覆盖） */
+  shuffleOptionsDefault: boolean;
   /** 登录失败锁定开关 */
   loginLockEnabled: boolean;
   /** 连续登录失败锁定阈值（次数） */

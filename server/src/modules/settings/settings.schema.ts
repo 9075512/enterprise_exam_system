@@ -44,6 +44,10 @@ export const settingsSchema = z.object({
 
   cheatAutoSubmitEnabled: z.boolean({ invalid_type_error: '切屏自动交卷开关必须为布尔值' }),
 
+  shuffleDefaultEnabled: z.boolean({ invalid_type_error: '人手一卷默认开关必须为布尔值' }),
+
+  shuffleOptionsDefault: z.boolean({ invalid_type_error: '选项乱序默认开关必须为布尔值' }),
+
   loginLockEnabled: z.boolean({ invalid_type_error: '登录失败锁定开关必须为布尔值' }),
 
   loginMaxFails: z

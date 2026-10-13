@@ -159,6 +159,10 @@ export interface Exam {
   passScore: number;
   /** 允许每名考生最多作答次数（≥1，默认 1） */
   maxAttempts: number;
+  /** 人手一卷开关；null=继承全局默认 */
+  shuffleEnabled: boolean | null;
+  /** 选项乱序开关；null=继承全局默认 */
+  shuffleOptions: boolean | null;
   createdBy: string;
   /** ISO 8601 */
   createdAt: string;
@@ -371,6 +375,10 @@ export interface ExamSaveInput {
   passScore: number;
   /** 允许每名考生最多作答次数 */
   maxAttempts: number;
+  /** 人手一卷开关；null=继承全局默认 */
+  shuffleEnabled?: boolean | null;
+  /** 选项乱序开关；null=继承全局默认 */
+  shuffleOptions?: boolean | null;
 }
 
 /** 单场考试统计摘要（passRate 为 0~1 小数） */
@@ -437,6 +445,10 @@ export interface SystemSettings {
   cheatSecondsThreshold: number;
   /** 切屏超阈值是否自动强制交卷（开关） */
   cheatAutoSubmitEnabled: boolean;
+  /** 人手一卷全局默认开关（单场考试可覆盖） */
+  shuffleDefaultEnabled: boolean;
+  /** 选项乱序全局默认开关（单场考试可覆盖） */
+  shuffleOptionsDefault: boolean;
   /** 登录失败锁定开关 */
   loginLockEnabled: boolean;
   /** 连续登录失败锁定阈值（次数） */
