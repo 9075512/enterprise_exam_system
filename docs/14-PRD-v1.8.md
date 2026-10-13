@@ -23,8 +23,8 @@
 | --- | --- | --- |
 | ② | U2 两步验证增强（恢复码 + 管理员强制重置） | ✅ 已完成 |
 | ③ | U3 归档自动定时任务 | ✅ 已完成 |
-| ① | U1 实时监控 SSE 推送 | ⏳ 进行中 |
-| ④ | U4 富文本附件对象存储 | ⏳ 待开始 |
+| ① | U1 实时监控 SSE 推送 | ✅ 已完成 |
+| ④ | U4 富文本附件对象存储 | ⏳ 进行中 |
 | ⑤ | U5 题库复制内容去重复用 | ⏳ 待开始 |
 
 ---
@@ -235,3 +235,66 @@
 - 前端 typecheck **0 错**、vitest **28/28**、`vite build` **成功**；练题端 typecheck **0 错**。
 - `db:init` 幂等复跑：**表数量 31**，「结构升级：无需变更（已是最新）」（本期无新表，纯行为扩展）。
 - **已知限制**：调度为**进程内**定时器，多实例部署会重复执行（当前为单实例内网部署；后续可加 DB 乐观锁）。
+
+---
+
+## 10. U1 交付详情（① 实时监控 SSE 推送，已交付）
+
+### 10.1 连接中心（零依赖）
+
+- 新增 `server/src/modules/exams/examMonitor.stream.ts`：
+  - **按考试聚合**：`Map<examId, Set<SseSink>>`；同一场考试的全部订阅者**共享一个 ticker**，
+    每轮**只查库一次**再广播 → 从根上解决「N 个监考页 × 每 15s 一次 `GET /monitor`」的数据库压力。
+  - 容量保护：`MAX_CLIENTS_PER_EXAM = 20`、`MAX_CLIENTS_TOTAL = 200`，超限返回失败原因
+    （`exam-limit` / `total-limit`）。
+  - 心跳：每 `SSE_HEARTBEAT_MS = 15_000` 发送一行注释帧（`: ping`），防止反向代理空闲断连；
+    首个订阅者到来时惰性启动，最后一个离开时停止。
+  - ticker 内查询失败 → 下发 `error` 事件且**保留连接**（下一轮自动重试），不崩进程。
+  - `resetMonitorStream()` 供测试清理；`timer.unref()` 保证不阻塞进程退出与测试。
+
+### 10.2 接口
+
+`GET /api/exams/:id/monitor/stream`（admin）：
+
+| 项 | 说明 |
+| --- | --- |
+| 响应头 | `Content-Type: text/event-stream; charset=utf-8`、`Cache-Control: no-cache, no-transform`、`Connection: keep-alive`、`X-Accel-Buffering: no` |
+| 长连接 | `res.setTimeout(0)` + `req.socket.setTimeout(0)` + `setNoDelay(true)` |
+| 事件 | `ready`（连接建立，载荷 `MonitorStreamInfoDto`）/ `monitor`（`ExamMonitorDto` 快照）/ `error`（本轮查询失败） |
+| 首帧 | 连接即下发 `ready` + 一次 `monitor` 快照（前端无需等待第一个间隔） |
+| 鉴权 | 仅 `Authorization: Bearer`（header）；**不提供** `?token=` 兜底（避免令牌进访问日志） |
+| 开关关闭 | HTTP 503 + `code 1016`（新增 `ERROR_CODES.MONITOR_PUSH_DISABLED` + `monitorPushDisabled()`） |
+| 错误返回 | 开关关闭 / 连接超限 / 考试不存在（1004）均在**写 SSE 头之前**判定，返回普通 JSON，便于前端识别与降级 |
+| 清理 | `res.on('close'|'error')` → `removeClient`（最后一个订阅者离开时自动停 ticker） |
+
+### 10.3 设置项
+
+| 键 | 默认 | 范围 | 说明 |
+| --- | --- | --- | --- |
+| `monitorPushEnabled` | **true** | boolean | 推送总开关；关闭后接口返回 1016，前端自动回退 15s 轮询 |
+| `monitorPushIntervalSeconds` | **5** | 3~60 | 推送间隔；同一场考试的全部监考页共享一次查库 |
+
+> **与「安全默认」的说明**：`monitorPushEnabled` 默认 **开启**（其余开关一律默认关闭）。理由：用户明确要求
+> 「实时监控升级为推送」，且**前端始终保留 15s 轮询降级**（推送不可用即自动回退），开启推送不存在可用性风险；
+> 该开关的定位是「反向代理不支持长连接」等环境的**降级闸门**。`db:init` 不写设置（设置存 `system_settings` JSON 列，
+> 旧数据缺字段由 `getSettings()` 逐字段回退默认值补齐），故无迁移成本。
+
+### 10.4 前端
+
+| 位置 | 变更 |
+| --- | --- |
+| `src/utils/monitorStream.ts`（新） | **fetch + ReadableStream** 的 SSE 客户端（原生 `EventSource` 无法带 header）：手写帧解析（`event`/`data`，忽略注释行，兼容 `\r\n`）、**指数退避重连**（1s→2s→4s…上限 30s，连接成功复位）、永久不可用判定（1016 / 401 / 403 → 触发降级）、`close()` 后不再重连 |
+| `views/admin/ExamMonitorPage.vue` | 默认走推送（`onInfo` 后停止轮询）；不可用时**自动回退 15s 轮询**；顶部展示刷新方式徽标（`实时推送 · 每 N 秒` / `推送重连中 · 已降级轮询 15 秒` / `轮询 · 每 15 秒`）与失败原因；「自动刷新」关闭时断开推送并停表 |
+| `views/admin/SettingsPage.vue` | 「考试规则」页新增「监考大屏实时推送（SSE）」开关与「监考推送间隔（秒）」 |
+| `types` / `constants` | `SystemSettings` 与 `SETTINGS_DEFAULTS` 增两字段；新增 `MonitorStreamInfo` 类型 |
+
+### 10.5 验证结论
+
+- 后端 typecheck **0 错**；新增 `server/src/test/v18c.test.ts`（13 用例：设置默认值/越界校验、非 admin 1003、
+  未认证 1002、考试不存在 1004、开关关闭 503/1016、真实 HTTP 连接验证 `text/event-stream` + `ready`/`monitor` 首帧
+  与 `intervalSeconds` 生效、断开后连接与 ticker 全部回收、帧格式、订阅上限、广播隔离、共享 ticker 惰性启停、
+  查询失败降级为 `error` 事件）全通过；全量 **354/354（24 文件）**。
+- 前端 typecheck **0 错**、vitest **28/28**、`vite build` **成功**；练题端 typecheck **0 错**。
+- `db:init` 幂等复跑：**表数量 31**，「结构升级：无需变更（已是最新）」（本期无新表）。
+- **已知限制**：连接中心为**进程内**状态（多实例部署时各实例各自维护订阅，推送仍正确，仅容量计数不全局）；
+  SSE 经 Nginx 时依赖 `X-Accel-Buffering: no` 关闭缓冲（已设置）。

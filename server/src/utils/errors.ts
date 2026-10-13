@@ -25,6 +25,8 @@ export const ERROR_CODES = {
   PRACTICE_DAILY_DISABLED: 1014, // 每日一练未开放（404）
   // —— v1.7③ 账号安全加固 ——
   CAPTCHA_REQUIRED: 1015, // 需要/校验图形验证码（400）
+  // —— v1.8① 实时监控推送 ——
+  MONITOR_PUSH_DISABLED: 1016, // 实时推送已关闭（503，前端应回退轮询）
   INTERNAL: 5000, // 服务器内部错误
 } as const;
 
@@ -48,6 +50,7 @@ export const ERROR_HTTP_STATUS: Record<number, number> = {
   [ERROR_CODES.PRACTICE_FAVORITE_LIMIT]: 409,
   [ERROR_CODES.PRACTICE_DAILY_DISABLED]: 404,
   [ERROR_CODES.CAPTCHA_REQUIRED]: 400,
+  [ERROR_CODES.MONITOR_PUSH_DISABLED]: 503,
   [ERROR_CODES.INTERNAL]: 500,
 };
 
@@ -144,4 +147,9 @@ export function practiceDailyDisabled(message = '每日一练暂未开放'): App
 /** 便捷构造：需要/校验图形验证码 1015/400（v1.7③）。 */
 export function captchaRequired(message = '请输入图形验证码'): AppError {
   return new AppError(ERROR_CODES.CAPTCHA_REQUIRED, message, 400);
+}
+
+/** 便捷构造：实时推送已关闭 1016/503（v1.8①，前端应回退轮询）。 */
+export function monitorPushDisabled(message = '实时推送已关闭，请使用轮询模式'): AppError {
+  return new AppError(ERROR_CODES.MONITOR_PUSH_DISABLED, message, 503);
 }

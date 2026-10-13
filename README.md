@@ -37,7 +37,7 @@ Vue 3 (Vite, Element Plus, Pinia, Vue Router)  ──REST/JSON──▶  Express
 │  ├─ src/db/                # init.ts（建表 + 幂等迁移 + 种子）、seed.ts
 │  ├─ src/middleware/        # auth / role / validate / error
 │  ├─ src/utils/             # 响应、错误、分页、Excel（exceljs）、PDF（pdfkit）、鉴权、JWT 等
-│  └─ src/test/              # vitest + supertest（226 用例）
+│  └─ src/test/              # vitest + supertest（354 用例）
 ├─ practice-web/             # 公网练题端（独立前端工程）
 ├─ docs/                     # 增量 PRD 与架构设计文档
 ├─ deploy/                   # 部署脚本（Nginx / DB 授权）
@@ -102,7 +102,7 @@ npm run preview          # 预览构建产物
 
 # 后端
 npm --prefix server run typecheck   # tsc --noEmit
-npm --prefix server run test        # vitest + supertest（332 用例）
+npm --prefix server run test        # vitest + supertest（354 用例）
 npm --prefix server run build       # 编译到 server/dist
 npm --prefix server run start       # 运行编译产物
 ```
@@ -138,6 +138,8 @@ npm --prefix server run start       # 运行编译产物
 - **安全与合规加固（v1.7③）**：图形验证码（替换自研算术题，`utils/captcha.ts`）；登录审计（`login_logs`）+ 密码策略（复杂度/有效期可配）+ 登录会话与设备管理（`user_sessions`，可远程下线）+ 两步验证（零依赖 TOTP，`utils/totp.ts`）；简答富文本/图片作答（服务端白名单净化 XSS）与评分细则（rubric 分档给分）；题库授权批量维护（按科室/角色圈选）。
 - **工程化与稳定性（v1.7④）**：实时考试监控大屏（轮询：花名册 + 进度 + 剩余时长 + 监考加时 + 强制交卷）；题库复制（含试题与授权）；数据归档与读路径 union（`exam_records_archive`，历史报表/成绩透明）+ 复合索引优化；通知文案模板化（可配文案）。
 - **两步验证增强（v1.8②）**：恢复码（10 个，一次性、仅存哈希、可重新生成）+ 管理员强制重置（清空密钥、作废恢复码、撤销会话并通知本人）。
+- **归档自动化（v1.8③）**：归档定时任务（开关 + 执行时点可配，单飞 + 每天一次 + 系统 actor 审计；默认关闭），支持「立即执行一次」。
+- **监考实时推送（v1.8①）**：监考大屏由 15s 轮询升级为 **SSE 推送**（零依赖；同一场考试的全部监考页**共享一次查库**，按考试聚合广播；15s 心跳 + 连接数上限），推送不可用时前端**自动回退轮询**。
 
 ## 数据表（31 张，一句话说明）
 

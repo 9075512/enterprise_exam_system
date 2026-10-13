@@ -8,10 +8,14 @@ import { validate } from '../../middleware/validate.js';
 import { authRequired } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/role.js';
 import { ok } from '../../utils/response.js';
+import { monitorPushDisabled } from '../../utils/errors.js';
 import { examSchema, examExceptionSchema, examExtendSchema } from './exams.schema.js';
 import type { ExamInput, ExamExceptionInput, ExamExtendInput } from './exams.schema.js';
 import * as examsService from './exams.service.js';
 import * as recordsService from '../records/records.service.js';
+import * as settingsService from '../settings/settings.service.js';
+import * as monitorStream from './examMonitor.stream.js';
+import type { MonitorStreamInfoDto } from '../../types/domain.js';
 
 export const examsRouter = Router();
 
@@ -122,6 +126,69 @@ examsRouter.get(
   '/:id/monitor',
   requireRole('admin'),
   asyncHandler(async (req, res) => ok(res, await examsService.getMonitor(req.params.id))),
+);
+
+/**
+ * GET /api/exams/:id/monitor/stream —— 监考大屏实时推送（SSE，v1.8① U1，admin）。
+ *
+ * 说明：
+ * - 鉴权仍为 `Authorization: Bearer`（header）→ 前端须用 fetch + ReadableStream 解析
+ *   （原生 `EventSource` 无法携带 header）。**服务端不提供 `?token=` 兜底**（避免令牌进日志）。
+ * - 同一场考试的全部订阅者**共享一个推送循环**（每轮只查库一次再广播）。
+ * - 事件：`ready`（连接建立）/ `monitor`（数据快照）/ `error`（本轮查询失败）。
+ * - 心跳：每 15s 一行注释帧，维持长连接。
+ */
+examsRouter.get(
+  '/:id/monitor/stream',
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    const examId = req.params.id;
+    const settings = await settingsService.getSettings();
+    if (!settings.monitorPushEnabled) throw monitorPushDisabled();
+
+    const intervalSeconds = settings.monitorPushIntervalSeconds;
+    const intervalMs = intervalSeconds * 1000;
+
+    // 先取一次数据：考试不存在等错误可直接以 JSON 形式返回（此时尚未写 SSE 头）
+    const snapshot = await examsService.getMonitor(examId);
+
+    const added = monitorStream.addClient(examId, res);
+    if (!added.ok) throw monitorPushDisabled('实时推送连接数已达上限，请稍后重试或使用轮询模式');
+
+    res.status(200).set({
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      // 关闭 nginx 等反向代理的响应缓冲，否则事件会被攒着不发
+      'X-Accel-Buffering': 'no',
+    });
+    res.flushHeaders();
+    // 长连接：禁用 socket 空闲超时与 Nagle 算法（保证小帧立即发出）
+    res.setTimeout(0);
+    req.socket.setTimeout(0);
+    req.socket.setNoDelay(true);
+
+    const info: MonitorStreamInfoDto = {
+      examId,
+      intervalSeconds,
+      examClients: added.examClients,
+      totalClients: added.totalClients,
+      at: new Date().toISOString(),
+    };
+    res.write(monitorStream.sseFrame('ready', info));
+    res.write(monitorStream.sseFrame('monitor', snapshot));
+
+    // 该考试暂无推送循环时启动（多订阅者共享）
+    monitorStream.startExamTicker(examId, intervalMs, () => examsService.getMonitor(examId));
+
+    const cleanup = (): void => {
+      monitorStream.removeClient(examId, res);
+    };
+    res.on('close', cleanup);
+    res.on('error', cleanup);
+    // 连接建立后不再进入正常响应流程（避免 asyncHandler 的 finally 误触发）
+    return undefined;
+  }),
 );
 
 /** POST /api/exams/:id/monitor/:userId/force-submit —— 强制某考生交卷。 */

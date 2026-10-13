@@ -170,6 +170,14 @@ export const settingsSchema = z.object({
     .min(0, '自动归档时点必须为 0~23 时')
     .max(23, '自动归档时点必须为 0~23 时'),
 
+  monitorPushEnabled: z.boolean({ invalid_type_error: '监考实时推送开关必须为布尔值' }),
+
+  monitorPushIntervalSeconds: z
+    .number({ invalid_type_error: '监考推送间隔必须为 3~60 秒' })
+    .int('监考推送间隔必须为 3~60 秒')
+    .min(3, '监考推送间隔必须为 3~60 秒')
+    .max(60, '监考推送间隔必须为 3~60 秒'),
+
   notifySiteEnabled: z.boolean({ invalid_type_error: '站内信通知开关必须为布尔值' }),
   notifyEmailEnabled: z.boolean({ invalid_type_error: '邮件通知开关必须为布尔值' }),
   notifyOnPublish: z.boolean({ invalid_type_error: '考试发布通知开关必须为布尔值' }),

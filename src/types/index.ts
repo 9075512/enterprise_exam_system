@@ -773,6 +773,18 @@ export interface ExamMonitor {
   generatedAt: string;
 }
 
+/** 监考 SSE 连接建立信息（v1.8① U1；连接成功后的首个 `ready` 事件载荷） */
+export interface MonitorStreamInfo {
+  examId: string;
+  /** 服务端推送间隔（秒） */
+  intervalSeconds: number;
+  /** 该考试当前订阅数（含本连接） */
+  examClients: number;
+  /** 全局订阅数 */
+  totalClients: number;
+  at: string;
+}
+
 /* ============================ v1.7④ T5：归档与维护 ============================ */
 
 /** 归档结果 */
@@ -942,6 +954,10 @@ export interface SystemSettings {
   archiveAutoEnabled: boolean;
   /** 自动归档执行时点（0~23 时，v1.8③ U3） */
   archiveAutoHour: number;
+  /** 监考大屏实时推送（SSE）总开关（关闭后前端自动回退 15s 轮询，v1.8① U1） */
+  monitorPushEnabled: boolean;
+  /** 监考推送间隔（秒，3~60；默认 5，v1.8① U1） */
+  monitorPushIntervalSeconds: number;
   /** SMTP 服务器地址（空 = 未配置） */
   smtpHost: string;
   /** SMTP 端口 */

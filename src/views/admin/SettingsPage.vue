@@ -73,6 +73,8 @@ const FIELD_TAB: Record<string, SettingsTab> = {
   archiveRetentionDays: 'list',
   archiveAutoEnabled: 'list',
   archiveAutoHour: 'list',
+  monitorPushEnabled: 'exam',
+  monitorPushIntervalSeconds: 'exam',
   notifyTemplates: 'notify',
   systemName: 'brand',
   systemShortName: 'brand',
@@ -499,6 +501,32 @@ async function handleReset(): Promise<void> {
                       class="settings-page__num"
                     />
                     <p class="settings-page__hint">考生端倒计时剩余不足该分钟数时进入提醒态。</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="监考大屏实时推送（SSE）" prop="monitorPushEnabled">
+                  <div class="settings-page__control">
+                    <el-switch v-model="form.monitorPushEnabled" />
+                    <p class="settings-page__hint">
+                      开启后监考大屏按下方间隔接收服务端推送；关闭或推送不可用时自动回退 15 秒轮询。
+                    </p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="监考推送间隔（秒）" prop="monitorPushIntervalSeconds">
+                  <div class="settings-page__control">
+                    <el-input-number
+                      v-model="form.monitorPushIntervalSeconds"
+                      :min="3"
+                      :max="60"
+                      :step="1"
+                      class="settings-page__num"
+                    />
+                    <p class="settings-page__hint">
+                      3~60 秒（默认 5）。同一场考试的全部监考页共享一次查库，间隔越短实时性越好。
+                    </p>
                   </div>
                 </el-form-item>
               </el-col>

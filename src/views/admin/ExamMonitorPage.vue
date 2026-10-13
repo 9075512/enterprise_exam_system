@@ -1,9 +1,12 @@
 <script setup lang="ts">
 /**
- * 实时考试监控（v1.7④ T3，管理员）。
+ * 实时考试监控（v1.7④ T3 + v1.8① U1，管理员）。
  *
- * - 采用**轮询**（默认 15s，可开关）获取准实时数据，不做 WebSocket；
- * - 剩余时长在客户端每秒递减展示，轮询回来以后端值为准；
+ * - **默认走 SSE 推送**（v1.8①）：服务端按考试聚合，每 `monitorPushIntervalSeconds`（默认 5s）
+ *   推一次快照（同一场考试的全部监考页共享一次查库），显著降低轮询带来的数据库压力；
+ * - **自动降级**：推送不可用（开关关闭 / 连接数超限 / 鉴权失效 / 网络异常）时自动回退
+ *   15s 轮询，页面功能不受影响；
+ * - 剩余时长在客户端每秒递减展示，收到推送以后端值为准；
  * - 支持对「进行中」考生一键强制交卷、加时（分钟，可累加）。
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
@@ -14,6 +17,7 @@ import * as examsApi from '@/api/exams';
 import { EXAM_STATUS_LABELS } from '@/constants';
 import { formatDateTime } from '@/utils/datetime';
 import { getExamStatus } from '@/utils/examStatus';
+import { openMonitorStream, type MonitorStreamHandle, type MonitorStreamState } from '@/utils/monitorStream';
 import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
@@ -28,10 +32,18 @@ const loading = ref(false);
 const refreshing = ref(false);
 /** 自动刷新开关（默认开） */
 const autoRefresh = ref(true);
-/** 自动刷新间隔（秒） */
-const intervalSeconds = 15;
-/** 客户端剩余秒数本地时钟（每秒递减，轮询后重置） */
+/** 轮询降级间隔（秒） */
+const POLL_SECONDS = 15;
+/** 客户端剩余秒数本地时钟（每秒递减，收到数据后重置） */
 const tickOffset = ref(0);
+/** 推送连接状态 */
+const pushState = ref<MonitorStreamState>('connecting');
+/** 推送状态补充说明（错误原因等） */
+const pushDetail = ref('');
+/** 服务端推送间隔（秒），来自 `ready` 事件 */
+const pushSeconds = ref(5);
+
+let stream: MonitorStreamHandle | null = null;
 let pollTimer: number | undefined;
 let tickTimer: number | undefined;
 
@@ -47,6 +59,19 @@ const rows = computed<ExamMonitorRow[]>(() => monitor.value?.rows ?? []);
 const examStatusLabel = computed(() =>
   monitor.value ? EXAM_STATUS_LABELS[getExamStatus(monitor.value.exam)] : '',
 );
+
+/** 刷新方式徽标（自动刷新关闭时不展示）。 */
+const modeBadge = computed<{ label: string; type: 'success' | 'warning' | 'info' | 'danger' } | null>(() => {
+  if (!autoRefresh.value) return null;
+  if (pushState.value === 'open') {
+    return { label: `实时推送 · 每 ${pushSeconds.value} 秒`, type: 'success' };
+  }
+  if (pushState.value === 'connecting') return { label: '正在建立推送连接…', type: 'warning' };
+  if (pushState.value === 'retrying') {
+    return { label: `推送重连中 · 已降级轮询 ${POLL_SECONDS} 秒`, type: 'warning' };
+  }
+  return { label: `轮询 · 每 ${POLL_SECONDS} 秒`, type: 'info' };
+});
 
 /** 服务端剩余秒数 - 本地已流逝秒数（仅进行中有意义）。 */
 function remainingOf(row: ExamMonitorRow): number {
@@ -77,12 +102,17 @@ function isCheatWarned(row: ExamMonitorRow): boolean {
   return row.cheatCount >= 3 || row.cheatSeconds >= 120;
 }
 
+/** 应用一份监考数据（推送/轮询共用）。 */
+function apply(data: ExamMonitor): void {
+  monitor.value = data;
+  tickOffset.value = 0;
+}
+
 async function load(silent = false): Promise<void> {
   if (silent) refreshing.value = true;
   else loading.value = true;
   try {
-    monitor.value = await examsApi.monitor(examId);
-    tickOffset.value = 0;
+    apply(await examsApi.monitor(examId));
   } catch {
     /* 错误已由拦截器统一提示 */
   } finally {
@@ -92,22 +122,65 @@ async function load(silent = false): Promise<void> {
 }
 
 function startPolling(): void {
-  stopPolling(false);
+  stopPolling();
   pollTimer = window.setInterval(() => {
     if (autoRefresh.value) void load(true);
-  }, intervalSeconds * 1000);
+  }, POLL_SECONDS * 1000);
 }
 
-function stopPolling(clearTimer = true): void {
-  if (clearTimer && pollTimer !== undefined) {
+function stopPolling(): void {
+  if (pollTimer !== undefined) {
     window.clearInterval(pollTimer);
     pollTimer = undefined;
   }
 }
 
-function onToggleAuto(value: boolean): void {
+/** 建立推送连接（连接成功即停止轮询；不可用时保留轮询）。 */
+function startStream(): void {
+  stopStream();
+  pushState.value = 'connecting';
+  pushDetail.value = '';
+  // 建立连接期间先按轮询兜底，收到 ready 后自动停止
+  startPolling();
+  stream = openMonitorStream(examId, {
+    onState: (state, detail) => {
+      pushState.value = state;
+      pushDetail.value = detail ?? '';
+    },
+    onInfo: (info) => {
+      pushSeconds.value = info.intervalSeconds;
+      stopPolling();
+    },
+    onMonitor: (data) => apply(data),
+    onServerError: (message) => {
+      pushDetail.value = message;
+    },
+    onUnavailable: (message) => {
+      pushDetail.value = message;
+      // 推送永久不可用 → 保持轮询降级（已在 startStream 时启动）
+      startPolling();
+    },
+  });
+}
+
+function stopStream(): void {
+  if (stream) {
+    stream.close();
+    stream = null;
+  }
+}
+
+async function onToggleAuto(value: boolean): Promise<void> {
   autoRefresh.value = value;
-  if (value) void load(true);
+  if (value) {
+    await load(true);
+    startStream();
+  } else {
+    stopStream();
+    stopPolling();
+    pushState.value = 'stopped';
+    pushDetail.value = '';
+  }
 }
 
 async function handleForceSubmit(row: ExamMonitorRow): Promise<void> {
@@ -160,15 +233,16 @@ async function handleExtend(row: ExamMonitorRow): Promise<void> {
   }
 }
 
-onMounted(() => {
-  void load();
-  startPolling();
+onMounted(async () => {
+  await load();
+  startStream();
   tickTimer = window.setInterval(() => {
     tickOffset.value += 1;
   }, 1000);
 });
 
 onBeforeUnmount(() => {
+  stopStream();
   stopPolling();
   if (tickTimer !== undefined) window.clearInterval(tickTimer);
 });
@@ -206,7 +280,10 @@ function goBack(): void {
         <span class="monitor__meta-item">时长：{{ monitor.exam.durationMinutes }} 分钟</span>
         <span class="monitor__meta-item monitor__meta-item--muted">
           数据时间：{{ formatDateTime(monitor.generatedAt) }}
-          <template v-if="autoRefresh">（每 {{ intervalSeconds }} 秒自动刷新）</template>
+        </span>
+        <span v-if="modeBadge" class="monitor__meta-item">
+          <el-tag size="small" effect="plain" :type="modeBadge.type">{{ modeBadge.label }}</el-tag>
+          <span v-if="pushDetail" class="monitor__meta-detail">{{ pushDetail }}</span>
         </span>
       </div>
 
@@ -356,6 +433,11 @@ function goBack(): void {
     border-radius: $radius-sm;
 
     &-item--muted {
+      color: $text-disabled;
+    }
+
+    &-detail {
+      margin-left: 6px;
       color: $text-disabled;
     }
   }

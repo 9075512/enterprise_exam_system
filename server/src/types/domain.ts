@@ -555,6 +555,19 @@ export interface ExamMonitorDto {
   generatedAt: string;
 }
 
+/** 监考 SSE 连接建立信息（v1.8① U1；连接建立后首帧 `ready` 事件） */
+export interface MonitorStreamInfoDto {
+  examId: string;
+  /** 本次推送间隔（秒） */
+  intervalSeconds: number;
+  /** 该考试当前订阅数（含本连接） */
+  examClients: number;
+  /** 全局订阅数 */
+  totalClients: number;
+  /** 服务端时间（ISO 8601） */
+  at: string;
+}
+
 /** 归档结果（v1.7④ T5） */
 export interface ArchiveResultDto {
   /** 本次归档（搬入归档表并自业务表移除）的记录数 */
@@ -679,6 +692,15 @@ export interface SystemSettings {
   archiveAutoEnabled: boolean;
   /** 自动归档执行时点（0~23 时；默认 3 = 凌晨 3 点，v1.8③ U3） */
   archiveAutoHour: number;
+  /**
+   * 监考大屏实时推送（SSE）总开关（v1.8① U1）。
+   *
+   * 默认 **开启**：推送为监考大屏的默认刷新路径（关闭后前端自动回退 15s 轮询，
+   * 故开启推送不存在可用性风险）；本开关是给「反向代理不支持长连接」等环境的降级开关。
+   */
+  monitorPushEnabled: boolean;
+  /** 监考推送间隔（秒，3~60；默认 5，v1.8① U1） */
+  monitorPushIntervalSeconds: number;
   /** 站内信通知总开关 */
   notifySiteEnabled: boolean;
   /** 邮件通知总开关 */

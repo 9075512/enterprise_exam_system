@@ -47,6 +47,8 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   archiveRetentionDays: 0,
   archiveAutoEnabled: false,
   archiveAutoHour: 3,
+  monitorPushEnabled: true,
+  monitorPushIntervalSeconds: 5,
   notifySiteEnabled: true,
   notifyEmailEnabled: false,
   notifyOnPublish: true,

@@ -61,6 +61,8 @@ export const SETTINGS_DEFAULTS: SystemSettings = {
   archiveRetentionDays: 0,
   archiveAutoEnabled: false,
   archiveAutoHour: 3,
+  monitorPushEnabled: true,
+  monitorPushIntervalSeconds: 5,
   smtpHost: '',
   smtpPort: 465,
   smtpSecure: true,
