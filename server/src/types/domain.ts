@@ -349,6 +349,14 @@ export interface SystemSettings {
   cheatCountThreshold: number;
   /** 切屏异常判定：累计离开秒数阈值（≥ 该值判为异常） */
   cheatSecondsThreshold: number;
+  /** 切屏超阈值是否自动强制交卷（开关） */
+  cheatAutoSubmitEnabled: boolean;
+  /** 登录失败锁定开关 */
+  loginLockEnabled: boolean;
+  /** 连续登录失败锁定阈值（次数） */
+  loginMaxFails: number;
+  /** 登录失败锁定时长（分钟） */
+  loginLockMinutes: number;
   /** 倒计时剩余不足该分钟数时进入提醒态 */
   countdownWarningMinutes: number;
   /** 新建账号/重置密码使用的默认密码 */

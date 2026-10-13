@@ -5,7 +5,7 @@
 import * as repo from './banks.repo.js';
 import type { BankRowWithCount } from './banks.repo.js';
 import { withTransaction } from '../../db/pool.js';
-import { conflict, notFound } from '../../utils/errors.js';
+import { badRequest, conflict, notFound } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
 import { nowDb, fromDbDateSafe } from '../../utils/datetime.js';
 import type { BankDetailDto, BankDto } from '../../types/domain.js';
@@ -100,4 +100,32 @@ export async function remove(id: string, cascade: boolean): Promise<void> {
     await repo.deleteQuestionsByBank(id, conn);
     await repo.remove(id, conn);
   });
+}
+
+/**
+ * 迁移试题到目标题库（P1-3）。
+ * 题目 id 不变（paper_questions 引用不受影响），仅改归属题库。
+ */
+export async function migrateQuestions(
+  sourceBankId: string,
+  input: { targetBankId: string; questionIds: string[] },
+): Promise<{ moved: number }> {
+  if (input.targetBankId === sourceBankId) throw badRequest('目标题库不能与源题库相同');
+
+  const [source, target] = await Promise.all([
+    repo.findById(sourceBankId),
+    repo.findById(input.targetBankId),
+  ]);
+  if (!source) throw notFound('源题库不存在或已被删除');
+  if (!target) throw notFound('目标题库不存在或已被删除');
+
+  const ids = [...new Set(input.questionIds)];
+  let moved = 0;
+  await withTransaction(async (conn) => {
+    moved = await repo.migrateQuestions(sourceBankId, input.targetBankId, ids, conn);
+  });
+  if (moved < ids.length) {
+    throw badRequest(`仅迁移 ${moved}/${ids.length} 道试题，部分题目不属于该题库或不存在`);
+  }
+  return { moved };
 }

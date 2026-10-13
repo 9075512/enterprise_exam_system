@@ -63,9 +63,13 @@ const FIELD_TAB: Record<string, SettingsTab> = {
   examDefaultMaxAttempts: 'exam',
   cheatCountThreshold: 'exam',
   cheatSecondsThreshold: 'exam',
+  cheatAutoSubmitEnabled: 'exam',
   countdownWarningMinutes: 'exam',
   defaultPassword: 'account',
   minPasswordLength: 'account',
+  loginLockEnabled: 'account',
+  loginMaxFails: 'account',
+  loginLockMinutes: 'account',
   defaultPageSize: 'list',
   importMaxRows: 'list',
   importMaxFileMb: 'list',
@@ -140,6 +144,8 @@ const rules: FormRules = {
   // 账号安全
   defaultPassword: strRules('默认密码', 6, 64),
   minPasswordLength: numRules('密码最小长度', 6, 32, { unit: ' 位' }),
+  loginMaxFails: numRules('登录失败锁定阈值', 1, 20, { unit: ' 次' }),
+  loginLockMinutes: numRules('登录锁定时长', 1, 1440, { unit: ' 分钟' }),
   // 列表与导入
   defaultPageSize: numRules('列表默认每页条数', 1, 100, { unit: ' 条' }),
   importMaxRows: numRules('Excel 单次导入最大行数', 1, 50000, { unit: ' 行' }),
@@ -350,6 +356,20 @@ async function handleReset(): Promise<void> {
                 </el-form-item>
               </el-col>
               <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="切屏异常：自动强制交卷" prop="cheatAutoSubmitEnabled">
+                  <div class="settings-page__control">
+                    <el-switch
+                      v-model="form.cheatAutoSubmitEnabled"
+                      active-text="开启"
+                      inactive-text="关闭"
+                    />
+                    <p class="settings-page__hint">
+                      开启后，考生切屏次数或累计离开秒数达到上方阈值时将自动强制交卷；关闭则仅记录异常。
+                    </p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
                 <el-form-item label="倒计时提醒：剩余不足该分钟数时提醒" prop="countdownWarningMinutes">
                   <div class="settings-page__control">
                     <el-input-number
@@ -401,6 +421,44 @@ async function handleReset(): Promise<void> {
                       class="settings-page__num"
                     />
                     <p class="settings-page__hint">修改后立即对新建账号与改密校验生效。</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="登录失败锁定" prop="loginLockEnabled">
+                  <div class="settings-page__control">
+                    <el-switch v-model="form.loginLockEnabled" active-text="开启" inactive-text="关闭" />
+                    <p class="settings-page__hint">关闭后连续登录失败不锁定账号；开启后按下方阈值锁定。</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="连续失败锁定阈值（次）" prop="loginMaxFails">
+                  <div class="settings-page__control">
+                    <el-input-number
+                      v-model="form.loginMaxFails"
+                      :min="1"
+                      :max="20"
+                      :step="1"
+                      :disabled="!form.loginLockEnabled"
+                      class="settings-page__num"
+                    />
+                    <p class="settings-page__hint">连续登录失败达到该次数后锁定账号。</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="锁定时长（分钟）" prop="loginLockMinutes">
+                  <div class="settings-page__control">
+                    <el-input-number
+                      v-model="form.loginLockMinutes"
+                      :min="1"
+                      :max="1440"
+                      :step="5"
+                      :disabled="!form.loginLockEnabled"
+                      class="settings-page__num"
+                    />
+                    <p class="settings-page__hint">锁定期间该账号无法登录，达到时长后自动解锁。</p>
                   </div>
                 </el-form-item>
               </el-col>

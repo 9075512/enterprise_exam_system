@@ -42,6 +42,22 @@ export const settingsSchema = z.object({
     .min(5, '切屏累计秒数阈值必须为 5~3600')
     .max(3600, '切屏累计秒数阈值必须为 5~3600'),
 
+  cheatAutoSubmitEnabled: z.boolean({ invalid_type_error: '切屏自动交卷开关必须为布尔值' }),
+
+  loginLockEnabled: z.boolean({ invalid_type_error: '登录失败锁定开关必须为布尔值' }),
+
+  loginMaxFails: z
+    .number({ invalid_type_error: '登录失败锁定阈值必须为 1~20' })
+    .int('登录失败锁定阈值必须为 1~20')
+    .min(1, '登录失败锁定阈值必须为 1~20')
+    .max(20, '登录失败锁定阈值必须为 1~20'),
+
+  loginLockMinutes: z
+    .number({ invalid_type_error: '登录锁定时长必须为 1~1440 分钟' })
+    .int('登录锁定时长必须为 1~1440 分钟')
+    .min(1, '登录锁定时长必须为 1~1440 分钟')
+    .max(1440, '登录锁定时长必须为 1~1440 分钟'),
+
   countdownWarningMinutes: z
     .number({ invalid_type_error: '倒计时提醒分钟数必须为 1~60' })
     .int('倒计时提醒分钟数必须为 1~60')

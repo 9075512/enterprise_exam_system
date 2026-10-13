@@ -47,6 +47,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON `enterprise_exam_system`.`practice_daily
 --     写入由内网实例（管理端「系统设置 → 公网练题」）完成，练题实例绝不写配置。
 GRANT SELECT ON `enterprise_exam_system`.`practice_settings` TO 'practice_app'@'%';
 
+-- 5.3 v1.4 新增：限流计数（练题实例需读写，用于 DB 持久化限流）
+--     仅此一张运行态表可写，不破坏业务表只读隔离；业务表（questions 等）仍只读。
+GRANT SELECT, INSERT, UPDATE, DELETE ON `enterprise_exam_system`.`rate_limit_buckets` TO 'practice_app'@'%';
+
 -- 6. 说明：以下考试域表**不授予任何权限**（物理隔离）：
 --    papers / paper_questions / paper_bank_refs /
 --    exams / exam_records / import_batches / system_settings

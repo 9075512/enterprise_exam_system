@@ -30,4 +30,12 @@ export const bankQuestionsQuerySchema = z.object({
   ...paginationQuery,
 });
 
+/** 试题迁移到其他题库入参。 */
+export const migrateQuestionsSchema = z.object({
+  targetBankId: z.string().min(1, '目标题库不能为空'),
+  questionIds: z
+    .array(z.string().min(1, '试题 ID 不能为空'), { invalid_type_error: '试题列表不能为空' })
+    .min(1, '请至少选择一道试题'),
+});
+
 export type BankInput = z.infer<typeof bankSchema>;

@@ -130,3 +130,19 @@ export async function remove(id: string, exec?: SqlExecutor): Promise<void> {
 export async function deleteQuestionsByBank(bankId: string, exec?: SqlExecutor): Promise<void> {
   await runQuery(exec, `DELETE FROM questions WHERE bank_id = ?`, [bankId]);
 }
+
+/** 迁移试题到目标题库（仅限属于源题库的题目，返回实际迁移条数）。 */
+export async function migrateQuestions(
+  sourceBankId: string,
+  targetBankId: string,
+  questionIds: string[],
+  exec?: SqlExecutor,
+): Promise<number> {
+  const placeholders = questionIds.map(() => '?').join(',');
+  const result = await runQuery(
+    exec,
+    `UPDATE questions SET bank_id = ? WHERE id IN (${placeholders}) AND bank_id = ?`,
+    [targetBankId, ...questionIds, sourceBankId],
+  );
+  return Number((result as { affectedRows?: number }).affectedRows ?? 0);
+}

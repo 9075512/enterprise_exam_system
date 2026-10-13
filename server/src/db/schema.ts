@@ -275,6 +275,25 @@ export const DDL_STATEMENTS: readonly string[] = [
     updated_at DATETIME(3)  NOT NULL,
     PRIMARY KEY (id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  // 18. 登录失败锁定（v1.4；按 username 唯一，登录失败累计 / 成功清零）
+  `CREATE TABLE IF NOT EXISTS login_attempts (
+    username     VARCHAR(64)  NOT NULL,
+    fail_count   INT          NOT NULL DEFAULT 0,
+    locked_until DATETIME(3)  NULL,
+    updated_at   DATETIME(3)  NOT NULL,
+    PRIMARY KEY (username)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  // 19. 限流计数（v1.4；固定窗口计数，多实例共享，替代进程内存 Map）
+  //     键 = sha1(group:IP|deviceFp)，由 upsert 原子递增。
+  `CREATE TABLE IF NOT EXISTS rate_limit_buckets (
+    bucket_key   VARCHAR(191) NOT NULL,
+    count        INT          NOT NULL DEFAULT 0,
+    window_start DATETIME(3)  NOT NULL,
+    updated_at   DATETIME(3)  NOT NULL,
+    PRIMARY KEY (bucket_key)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 ];
 
 /** 建表完成后用于统计的核心表名列表（含练题域 6 张表）。 */
@@ -296,4 +315,6 @@ export const TABLE_NAMES: readonly string[] = [
   'practice_favorites',
   'practice_daily_tasks',
   'practice_settings',
+  'login_attempts',
+  'rate_limit_buckets',
 ];

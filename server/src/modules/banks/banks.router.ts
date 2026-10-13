@@ -7,7 +7,7 @@ import { validate } from '../../middleware/validate.js';
 import { authRequired } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/role.js';
 import { ok } from '../../utils/response.js';
-import { bankSchema, bankListQuerySchema, bankQuestionsQuerySchema } from './banks.schema.js';
+import { bankSchema, bankListQuerySchema, bankQuestionsQuerySchema, migrateQuestionsSchema } from './banks.schema.js';
 import * as banksService from './banks.service.js';
 import * as questionsService from '../questions/questions.service.js';
 import { normalizePaging } from '../../utils/pagination.js';
@@ -83,5 +83,15 @@ banksRouter.get(
       pageSize: paging.pageSize,
     });
     return ok(res, result);
+  }),
+);
+
+/** POST /api/banks/:id/questions/migrate —— 迁移试题到其他题库。 */
+banksRouter.post(
+  '/:id/questions/migrate',
+  validate(migrateQuestionsSchema, 'body'),
+  asyncHandler(async (req, res) => {
+    const body = req.body as { targetBankId: string; questionIds: string[] };
+    return ok(res, await banksService.migrateQuestions(req.params.id, body));
   }),
 );

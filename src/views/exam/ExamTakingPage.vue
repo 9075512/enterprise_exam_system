@@ -152,7 +152,16 @@ async function onAway(seconds: number): Promise<void> {
   } catch (error) {
     console.warn('[ExamTaking] 上报切屏事件失败：', error);
   }
-  if (cheatCount.value >= settingsStore.settings.cheatCountThreshold) {
+  const s = settingsStore.settings;
+  const overCount = cheatCount.value >= s.cheatCountThreshold;
+  const overSeconds = cheatAwayTotal.value >= s.cheatSecondsThreshold;
+  // 后台开关开启且超阈值 → 自动强制交卷（auto 标记）
+  if (s.cheatAutoSubmitEnabled && (overCount || overSeconds)) {
+    ElMessage.error('检测到异常切屏，已自动交卷');
+    await doSubmit(true);
+    return;
+  }
+  if (overCount || overSeconds) {
     ElMessage.warning('检测到多次切屏，异常行为将被记录');
   }
 }
