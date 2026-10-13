@@ -11,6 +11,8 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import {
+  batchAnnouncements,
+  batchBanners,
   createAnnouncement,
   createBanner,
   deleteAnnouncement,
@@ -20,6 +22,7 @@ import {
   listBanners,
   updateAnnouncement,
   updateBanner,
+  type ContentBatchAction,
 } from '@/api/content';
 import { uploadImage } from '@/api/attachments';
 import { formatRange } from '@/utils/datetime';
@@ -136,6 +139,42 @@ async function loadAnnouncements(): Promise<void> {
 function searchAnnouncements(): void {
   annPage.value = 1;
   void loadAnnouncements();
+}
+
+/* ------------------------------ 公告批量操作（v2.0④） ------------------------------ */
+
+const annSelection = ref<Announcement[]>([]);
+
+function onAnnSelectionChange(rows: Announcement[]): void {
+  annSelection.value = rows;
+}
+
+async function runAnnBatch(action: ContentBatchAction): Promise<void> {
+  const rows = annSelection.value;
+  if (rows.length === 0) {
+    ElMessage.warning('请先勾选公告');
+    return;
+  }
+  const verb = action === 'enable' ? '上线' : action === 'disable' ? '下线' : '删除';
+  try {
+    await ElMessageBox.confirm(`确定${verb}选中的 ${rows.length} 条公告吗？`, `批量${verb}`, {
+      type: action === 'delete' ? 'warning' : 'info',
+      confirmButtonText: verb,
+      cancelButtonText: '取消',
+    });
+  } catch {
+    return;
+  }
+  try {
+    const res = await batchAnnouncements(
+      rows.map((r) => r.id),
+      action,
+    );
+    ElMessage.success(`已${verb} ${res.affected} 条公告`);
+    await loadAnnouncements();
+  } catch {
+    /* 错误已由请求拦截器统一提示 */
+  }
 }
 
 const annDialogVisible = ref(false);
@@ -288,6 +327,42 @@ async function loadBanners(): Promise<void> {
 function searchBanners(): void {
   bnPage.value = 1;
   void loadBanners();
+}
+
+/* ------------------------------ 轮播批量操作（v2.0④） ------------------------------ */
+
+const bnSelection = ref<Banner[]>([]);
+
+function onBnSelectionChange(rows: Banner[]): void {
+  bnSelection.value = rows;
+}
+
+async function runBnBatch(action: ContentBatchAction): Promise<void> {
+  const rows = bnSelection.value;
+  if (rows.length === 0) {
+    ElMessage.warning('请先勾选轮播图');
+    return;
+  }
+  const verb = action === 'enable' ? '上线' : action === 'disable' ? '下线' : '删除';
+  try {
+    await ElMessageBox.confirm(`确定${verb}选中的 ${rows.length} 张轮播图吗？`, `批量${verb}`, {
+      type: action === 'delete' ? 'warning' : 'info',
+      confirmButtonText: verb,
+      cancelButtonText: '取消',
+    });
+  } catch {
+    return;
+  }
+  try {
+    const res = await batchBanners(
+      rows.map((r) => r.id),
+      action,
+    );
+    ElMessage.success(`已${verb} ${res.affected} 张轮播图`);
+    await loadBanners();
+  } catch {
+    /* 错误已由请求拦截器统一提示 */
+  }
 }
 
 const bnDialogVisible = ref(false);
@@ -468,10 +543,22 @@ onMounted(() => {
             />
             <el-button @click="searchAnnouncements">查询</el-button>
             <div class="content-page__spacer" />
+            <el-button :disabled="annSelection.length === 0" @click="runAnnBatch('enable')">批量上线</el-button>
+            <el-button :disabled="annSelection.length === 0" @click="runAnnBatch('disable')">批量下线</el-button>
+            <el-button type="danger" plain :disabled="annSelection.length === 0" @click="runAnnBatch('delete')">
+              批量删除
+            </el-button>
             <el-button type="primary" @click="openAnnCreate">新建公告</el-button>
           </div>
 
-          <el-table v-loading="annLoading" :data="annList" row-key="id" stripe>
+          <el-table
+            v-loading="annLoading"
+            :data="annList"
+            row-key="id"
+            stripe
+            @selection-change="onAnnSelectionChange"
+          >
+            <el-table-column type="selection" width="44" />
             <el-table-column label="标题" min-width="220" show-overflow-tooltip>
               <template #default="{ row }">
                 <el-tag v-if="row.pinned" size="small" type="danger" effect="plain" class="content-page__pin">置顶</el-tag>
@@ -543,10 +630,22 @@ onMounted(() => {
             </el-select>
             <el-button @click="searchBanners">查询</el-button>
             <div class="content-page__spacer" />
+            <el-button :disabled="bnSelection.length === 0" @click="runBnBatch('enable')">批量上线</el-button>
+            <el-button :disabled="bnSelection.length === 0" @click="runBnBatch('disable')">批量下线</el-button>
+            <el-button type="danger" plain :disabled="bnSelection.length === 0" @click="runBnBatch('delete')">
+              批量删除
+            </el-button>
             <el-button type="primary" @click="openBnCreate">新建轮播图</el-button>
           </div>
 
-          <el-table v-loading="bnLoading" :data="bnList" row-key="id" stripe>
+          <el-table
+            v-loading="bnLoading"
+            :data="bnList"
+            row-key="id"
+            stripe
+            @selection-change="onBnSelectionChange"
+          >
+            <el-table-column type="selection" width="44" />
             <el-table-column label="预览" width="120">
               <template #default="{ row }">
                 <el-image
@@ -656,6 +755,7 @@ onMounted(() => {
               placeholder="结束时间（留空长期有效）"
               :clearable="true"
             />
+            <span class="content-page__tip">开始时间晚于当前 → 预约发布；结束时间到点自动下线</span>
           </div>
         </el-form-item>
         <el-form-item label="置顶">
@@ -723,6 +823,7 @@ onMounted(() => {
               placeholder="结束时间（留空长期有效）"
               :clearable="true"
             />
+            <span class="content-page__tip">开始时间晚于当前 → 预约发布；结束时间到点自动下线</span>
           </div>
         </el-form-item>
         <el-form-item label="启用">

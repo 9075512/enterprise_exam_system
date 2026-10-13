@@ -29,7 +29,7 @@ import type {
   ContentTouchStatsDto,
   Page,
 } from '../../types/domain.js';
-import type { AnnouncementBodyInput, BannerBodyInput, ContentListQueryInput } from './content.schema.js';
+import type { AnnouncementBodyInput, BannerBodyInput, ContentBatchInput, ContentListQueryInput } from './content.schema.js';
 
 /** 考生侧单次下发的最大条数（防止一次性拉回全部历史内容）。 */
 const FEED_ANNOUNCEMENT_LIMIT = 20;
@@ -312,6 +312,61 @@ export async function getFeed(scope: 'exam' | 'practice'): Promise<ContentFeedDt
     announcements: annRows.map((r) => mapAnnouncement(r, now)),
     banners: bannerRows.map((r) => mapBanner(r, now)),
   };
+}
+
+/* ------------------------------ 批量操作（v2.0④） ------------------------------ */
+
+/** 批量操作结果。 */
+export interface ContentBatchResult {
+  action: ContentBatchInput['action'];
+  affected: number;
+}
+
+/**
+ * 批量启停 / 删除公告。
+ * 「预约发布」由生效开始时间承载（start_at 未到即视为待发布），无需额外调度：
+ * 批量上线 = 打开 enabled 开关，到点后由展示侧按时间窗自动放出。
+ */
+export async function batchAnnouncements(
+  actorId: string,
+  input: ContentBatchInput,
+): Promise<ContentBatchResult> {
+  const now = nowDb();
+  let affected = 0;
+  if (input.action === 'delete') {
+    affected = await repo.deleteAnnouncements(input.ids);
+  } else {
+    affected = await repo.setAnnouncementsEnabled(input.ids, input.action === 'enable', now);
+  }
+  void auditService.record({
+    actorId,
+    action: input.action === 'delete' ? 'content.delete' : 'content.update',
+    targetType: 'announcement',
+    targetId: 'batch',
+    targetName: `批量${input.action === 'enable' ? '上线' : input.action === 'disable' ? '下线' : '删除'}公告`,
+    detail: { action: input.action, requested: input.ids.length, affected },
+  });
+  return { action: input.action, affected };
+}
+
+/** 批量启停 / 删除轮播图。 */
+export async function batchBanners(actorId: string, input: ContentBatchInput): Promise<ContentBatchResult> {
+  const now = nowDb();
+  let affected = 0;
+  if (input.action === 'delete') {
+    affected = await repo.deleteBanners(input.ids);
+  } else {
+    affected = await repo.setBannersEnabled(input.ids, input.action === 'enable', now);
+  }
+  void auditService.record({
+    actorId,
+    action: input.action === 'delete' ? 'content.delete' : 'content.update',
+    targetType: 'banner',
+    targetId: 'batch',
+    targetName: `批量${input.action === 'enable' ? '上线' : input.action === 'disable' ? '下线' : '删除'}轮播图`,
+    detail: { action: input.action, requested: input.ids.length, affected },
+  });
+  return { action: input.action, affected };
 }
 
 /* ------------------------------ 触达回执（v2.0③） ------------------------------ */

@@ -58,6 +58,20 @@ export function deleteAnnouncement(id: string): Promise<null> {
   return del<null>(`/content/announcements/${encodeURIComponent(id)}`);
 }
 
+/** 批量操作类型（v2.0④） */
+export type ContentBatchAction = 'enable' | 'disable' | 'delete';
+
+/** 批量操作结果 */
+export interface ContentBatchResult {
+  action: ContentBatchAction;
+  affected: number;
+}
+
+/** 批量上线 / 下线 / 删除公告 */
+export function batchAnnouncements(ids: string[], action: ContentBatchAction): Promise<ContentBatchResult> {
+  return post<ContentBatchResult>('/content/announcements/batch', { ids, action });
+}
+
 /* ------------------------------ 轮播图 ------------------------------ */
 
 /** 轮播图分页列表（管理端） */
@@ -78,6 +92,11 @@ export function updateBanner(id: string, payload: BannerInput): Promise<Banner> 
 /** 删除轮播图 */
 export function deleteBanner(id: string): Promise<null> {
   return del<null>(`/content/banners/${encodeURIComponent(id)}`);
+}
+
+/** 批量上线 / 下线 / 删除轮播图 */
+export function batchBanners(ids: string[], action: ContentBatchAction): Promise<ContentBatchResult> {
+  return post<ContentBatchResult>('/content/banners/batch', { ids, action });
 }
 
 /* ------------------------------ 考生端 ------------------------------ */

@@ -16,12 +16,13 @@ import { ok } from '../../utils/response.js';
 import {
   announcementBodySchema,
   bannerBodySchema,
+  contentBatchSchema,
   contentFeedQuerySchema,
   contentIdParamsSchema,
   contentListQuerySchema,
 } from './content.schema.js';
 import * as service from './content.service.js';
-import type { AnnouncementBodyInput, BannerBodyInput, ContentListQueryInput } from './content.schema.js';
+import type { AnnouncementBodyInput, BannerBodyInput, ContentBatchInput, ContentListQueryInput } from './content.schema.js';
 
 export const contentRouter = Router();
 contentRouter.use(authRequired);
@@ -82,6 +83,19 @@ contentRouter.get(
   }),
 );
 
+/**
+ * POST /api/content/announcements/batch —— 批量上线 / 下线 / 删除（v2.0④）。
+ * 必须注册在 `/:id` 之前语义上无冲突，但为可读性置于新增接口首位。
+ */
+contentRouter.post(
+  '/announcements/batch',
+  requireRole('admin'),
+  validate(contentBatchSchema, 'body'),
+  asyncHandler(async (req, res) => {
+    return ok(res, await service.batchAnnouncements(req.user!.id, req.body as ContentBatchInput));
+  }),
+);
+
 /** POST /api/content/announcements —— 新建公告。 */
 contentRouter.post(
   '/announcements',
@@ -123,6 +137,16 @@ contentRouter.get(
   validate(contentListQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
     return ok(res, await service.listBanners(req.query as unknown as ContentListQueryInput));
+  }),
+);
+
+/** POST /api/content/banners/batch —— 批量上线 / 下线 / 删除（v2.0④）。 */
+contentRouter.post(
+  '/banners/batch',
+  requireRole('admin'),
+  validate(contentBatchSchema, 'body'),
+  asyncHandler(async (req, res) => {
+    return ok(res, await service.batchBanners(req.user!.id, req.body as ContentBatchInput));
   }),
 );
 

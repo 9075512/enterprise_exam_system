@@ -261,3 +261,104 @@ describe('内容触达回执与看板（v2.0③）', () => {
     expect(data.announcements.some((a) => a.title === '看板核验')).toBe(true);
   });
 });
+
+/* ============================ v2.0④ 批量与预约 ============================ */
+
+describe('内容批量上下线与预约发布（v2.0④）', () => {
+  async function byIds(ids: string[]): Promise<Map<string, AnnouncementDto>> {
+    const list = await request(app)
+      .get('/api/content/announcements')
+      .query({ page: 1, pageSize: 100 })
+      .set(bearer(admin));
+    const page = list.body.data as Page<AnnouncementDto>;
+    return new Map(page.list.filter((a) => ids.includes(a.id)).map((a) => [a.id, a]));
+  }
+
+  it('权限：author 调批量接口 → 403', async () => {
+    const res = await request(app)
+      .post('/api/content/announcements/batch')
+      .set(bearer(author))
+      .send({ ids: ['x'], action: 'disable' });
+    expect(res.status).toBe(403);
+  });
+
+  it('入参校验：空 ids / 非法 action → 1001', async () => {
+    const a = await request(app)
+      .post('/api/content/announcements/batch')
+      .set(bearer(admin))
+      .send({ ids: [], action: 'disable' });
+    expect(a.body.code).toBe(1001);
+    const b = await request(app)
+      .post('/api/content/announcements/batch')
+      .set(bearer(admin))
+      .send({ ids: ['x'], action: 'explode' });
+    expect(b.body.code).toBe(1001);
+  });
+
+  it('批量下线后两端不可见，重新上线后恢复', async () => {
+    const a1 = await createAnn(annPayload({ title: '批量A' }));
+    const a2 = await createAnn(annPayload({ title: '批量B' }));
+
+    const off = await request(app)
+      .post('/api/content/announcements/batch')
+      .set(bearer(admin))
+      .send({ ids: [a1.id, a2.id], action: 'disable' });
+    expect(off.body.code, JSON.stringify(off.body)).toBe(0);
+    expect(off.body.data.affected).toBe(2);
+
+    const map = await byIds([a1.id, a2.id]);
+    expect(map.get(a1.id)?.enabled).toBe(false);
+
+    const feed = await request(app).get('/api/content/feed').query({ scope: 'exam' }).set(bearer(admin));
+    const titles = (feed.body.data.announcements as AnnouncementDto[]).map((x) => x.title);
+    expect(titles).not.toContain('批量A');
+
+    const on = await request(app)
+      .post('/api/content/announcements/batch')
+      .set(bearer(admin))
+      .send({ ids: [a1.id, a2.id], action: 'enable' });
+    expect(on.body.data.affected).toBe(2);
+    const map2 = await byIds([a1.id, a2.id]);
+    expect(map2.get(a1.id)?.enabled).toBe(true);
+  });
+
+  it('批量删除返回受影响行数', async () => {
+    const d1 = await createAnn(annPayload({ title: '待删A' }));
+    const d2 = await createAnn(annPayload({ title: '待删B' }));
+    const res = await request(app)
+      .post('/api/content/announcements/batch')
+      .set(bearer(admin))
+      .send({ ids: [d1.id, d2.id, 'no-such-id'], action: 'delete' });
+    expect(res.body.code, JSON.stringify(res.body)).toBe(0);
+    expect(res.body.data.affected).toBe(2);
+    const map = await byIds([d1.id, d2.id]);
+    expect(map.size).toBe(0);
+  });
+
+  it('轮播批量下线生效', async () => {
+    const b1 = await createBanner(bannerPayload({ title: '轮播批量' }));
+    const res = await request(app)
+      .post('/api/content/banners/batch')
+      .set(bearer(admin))
+      .send({ ids: [b1.id], action: 'disable' });
+    expect(res.body.code, JSON.stringify(res.body)).toBe(0);
+    expect(res.body.data.affected).toBe(1);
+    const list = await request(app)
+      .get('/api/content/banners')
+      .query({ keyword: '轮播批量', page: 1, pageSize: 5 })
+      .set(bearer(admin));
+    const hit = (list.body.data as Page<BannerDto>).list.find((b) => b.id === b1.id);
+    expect(hit?.enabled).toBe(false);
+  });
+
+  it('预约发布：开始时间在未来 → 两端 feed 暂不可见，到点由时间窗自动放出', async () => {
+    const future = new Date(Date.now() + 3600_000).toISOString();
+    const dto = await createAnn(annPayload({ title: '预约发布预告', startAt: future }));
+    const feed = await request(app).get('/api/content/feed').query({ scope: 'exam' }).set(bearer(admin));
+    const titles = (feed.body.data.announcements as AnnouncementDto[]).map((x) => x.title);
+    expect(titles).not.toContain('预约发布预告');
+    // 管理端仍可见（未生效状态）
+    const map = await byIds([dto.id]);
+    expect(map.get(dto.id)?.active).toBe(false);
+  });
+});

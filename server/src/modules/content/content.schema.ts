@@ -141,6 +141,22 @@ export const contentIdParamsSchema = z.object({
   id: z.string().trim().min(1, '参数不合法'),
 });
 
+/**
+ * 批量操作入参（v2.0④）。
+ * `action`：enable 批量上线 / disable 批量下线 / delete 批量删除。
+ */
+export const contentBatchSchema = z.object({
+  ids: z
+    .array(z.string().trim().min(1, '内容 id 不合法'))
+    .min(1, '请至少选择一条内容')
+    .max(200, '单次最多操作 200 条'),
+  action: z.enum(['enable', 'disable', 'delete'], {
+    invalid_type_error: '批量操作类型必须为 enable / disable / delete',
+  }),
+});
+
+export type ContentBatchInput = z.infer<typeof contentBatchSchema>;
+
 export type AnnouncementBodyInput = z.infer<typeof announcementBodySchema>;
 export type BannerBodyInput = z.infer<typeof bannerBodySchema>;
 export type ContentListQueryInput = z.infer<typeof contentListQuerySchema>;

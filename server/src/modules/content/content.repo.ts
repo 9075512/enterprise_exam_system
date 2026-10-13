@@ -5,7 +5,7 @@
  * 公网练题实例（PRACTICE_ONLY，仅 `/api/practice/*`）使用；
  * 写操作只由内网实例的管理端调用（练题账号对新表仅授 SELECT）。
  */
-import type { RowDataPacket } from 'mysql2/promise';
+import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { query, runQuery, type SqlExecutor } from '../../db/pool.js';
 
 /** `announcements` 表原始行（含 JOIN users 得到的创建人姓名）。 */
@@ -212,6 +212,56 @@ export async function updateAnnouncement(
 /** 删除公告。 */
 export async function deleteAnnouncement(id: string): Promise<void> {
   await runQuery(undefined, `DELETE FROM announcements WHERE id = ?`, [id]);
+}
+
+/* ------------------------------ 批量操作（v2.0④） ------------------------------ */
+
+/** 批量启停公告，返回受影响行数。 */
+export async function setAnnouncementsEnabled(ids: string[], enabled: boolean, updatedAt: string): Promise<number> {
+  if (ids.length === 0) return 0;
+  const placeholders = ids.map(() => '?').join(',');
+  const res = await runQuery<ResultSetHeader>(
+    undefined,
+    `UPDATE announcements SET enabled = ?, updated_at = ? WHERE id IN (${placeholders})`,
+    [enabled ? 1 : 0, updatedAt, ...ids],
+  );
+  return Number(res.affectedRows ?? 0);
+}
+
+/** 批量删除公告，返回受影响行数。 */
+export async function deleteAnnouncements(ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const placeholders = ids.map(() => '?').join(',');
+  const res = await runQuery<ResultSetHeader>(
+    undefined,
+    `DELETE FROM announcements WHERE id IN (${placeholders})`,
+    ids,
+  );
+  return Number(res.affectedRows ?? 0);
+}
+
+/** 批量启停轮播图，返回受影响行数。 */
+export async function setBannersEnabled(ids: string[], enabled: boolean, updatedAt: string): Promise<number> {
+  if (ids.length === 0) return 0;
+  const placeholders = ids.map(() => '?').join(',');
+  const res = await runQuery<ResultSetHeader>(
+    undefined,
+    `UPDATE banners SET enabled = ?, updated_at = ? WHERE id IN (${placeholders})`,
+    [enabled ? 1 : 0, updatedAt, ...ids],
+  );
+  return Number(res.affectedRows ?? 0);
+}
+
+/** 批量删除轮播图，返回受影响行数。 */
+export async function deleteBanners(ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const placeholders = ids.map(() => '?').join(',');
+  const res = await runQuery<ResultSetHeader>(
+    undefined,
+    `DELETE FROM banners WHERE id IN (${placeholders})`,
+    ids,
+  );
+  return Number(res.affectedRows ?? 0);
 }
 
 /* ------------------------------ 轮播图 ------------------------------ */
