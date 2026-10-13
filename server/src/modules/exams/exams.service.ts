@@ -8,6 +8,7 @@ import * as papersRepo from '../papers/papers.repo.js';
 import * as recordsRepo from '../records/records.repo.js';
 import * as retakesRepo from '../retakes/retakes.repo.js';
 import * as usersRepo from '../users/users.repo.js';
+import * as departmentsService from '../departments/departments.service.js';
 import { badRequest, conflict, notFound } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
 import { nowDb, toDbDate } from '../../utils/datetime.js';
@@ -96,8 +97,11 @@ export async function getById(id: string): Promise<ExamDto> {
 /** 考生可见考试（科室隔离）+ 本人作答状态、已交卷次数与补考资格。 */
 export async function listForExaminee(userId: string, departmentId: string): Promise<ExamMyDto[]> {
   if (!departmentId) return [];
+  // 多级科室树：本人科室的祖先链命中考试所选科室即视为参与
+  const ancestorIds = await departmentsService.getAncestorIds(departmentId);
+  if (ancestorIds.length === 0) return [];
   const [rows, records, retakes, settings] = await Promise.all([
-    repo.listForDepartment(departmentId),
+    repo.listForAncestors(ancestorIds),
     recordsRepo.listByUser(userId),
     retakesRepo.listExamStatusByUser(userId),
     getSettings(),
@@ -162,9 +166,11 @@ export async function create(input: Parameters<typeof validateExamInput>[0], ope
   const dto = mapExamRow(created!);
 
   // 考试发布通知（fail-open，不影响创建）
+  // 多级科室树：通知需覆盖所选科室的整棵子树
   const settings = await getSettings();
   if (settings.notifyOnPublish) {
-    const examineeIds = await usersRepo.findIdsByDepartments(dto.departmentIds, 'examinee');
+    const expandedDepartmentIds = await departmentsService.expandDepartmentIds(dto.departmentIds);
+    const examineeIds = await usersRepo.findIdsByDepartments(expandedDepartmentIds, 'examinee');
     await notifyUsers(examineeIds, {
       type: 'publish',
       title: `新考试发布：${dto.name}`,

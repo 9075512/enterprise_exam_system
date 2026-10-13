@@ -21,13 +21,17 @@ export async function findById(id: string, exec?: SqlExecutor): Promise<ExamRow 
   return rows[0] ?? null;
 }
 
-/** 考生可见考试：参与科室命中本人科室（JSON_CONTAINS 科室隔离）。 */
-export async function listForDepartment(departmentId: string): Promise<ExamRow[]> {
+/**
+ * 考生可见考试：参与科室命中「本人科室或任一祖先科室」（多级科室树级联）。
+ * v1.6③：考生科室的祖先链任一命中考试所选科室即视为参与。
+ * ancestorIds 为空时返回空集（无科室考生看不到任何考试）。
+ */
+export async function listForAncestors(ancestorIds: string[]): Promise<ExamRow[]> {
+  if (ancestorIds.length === 0) return [];
+  const ors = ancestorIds.map(() => `JSON_CONTAINS(department_ids, JSON_QUOTE(?))`).join(' OR ');
   return query<ExamRow[]>(
-    `SELECT ${COLUMNS} FROM exams
-       WHERE JSON_CONTAINS(department_ids, JSON_QUOTE(?))
-       ORDER BY start_time DESC`,
-    [departmentId],
+    `SELECT ${COLUMNS} FROM exams WHERE (${ors}) ORDER BY start_time DESC`,
+    ancestorIds,
   );
 }
 

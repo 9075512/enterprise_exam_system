@@ -8,6 +8,7 @@ import dayjs from 'dayjs';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import * as examsApi from '@/api/exams';
 import { useSettingsStore } from '@/stores/settings';
+import { buildDepartmentTree } from '@/utils/departmentTree';
 import type { Department, Exam, Paper } from '@/types';
 
 const props = defineProps<{
@@ -21,6 +22,9 @@ const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void;
   (e: 'saved'): void;
 }>();
+
+/** 参与科室树（多级；选择上级科室将自动覆盖其下级科室考生）。 */
+const departmentTree = computed(() => buildDepartmentTree(props.departments));
 
 const dialogVisible = computed<boolean>({
   get: () => props.visible,
@@ -179,19 +183,18 @@ function handleCancel(): void {
       </el-form-item>
 
       <el-form-item label="参与科室（可多选）" prop="departmentIds">
-        <el-select
+        <el-tree-select
           v-model="form.departmentIds"
+          :data="departmentTree"
           class="exam-form__full"
           multiple
+          show-checkbox
+          check-strictly
+          :render-after-expand="false"
+          default-expand-all
           placeholder="请选择参与科室"
-        >
-          <el-option
-            v-for="dept in departments"
-            :key="dept.id"
-            :label="dept.name"
-            :value="dept.id"
-          />
-        </el-select>
+        />
+        <span class="exam-form__hint">选择上级科室将自动覆盖其所有下级科室考生</span>
       </el-form-item>
 
       <el-row :gutter="12">

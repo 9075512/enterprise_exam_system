@@ -8,6 +8,8 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import * as banksApi from '@/api/banks';
+import * as usersApi from '@/api/users';
+import { useAuthStore } from '@/stores/auth';
 import { BANK_CATEGORY_DEFAULT } from '@/constants';
 import type { QuestionBank } from '@/types';
 
@@ -29,6 +31,13 @@ const dialogVisible = computed<boolean>({
 
 const isEdit = computed<boolean>(() => Boolean(props.bank?.id));
 
+/** 授权出题人仅管理员可管理 */
+const authStore = useAuthStore();
+const isAdmin = computed<boolean>(() => authStore.hasRole('admin'));
+
+/** 可选的出题人账号（admin 专用） */
+const authorOptions = ref<Array<{ id: string; name: string; username: string }>>([]);
+
 const formRef = ref<FormInstance>();
 const submitting = ref(false);
 
@@ -37,7 +46,19 @@ const form = reactive({
   category: BANK_CATEGORY_DEFAULT,
   description: '',
   allowPractice: false,
+  authorIds: [] as string[],
 });
+
+/** 管理员加载出题人候选列表 */
+async function loadAuthorOptions(): Promise<void> {
+  if (!isAdmin.value) return;
+  try {
+    const users = await usersApi.list({ role: 'author' });
+    authorOptions.value = users.map((u) => ({ id: u.id, name: u.name, username: u.username }));
+  } catch {
+    authorOptions.value = [];
+  }
+}
 
 const rules: FormRules = {
   name: [
@@ -57,6 +78,8 @@ watch(
     form.category = props.bank?.category || BANK_CATEGORY_DEFAULT;
     form.description = props.bank?.description ?? '';
     form.allowPractice = props.bank?.allowPractice ?? false;
+    form.authorIds = [...(props.bank?.authorIds ?? [])];
+    void loadAuthorOptions();
     formRef.value?.clearValidate();
   },
 );
@@ -74,6 +97,7 @@ async function handleSubmit(): Promise<void> {
       category: form.category.trim() || BANK_CATEGORY_DEFAULT,
       description: form.description.trim(),
       allowPractice: form.allowPractice,
+      authorIds: isAdmin.value ? [...form.authorIds] : undefined,
     };
     if (isEdit.value && props.bank) {
       await banksApi.update(props.bank.id, payload);
@@ -127,6 +151,23 @@ function handleCancel(): void {
           开启后该题库的题目将出现在公网练题入口（题目与答案会被公网用户看到，请勿开放涉密/考试在用题库）
         </span>
       </el-form-item>
+      <el-form-item v-if="isAdmin" label="授权出题人">
+        <el-select
+          v-model="form.authorIds"
+          class="bank-form__full"
+          multiple
+          filterable
+          placeholder="选择可管理该题库的出题人（可多选）"
+        >
+          <el-option
+            v-for="a in authorOptions"
+            :key="a.id"
+            :label="`${a.name}（${a.username}）`"
+            :value="a.id"
+          />
+        </el-select>
+        <span class="practice-hint">被授权的出题人仅能查看和管理该题库；未授权题库对其不可见</span>
+      </el-form-item>
     </el-form>
 
     <template #footer>
@@ -146,5 +187,9 @@ function handleCancel(): void {
   font-size: 12px;
   line-height: 1.6;
   color: #94a3b8;
+}
+
+.bank-form__full {
+  width: 100%;
 }
 </style>

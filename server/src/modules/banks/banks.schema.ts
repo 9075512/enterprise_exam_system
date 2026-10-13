@@ -11,6 +11,8 @@ export const bankSchema = z.object({
   category: z.string().optional().default('未分类'),
   /** 对外开放练题开关（默认关闭，安全默认） */
   allowPractice: z.boolean({ invalid_type_error: '对外开放练题开关必须为布尔值' }).optional().default(false),
+  /** 授权出题人 id 列表（仅 admin 生效；author 新建/编辑时忽略） */
+  authorIds: z.array(z.string()).optional(),
 });
 
 /** 列表查询入参。 */

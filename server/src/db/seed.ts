@@ -159,6 +159,16 @@ export async function seed(conn: Connection): Promise<void> {
     );
   }
 
+  // 3b. 题库-出题人授权（v1.6③；演示出题人 user-author 被授权两个示例题库）
+  for (const bankId of ['bank-security', 'bank-culture']) {
+    await conn.query(
+      `INSERT INTO bank_authors (bank_id, user_id, created_at)
+       VALUES (?, 'user-author', ?)
+       ON DUPLICATE KEY UPDATE bank_id = bank_id`,
+      [bankId, now],
+    );
+  }
+
   // 4. 试题（default_score = 10，created_by = user-author）
   for (const q of SEED_QUESTIONS) {
     await conn.query(

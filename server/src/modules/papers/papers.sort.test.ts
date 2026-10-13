@@ -11,6 +11,9 @@ import { closePool, query } from '../../db/pool.js';
 import { nowDb } from '../../utils/datetime.js';
 import type { QuestionType } from '../../types/domain.js';
 
+/** 测试用操作者上下文（user-author 已被 seed 授权 bank-security）。 */
+const OPERATOR = { id: 'user-author', role: 'author' as const };
+
 /** 待排序项（仅含排序所需字段）。 */
 interface Item {
   id: string;
@@ -83,10 +86,10 @@ describe('试卷题目按题型排序（集成，落测试库）', () => {
           { questionId: 'q-02', score: 10 }, // single
         ],
       },
-      'user-author',
+      OPERATOR,
     );
 
-    const detail = await getById(res.id);
+    const detail = await getById(res.id, OPERATOR);
     expect(detail.questions.map((q) => q.question.type)).toEqual([
       'single', 'single', 'multiple', 'multiple', 'judge', 'judge',
     ]);
@@ -105,7 +108,7 @@ describe('试卷题目按题型排序（集成，落测试库）', () => {
         bankIds: ['bank-security'],
         questions: [{ questionId: 'q-01', score: 10 }],
       },
-      'user-author',
+      OPERATOR,
     );
 
     const updated = await update(created.id, {
@@ -119,7 +122,7 @@ describe('试卷题目按题型排序（集成，落测试库）', () => {
         { questionId: 'q-06', score: 10 }, // judge
         { questionId: 'q-02', score: 10 }, // single
       ],
-    });
+    }, OPERATOR);
 
     expect(updated.questions.map((q) => q.question.type)).toEqual([
       'single', 'single', 'multiple', 'judge', 'judge',

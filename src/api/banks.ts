@@ -9,6 +9,8 @@ export interface BankPayload {
   category?: string;
   /** 是否对外开放练题（默认 false） */
   allowPractice?: boolean;
+  /** 授权出题人 id 列表（仅 admin 生效） */
+  authorIds?: string[];
 }
 
 /** 题库内试题查询参数 */

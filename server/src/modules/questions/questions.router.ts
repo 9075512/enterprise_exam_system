@@ -29,7 +29,7 @@ questionsRouter.get(
       page: number;
       pageSize: number;
     };
-    return ok(res, await questionsService.listGlobal(q));
+    return ok(res, await questionsService.listGlobal(q, req.user!));
   }),
 );
 
@@ -39,7 +39,7 @@ questionsRouter.get(
   validate(subjectsQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
     const { bankIds } = req.query as unknown as { bankIds?: string[] };
-    return ok(res, await questionsService.listSubjects(bankIds));
+    return ok(res, await questionsService.listSubjects(bankIds, req.user!));
   }),
 );
 
@@ -58,7 +58,7 @@ questionsRouter.post(
       analysis: string;
       subject: string;
     };
-    return ok(res, await questionsService.create(body, req.user!.id));
+    return ok(res, await questionsService.create(body, req.user!));
   }),
 );
 
@@ -77,7 +77,7 @@ questionsRouter.put(
       analysis: string;
       subject: string;
     };
-    return ok(res, await questionsService.update(req.params.id, body));
+    return ok(res, await questionsService.update(req.params.id, body, req.user!));
   }),
 );
 
@@ -85,7 +85,7 @@ questionsRouter.put(
 questionsRouter.delete(
   '/:id',
   asyncHandler(async (req, res) => {
-    await questionsService.remove(req.params.id);
+    await questionsService.remove(req.params.id, req.user!);
     return ok(res, null);
   }),
 );

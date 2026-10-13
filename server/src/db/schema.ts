@@ -14,14 +14,18 @@ export const CREATE_DATABASE_SQL = `CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\`
 
 /** 业务表 DDL（11 张考试域 + 6 张练题域），按依赖顺序排列。 */
 export const DDL_STATEMENTS: readonly string[] = [
-  // 1. 科室
+  // 1. 科室（v1.6③ 支持多级：parent_id 自引用；名称全局唯一，便于用户导入按名解析）
   `CREATE TABLE IF NOT EXISTS departments (
     id            VARCHAR(64)  NOT NULL,
     name          VARCHAR(100) NOT NULL,
     description   VARCHAR(255) NOT NULL DEFAULT '',
+    parent_id     VARCHAR(64)  NULL,
     created_at    DATETIME(3)  NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_departments_name (name)
+    UNIQUE KEY uk_departments_name (name),
+    KEY idx_departments_parent (parent_id),
+    CONSTRAINT fk_departments_parent FOREIGN KEY (parent_id)
+      REFERENCES departments(id) ON DELETE RESTRICT ON UPDATE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
   // 2. 用户
@@ -353,6 +357,19 @@ export const DDL_STATEMENTS: readonly string[] = [
     updated_at DATETIME(3)  NOT NULL,
     PRIMARY KEY (role)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  // 24. 题库-出题人授权（v1.6③；bank_id ↔ user_id 多对多；author 仅能管理被授权题库）
+  `CREATE TABLE IF NOT EXISTS bank_authors (
+    bank_id    VARCHAR(64) NOT NULL,
+    user_id    VARCHAR(64) NOT NULL,
+    created_at DATETIME(3) NOT NULL,
+    PRIMARY KEY (bank_id, user_id),
+    KEY idx_ba_user (user_id),
+    CONSTRAINT fk_ba_bank FOREIGN KEY (bank_id)
+      REFERENCES question_banks(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_ba_user FOREIGN KEY (user_id)
+      REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 ];
 
 /** 建表完成后用于统计的核心表名列表（含练题域 6 张表）。 */
@@ -380,4 +397,5 @@ export const TABLE_NAMES: readonly string[] = [
   'exam_retakes',
   'user_import_batches',
   'menu_permissions',
+  'bank_authors',
 ];

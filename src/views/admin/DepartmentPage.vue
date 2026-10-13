@@ -10,6 +10,7 @@ import * as departmentsApi from '@/api/departments';
 import { useRequest } from '@/composables/useRequest';
 import { useConfirm } from '@/composables/useConfirm';
 import { formatDateTime } from '@/utils/datetime';
+import { buildDepartmentNameMap, buildDepartmentTree, getDescendantIds } from '@/utils/departmentTree';
 import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
@@ -17,6 +18,24 @@ import type { Department } from '@/types';
 
 const { confirm } = useConfirm();
 const { data: departments, loading, refresh } = useRequest(() => departmentsApi.list());
+
+/** 上级科室名称映射（表格回显）。 */
+const departmentNameMap = computed<Record<string, string>>(() =>
+  buildDepartmentNameMap(departments.value ?? []),
+);
+
+/** 表单「上级科室」可选项：编辑时排除自身及其子孙（防环）。 */
+const parentTree = computed(() => {
+  const all = departments.value ?? [];
+  const tree = buildDepartmentTree(all);
+  if (!editingId.value) return tree;
+  const disabled = new Set([editingId.value, ...getDescendantIds(all, editingId.value)]);
+  const filter = (nodes: typeof tree): typeof tree =>
+    nodes
+      .filter((n) => !disabled.has(n.value))
+      .map((n) => ({ ...n, children: n.children ? filter(n.children) : undefined }));
+  return filter(tree);
+});
 
 /* ------------------------------ 筛选（客户端） ------------------------------ */
 const filterKeyword = ref('');
@@ -39,7 +58,7 @@ const dialogVisible = ref(false);
 const editingId = ref<string>('');
 const submitting = ref(false);
 const formRef = ref<FormInstance>();
-const form = reactive({ name: '', description: '' });
+const form = reactive({ name: '', description: '', parentId: null as string | null });
 
 const rules: FormRules = {
   name: [
@@ -53,6 +72,7 @@ function openCreate(): void {
   editingId.value = '';
   form.name = '';
   form.description = '';
+  form.parentId = null;
   dialogVisible.value = true;
   formRef.value?.clearValidate();
 }
@@ -61,6 +81,7 @@ function openEdit(department: Department): void {
   editingId.value = department.id;
   form.name = department.name;
   form.description = department.description;
+  form.parentId = department.parentId;
   dialogVisible.value = true;
   formRef.value?.clearValidate();
 }
@@ -72,7 +93,11 @@ async function handleSubmit(): Promise<void> {
 
   submitting.value = true;
   try {
-    const payload = { name: form.name.trim(), description: form.description.trim() };
+    const payload = {
+      name: form.name.trim(),
+      description: form.description.trim(),
+      parentId: form.parentId,
+    };
     if (editingId.value) {
       await departmentsApi.update(editingId.value, payload);
       ElMessage.success('科室已更新');
@@ -92,7 +117,7 @@ async function handleSubmit(): Promise<void> {
 const deleting = ref(false);
 
 async function handleDelete(department: Department): Promise<void> {
-  const ok = await confirm(`确定删除科室「${department.name}」吗？存在归属用户的科室无法删除`, {
+  const ok = await confirm(`确定删除科室「${department.name}」吗？存在归属用户或子科室的科室无法删除`, {
     title: '删除科室',
     confirmButtonText: '确认删除',
     type: 'warning',
@@ -142,6 +167,9 @@ async function handleDelete(department: Department): Promise<void> {
 
       <el-table v-loading="loading" :data="filteredDepartments" row-key="id" stripe>
         <el-table-column prop="name" label="科室名称" min-width="180" show-overflow-tooltip />
+        <el-table-column label="上级科室" min-width="140">
+          <template #default="{ row }">{{ row.parentId ? departmentNameMap[row.parentId] || '—' : '—' }}</template>
+        </el-table-column>
         <el-table-column prop="description" label="描述" min-width="240" show-overflow-tooltip>
           <template #default="{ row }">{{ row.description || '—' }}</template>
         </el-table-column>
@@ -171,6 +199,18 @@ async function handleDelete(department: Department): Promise<void> {
         <el-form-item label="科室名称" prop="name">
           <el-input v-model="form.name" maxlength="60" show-word-limit placeholder="如：研发部" />
         </el-form-item>
+        <el-form-item label="上级科室">
+          <el-tree-select
+            v-model="form.parentId"
+            :data="parentTree"
+            class="department-page__full"
+            placeholder="留空表示顶级科室"
+            clearable
+            check-strictly
+            :render-after-expand="false"
+            default-expand-all
+          />
+        </el-form-item>
         <el-form-item label="描述" prop="description">
           <el-input
             v-model="form.description"
@@ -195,6 +235,10 @@ async function handleDelete(department: Department): Promise<void> {
 <style scoped lang="scss">
 .department-page__filter-keyword {
   width: 260px;
+}
+
+.department-page__full {
+  width: 100%;
 }
 
 .department-page__filter-actions {

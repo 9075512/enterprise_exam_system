@@ -29,8 +29,12 @@ departmentsRouter.post(
   '/',
   validate(departmentSchema, 'body'),
   asyncHandler(async (req, res) => {
-    const { name, description } = req.body as { name: string; description: string };
-    const dept = await departmentsService.create({ name, description });
+    const { name, description, parentId } = req.body as {
+      name: string;
+      description: string;
+      parentId?: string | null;
+    };
+    const dept = await departmentsService.create({ name, description, parentId });
     return ok(res, dept);
   }),
 );
@@ -40,8 +44,12 @@ departmentsRouter.put(
   '/:id',
   validate(departmentSchema, 'body'),
   asyncHandler(async (req, res) => {
-    const { name, description } = req.body as { name: string; description: string };
-    const dept = await departmentsService.update(req.params.id, { name, description });
+    const { name, description, parentId } = req.body as {
+      name: string;
+      description: string;
+      parentId?: string | null;
+    };
+    const dept = await departmentsService.update(req.params.id, { name, description, parentId });
     return ok(res, dept);
   }),
 );

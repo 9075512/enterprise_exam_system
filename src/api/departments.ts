@@ -8,14 +8,14 @@ export function list(): Promise<Department[]> {
 }
 
 /** 新建科室 */
-export function create(payload: { name: string; description?: string }): Promise<Department> {
+export function create(payload: { name: string; description?: string; parentId?: string | null }): Promise<Department> {
   return post<Department>('/departments', payload);
 }
 
 /** 编辑科室 */
 export function update(
   id: string,
-  payload: { name: string; description?: string },
+  payload: { name: string; description?: string; parentId?: string | null },
 ): Promise<Department> {
   return put<Department>(`/departments/${id}`, payload);
 }

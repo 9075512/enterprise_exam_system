@@ -5,6 +5,8 @@
 import * as repo from './import.repo.js';
 import type { BatchRow } from './import.repo.js';
 import * as banksRepo from '../banks/banks.repo.js';
+import * as bankAuth from '../banks/bankAuth.js';
+import type { Operator } from '../banks/bankAuth.js';
 import * as questionsRepo from '../questions/questions.repo.js';
 import { normalizeQuestion } from '../questions/questions.service.js';
 import { withTransaction } from '../../db/pool.js';
@@ -32,10 +34,11 @@ function mapBatchRow(row: BatchRow): BatchDto {
   };
 }
 
-/** 解析预览：读取目标题库分类，逐行校验。 */
-export async function preview(buffer: Buffer, bankId: string): Promise<PreviewResult> {
+/** 解析预览：读取目标题库分类，逐行校验（author 需授权）。 */
+export async function preview(buffer: Buffer, bankId: string, operator: Operator): Promise<PreviewResult> {
   const bank = await banksRepo.findById(bankId);
   if (!bank) throw notFound('题库不存在或已被删除');
+  await bankAuth.assertBankAccess(bankId, operator);
 
   const result = await parseQuestionWorkbook(buffer, bank.category);
   const settings = await getSettings();
@@ -65,10 +68,11 @@ export async function commit(
     }>;
     errors: RowIssue[];
   },
-  operatorId: string,
+  operator: Operator,
 ): Promise<CommitResult> {
   const bank = await banksRepo.findById(input.bankId);
   if (!bank) throw notFound('题库不存在或已被删除');
+  await bankAuth.assertBankAccess(input.bankId, operator);
 
   const batchId = genId('batch-');
   const totalRows = input.validRows.length + input.errors.length;
@@ -86,7 +90,7 @@ export async function commit(
             id: genId('q-'),
             bankId: input.bankId,
             ...normalized,
-            createdBy: operatorId,
+            createdBy: operator.id,
             createdAt: nowDb(),
           },
           conn,
@@ -112,7 +116,7 @@ export async function commit(
         successCount,
         failCount,
         errors: failIssues,
-        operatorId,
+        operatorId: operator.id,
         createdAt: nowDb(),
       },
       conn,

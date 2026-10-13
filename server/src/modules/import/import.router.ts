@@ -101,7 +101,7 @@ importQuestionsRouter.post(
       throw fileInvalid('仅支持 .xlsx 格式文件');
     }
     const { bankId } = req.body as { bankId: string };
-    const result = await importService.preview(file.buffer, bankId);
+    const result = await importService.preview(file.buffer, bankId, req.user!);
     return ok(res, result);
   }),
 );
@@ -112,7 +112,7 @@ importQuestionsRouter.post(
   validateCommitBody(),
   asyncHandler(async (req, res) => {
     const body = req.body as CommitInput;
-    const result = await importService.commit(body, req.user!.id);
+    const result = await importService.commit(body, req.user!);
     return ok(res, result);
   }),
 );

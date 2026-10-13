@@ -208,6 +208,13 @@ onMounted(() => {
             <span class="bank-info__label">创建人</span>
             <span>{{ bank.createdBy }}</span>
           </div>
+          <div class="bank-info__row bank-info__row--block">
+            <span class="bank-info__label">授权出题人</span>
+            <span v-if="bank.authorNames?.length" class="bank-info__desc">
+              {{ bank.authorNames.join('、') }}
+            </span>
+            <span v-else class="bank-info__desc">未授权任何出题人</span>
+          </div>
           <div class="bank-info__row">
             <span class="bank-info__label">创建时间</span>
             <span>{{ formatDateTime(bank.createdAt) }}</span>

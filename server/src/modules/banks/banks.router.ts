@@ -16,13 +16,13 @@ export const banksRouter = Router();
 
 banksRouter.use(authRequired, requireRole('admin', 'author'));
 
-/** GET /api/banks —— 题库列表（含 questionCount）。 */
+/** GET /api/banks —— 题库列表（含 questionCount；author 仅返回被授权题库）。 */
 banksRouter.get(
   '/',
   validate(bankListQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
     const { category, keyword } = req.query as unknown as { category: string; keyword: string };
-    return ok(res, await banksService.list({ category, keyword }));
+    return ok(res, await banksService.list({ category, keyword }, req.user!));
   }),
 );
 
@@ -31,15 +31,21 @@ banksRouter.post(
   '/',
   validate(bankSchema, 'body'),
   asyncHandler(async (req, res) => {
-    const body = req.body as { name: string; description: string; category: string; allowPractice: boolean };
-    return ok(res, await banksService.create(body, req.user!.id));
+    const body = req.body as {
+      name: string;
+      description: string;
+      category: string;
+      allowPractice: boolean;
+      authorIds?: string[];
+    };
+    return ok(res, await banksService.create(body, req.user!));
   }),
 );
 
-/** GET /api/banks/:id —— 题库详情（含被引用试卷数）。 */
+/** GET /api/banks/:id —— 题库详情（含被引用试卷数；author 需授权）。 */
 banksRouter.get(
   '/:id',
-  asyncHandler(async (req, res) => ok(res, await banksService.getById(req.params.id))),
+  asyncHandler(async (req, res) => ok(res, await banksService.getById(req.params.id, req.user!))),
 );
 
 /** PUT /api/banks/:id —— 编辑题库。 */
@@ -47,8 +53,14 @@ banksRouter.put(
   '/:id',
   validate(bankSchema, 'body'),
   asyncHandler(async (req, res) => {
-    const body = req.body as { name: string; description: string; category: string; allowPractice: boolean };
-    return ok(res, await banksService.update(req.params.id, body));
+    const body = req.body as {
+      name: string;
+      description: string;
+      category: string;
+      allowPractice: boolean;
+      authorIds?: string[];
+    };
+    return ok(res, await banksService.update(req.params.id, body, req.user!));
   }),
 );
 
@@ -57,7 +69,7 @@ banksRouter.delete(
   '/:id',
   asyncHandler(async (req, res) => {
     const cascade = String(req.query.cascade ?? '') === 'true';
-    await banksService.remove(req.params.id, cascade);
+    await banksService.remove(req.params.id, cascade, req.user!);
     return ok(res, null);
   }),
 );
@@ -81,7 +93,7 @@ banksRouter.get(
       keyword: q.keyword,
       page: paging.page,
       pageSize: paging.pageSize,
-    });
+    }, req.user!);
     return ok(res, result);
   }),
 );
@@ -92,6 +104,6 @@ banksRouter.post(
   validate(migrateQuestionsSchema, 'body'),
   asyncHandler(async (req, res) => {
     const body = req.body as { targetBankId: string; questionIds: string[] };
-    return ok(res, await banksService.migrateQuestions(req.params.id, body));
+    return ok(res, await banksService.migrateQuestions(req.params.id, body, req.user!));
   }),
 );

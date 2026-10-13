@@ -153,6 +153,17 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     changes.push('exam_records.subjective_scores');
   }
 
+  // v1.6③：科室树（parent_id 自引用；仅补列与索引，自引用外键由新建库 DDL 保证，
+  // 旧库因可能已存在数据、且应用层已做循环校验，不强行补外键约束）
+  if (!(await columnExists(conn, 'departments', 'parent_id'))) {
+    await conn.query(`ALTER TABLE departments ADD COLUMN parent_id VARCHAR(64) NULL AFTER description`);
+    changes.push('departments.parent_id');
+  }
+  if (!(await indexExists(conn, 'departments', 'idx_departments_parent'))) {
+    await conn.query(`ALTER TABLE departments ADD KEY idx_departments_parent (parent_id)`);
+    changes.push('departments.idx_departments_parent');
+  }
+
   // v1.6：菜单权限目录新增「人工阅卷」（defaultRoles: admin/author）。
   // 若已有角色权限行（admin 曾在菜单权限页保存过），需把新菜单合并进去，否则会看不到新入口。
   const [menuRows] = await conn.query<mysql.RowDataPacket[]>(`SELECT role, menu_keys FROM menu_permissions`);

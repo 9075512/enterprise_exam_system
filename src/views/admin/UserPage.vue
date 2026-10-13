@@ -13,6 +13,7 @@ import { useConfirm } from '@/composables/useConfirm';
 import { useSettingsStore } from '@/stores/settings';
 import { ROLE_LABELS } from '@/constants';
 import { formatDateTime } from '@/utils/datetime';
+import { buildDepartmentNameMap, buildDepartmentTree } from '@/utils/departmentTree';
 import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
@@ -32,8 +33,10 @@ onMounted(() => {
 /* ------------------------------ 科室映射 ------------------------------ */
 const { data: departments } = useRequest(() => departmentsApi.list());
 const departmentNameMap = computed<Record<string, string>>(() =>
-  Object.fromEntries((departments.value ?? []).map((d) => [d.id, d.name])),
+  buildDepartmentNameMap(departments.value ?? []),
 );
+/** 科室树（所属科室可挂任意节点）。 */
+const departmentTree = computed(() => buildDepartmentTree(departments.value ?? []));
 
 /* ------------------------------ 列表 ------------------------------ */
 const filterRole = ref<Role | ''>('');
@@ -332,14 +335,16 @@ async function handleDelete(user: User): Promise<void> {
           </el-select>
         </el-form-item>
         <el-form-item label="所属科室">
-          <el-select v-model="form.departmentId" class="user-page__full" placeholder="可留空（考生必选）" clearable>
-            <el-option
-              v-for="dept in departments || []"
-              :key="dept.id"
-              :label="dept.name"
-              :value="dept.id"
-            />
-          </el-select>
+          <el-tree-select
+            v-model="form.departmentId"
+            :data="departmentTree"
+            class="user-page__full"
+            placeholder="可留空（考生必选）"
+            clearable
+            check-strictly
+            :render-after-expand="false"
+            default-expand-all
+          />
         </el-form-item>
         <el-form-item label="邮箱" prop="email">
           <el-input v-model="form.email" maxlength="120" placeholder="用于邮件通知，可留空" />

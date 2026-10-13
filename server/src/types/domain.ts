@@ -20,6 +20,8 @@ export interface DepartmentDto {
   id: string;
   name: string;
   description: string;
+  /** 上级科室 id；顶级科室为 null */
+  parentId: string | null;
   /** ISO 8601（UTC） */
   createdAt: string;
 }
@@ -68,6 +70,10 @@ export interface BankDto {
   createdAt: string;
   /** 派生统计：题库存题数（不落列） */
   questionCount: number;
+  /** 授权出题人 id 列表（admin 可见/管理；author 仅能管理被授权题库） */
+  authorIds: string[];
+  /** 授权出题人姓名列表（与 authorIds 对应） */
+  authorNames: string[];
 }
 
 /** 题库详情 DTO（含被引用统计） */

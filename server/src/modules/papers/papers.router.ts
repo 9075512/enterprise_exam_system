@@ -15,10 +15,10 @@ export const papersRouter = Router();
 
 papersRouter.use(authRequired, requireRole('admin', 'author'));
 
-/** GET /api/papers —— 试卷列表（含来源题库）。 */
+/** GET /api/papers —— 试卷列表（含来源题库；author 仅返回与授权题库有交集的试卷）。 */
 papersRouter.get(
   '/',
-  asyncHandler(async (_req, res) => ok(res, await papersService.list())),
+  asyncHandler(async (req, res) => ok(res, await papersService.list(req.user!))),
 );
 
 /** POST /api/papers/draw-questions —— 按题型随机抽题（须在 /:id 之前注册）。 */
@@ -27,7 +27,7 @@ papersRouter.post(
   validate(drawSchema, 'body'),
   asyncHandler(async (req, res) => {
     const body = req.body as DrawInput;
-    return ok(res, await papersService.drawQuestions(body));
+    return ok(res, await papersService.drawQuestions(body, req.user!));
   }),
 );
 
@@ -37,14 +37,14 @@ papersRouter.post(
   validate(paperSchema, 'body'),
   asyncHandler(async (req, res) => {
     const body = req.body as PaperInput;
-    return ok(res, await papersService.create(body, req.user!.id));
+    return ok(res, await papersService.create(body, req.user!));
   }),
 );
 
 /** GET /api/papers/:id —— 试卷详情（题目 + 来源题库 + 逐题来源）。 */
 papersRouter.get(
   '/:id',
-  asyncHandler(async (req, res) => ok(res, await papersService.getById(req.params.id))),
+  asyncHandler(async (req, res) => ok(res, await papersService.getById(req.params.id, req.user!))),
 );
 
 /** PUT /api/papers/:id —— 编辑试卷。 */
@@ -53,7 +53,7 @@ papersRouter.put(
   validate(paperSchema, 'body'),
   asyncHandler(async (req, res) => {
     const body = req.body as PaperInput;
-    return ok(res, await papersService.update(req.params.id, body));
+    return ok(res, await papersService.update(req.params.id, body, req.user!));
   }),
 );
 

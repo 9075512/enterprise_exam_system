@@ -152,7 +152,7 @@ describe('导入落库事务（部分成功 + 中途失败整体回滚）', () =
         ],
         errors: [],
       },
-      'user-author',
+      { id: 'user-author', role: 'author' },
     );
     expect(res.successCount).toBe(1);
     expect(res.failCount).toBe(1);
@@ -175,7 +175,7 @@ describe('导入落库事务（部分成功 + 中途失败整体回滚）', () =
           ],
           errors: [],
         },
-        'user-author',
+        { id: 'user-author', role: 'author' },
       ),
     ).rejects.toThrow();
     // 题目应先被写入、再随事务回滚 → 最终不存在

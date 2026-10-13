@@ -6,9 +6,11 @@ import * as repo from './papers.repo.js';
 import type { PaperRow, PaperQuestionRow } from './papers.repo.js';
 import * as questionRepo from '../questions/questions.repo.js';
 import * as banksRepo from '../banks/banks.repo.js';
+import * as bankAuth from '../banks/bankAuth.js';
+import type { Operator } from '../banks/bankAuth.js';
 import { mapQuestionRow } from '../questions/question.mapper.js';
 import { withTransaction } from '../../db/pool.js';
-import { badRequest, conflict, notFound } from '../../utils/errors.js';
+import { badRequest, conflict, notFound, forbidden } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
 import { nowDb, fromDbDateSafe } from '../../utils/datetime.js';
 import type {
@@ -73,12 +75,14 @@ function baseDto(p: PaperRow, bankIds: string[], bankNames: string[]): Omit<Pape
   };
 }
 
-/** 试卷列表（含来源题库 bankIds/bankNames）。 */
-export async function list(): Promise<PaperDto[]> {
+/** 试卷列表（含来源题库 bankIds/bankNames；author 仅返回与授权题库有交集的试卷）。 */
+export async function list(operator: Operator): Promise<PaperDto[]> {
   const papers = await repo.list();
+  const accessible = await bankAuth.listAccessibleBankIds(operator);
   const result: PaperDto[] = [];
   for (const p of papers) {
     const [pqRows, bankIds] = await Promise.all([repo.listPaperQuestions(p.id), repo.listBankRefs(p.id)]);
+    if (accessible !== null && !bankIds.some((id) => accessible.includes(id))) continue;
     const names = await repo.bankNamesByIds(bankIds);
     result.push({
       ...baseDto(p, bankIds, names.map((n) => n.name)),
@@ -88,13 +92,23 @@ export async function list(): Promise<PaperDto[]> {
   return result;
 }
 
-/** 试卷详情（题目 + 来源题库 + 逐题来源题库）。 */
-export async function getById(id: string): Promise<PaperDetailDto> {
+/** 校验试卷来源题库对操作者可见（author 需至少有一个交集，否则视为无权查看）。 */
+async function assertPaperVisible(bankIds: string[], operator: Operator): Promise<void> {
+  const accessible = await bankAuth.listAccessibleBankIds(operator);
+  if (accessible === null) return;
+  if (!bankIds.some((id) => accessible.includes(id))) {
+    throw forbidden('您没有该试卷的查看权限');
+  }
+}
+
+/** 试卷详情（题目 + 来源题库 + 逐题来源题库；author 需授权）。 */
+export async function getById(id: string, operator: Operator): Promise<PaperDetailDto> {
   const p = await repo.findById(id);
   if (!p) throw notFound('试卷不存在或已被删除');
 
   const pqRows = await repo.listPaperQuestions(id);
   const bankIds = await repo.listBankRefs(id);
+  await assertPaperVisible(bankIds, operator);
   const names = await repo.bankNamesByIds(bankIds);
   const nameMap = new Map(names.map((n) => [n.id, n.name]));
 
@@ -130,32 +144,46 @@ async function assertBanksExist(bankIds: string[]): Promise<void> {
 }
 
 /**
- * 校验试题均存在，并返回 questionId → 题型 映射（供写入前按题型排序）。
+ * 校验试题均存在，并返回 questionId → 题型 映射与题目归属题库集合（供写入前排序与授权校验）。
  */
 async function assertQuestionsExist(
   items: Array<{ questionId: string; score: number }>,
-): Promise<Map<string, QuestionType>> {
+): Promise<{ types: Map<string, QuestionType>; bankIds: string[] }> {
   const ids = [...new Set(items.map((i) => i.questionId))];
   const rows = await questionRepo.findByIds(ids);
   const types = new Map<string, QuestionType>();
-  for (const r of rows) types.set(r.id, r.type);
+  const bankIds = new Set<string>();
+  for (const r of rows) {
+    types.set(r.id, r.type);
+    bankIds.add(r.bank_id);
+  }
   for (const id of ids) {
     if (!types.has(id)) throw notFound('试题不存在或已被删除');
   }
-  return types;
+  return { types, bankIds: [...bankIds] };
+}
+
+/** 校验题库与试题归属题库均对操作者授权（author 隔离）。 */
+async function assertComposeAccessible(
+  bankIds: string[],
+  questionBankIds: string[],
+  operator: Operator,
+): Promise<void> {
+  await bankAuth.assertBanksAccess([...new Set([...bankIds, ...questionBankIds])], operator);
 }
 
 /** 新建试卷（单事务）。 */
 export async function create(
   input: { name: string; description?: string; bankIds: string[]; questions: Array<{ questionId: string; score: number }> },
-  operatorId: string,
+  operator: Operator,
 ): Promise<PaperDto> {
   if (input.bankIds.length === 0) throw badRequest('请至少选择一个题库');
   if (input.questions.length === 0) throw badRequest('试卷至少需要一道题目');
   if (input.questions.some((q) => !(q.score > 0))) throw badRequest('每题分值必须为正数');
 
   await assertBanksExist(input.bankIds);
-  const typeMap = await assertQuestionsExist(input.questions);
+  const { types: typeMap, bankIds: questionBankIds } = await assertQuestionsExist(input.questions);
+  await assertComposeAccessible(input.bankIds, questionBankIds, operator);
 
   const id = genId('paper-');
   const totalScore = round1(input.questions.reduce((s, q) => s + q.score, 0));
@@ -164,20 +192,21 @@ export async function create(
 
   await withTransaction(async (conn) => {
     await repo.insert(
-      { id, name: input.name.trim(), description: input.description?.trim() ?? '', totalScore, createdBy: operatorId, createdAt },
+      { id, name: input.name.trim(), description: input.description?.trim() ?? '', totalScore, createdBy: operator.id, createdAt },
       conn,
     );
     await repo.insertPaperQuestions(id, orderedQuestions, conn);
     await repo.insertBankRefs(id, input.bankIds, conn);
   });
 
-  return getById(id);
+  return getById(id, operator);
 }
 
 /** 编辑试卷（单事务：整卷重写）。 */
 export async function update(
   id: string,
   input: { name: string; description?: string; bankIds: string[]; questions: Array<{ questionId: string; score: number }> },
+  operator: Operator,
 ): Promise<PaperDto> {
   const current = await repo.findById(id);
   if (!current) throw notFound('试卷不存在或已被删除');
@@ -186,7 +215,8 @@ export async function update(
   if (input.questions.some((q) => !(q.score > 0))) throw badRequest('每题分值必须为正数');
 
   await assertBanksExist(input.bankIds);
-  const typeMap = await assertQuestionsExist(input.questions);
+  const { types: typeMap, bankIds: questionBankIds } = await assertQuestionsExist(input.questions);
+  await assertComposeAccessible(input.bankIds, questionBankIds, operator);
 
   const totalScore = round1(input.questions.reduce((s, q) => s + q.score, 0));
   const orderedQuestions = sortByQuestionType(input.questions, (q) => typeMap.get(q.questionId));
@@ -199,7 +229,7 @@ export async function update(
     await repo.insertBankRefs(id, input.bankIds, conn);
   });
 
-  return getById(id);
+  return getById(id, operator);
 }
 
 /** 删除试卷（被考试引用 → 1005）。 */
@@ -217,11 +247,16 @@ export async function remove(id: string): Promise<void> {
  * 按题型随机抽题（§4.5 draw-questions 契约）。
  * 题量不足 → 不生成任何题目，返回 shortages（HTTP 200）。
  */
-export async function drawQuestions(input: {
-  bankIds: string[];
-  /** 抽题规则（仅客观题 single/multiple/judge 可随机抽；填空/简答需手动勾选） */
-  rules: Partial<Record<QuestionType, { count: number; score: number }>>;
-}): Promise<DrawResult> {
+export async function drawQuestions(
+  input: {
+    bankIds: string[];
+    /** 抽题规则（仅客观题 single/multiple/judge 可随机抽；填空/简答需手动勾选） */
+    rules: Partial<Record<QuestionType, { count: number; score: number }>>;
+  },
+  operator: Operator,
+): Promise<DrawResult> {
+  // author 仅能在被授权题库内抽题
+  await bankAuth.assertBanksAccess(input.bankIds, operator);
   const types: QuestionType[] = ['single', 'multiple', 'judge'];
   const shortages: DrawShortage[] = [];
   const plan: Array<{ type: QuestionType; count: number; score: number }> = [];
