@@ -2,7 +2,7 @@
 /**
  * 应用主布局（W2-T6）：可折叠侧栏 + 白色顶栏（面包屑 + 用户下拉）+ 卡片化内容区。
  */
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import { ArrowDown, Bell, Expand, Fold, Key, Lock, SwitchButton } from '@element-plus/icons-vue';
@@ -13,7 +13,12 @@ import { usePermissionsStore } from '@/stores/permissions';
 import { getUnreadCount } from '@/api/notifications';
 import { ROLE_LABELS } from '@/constants';
 import AccountSecurityDialog from '@/components/account/AccountSecurityDialog.vue';
-import { getMenuItems } from './menuConfig';
+import { getMenuGroups, getMenuItems } from './menuConfig';
+
+/** el-menu 实例（用于跨分组导航时同步展开态） */
+interface MenuExposed {
+  open: (index: string) => void;
+}
 
 const route = useRoute();
 const router = useRouter();
@@ -49,10 +54,48 @@ function openNotifications(): void {
   void router.push('/notifications');
 }
 
-const menus = computed(() =>
+/** 当前角色可见菜单（扁平，用于高亮 / 面包屑辅助判断） */
+const menuItems = computed(() =>
   auth.currentUser ? getMenuItems(auth.currentUser.role, permissions.myMenus) : [],
 );
-const activeMenu = computed(() => route.path);
+
+/** 当前角色可见菜单（按分组，用于侧栏渲染） */
+const menuGroups = computed(() =>
+  auth.currentUser ? getMenuGroups(auth.currentUser.role, permissions.myMenus) : [],
+);
+
+/**
+ * 菜单集合指纹：仅当「可见菜单发生变化」时变化（路由切换不影响）。
+ * 绑到 el-menu 的 key 上，权限首次加载完成后重挂载一次，让 default-openeds 生效。
+ */
+const menusKey = computed(() =>
+  menuGroups.value.map((g) => `${g.key}:${g.items.map((i) => i.key).join(',')}`).join('|'),
+);
+
+/** 高亮项：优先精确匹配路由；二级页（如监考监控）回退到 meta.menuKey 对应的菜单 */
+const activeMenu = computed(() => {
+  if (menuItems.value.some((m) => m.path === route.path)) return route.path;
+  const key = route.meta.menuKey as string | undefined;
+  return menuItems.value.find((m) => m.key === key)?.path ?? route.path;
+});
+
+/** 当前页所属分组 key（用于默认展开 + 跨组导航时同步展开） */
+const activeGroupKey = computed(() => {
+  const hit = menuItems.value.find((m) => m.path === activeMenu.value);
+  return hit?.group ?? '';
+});
+
+/** 初始展开：当前页所在分组（只有 1 项的组不渲染子菜单，无需展开） */
+const openedGroups = computed(() =>
+  menuGroups.value.filter((g) => g.items.length > 1 && g.key === activeGroupKey.value).map((g) => g.key),
+);
+
+/** 仅在二级菜单组之间跳转时联动展开（避免同组内点击反复开关） */
+const menuRef = ref<MenuExposed>();
+watch(activeGroupKey, (key) => {
+  const group = menuGroups.value.find((g) => g.key === key);
+  if (group && group.items.length > 1) menuRef.value?.open(key);
+});
 const userName = computed(() => auth.currentUser?.name ?? '');
 const roleLabel = computed(() => (auth.currentUser ? ROLE_LABELS[auth.currentUser.role] : ''));
 const breadcrumbs = computed(() =>
@@ -126,19 +169,34 @@ async function submitPassword(): Promise<void> {
         <span v-if="!app.sidebarCollapsed" class="layout__brand-name">{{ brandName }}</span>
       </div>
       <el-menu
+        ref="menuRef"
+        :key="menusKey"
         :default-active="activeMenu"
+        :default-openeds="openedGroups"
         :collapse="app.sidebarCollapsed"
         :collapse-transition="false"
+        :unique-opened="true"
         router
         class="layout__menu"
-        background-color="transparent"
-        text-color="#94a3b8"
-        active-text-color="#ffffff"
       >
-        <el-menu-item v-for="item in menus" :key="item.path" :index="item.path">
-          <el-icon><component :is="item.icon" /></el-icon>
-          <template #title>{{ item.text }}</template>
-        </el-menu-item>
+        <template v-for="group in menuGroups" :key="group.key">
+          <!-- 组内只有 1 项 → 直接渲染为顶层菜单项，不套一层折叠 -->
+          <el-menu-item v-if="group.items.length === 1" :index="group.items[0].path">
+            <el-icon><component :is="group.items[0].icon" /></el-icon>
+            <template #title>{{ group.items[0].text }}</template>
+          </el-menu-item>
+
+          <el-sub-menu v-else :index="group.key" popper-class="layout__menu-popper">
+            <template #title>
+              <el-icon><component :is="group.icon" /></el-icon>
+              <span>{{ group.text }}</span>
+            </template>
+            <el-menu-item v-for="item in group.items" :key="item.path" :index="item.path">
+              <el-icon><component :is="item.icon" /></el-icon>
+              <template #title>{{ item.text }}</template>
+            </el-menu-item>
+          </el-sub-menu>
+        </template>
       </el-menu>
     </aside>
 
@@ -283,8 +341,11 @@ async function submitPassword(): Promise<void> {
     --el-menu-active-color: #{$sidebar-text-active};
     --el-menu-text-color: #{$sidebar-text};
     --el-menu-item-height: 42px;
+    --el-menu-sub-item-height: 38px;
 
-    :deep(.el-menu-item) {
+    // 一级菜单项 + 分组标题共用外观
+    :deep(.el-menu-item),
+    :deep(.el-sub-menu__title) {
       margin-bottom: 3px;
       border-radius: $radius-sm;
       color: $sidebar-text;
@@ -298,7 +359,9 @@ async function submitPassword(): Promise<void> {
         background: $sidebar-hover-bg;
         color: $sidebar-text-hover;
       }
+    }
 
+    :deep(.el-menu-item) {
       &.is-active {
         background: $sidebar-active-bg;
         color: $sidebar-text-active;
@@ -307,13 +370,50 @@ async function submitPassword(): Promise<void> {
       }
     }
 
-    // 折叠态：菜单铺满窄侧栏并居中
-    :deep(.el-menu--collapse) {
-      width: 100%;
+    // 分组标题：当前组内有高亮项时也作弱高亮，便于定位所在分组
+    :deep(.el-sub-menu) {
+      &.is-active > .el-sub-menu__title {
+        color: $sidebar-text-active;
+        font-weight: 600;
+      }
+    }
+
+    // 二级菜单：左侧缩进引导线，视觉从属于分组标题
+    :deep(.el-menu--inline) {
+      border-left: 1px solid $sidebar-border;
+      margin: 0 0 3px 17px;
+      padding-left: 0;
 
       .el-menu-item {
+        padding-left: 15px !important;
+        font-size: 13px;
+      }
+
+      .el-icon {
+        font-size: 15px;
+      }
+    }
+
+    // 折叠态：菜单铺满窄侧栏、图标居中。
+    // ⚠️ `.el-menu--collapse` 与 `.layout__menu` 落在**同一个元素**上，
+    //    必须用 `&` 连接；写成后代选择器（`:deep(.el-menu--collapse)`）永不命中，
+    //    这正是此前「菜单收回后显示异常」的根因。
+    &.el-menu--collapse {
+      width: 100%;
+      padding: 8px;
+
+      :deep(.el-menu-item),
+      :deep(.el-sub-menu__title) {
         padding: 0 !important;
         justify-content: center;
+
+        .el-icon {
+          margin: 0;
+        }
+      }
+
+      :deep(.el-sub-menu__icon-arrow) {
+        display: none;
       }
     }
   }
@@ -426,6 +526,46 @@ async function submitPassword(): Promise<void> {
     overflow: auto;
     padding: 22px 24px 28px;
     background: $bg-page;
+  }
+}
+</style>
+
+<!--
+  折叠态下悬停二级分组弹出的浮层（teleport 到 body，scoped 样式无法命中，故单独用非 scoped 块）。
+  深色侧栏 → 浮层保持同一深色语言，避免默认白色浮层的割裂感。
+-->
+<style lang="scss">
+@use '@/styles/variables.scss' as *;
+
+.layout__menu-popper {
+  --el-menu-bg-color: #{$sidebar-bg};
+  --el-menu-hover-bg-color: #{$sidebar-hover-bg};
+  --el-menu-active-color: #{$sidebar-text-active};
+  --el-menu-text-color: #{$sidebar-text};
+  --el-menu-item-height: 38px;
+
+  .el-menu {
+    background: $sidebar-bg;
+    border: 1px solid $sidebar-border;
+    border-radius: $radius-sm;
+    padding: 6px;
+    min-width: 156px;
+  }
+
+  .el-menu-item {
+    border-radius: $radius-sm;
+    color: $sidebar-text;
+
+    &:hover {
+      background: $sidebar-hover-bg;
+      color: $sidebar-text-hover;
+    }
+
+    &.is-active {
+      background: $sidebar-active-bg;
+      color: $sidebar-text-active;
+      font-weight: 600;
+    }
   }
 }
 </style>
