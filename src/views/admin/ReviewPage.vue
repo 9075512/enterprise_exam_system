@@ -13,7 +13,7 @@ import { formatDateTime } from '@/utils/datetime';
 import { formatScore } from '@/utils/format';
 import EmptyState from '@/components/common/EmptyState.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
-import type { ExamRecord, PaperSnapshotQuestion } from '@/types';
+import type { ExamRecord, PaperSnapshotQuestion, RubricBand } from '@/types';
 
 const settingsStore = useSettingsStore();
 
@@ -44,9 +44,14 @@ function shortQuestions(record: ExamRecord): PaperSnapshotQuestion[] {
   return record.paperSnapshot.questions.filter((sq) => sq.question.type === 'short');
 }
 
-/** 简答：考生作答文本 */
-function shortUserText(record: ExamRecord, questionId: string): string {
-  return ((record.answers[questionId] as string[] | undefined)?.[0] ?? '').trim() || '未作答';
+/** 简答：考生作答（富文本 HTML，已经服务端白名单净化，v1.7③ S1） */
+function shortUserHtml(record: ExamRecord, questionId: string): string {
+  return ((record.answers[questionId] as string[] | undefined)?.[0] ?? '').trim();
+}
+
+/** 简答：该题是否配置了评分细则（分档 rubric，v1.7③ S1） */
+function rubricBands(sq: PaperSnapshotQuestion): RubricBand[] {
+  return sq.question.rubric ?? [];
 }
 
 /** 简答：参考答案文本 */
@@ -54,10 +59,19 @@ function shortReference(sq: PaperSnapshotQuestion): string {
   return (sq.question.answer as string[])[0] ?? '';
 }
 
+/** 分档快选：选中档位 → 填入该档分值 */
+function applyBand(questionId: string, score: number): void {
+  scores.value[questionId] = score;
+}
+
 function openReview(row: ExamRecord): void {
   reviewing.value = row;
   scores.value = {};
-  for (const sq of shortQuestions(row)) scores.value[sq.questionId] = 0;
+  for (const sq of shortQuestions(row)) {
+    // 默认取细则最高档（若已配置），否则 0 分
+    const bands = rubricBands(sq);
+    scores.value[sq.questionId] = bands.length > 0 ? bands[0].score : 0;
+  }
   reviewVisible.value = true;
 }
 
@@ -173,11 +187,34 @@ async function handleSubmitReview(): Promise<void> {
           <div class="review-page__answer">
             <div class="review-page__answer-row">
               <span class="review-page__answer-label">考生答案</span>
-              <span class="review-page__answer-text">{{ shortUserText(reviewing, sq.questionId) }}</span>
+              <!-- 富文本作答：内容已由服务端白名单净化（utils/richText.sanitizeRichText），此处渲染安全 -->
+              <div
+                v-if="shortUserHtml(reviewing, sq.questionId)"
+                class="review-page__answer-text rich-text"
+                v-html="shortUserHtml(reviewing, sq.questionId)"
+              />
+              <span v-else class="review-page__answer-text review-page__answer-text--empty">未作答</span>
             </div>
             <div class="review-page__answer-row review-page__answer-row--ref">
               <span class="review-page__answer-label">参考答案</span>
               <span class="review-page__answer-text">{{ shortReference(sq) }}</span>
+            </div>
+            <div v-if="rubricBands(sq).length > 0" class="review-page__answer-row review-page__answer-row--rubric">
+              <span class="review-page__answer-label">评分细则</span>
+              <div class="review-page__rubric-bands">
+                <button
+                  v-for="band in rubricBands(sq)"
+                  :key="band.score"
+                  type="button"
+                  class="review-page__rubric-band"
+                  :class="{ 'is-active': scores[sq.questionId] === band.score }"
+                  @click="applyBand(sq.questionId, band.score)"
+                >
+                  <span class="review-page__rubric-score num">{{ formatScore(band.score) }} 分</span>
+                  <span v-if="band.label" class="review-page__rubric-label">{{ band.label }}</span>
+                  <span v-if="band.description" class="review-page__rubric-desc">{{ band.description }}</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -298,6 +335,11 @@ async function handleSubmitReview(): Promise<void> {
       background: $color-primary-soft;
       border: 1px solid rgba($color-primary, 0.16);
     }
+
+    &--rubric {
+      flex-direction: column;
+      gap: 6px;
+    }
   }
 
   &__answer-label {
@@ -313,6 +355,60 @@ async function handleSubmitReview(): Promise<void> {
     line-height: 1.6;
     word-break: break-word;
     white-space: pre-wrap;
+
+    &--empty {
+      color: $text-disabled;
+    }
+  }
+
+  &__rubric-bands {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__rubric-band {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid $border-color;
+    border-radius: $radius-sm;
+    background: $bg-paper;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color $transition-fast, background-color $transition-fast, box-shadow $transition-fast;
+
+    &:hover {
+      border-color: rgba($color-primary, 0.4);
+      background: $color-primary-soft;
+    }
+
+    &.is-active {
+      border-color: $color-primary;
+      background: $color-primary-soft;
+      box-shadow: 0 0 0 3px rgba($color-primary, 0.1);
+    }
+  }
+
+  &__rubric-score {
+    flex: 0 0 auto;
+    font-weight: 700;
+    color: $color-primary;
+  }
+
+  &__rubric-label {
+    flex: 0 0 auto;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &__rubric-desc {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    color: $text-secondary;
   }
 
   &__score-row {

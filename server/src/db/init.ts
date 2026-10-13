@@ -109,6 +109,12 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     changes.push('questions.tags');
   }
 
+  // v1.7③：简答题评分细则（分档 rubric，JSON 数组；NULL / [] = 未设置）
+  if (!(await columnExists(conn, 'questions', 'rubric'))) {
+    await conn.query(`ALTER TABLE questions ADD COLUMN rubric JSON NULL AFTER tags`);
+    changes.push('questions.rubric');
+  }
+
   // v1.5：用户邮箱（邮件通知接收地址，可空）
   if (!(await columnExists(conn, 'users', 'email'))) {
     await conn.query(`ALTER TABLE users ADD COLUMN email VARCHAR(120) NULL AFTER department_id`);

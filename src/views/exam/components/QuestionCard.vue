@@ -2,12 +2,13 @@
 /**
  * 单题作答卡片（W3-T1）。考试中不显示正确答案。
  * 单选/判断 → 单选；多选 → 复选（提交前升序）。
- * 填空 → 逐空文本输入（空数由题干 ___ 推断，回退参考答案长度）；简答 → 文本域。
+ * 填空 → 逐空文本输入（空数由题干 ___ 推断，回退参考答案长度）；简答 → 富文本编辑器（v1.7③，支持图片）。
  * 选项行样式化为「可选卡片」：左侧圆形（单选）/圆角方形（多选）字母徽标表示选项，
  * 原生控件视觉隐藏但保留可点击与键盘可达性。
  */
 import { computed } from 'vue';
 import { QUESTION_TYPE_LABELS } from '@/constants';
+import RichTextEditor from '@/components/common/RichTextEditor.vue';
 import type { Question } from '@/types';
 
 const props = defineProps<{
@@ -101,15 +102,11 @@ const shortValue = computed<string>({
       </div>
     </div>
 
-    <!-- 简答 -->
-    <el-input
+    <!-- 简答（v1.7③ S1：富文本 + 图片作答） -->
+    <RichTextEditor
       v-else-if="isShort"
       v-model="shortValue"
-      type="textarea"
-      :rows="4"
-      maxlength="2000"
-      show-word-limit
-      placeholder="请输入你的答案"
+      placeholder="请输入你的答案（支持加粗、列表与插入图片）"
     />
   </div>
 </template>

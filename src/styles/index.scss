@@ -293,3 +293,86 @@ body {
   opacity: 0;
   transform: translateY(-4px);
 }
+
+// =============================================================
+// v1.7③ 简答题富文本渲染（内容经服务端白名单净化后再 v-html）
+// =============================================================
+.rich-text {
+  font-size: 13px;
+  line-height: 1.75;
+  color: $text-primary;
+  word-break: break-word;
+
+  p {
+    margin: 0 0 6px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  ul,
+  ol {
+    margin: 6px 0;
+    padding-left: 20px;
+  }
+
+  li {
+    margin: 2px 0;
+  }
+
+  blockquote {
+    margin: 6px 0;
+    padding: 4px 10px;
+    border-left: 3px solid $border-color;
+    color: $text-secondary;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    margin: 8px 0 4px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  code,
+  pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: $color-table-head;
+    border-radius: $radius-sm;
+  }
+
+  code {
+    padding: 1px 4px;
+  }
+
+  pre {
+    margin: 6px 0;
+    padding: 8px 10px;
+    overflow-x: auto;
+  }
+
+  a {
+    color: $color-primary;
+    text-decoration: underline;
+  }
+
+  img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 6px 0;
+    border: 1px solid $border-color;
+    border-radius: $radius-sm;
+  }
+
+  hr {
+    margin: 8px 0;
+    border: none;
+    border-top: 1px solid $border-color;
+  }
+}

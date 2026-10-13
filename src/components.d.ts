@@ -60,6 +60,7 @@ declare module 'vue' {
     EmptyState: typeof import('./components/common/EmptyState.vue')['default']
     LoadingSkeleton: typeof import('./components/common/LoadingSkeleton.vue')['default']
     PageHeader: typeof import('./components/common/PageHeader.vue')['default']
+    RichTextEditor: typeof import('./components/common/RichTextEditor.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     StatusTag: typeof import('./components/common/StatusTag.vue')['default']

@@ -18,6 +18,7 @@ import { nowDb } from '../../utils/datetime.js';
 import { parseJsonColumn } from '../../utils/json.js';
 import { normalizePaging, buildPage } from '../../utils/pagination.js';
 import { isAnswerCorrect } from '../../utils/grading.js';
+import { sanitizeRichText, isRichTextEmpty } from '../../utils/richText.js';
 import { getSettings } from '../settings/settings.service.js';
 import { shuffleSnapshot } from '../../utils/shuffle.js';
 import { notifyUsers } from '../../utils/notify.js';
@@ -126,7 +127,7 @@ export async function startExam(
   return { ...mapRecordRow(created!), extraMinutes };
 }
 
-/** 暂存答案：仅 in_progress 可写；按题型归一化（客观题排序去重，填空/简答 trim 文本）。 */
+/** 暂存答案：仅 in_progress 可写；按题型归一化（客观题排序去重，填空 trim 文本，简答富文本净化）。 */
 export async function saveAnswers(
   recordId: string,
   userId: string,
@@ -146,8 +147,12 @@ export async function saveAnswers(
       continue;
     }
     const type = typeMap.get(qid);
-    if (type === 'fill' || type === 'short') {
+    if (type === 'fill') {
       normalized[qid] = arr.map((s) => String(s ?? '').trim());
+    } else if (type === 'short') {
+      // v1.7③ S1：简答支持富文本/图片作答，服务端白名单净化（前端渲染不得作为安全边界）
+      const raw = String(arr[0] ?? '');
+      normalized[qid] = [isRichTextEmpty(raw) ? '' : sanitizeRichText(raw)];
     } else {
       normalized[qid] = [...arr].map((n) => Number(n)).filter((n) => Number.isInteger(n)).sort((a, b) => a - b);
     }

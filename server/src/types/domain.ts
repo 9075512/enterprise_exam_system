@@ -128,6 +128,32 @@ export interface BankDetailDto extends BankDto {
   referencedPaperCount: number;
 }
 
+/** 题库授权批量维护结果（v1.7③ S2） */
+export interface BankAuthorBatchResult {
+  /** 本次实际新增（授权）或移除（取消授权）的人数 */
+  changed: number;
+  /** 已授权（或本未授权）而跳过的人数 */
+  skipped: number;
+  /** 命中但角色不是出题人、被跳过的人数 */
+  nonAuthor: number;
+  /** 命中但账号不存在、被跳过的人数 */
+  missing: number;
+  /** 操作后该题库的授权出题人 id 列表 */
+  authorIds: string[];
+  /** 操作后该题库的授权出题人姓名列表（与 authorIds 对应） */
+  authorNames: string[];
+}
+
+/** 简答题评分细则档位（v1.7③ S1；按分值降序，score 为该档得分） */
+export interface RubricBand {
+  /** 档位分值（0 ≤ score ≤ 题目分值） */
+  score: number;
+  /** 档位名称，如「完全正确」 */
+  label: string;
+  /** 档位说明（选填） */
+  description: string;
+}
+
 /** 试题 DTO（在原 Question 基础上新增 bankId） */
 export interface QuestionDto {
   id: string;
@@ -149,6 +175,8 @@ export interface QuestionDto {
   subject: string;
   /** 知识点标签（多标签，v1.7②；空数组 = 未打标签） */
   tags: string[];
+  /** 评分细则（分档 rubric，v1.7③ S1；仅简答题可用，空数组 = 未设置） */
+  rubric: RubricBand[];
   createdBy: string;
   createdAt: string;
 }
@@ -881,6 +909,10 @@ export type AuditAction =
   | 'bank.update'
   | 'bank.delete'
   | 'bank.migrate'
+  /** 批量授权出题人（v1.7③ S2） */
+  | 'bank.author_grant'
+  /** 批量取消出题人授权（v1.7③ S2） */
+  | 'bank.author_revoke'
   | 'permission.update'
   | 'appeal.approve'
   | 'appeal.reject'

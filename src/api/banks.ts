@@ -1,6 +1,14 @@
 /** 题库 API（§4.5 题库 / 试题） */
 import { del, get, post, put } from './http';
-import type { BankDetail, QuestionBank, Question, QuestionType, Page } from '@/types';
+import type {
+  BankAuthorBatchResult,
+  BankDetail,
+  QuestionBank,
+  Question,
+  QuestionType,
+  Page,
+  Role,
+} from '@/types';
 
 /** 题库保存入参 */
 export interface BankPayload {
@@ -71,4 +79,32 @@ export function migrate(
   payload: { targetBankId: string; questionIds: string[] },
 ): Promise<{ moved: number }> {
   return post<{ moved: number }>(`/banks/${bankId}/questions/migrate`, payload);
+}
+
+/** 题库授权批量维护入参（v1.7③ S2；三种选择器可组合） */
+export interface BankAuthorsBatchPayload {
+  /** 显式指定的用户 id（手选） */
+  userIds?: string[];
+  /** 按科室圈选（与 userIds 取并集） */
+  departmentId?: string;
+  /** 是否包含子科室（默认 true） */
+  includeSubDepartments?: boolean;
+  /** 角色过滤（在科室范围内生效；未给科室时表示全部该角色账号） */
+  role?: Role;
+}
+
+/** 批量授权出题人（仅 admin，v1.7③ S2） */
+export function grantAuthors(
+  bankId: string,
+  payload: BankAuthorsBatchPayload,
+): Promise<BankAuthorBatchResult> {
+  return post<BankAuthorBatchResult>(`/banks/${bankId}/authors/grant`, payload);
+}
+
+/** 批量取消出题人授权（仅 admin，v1.7③ S2） */
+export function revokeAuthors(
+  bankId: string,
+  payload: BankAuthorsBatchPayload,
+): Promise<BankAuthorBatchResult> {
+  return post<BankAuthorBatchResult>(`/banks/${bankId}/authors/revoke`, payload);
 }

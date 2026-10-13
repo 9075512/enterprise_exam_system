@@ -36,6 +36,18 @@ export const questionSchema = z.object({
   subject: z.string().optional().default(''),
   // 知识点标签（v1.7②；最多 10 个，单个 ≤32 字，service 层再归一化）
   tags: z.array(z.string()).max(10, '知识点标签最多 10 个').optional().default([]),
+  // 评分细则（v1.7③ S1；仅简答题生效，service 层按分值降序去重并限 10 档）
+  rubric: z
+    .array(
+      z.object({
+        score: z.coerce.number().min(0, '档位分值不能为负'),
+        label: z.string().optional().default(''),
+        description: z.string().optional().default(''),
+      }),
+    )
+    .max(10, '评分细则最多 10 档')
+    .optional()
+    .default([]),
 });
 
 /** 全局试题池列表入参（组卷用）。 */

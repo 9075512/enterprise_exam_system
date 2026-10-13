@@ -40,7 +40,8 @@ export function createApp(): Express {
   // 跨域（前端 SPA 调用）
   app.use(cors());
   // JSON 请求体解析
-  app.use(express.json({ limit: '2mb' }));
+  // 简答题支持内联图片作答（v1.7③ S1），请求体上限放宽至 8mb
+  app.use(express.json({ limit: '8mb' }));
 
   // 公网边界兜底（方案甲）：仅当配置 PRACTICE_EDGE_SECRET 且非 PRACTICE_ONLY 时生效。
   // 必须在路由之前注册，拦截「公网直连 :3001 绕过 Nginx」的非练题请求。

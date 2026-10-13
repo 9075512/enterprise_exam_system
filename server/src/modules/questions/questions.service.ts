@@ -12,7 +12,7 @@ import { genId } from '../../utils/id.js';
 import { nowDb } from '../../utils/datetime.js';
 import { normalizePaging, buildPage } from '../../utils/pagination.js';
 import { parseJsonColumn } from '../../utils/json.js';
-import type { Page, QuestionDto, QuestionType } from '../../types/domain.js';
+import type { Page, QuestionDto, QuestionType, RubricBand } from '../../types/domain.js';
 
 /** 选项数量上下限（判断题固定 2 项，不受上限约束）。 */
 const MAX_OPTIONS = 6;
@@ -31,11 +31,17 @@ export interface NormalizedQuestion {
   analysis: string;
   subject: string;
   tags: string[];
+  rubric: RubricBand[];
 }
 
 /** 知识点标签上限与单个标签长度上限（v1.7②）。 */
 const MAX_TAGS = 10;
 const MAX_TAG_LEN = 32;
+
+/** 评分细则上限（v1.7③ S1）。 */
+const MAX_RUBRIC_BANDS = 10;
+const MAX_RUBRIC_LABEL = 32;
+const MAX_RUBRIC_DESC = 200;
 
 /** 标签归一化：trim → 去空 → 去重 → 截断长度 → 限个数。 */
 function normalizeTags(raw?: string[]): string[] {
@@ -48,6 +54,32 @@ function normalizeTags(raw?: string[]): string[] {
     if (out.length >= MAX_TAGS) break;
   }
   return out;
+}
+
+/**
+ * 评分细则归一化（v1.7③ S1）：仅简答题保留；
+ * 分值合法（0~MAX_SCORE）→ 同分去重 → 按分值降序 → 最多 10 档。
+ */
+function normalizeRubric(raw: unknown, type: QuestionType): RubricBand[] {
+  if (type !== 'short' || !Array.isArray(raw)) return [];
+  const seen = new Set<number>();
+  const out: RubricBand[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const band = item as Record<string, unknown>;
+    const score = Number(band.score);
+    if (!Number.isFinite(score) || score < 0 || score > MAX_SCORE) continue;
+    const rounded = Math.round(score * 10) / 10;
+    if (seen.has(rounded)) continue;
+    seen.add(rounded);
+    out.push({
+      score: rounded,
+      label: String(band.label ?? '').trim().slice(0, MAX_RUBRIC_LABEL),
+      description: String(band.description ?? '').trim().slice(0, MAX_RUBRIC_DESC),
+    });
+    if (out.length >= MAX_RUBRIC_BANDS) break;
+  }
+  return out.sort((a, b) => b.score - a.score);
 }
 
 /** 分值归一（> 0 且 ≤ MAX_SCORE）。 */
@@ -71,12 +103,14 @@ export function normalizeQuestion(input: {
   analysis?: string;
   subject?: string;
   tags?: string[];
+  rubric?: unknown;
 }): NormalizedQuestion {
   const stem = String(input.stem ?? '').trim();
   if (!stem) throw badRequest('题干不能为空');
 
   const type = input.type;
   const tags = normalizeTags(input.tags);
+  const rubric = normalizeRubric(input.rubric, type);
 
   // 填空 / 简答：无选项，答案为文本数组
   if (type === 'fill' || type === 'short') {
@@ -97,6 +131,7 @@ export function normalizeQuestion(input: {
       analysis,
       subject,
       tags,
+      rubric,
     };
   }
 
@@ -138,6 +173,7 @@ export function normalizeQuestion(input: {
     analysis,
     subject,
     tags,
+    rubric: [], // 评分细则仅简答题可用
   };
 }
 
@@ -239,6 +275,7 @@ export async function create(
     analysis?: string;
     subject?: string;
     tags?: string[];
+    rubric?: unknown;
   },
   operator: Operator,
 ): Promise<QuestionDto> {
@@ -268,6 +305,7 @@ export async function update(
     analysis?: string;
     subject?: string;
     tags?: string[];
+    rubric?: unknown;
   },
   operator: Operator,
 ): Promise<QuestionDto> {
@@ -366,6 +404,7 @@ export async function batchEdit(
       analysis: row.analysis ?? '',
       subject: nextSubject ?? row.subject,
       tags: mergedTags,
+      rubric: parseJsonColumn<RubricBand[]>(row.rubric, []),
     });
   }
 

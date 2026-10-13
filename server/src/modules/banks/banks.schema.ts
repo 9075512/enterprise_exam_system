@@ -44,4 +44,29 @@ export const migrateQuestionsSchema = z.object({
     .min(1, '请至少选择一道试题'),
 });
 
+/**
+ * 题库授权批量维护入参（v1.7③ S2，仅 admin）。
+ * 三种选择器可组合：显式用户 id ∪（指定科室的成员 ∩ 角色过滤）∪ 指定角色的全部账号。
+ * 至少需提供一种，否则 1001。
+ */
+export const bankAuthorsBatchSchema = z
+  .object({
+    /** 显式指定的用户 id（可手选） */
+    userIds: z.array(z.string()).optional().default([]),
+    /** 按科室圈选（与 userIds 取并集） */
+    departmentId: z.string().optional().default(''),
+    /** 是否包含子科室（默认 true） */
+    includeSubDepartments: z.boolean().optional().default(true),
+    /** 角色过滤：给定时仅圈选该角色的账号（在科室范围内生效；未给科室时表示「全部该角色账号」） */
+    role: z
+      .enum(['admin', 'author', 'examinee'], { errorMap: () => ({ message: '角色不合法' }) })
+      .optional(),
+  })
+  .refine(
+    (v) => (v.userIds?.length ?? 0) > 0 || v.departmentId !== '' || v.role !== undefined,
+    { message: '请至少选择一名用户、一个科室或一个角色' },
+  );
+
+export type BankAuthorBatchInput = z.infer<typeof bankAuthorsBatchSchema>;
+
 export type BankInput = z.infer<typeof bankSchema>;

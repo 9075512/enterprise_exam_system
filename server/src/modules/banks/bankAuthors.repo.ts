@@ -74,6 +74,27 @@ export async function addAuthor(bankId: string, userId: string, exec?: SqlExecut
   );
 }
 
+/** 批量追加授权出题人（幂等；逐条 INSERT IGNORE，调用方已做去重）。 */
+export async function addAuthors(bankId: string, userIds: string[], exec?: SqlExecutor): Promise<void> {
+  for (const userId of userIds) {
+    await addAuthor(bankId, userId, exec);
+  }
+}
+
+/** 批量移除授权出题人（v1.7③ S2）。 */
+export async function removeAuthors(
+  bankId: string,
+  userIds: string[],
+  exec?: SqlExecutor,
+): Promise<void> {
+  if (userIds.length === 0) return;
+  const placeholders = userIds.map(() => '?').join(',');
+  await runQuery(exec, `DELETE FROM bank_authors WHERE bank_id = ? AND user_id IN (${placeholders})`, [
+    bankId,
+    ...userIds,
+  ]);
+}
+
 /** 删除某题库的全部授权记录（删除题库时级联清理）。 */
 export async function removeByBank(bankId: string, exec?: SqlExecutor): Promise<void> {
   await runQuery(exec, `DELETE FROM bank_authors WHERE bank_id = ?`, [bankId]);

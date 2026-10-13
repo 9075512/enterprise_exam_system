@@ -141,6 +141,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'bank.update': '编辑题库',
   'bank.delete': '删除题库',
   'bank.migrate': '迁移试题',
+  'bank.author_grant': '批量授权出题人',
+  'bank.author_revoke': '批量取消出题人授权',
   'permission.update': '更新菜单权限',
   'appeal.approve': '复核通过（改分）',
   'appeal.reject': '复核驳回',

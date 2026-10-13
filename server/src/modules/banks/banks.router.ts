@@ -7,7 +7,8 @@ import { validate } from '../../middleware/validate.js';
 import { authRequired } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/role.js';
 import { ok } from '../../utils/response.js';
-import { bankSchema, bankListQuerySchema, bankQuestionsQuerySchema, migrateQuestionsSchema } from './banks.schema.js';
+import { bankSchema, bankListQuerySchema, bankQuestionsQuerySchema, migrateQuestionsSchema, bankAuthorsBatchSchema } from './banks.schema.js';
+import type { BankAuthorBatchInput } from './banks.schema.js';
 import * as banksService from './banks.service.js';
 import * as questionsService from '../questions/questions.service.js';
 import { normalizePaging } from '../../utils/pagination.js';
@@ -107,5 +108,27 @@ banksRouter.post(
   asyncHandler(async (req, res) => {
     const body = req.body as { targetBankId: string; questionIds: string[] };
     return ok(res, await banksService.migrateQuestions(req.params.id, body, req.user!));
+  }),
+);
+
+/** POST /api/banks/:id/authors/grant —— 批量授权出题人（v1.7③ S2，仅 admin）。 */
+banksRouter.post(
+  '/:id/authors/grant',
+  requireRole('admin'),
+  validate(bankAuthorsBatchSchema, 'body'),
+  asyncHandler(async (req, res) => {
+    const body = req.body as BankAuthorBatchInput;
+    return ok(res, await banksService.batchGrantAuthors(req.params.id, body, req.user!));
+  }),
+);
+
+/** POST /api/banks/:id/authors/revoke —— 批量取消出题人授权（v1.7③ S2，仅 admin）。 */
+banksRouter.post(
+  '/:id/authors/revoke',
+  requireRole('admin'),
+  validate(bankAuthorsBatchSchema, 'body'),
+  asyncHandler(async (req, res) => {
+    const body = req.body as BankAuthorBatchInput;
+    return ok(res, await banksService.batchRevokeAuthors(req.params.id, body, req.user!));
   }),
 );

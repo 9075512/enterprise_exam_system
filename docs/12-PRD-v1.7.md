@@ -20,7 +20,7 @@
 | --- | --- | --- |
 | ① | 考试运营闭环（O1 试卷 PDF / O2 成绩复核 / O3 特殊安排） | ✅ 已完成 |
 | ② | 题库与数据运营深化（Q1–Q4） | ✅ 已完成 |
-| ③ | 安全与合规加固（T1 / T2 / S1 / S2） | 🔄 进行中（③-a：T1+T2 已交付；③-b：S1+S2 待做） |
+| ③ | 安全与合规加固（T1 / T2 / S1 / S2） | ✅ 已完成（③-a：T1+T2；③-b：S1+S2） |
 | ④ | 工程化与稳定性（T3 / T5 / S3 / S4，不含 T4） | ⏳ 待开始 |
 
 ---
@@ -227,9 +227,9 @@
 
 ---
 
-## 9. ③ 安全与合规加固（进行中）
+## 9. ③ 安全与合规加固（已交付）
 
-> 拆两批交付：**③-a = T1 + T2**（已交付）；**③-b = S1 + S2**（待做）。
+> 拆两批交付：**③-a = T1 + T2**（已交付，commit `d9c3f4f`）；**③-b = S1 + S2**（已交付）。
 
 ### 9.1 T1 图形验证码（替换自研算术题）
 
@@ -276,3 +276,36 @@
 - 审计：`AuditAction` 增 `user.change_password` / `user.two_factor_enable` / `user.two_factor_disable` / `user.force_logout`（后端 `audit.service.ts` ↔ 前端 `src/constants/index.ts` 双份同步）。
 
 **③-a 验证**：后端 typecheck 0 错；新增 `server/src/test/v17c.test.ts`（16 用例）全通过，全量 **280/280**（19 文件）；前端 typecheck 0 错、vitest 28/28、`vite build` 成功；practice-web typecheck 0 错；`db:init` 幂等（**29 表**，新增 `login_logs` / `user_sessions`，结构升级 `users.password_changed_at` / `users.two_factor_secret` / `users.two_factor_enabled`）。
+
+### 9.3 S1 简答富文本/图片作答 + 评分细则（rubric）
+
+**（1）富文本作答**
+
+- 新增 `server/src/utils/richText.ts`（**零依赖白名单重建**）：
+  - `sanitizeRichText(html, opts)`：先删注释与危险标签整段（script/style/iframe/svg/form/... ），再逐标签重建 —— **标签白名单**（p/br/div/span/strong/b/em/i/u/s/del/ins/sub/sup/ol/ul/li/blockquote/h1-h6/code/pre/a/img/hr），**属性白名单**（`a[href,title]` / `img[src,alt,width,height]`），`on*` 事件属性天然被剔除；`a[href]` 仅允许 http/https/mailto/tel 与站内相对地址（杜绝 `javascript:`）；`img[src]` 仅允许 `data:image/(png|jpe?g|gif|webp|bmp);base64,`，并限制**单图体积**（默认 512KB，含 64B 容差）与**图片张数**（默认 3）；输出**长度上限** 20000 字符（超限截断）。
+  - `isRichTextEmpty(html)`：空白 / 仅 `<br>` / `&nbsp;` 视为空（仅含图片视为非空）。
+- **安全边界在服务端**：`records.service.saveAnswers` 对 `short` 题作答调用 `sanitizeRichText`（空内容归一为 `''`）；前端 `v-html` 渲染仅作展示，不承担安全职责。
+- 请求体上限由 `express.json({ limit: '2mb' })` 放宽至 **8mb**（支持内联图片作答）。
+- 前端：新增 `src/components/common/RichTextEditor.vue`（`contenteditable` + 原生 `execCommand`，工具栏：加粗/斜体/下划线/无序列表/有序列表/插入图片/清除格式；本地选图 → `FileReader` 转 data URI 内联插入，前端预校验体积与张数）；`QuestionCard.vue` 简答作答改用它；`ReviewPage.vue` / `ScoreDetailPage.vue` 以 `v-html` 渲染（新增全局 `.rich-text` 渲染样式）。
+
+**（2）评分细则 rubric**
+
+- `questions.rubric JSON NULL`（DDL + `db/init.ts` 幂等迁移）；`QuestionDto.rubric: RubricBand[]`（`{ score, label, description }`）。
+- 归一化（`questions.service.normalizeRubric`）：**仅简答题保留**（其余题型强制空数组）；分值合法（0~9999）→ **同分去重** → **按分值降序** → 最多 **10 档**；`label ≤32` 字、`description ≤200` 字。
+- zod 层 `.max(10, '评分细则最多 10 档')`；批量编辑（`batch-edit`）透传 rubric 不动。
+- 前端：`QuestionFormDialog.vue` 简答题增「评分细则」编辑区（分值/档位名称/说明，增删，≤10 档，分值是 0~题目分值）；`ReviewPage.vue` 阅卷时按 rubric 渲染**分档快选按钮**（点击即填入该档分值），默认预选最高档，提交后总分 = 客观分 + 主观分（分档给分自动合计）。
+
+### 9.4 S2 题库授权批量维护
+
+- 新增接口（**仅 admin**）：
+  - `POST /api/banks/:id/authors/grant` —— 批量授权出题人；
+  - `POST /api/banks/:id/authors/revoke` —— 批量取消出题人授权。
+- 入参 `{ userIds?, departmentId?, includeSubDepartments?, role? }`（三种选择器可组合，至少提供一种，否则 1001）：
+  - `userIds` 直接并入；
+  - `departmentId` 给出时取该科室成员（`includeSubDepartments` 默认 true，复用 `departments.service.expandDepartmentIds` 展开子树），`role` 在其内做**交集**过滤；
+  - 仅给 `role`（无科室）时表示「全部该角色账号」。
+- 命中集合中**角色不是出题人 / 账号不存在**者被跳过并计数（`nonAuthor` / `missing`），不阻断整体操作；返回 `BankAuthorBatchResult { changed, skipped, nonAuthor, missing, authorIds, authorNames }`。
+- 审计留痕：新增 `AuditAction` `bank.author_grant` / `bank.author_revoke`（后端 `audit.service.ts` ↔ 前端 `src/constants/index.ts` 双份同步），detail 记录 changed/skipped/nonAuthor/missing 与选择器摘要。
+- 前端：新增 `src/views/author/BankAuthorBatchDialog.vue`（科室树选择 + 含子科室开关 + 角色过滤 + 手选出题人；**客户端即时预演**命中人数/将授权人数/已授权跳过数）；`QuestionBankDetailPage.vue` 题库信息卡新增管理员可见的「批量授权」入口，完成后刷新题库详情。
+
+**③-b 验证**：后端 typecheck 0 错；新增 `server/src/test/v17d.test.ts`（20 用例）全通过，全量 **300/300**（20 文件）；前端 typecheck 0 错、vitest 28/28、`vite build` 成功；`db:init` 幂等（29 表，结构升级 `questions.rubric`）。

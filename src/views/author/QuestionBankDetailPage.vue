@@ -7,7 +7,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Edit, EditPen, Delete, Plus, Upload, Search, Refresh, ArrowLeft } from '@element-plus/icons-vue';
+import { Edit, EditPen, Delete, Plus, Upload, Search, Refresh, ArrowLeft, UserFilled } from '@element-plus/icons-vue';
 import * as banksApi from '@/api/banks';
 import * as questionsApi from '@/api/questions';
 import { useRequest } from '@/composables/useRequest';
@@ -19,6 +19,7 @@ import {
   QUESTION_TYPE_OPTIONS,
 } from '@/constants';
 import { useSettingsStore } from '@/stores/settings';
+import { useAuthStore } from '@/stores/auth';
 import { formatDateTime } from '@/utils/datetime';
 import { formatScore } from '@/utils/format';
 import DataTablePagination from '@/components/common/DataTablePagination.vue';
@@ -29,12 +30,16 @@ import QuestionFormDialog from './QuestionFormDialog.vue';
 import QuestionBankFormDialog from './QuestionBankFormDialog.vue';
 import QuestionImportDialog from './QuestionImportDialog.vue';
 import QuestionBatchEditDialog from './QuestionBatchEditDialog.vue';
+import BankAuthorBatchDialog from './BankAuthorBatchDialog.vue';
 import type { Question, QuestionType } from '@/types';
 
 const route = useRoute();
 const router = useRouter();
 const { confirm } = useConfirm();
 const settingsStore = useSettingsStore();
+const authStore = useAuthStore();
+/** 授权出题人批量维护仅管理员可用（v1.7③ S2） */
+const isAdmin = computed<boolean>(() => authStore.hasRole('admin'));
 
 const bankId = computed<string>(() => String(route.params.bankId ?? ''));
 
@@ -158,6 +163,12 @@ function openEditBank(): void {
   bankFormVisible.value = true;
 }
 
+/* ------------------------------ 授权出题人批量维护（v1.7③ S2，仅 admin） ------------------------------ */
+const authorBatchVisible = ref(false);
+function openAuthorBatch(): void {
+  authorBatchVisible.value = true;
+}
+
 const importVisible = ref(false);
 function openImport(): void {
   importVisible.value = true;
@@ -267,6 +278,7 @@ onMounted(() => {
           </div>
           <div class="bank-info__actions">
             <el-button :icon="Edit" @click="openEditBank">编辑题库</el-button>
+            <el-button v-if="isAdmin" :icon="UserFilled" @click="openAuthorBatch">批量授权</el-button>
             <el-button type="danger" :icon="Delete" @click="handleDeleteBank">删除题库</el-button>
           </div>
         </el-card>
@@ -417,6 +429,13 @@ onMounted(() => {
       :question-ids="selectedRows.map((q) => q.id)"
       :bank-id="bankId"
       @saved="onBatchSaved"
+    />
+    <BankAuthorBatchDialog
+      v-if="isAdmin"
+      v-model:visible="authorBatchVisible"
+      :bank-id="bankId"
+      :current-author-ids="bank?.authorIds ?? []"
+      @saved="refreshBank()"
     />
   </div>
 </template>

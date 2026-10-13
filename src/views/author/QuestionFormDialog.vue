@@ -19,7 +19,7 @@ import {
   QUESTION_TYPE_OPTIONS,
 } from '@/constants';
 import { optionLetter } from '@/utils/format';
-import type { Question, QuestionType } from '@/types';
+import type { Question, QuestionType, RubricBand } from '@/types';
 
 const props = defineProps<{
   visible: boolean;
@@ -61,10 +61,15 @@ const form = reactive({
   subject: '',
   /** 知识点标签（v1.7②；最多 10 个） */
   tags: [] as string[],
+  /** 评分细则（v1.7③ S1；仅简答题生效，最多 10 档） */
+  rubric: [] as RubricBand[],
 });
 
 /** 知识点标签上限（与后端 MAX_TAGS 一致） */
 const MAX_TAGS = 10;
+
+/** 评分细则档位上限（与后端 MAX_RUBRIC_BANDS 一致） */
+const MAX_RUBRIC_BANDS = 10;
 
 const submitting = ref(false);
 
@@ -119,6 +124,7 @@ function resetForm(): void {
     form.analysis = q.analysis;
     form.subject = q.subject;
     form.tags = [...(q.tags ?? [])];
+    form.rubric = (q.rubric ?? []).map((b) => ({ ...b }));
   } else {
     form.type = 'single';
     form.stem = '';
@@ -130,6 +136,7 @@ function resetForm(): void {
     form.analysis = '';
     form.subject = props.defaultSubject ?? '';
     form.tags = [];
+    form.rubric = [];
   }
 }
 
@@ -156,11 +163,26 @@ function onTypeChange(): void {
   form.answer = [];
   form.fillAnswers = [''];
   form.shortAnswer = '';
+  if (form.type !== 'short') form.rubric = []; // 评分细则仅简答题可用
   if (form.type === 'judge') {
     form.options = [...JUDGE_OPTIONS];
   } else if (isJudgeOptions(form.options) || form.options.length < MIN_OPTIONS) {
     form.options = ['', ''];
   }
+}
+
+/* ------------------------------ 评分细则（v1.7③ S1） ------------------------------ */
+
+const canAddRubricBand = computed<boolean>(() => form.rubric.length < MAX_RUBRIC_BANDS);
+
+function addRubricBand(): void {
+  if (!canAddRubricBand.value) return;
+  // 新档默认分值 = 题目分值，便于从满分往下调
+  form.rubric.push({ score: form.defaultScore, label: '', description: '' });
+}
+
+function removeRubricBand(index: number): void {
+  form.rubric.splice(index, 1);
 }
 
 function addOption(): void {
@@ -205,6 +227,14 @@ function validateLocal(): string | null {
   }
   if (!(form.defaultScore > 0)) return '分值必须为正数';
   if (form.tags.length > MAX_TAGS) return `知识点标签最多 ${MAX_TAGS} 个`;
+  if (form.type === 'short') {
+    if (form.rubric.length > MAX_RUBRIC_BANDS) return `评分细则最多 ${MAX_RUBRIC_BANDS} 档`;
+    for (const band of form.rubric) {
+      if (!Number.isFinite(band.score) || band.score < 0) return '评分细则档位分值不能为负';
+      if (band.score > form.defaultScore) return '评分细则档位分值不能超过题目分值';
+      if (!band.label.trim()) return '请填写评分细则档位名称';
+    }
+  }
   return null;
 }
 
@@ -243,6 +273,16 @@ async function handleSubmit(): Promise<void> {
       analysis: form.analysis.trim(),
       subject: form.subject.trim() || props.defaultSubject || '',
       tags: form.tags.map((t) => t.trim()).filter(Boolean).slice(0, MAX_TAGS),
+      rubric:
+        form.type === 'short'
+          ? [...form.rubric]
+              .map((b) => ({
+                score: b.score,
+                label: b.label.trim(),
+                description: (b.description ?? '').trim(),
+              }))
+              .sort((a, b) => b.score - a.score)
+          : [],
     };
 
     if (isEdit.value && props.question) {
@@ -380,6 +420,32 @@ function handleCancel(): void {
         <el-input-number v-model="form.defaultScore" :min="0.5" :max="100" :step="0.5" />
       </el-form-item>
 
+      <!-- 评分细则（分档 rubric，v1.7③ S1；仅简答题） -->
+      <el-form-item v-if="isShort" label="评分细则（选填）">
+        <div class="rubric-list">
+          <div v-for="(band, index) in form.rubric" :key="index" class="rubric-row">
+            <el-input-number
+              v-model="band.score"
+              class="rubric-row__score"
+              :min="0"
+              :max="form.defaultScore"
+              :step="0.5"
+              :precision="1"
+              size="small"
+            />
+            <el-input v-model="band.label" class="rubric-row__label" maxlength="32" placeholder="档位名称，如「完全正确」" />
+            <el-input v-model="band.description" class="rubric-row__desc" maxlength="200" placeholder="档位说明（选填）" />
+            <el-button type="danger" link :icon="Delete" @click="removeRubricBand(index)">删除</el-button>
+          </div>
+          <el-button :icon="Plus" :disabled="!canAddRubricBand" @click="addRubricBand">
+            添加档位
+          </el-button>
+          <span class="rubric-list__hint">
+            供阅卷时分档快选，最多 {{ MAX_RUBRIC_BANDS }} 档；不设置则阅卷自由打分
+          </span>
+        </div>
+      </el-form-item>
+
       <el-form-item label="科目">
         <el-input v-model="form.subject" placeholder="默认继承题库分类，可修改" />
       </el-form-item>
@@ -470,5 +536,37 @@ function handleCancel(): void {
 
 .tag-select {
   width: 100%;
+}
+
+.rubric-list {
+  width: 100%;
+
+  &__hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #94a3b8;
+  }
+}
+
+.rubric-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+
+  &__score {
+    flex: 0 0 110px;
+  }
+
+  &__label {
+    flex: 0 0 180px;
+  }
+
+  &__desc {
+    flex: 1;
+    min-width: 0;
+  }
 }
 </style>

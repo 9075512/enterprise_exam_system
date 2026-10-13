@@ -8,14 +8,15 @@ import * as bankAuthorsRepo from './bankAuthors.repo.js';
 import * as bankAuth from './bankAuth.js';
 import type { Operator } from './bankAuth.js';
 import * as usersRepo from '../users/users.repo.js';
+import * as departmentsService from '../departments/departments.service.js';
 import type { BankRowWithCount } from './banks.repo.js';
 import type { BankAuthorRow } from './bankAuthors.repo.js';
 import { withTransaction } from '../../db/pool.js';
-import { badRequest, conflict, notFound } from '../../utils/errors.js';
+import { badRequest, conflict, forbidden, notFound } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
 import { nowDb, fromDbDateSafe } from '../../utils/datetime.js';
 import * as auditService from '../audit/audit.service.js';
-import type { BankDetailDto, BankDto } from '../../types/domain.js';
+import type { BankAuthorBatchResult, BankDetailDto, BankDto, Role } from '../../types/domain.js';
 
 /** 行 → 基础 DTO（authorIds/authorNames 由 attachAuthors 补充）。 */
 function mapRow(row: BankRowWithCount): Omit<BankDto, 'authorIds' | 'authorNames'> {
@@ -241,4 +242,163 @@ export async function migrateQuestions(
     detail: { targetBankId: input.targetBankId, targetBankName: target.name, moved },
   });
   return { moved };
+}
+
+/* ============================ 授权出题人批量维护（v1.7③ S2） ============================ */
+
+/** 批量维护入参（与 banks.schema.bankAuthorsBatchSchema 对应）。 */
+export interface BankAuthorsBatchInput {
+  userIds?: string[];
+  departmentId?: string;
+  includeSubDepartments?: boolean;
+  role?: Role;
+}
+
+/**
+ * 按选择器解析目标用户 id 集合。
+ * - `userIds` 直接并入；
+ * - `departmentId` 若给出：取该科室（默认含子树）成员，`role` 在其内做交集过滤；
+ * - 仅给 `role`（无科室）：取全部该角色账号。
+ */
+async function resolveTargetUserIds(input: BankAuthorsBatchInput): Promise<string[]> {
+  const ids = new Set<string>();
+  for (const id of input.userIds ?? []) {
+    const t = String(id ?? '').trim();
+    if (t) ids.add(t);
+  }
+
+  const departmentId = String(input.departmentId ?? '').trim();
+  if (departmentId) {
+    const deptIds =
+      input.includeSubDepartments === false
+        ? [departmentId]
+        : await departmentsService.expandDepartmentIds([departmentId]);
+    for (const id of await usersRepo.findIdsByDepartments(deptIds, input.role)) ids.add(id);
+  } else if (input.role) {
+    const rows = await usersRepo.list({ role: input.role });
+    for (const r of rows) ids.add(r.id);
+  }
+
+  return [...ids];
+}
+
+/** 划分命中用户：存在的出题人 / 非出题人 / 不存在的账号。 */
+async function classifyTargets(targetIds: string[]): Promise<{
+  authors: string[];
+  nonAuthor: number;
+  missing: number;
+}> {
+  if (targetIds.length === 0) return { authors: [], nonAuthor: 0, missing: 0 };
+  const all = await usersRepo.list();
+  const map = new Map(all.map((u) => [u.id, u]));
+  const authors: string[] = [];
+  let nonAuthor = 0;
+  let missing = 0;
+  for (const id of targetIds) {
+    const user = map.get(id);
+    if (!user) missing += 1;
+    else if (user.role !== 'author') nonAuthor += 1;
+    else authors.push(id);
+  }
+  return { authors, nonAuthor, missing };
+}
+
+/** 读取题库当前授权出题人（id + 姓名）。 */
+async function currentAuthors(bankId: string): Promise<{ authorIds: string[]; authorNames: string[] }> {
+  const authorMap = await bankAuthorsRepo.listAuthorsByBanks([bankId]);
+  const rows = authorMap.get(bankId) ?? [];
+  return { authorIds: rows.map((r) => r.user_id), authorNames: rows.map((r) => r.name) };
+}
+
+/**
+ * 批量授权出题人（仅 admin）。
+ * 命中集合中「角色不是出题人 / 账号不存在」的个体被跳过并计数，不阻断整体操作。
+ */
+export async function batchGrantAuthors(
+  bankId: string,
+  input: BankAuthorsBatchInput,
+  operator: Operator,
+): Promise<BankAuthorBatchResult> {
+  const bank = await repo.findById(bankId);
+  if (!bank) throw notFound('题库不存在或已被删除');
+  if (!bankAuth.isAdmin(operator)) throw forbidden('仅管理员可维护题库授权出题人');
+
+  const targets = await resolveTargetUserIds(input);
+  if (targets.length === 0) throw badRequest('未匹配到任何用户');
+  const { authors, nonAuthor, missing } = await classifyTargets(targets);
+
+  const existing = new Set(await bankAuthorsRepo.listAuthorIdsByBank(bankId));
+  const toAdd = authors.filter((id) => !existing.has(id));
+  await bankAuthorsRepo.addAuthors(bankId, toAdd);
+
+  const result: BankAuthorBatchResult = {
+    changed: toAdd.length,
+    skipped: authors.length - toAdd.length,
+    nonAuthor,
+    missing,
+    ...(await currentAuthors(bankId)),
+  };
+
+  await auditService.record({
+    actorId: operator.id,
+    action: 'bank.author_grant',
+    targetType: 'bank',
+    targetId: bankId,
+    targetName: bank.name,
+    detail: {
+      changed: result.changed,
+      skipped: result.skipped,
+      nonAuthor,
+      missing,
+      departmentId: input.departmentId || undefined,
+      role: input.role ?? undefined,
+      userIds: input.userIds?.length ? input.userIds : undefined,
+    },
+  });
+  return result;
+}
+
+/**
+ * 批量取消出题人授权（仅 admin）。
+ * 非出题人 / 不存在的账号计入 skipped，不阻断整体操作。
+ */
+export async function batchRevokeAuthors(
+  bankId: string,
+  input: BankAuthorsBatchInput,
+  operator: Operator,
+): Promise<BankAuthorBatchResult> {
+  const bank = await repo.findById(bankId);
+  if (!bank) throw notFound('题库不存在或已被删除');
+  if (!bankAuth.isAdmin(operator)) throw forbidden('仅管理员可维护题库授权出题人');
+
+  const targets = await resolveTargetUserIds(input);
+  if (targets.length === 0) throw badRequest('未匹配到任何用户');
+
+  const existing = new Set(await bankAuthorsRepo.listAuthorIdsByBank(bankId));
+  const toRemove = targets.filter((id) => existing.has(id));
+  await bankAuthorsRepo.removeAuthors(bankId, toRemove);
+
+  const result: BankAuthorBatchResult = {
+    changed: toRemove.length,
+    skipped: targets.length - toRemove.length,
+    nonAuthor: 0,
+    missing: 0,
+    ...(await currentAuthors(bankId)),
+  };
+
+  await auditService.record({
+    actorId: operator.id,
+    action: 'bank.author_revoke',
+    targetType: 'bank',
+    targetId: bankId,
+    targetName: bank.name,
+    detail: {
+      changed: result.changed,
+      skipped: result.skipped,
+      departmentId: input.departmentId || undefined,
+      role: input.role ?? undefined,
+      userIds: input.userIds?.length ? input.userIds : undefined,
+    },
+  });
+  return result;
 }

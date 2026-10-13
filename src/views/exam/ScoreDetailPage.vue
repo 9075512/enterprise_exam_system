@@ -461,7 +461,13 @@ onMounted(async () => {
               <div class="score-detail__short">
                 <div class="score-detail__short-row">
                   <span class="score-detail__short-label">你的答案</span>
-                  <span class="score-detail__short-text">{{ shortUserText(item.questionId) || '未作答' }}</span>
+                  <!-- 富文本作答：内容已由服务端白名单净化（v1.7③ S1），此处渲染安全 -->
+                  <div
+                    v-if="shortUserText(item.questionId)"
+                    class="score-detail__short-text rich-text"
+                    v-html="shortUserText(item.questionId)"
+                  />
+                  <span v-else class="score-detail__short-text score-detail__short-text--empty">未作答</span>
                 </div>
                 <div class="score-detail__short-row score-detail__short-row--ref">
                   <span class="score-detail__short-label">参考答案</span>
@@ -898,6 +904,10 @@ onMounted(async () => {
     color: $text-primary;
     line-height: 1.6;
     word-break: break-word;
+
+    &--empty {
+      color: $text-disabled;
+    }
   }
 
   &__short-score {

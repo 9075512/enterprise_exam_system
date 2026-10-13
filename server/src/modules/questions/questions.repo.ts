@@ -4,12 +4,12 @@
 import type { RowDataPacket } from 'mysql2/promise';
 import { query, runQuery, type SqlExecutor } from '../../db/pool.js';
 import type { QuestionRow } from './question.mapper.js';
-import type { QuestionType } from '../../types/domain.js';
+import type { QuestionType, RubricBand } from '../../types/domain.js';
 
 export type { QuestionRow } from './question.mapper.js';
 
 const COLUMNS =
-  'id, bank_id, type, stem, options, answer, default_score, analysis, subject, tags, created_by, created_at';
+  'id, bank_id, type, stem, options, answer, default_score, analysis, subject, tags, rubric, created_by, created_at';
 
 /** 试题筛选条件。 */
 export interface QuestionFilter {
@@ -182,6 +182,7 @@ export async function insert(
     analysis: string;
     subject: string;
     tags: string[];
+    rubric: RubricBand[];
     createdBy: string;
     createdAt: string;
   },
@@ -190,8 +191,8 @@ export async function insert(
   await runQuery(
     exec,
     `INSERT INTO questions
-       (id, bank_id, type, stem, options, answer, default_score, analysis, subject, tags, created_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, bank_id, type, stem, options, answer, default_score, analysis, subject, tags, rubric, created_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       row.id,
       row.bankId,
@@ -203,6 +204,7 @@ export async function insert(
       row.analysis,
       row.subject,
       JSON.stringify(row.tags),
+      JSON.stringify(row.rubric),
       row.createdBy,
       row.createdAt,
     ],
@@ -222,13 +224,14 @@ export async function update(
     analysis: string;
     subject: string;
     tags: string[];
+    rubric: RubricBand[];
   },
   exec?: SqlExecutor,
 ): Promise<void> {
   await runQuery(
     exec,
     `UPDATE questions
-       SET bank_id = ?, type = ?, stem = ?, options = ?, answer = ?, default_score = ?, analysis = ?, subject = ?, tags = ?
+       SET bank_id = ?, type = ?, stem = ?, options = ?, answer = ?, default_score = ?, analysis = ?, subject = ?, tags = ?, rubric = ?
      WHERE id = ?`,
     [
       row.bankId,
@@ -240,6 +243,7 @@ export async function update(
       row.analysis,
       row.subject,
       JSON.stringify(row.tags),
+      JSON.stringify(row.rubric),
       id,
     ],
   );

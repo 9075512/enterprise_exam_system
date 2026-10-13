@@ -85,6 +85,7 @@ questionsRouter.post(
       analysis: string;
       subject: string;
       tags: string[];
+      rubric?: unknown;
     };
     return ok(res, await questionsService.create(body, req.user!));
   }),
@@ -105,6 +106,7 @@ questionsRouter.put(
       analysis: string;
       subject: string;
       tags: string[];
+      rubric?: unknown;
     };
     return ok(res, await questionsService.update(req.params.id, body, req.user!));
   }),
