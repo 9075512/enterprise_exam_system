@@ -113,8 +113,10 @@ async function examRecordCount(): Promise<number> {
 
 beforeAll(async () => {
   await prepareTestDb();
-  // 仅开放 bank-security；bank-culture 保持关闭（默认 0）
+  // 显式固定题库开放状态（不依赖种子默认值）：
+  //   仅开放 bank-security；bank-culture 强制关闭，用于断言「未开放题库不可见/不可练」。
   await query(`UPDATE question_banks SET allow_practice = 1 WHERE id = ?`, [OPEN_BANK]);
+  await query(`UPDATE question_banks SET allow_practice = 0 WHERE id = ?`, [CLOSED_BANK]);
   // 插入独立写入用户（弱关联 user_id；直接落测试库）
   const hash = await bcrypt.hash(WRITER.password, 10);
   await query(

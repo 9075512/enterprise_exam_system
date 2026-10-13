@@ -43,6 +43,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'bank.author_grant': '批量授权出题人',
   'bank.author_revoke': '批量取消出题人授权',
   'bank.clone': '复制题库',
+  'bank.practice_flag': '调整对外练题开放',
   'permission.update': '更新菜单权限',
   'appeal.approve': '复核通过（改分）',
   'appeal.reject': '复核驳回',

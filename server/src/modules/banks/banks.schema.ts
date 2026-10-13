@@ -83,4 +83,17 @@ export const bankCloneSchema = z.object({
 
 export type BankCloneInput = z.infer<typeof bankCloneSchema>;
 
+/**
+ * 批量设置「对外开放练题」开关入参（仅 admin；练题端设置页使用）。
+ * 只改 `allow_practice` 一列，不动名称/描述/分类，避免为改一个开关而提交整份题库表单。
+ */
+export const bankPracticeBatchSchema = z.object({
+  bankIds: z
+    .array(z.string().min(1, '题库 ID 不能为空'), { invalid_type_error: '请至少选择一个题库' })
+    .min(1, '请至少选择一个题库'),
+  allowPractice: z.boolean({ invalid_type_error: '对外开放练题开关必须为布尔值' }),
+});
+
+export type BankPracticeBatchInput = z.infer<typeof bankPracticeBatchSchema>;
+
 export type BankInput = z.infer<typeof bankSchema>;

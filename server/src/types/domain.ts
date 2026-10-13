@@ -1114,6 +1114,7 @@ export type AuditAction =
   | 'bank.author_revoke'
   /** 复制题库（v1.7④ S4） */
   | 'bank.clone'
+  | 'bank.practice_flag'
   | 'permission.update'
   | 'appeal.approve'
   | 'appeal.reject'

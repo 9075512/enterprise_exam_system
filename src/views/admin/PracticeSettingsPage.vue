@@ -2,10 +2,19 @@
 /**
  * 练题端设置（v1.5，独立菜单；原「系统设置 → 公网练题」拆出）。
  * 数据存于独立单行表 `practice_settings`，与 system_settings 分离，独立保存。
+ *
+ * 结构（v1.8+ 重排）：
+ *   1) 基础配置卡片 —— 每日一练 / 收藏上限等（存 practice_settings）
+ *   2) 练题题库卡片 —— 「对外开放练题」开关（存 question_banks.allow_practice）
+ *
+ * ⚠️ 练题端可见性铁律：**只有 `allow_practice = 1` 的题库**才会出现在练题端；
+ *    一个都没开时，练题端「题库列表」为空、每日一练也抽不到题（卡片不显示）。
+ *    因此本页把题库开放管理前置，避免管理员「配好了却什么都看不到」。
  */
-import { onMounted, reactive, ref } from 'vue';
-import { ElMessage } from 'element-plus';
+import { computed, onMounted, reactive, ref } from 'vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { getPracticeSettings, updatePracticeSettings } from '@/api/settings';
+import { list as listBanks, setPracticeFlag } from '@/api/banks';
 import {
   DAILY_BANK_SCOPE_OPTIONS,
   DAILY_COUNT_MAX,
@@ -15,7 +24,7 @@ import {
   PRACTICE_SETTINGS_DEFAULTS,
 } from '@/constants/practiceSettings';
 import PageHeader from '@/components/common/PageHeader.vue';
-import type { PracticeSettings, QuestionType } from '@/types';
+import type { PracticeSettings, QuestionBank, QuestionType } from '@/types';
 
 /** 题型多选项（每日一练题型范围） */
 const TYPE_OPTIONS: Array<{ label: string; value: QuestionType }> = [
@@ -28,8 +37,26 @@ const practiceForm = reactive<PracticeSettings>({ ...PRACTICE_SETTINGS_DEFAULTS 
 const practiceLoading = ref(true);
 const practiceSaving = ref(false);
 
+/* ------------------------------ 练题题库 ------------------------------ */
+
+const banks = ref<QuestionBank[]>([]);
+const banksLoading = ref(true);
+/** 正在提交的题库 id（行级 switch 的 loading） */
+const bankSavingId = ref('');
+const bankBatchSaving = ref(false);
+
+/** 已开放练题的题库数 */
+const openBankCount = computed<number>(() => banks.value.filter((b) => b.allowPractice).length);
+/** 已开放题库合计题目数（= 练题端当前可练总量） */
+const openQuestionCount = computed<number>(() =>
+  banks.value.filter((b) => b.allowPractice).reduce((sum, b) => sum + b.questionCount, 0),
+);
+/** 一个题库都没开放 → 练题端空列表（高危状态，页面显著提示） */
+const noOpenBank = computed<boolean>(() => !banksLoading.value && banks.value.length > 0 && openBankCount.value === 0);
+
 onMounted(() => {
   void loadPractice();
+  void loadBanks();
 });
 
 async function loadPractice(): Promise<void> {
@@ -55,11 +82,73 @@ async function handleSavePractice(): Promise<void> {
     practiceSaving.value = false;
   }
 }
+
+async function loadBanks(): Promise<void> {
+  banksLoading.value = true;
+  try {
+    banks.value = await listBanks();
+  } catch {
+    // 错误提示已由 http.ts 响应拦截器统一弹出
+  } finally {
+    banksLoading.value = false;
+  }
+}
+
+/** 行级开关：只提交该题库 */
+async function toggleBank(row: QuestionBank, value: boolean): Promise<void> {
+  bankSavingId.value = row.id;
+  try {
+    const updated = await setPracticeFlag([row.id], value);
+    const hit = updated.find((b) => b.id === row.id);
+    row.allowPractice = hit ? hit.allowPractice : value;
+    ElMessage.success(value ? `已开放「${row.name}」到练题端` : `已关闭「${row.name}」的练题开放`);
+  } catch {
+    // 失败时回滚开关显示（后端未变更）
+    row.allowPractice = !value;
+  } finally {
+    bankSavingId.value = '';
+  }
+}
+
+/** 批量：全部开放 / 全部关闭 */
+async function setAllBanks(allowPractice: boolean): Promise<void> {
+  const targets = banks.value.filter((b) => b.allowPractice !== allowPractice);
+  if (targets.length === 0) {
+    ElMessage.info(allowPractice ? '全部题库均已开放' : '全部题库均已关闭');
+    return;
+  }
+  const actionText = allowPractice ? '开放' : '关闭';
+  try {
+    await ElMessageBox.confirm(
+      `将${actionText} ${targets.length} 个题库的对外练题（共 ${banks.value.length} 个题库）？`,
+      `批量${actionText}`,
+      { type: 'warning', confirmButtonText: `确认${actionText}`, cancelButtonText: '取消' },
+    );
+  } catch {
+    return; // 用户取消
+  }
+  bankBatchSaving.value = true;
+  try {
+    await setPracticeFlag(
+      targets.map((b) => b.id),
+      allowPractice,
+    );
+    await loadBanks();
+    ElMessage.success(`已${actionText} ${targets.length} 个题库`);
+  } catch {
+    // 错误提示已由 http.ts 响应拦截器统一弹出
+  } finally {
+    bankBatchSaving.value = false;
+  }
+}
 </script>
 
 <template>
   <div class="practice-settings-page">
-    <PageHeader title="练题端设置" description="仅作用于公网练题端（题库练习、每日一练、收藏夹），不影响内网考试功能">
+    <PageHeader
+      title="练题端设置"
+      description="仅作用于公网练题端（题库练习、每日一练、收藏夹），不影响内网考试功能"
+    >
       <template #actions>
         <el-button type="primary" :loading="practiceSaving" @click="handleSavePractice">
           保存练题配置
@@ -67,7 +156,76 @@ async function handleSavePractice(): Promise<void> {
       </template>
     </PageHeader>
 
+    <!-- ============ 1. 练题题库（对外开放） ============ -->
+    <el-card v-loading="banksLoading" class="practice-settings-page__panel" shadow="never">
+      <template #header>
+        <div class="practice-settings-page__head">
+          <span class="practice-settings-page__head-title">练题题库（对外开放）</span>
+          <span class="practice-settings-page__head-meta">
+            共 {{ banks.length }} 个题库 · 已开放
+            <b>{{ openBankCount }}</b>
+            个 · 可练题目
+            <b>{{ openQuestionCount }}</b>
+            道
+          </span>
+        </div>
+      </template>
+
+      <el-alert
+        class="practice-settings-page__alert"
+        type="warning"
+        show-icon
+        :closable="false"
+        title="只有这里开启的题库才会出现在练题端"
+        description="未开启任何题库时，练题端「题库列表」为空、每日一练也抽不到题目（首页不显示入口）。此处开关与「题库管理 → 编辑题库 → 对外开放练题」是同一个开关。"
+      />
+
+      <div v-if="noOpenBank" class="practice-settings-page__danger">
+        当前没有任何题库对外开放练题，练题端将看不到题库与每日一练。请至少开启一个题库。
+      </div>
+
+      <div class="practice-settings-page__bulk">
+        <el-button :loading="bankBatchSaving" @click="setAllBanks(true)">全部开放</el-button>
+        <el-button :loading="bankBatchSaving" @click="setAllBanks(false)">全部关闭</el-button>
+        <el-button text @click="loadBanks">刷新</el-button>
+      </div>
+
+      <el-table :data="banks" row-key="id" stripe size="small" empty-text="暂无题库，请先在「题库管理」中创建">
+        <el-table-column prop="name" label="题库名称" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="category" label="分类" width="130" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.category || '未分类' }}</template>
+        </el-table-column>
+        <el-table-column prop="questionCount" label="题数" width="90" align="center" />
+        <el-table-column label="对外开放练题" width="150" align="center">
+          <template #default="{ row }">
+            <el-switch
+              :model-value="row.allowPractice"
+              :loading="bankSavingId === row.id"
+              :disabled="bankSavingId === row.id || row.questionCount === 0"
+              @update:model-value="(v: string | number | boolean) => toggleBank(row as QuestionBank, Boolean(v))"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="140">
+          <template #default="{ row }">
+            <el-tag v-if="row.allowPractice && row.questionCount > 0" type="success" size="small" effect="plain">
+              练题端可见
+            </el-tag>
+            <el-tag v-else-if="row.questionCount === 0" type="info" size="small" effect="plain">暂无题目</el-tag>
+            <el-tag v-else type="info" size="small" effect="plain">未开放</el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
+    <!-- ============ 2. 基础练题配置 ============ -->
     <el-card v-loading="practiceLoading" class="practice-settings-page__panel" shadow="never">
+      <template #header>
+        <div class="practice-settings-page__head">
+          <span class="practice-settings-page__head-title">每日一练与收藏</span>
+        </div>
+      </template>
+
       <el-alert
         class="practice-settings-page__alert"
         type="info"
@@ -166,11 +324,53 @@ async function handleSavePractice(): Promise<void> {
 
 .practice-settings-page {
   &__panel {
+    margin-bottom: 18px;
     border-radius: $radius-lg;
   }
 
+  &__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  &__head-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: $text-primary;
+  }
+
+  &__head-meta {
+    font-size: 12.5px;
+    color: $text-secondary;
+
+    b {
+      color: $color-primary;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
   &__alert {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
+  }
+
+  &__danger {
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    border: 1px solid $color-error;
+    border-radius: $radius-sm;
+    background: #fef2f2;
+    font-size: 13px;
+    color: $color-error;
+  }
+
+  &__bulk {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
   }
 
   &__item {

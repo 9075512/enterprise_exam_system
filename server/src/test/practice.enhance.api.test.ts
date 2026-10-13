@@ -76,6 +76,9 @@ async function saveSettings(adminToken: string, patch: Partial<typeof DEFAULTS>)
 
 beforeAll(async () => {
   await prepareTestDb();
+  // 显式固定题库开放状态（不依赖种子默认值）：仅开放 bank-security，
+  // 其余题库一律关闭，保证「仅返回开放题库」类断言稳定。
+  await query(`UPDATE question_banks SET allow_practice = 0`);
   await query(`UPDATE question_banks SET allow_practice = 1 WHERE id = ?`, [OPEN_BANK]);
   const hash = await bcrypt.hash(USER.password, 10);
   await query(

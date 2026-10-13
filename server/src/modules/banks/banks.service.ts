@@ -169,6 +169,47 @@ export async function update(
 }
 
 /**
+ * 批量设置「对外开放练题」开关（v1.8+ 练题端可见性修复）。
+ *
+ * 场景：题库数量多时逐个进「编辑题库」改开关成本高，且新手容易漏开导致练题端题库列表为空。
+ * 语义：**仅改 `allow_practice` 一列**，不触碰名称/描述/分类/授权出题人。
+ * 校验：入参 id 必须全部存在（任一不存在 → 404），避免静默漏改。
+ * 审计：按银行流水记录一条 `bank.practice_flag`（含题库 id 列表与目标状态）。
+ */
+export async function setPracticeFlagBatch(
+  input: { bankIds: string[]; allowPractice: boolean },
+  operator: Operator,
+): Promise<BankDto[]> {
+  const unique = [...new Set(input.bankIds.map((s) => s.trim()).filter(Boolean))];
+  if (unique.length === 0) throw badRequest('请至少选择一个题库');
+
+  const existing: string[] = [];
+  for (const id of unique) {
+    const row = await repo.findById(id);
+    if (!row) throw notFound(`题库不存在或已被删除：${id}`);
+    existing.push(id);
+  }
+
+  await repo.updatePracticeFlag(existing, input.allowPractice);
+
+  const rows = await repo.list();
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const updated = existing.map((id) => byId.get(id)).filter((r): r is NonNullable<typeof r> => Boolean(r));
+  const authorMap = await bankAuthorsRepo.listAuthorsByBanks(existing);
+  const dtos = attachAuthors(updated.map(mapRow), authorMap);
+
+  await auditService.record({
+    actorId: operator.id,
+    action: 'bank.practice_flag',
+    targetType: 'bank',
+    targetId: existing.length === 1 ? existing[0] : `${existing.length} 个题库`,
+    targetName: dtos.map((d) => d.name).join('、') || '（无）',
+    detail: { bankIds: existing, allowPractice: input.allowPractice },
+  });
+  return dtos;
+}
+
+/**
  * 删除题库（author 需授权）。
  * @param cascade 是否连同试题一起删除（`?cascade=true`）
  */

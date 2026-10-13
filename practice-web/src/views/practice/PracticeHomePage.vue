@@ -165,7 +165,10 @@ onMounted(load);
         <p class="home__hint">可练习题库</p>
 
         <!-- 题库列表 -->
-        <div v-if="banks.length === 0" class="home__empty">暂无可练习的题库</div>
+        <div v-if="banks.length === 0" class="home__empty">
+          <p class="home__empty-title">暂无可练习的题库</p>
+          <p class="home__empty-sub">当前没有对外开放练题的题库，请联系管理员在「练题端设置」中开放题库。</p>
+        </div>
 
         <div v-for="(bank, i) in banks" :key="bank.id" class="home__bank" @click="openBank(bank)">
           <span class="home__bank-no" aria-hidden="true">{{ bankNo(i) }}</span>
@@ -395,10 +398,25 @@ onMounted(load);
   }
 
   &__empty {
-    padding: 44px 0;
+    padding: 34px 16px;
     text-align: center;
+    background: #fff;
+    border: 1px solid $practice-border;
+    border-radius: $practice-radius;
+  }
+
+  &__empty-title {
+    margin: 0;
     font-size: 14px;
-    color: $text-disabled;
+    font-weight: 700;
+    color: $text-primary;
+  }
+
+  &__empty-sub {
+    margin: 8px 0 0;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: $text-secondary;
   }
 
   /* 题库卡：白卡 + 序号 + 细边框 */

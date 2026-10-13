@@ -581,6 +581,9 @@ export async function createDailySession(userId: string): Promise<PracticeSessio
   const date = bizToday();
   const row = await ensureDailyTask(userId, date);
   const qids = parseJsonColumn<string[]>(row.question_ids, []);
+  // 当天确实无题可抽（开放题库为空或题型过滤后为空）→ 拒绝，而不是返回一个 0 题的会话，
+  // 避免前端进入「空作答页」；与 getDaily 的 total=0 语义对齐。
+  if (qids.length === 0) throw practiceDailyDisabled('今日暂无可练题目，请稍后再试');
   const sessionToken = signSessionToken({
     sub: userId,
     // 每日任务可能跨题库 → bankId 置空串，check 时跳过题库归属校验

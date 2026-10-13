@@ -146,14 +146,14 @@ export async function seed(conn: Connection): Promise<void> {
     );
   }
 
-  // 3. 题库
+  // 3. 题库（种子题库默认对外开放练题，保证练题端开箱即有可练内容）
   for (const b of [
     { id: 'bank-security', name: '安全知识题库', description: '公司信息安全相关题目', category: '安全知识' },
     { id: 'bank-culture', name: '企业文化题库', description: '公司企业文化与行为准则相关题目', category: '企业文化' },
   ]) {
     await conn.query(
-      `INSERT INTO question_banks (id, name, description, category, created_by, created_at)
-       VALUES (?, ?, ?, ?, 'user-author', ?)
+      `INSERT INTO question_banks (id, name, description, category, allow_practice, created_by, created_at)
+       VALUES (?, ?, ?, ?, 1, 'user-author', ?)
        ON DUPLICATE KEY UPDATE id = id`,
       [b.id, b.name, b.description, b.category, now],
     );

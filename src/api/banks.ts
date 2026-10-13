@@ -110,6 +110,14 @@ export function revokeAuthors(
   return post<BankAuthorBatchResult>(`/banks/${bankId}/authors/revoke`, payload);
 }
 
+/**
+ * 批量设置「对外开放练题」开关（仅 admin）。
+ * 只改 `allow_practice` 一列；返回被修改的题库（含最新 questionCount）。
+ */
+export function setPracticeFlag(bankIds: string[], allowPractice: boolean): Promise<QuestionBank[]> {
+  return post<QuestionBank[]>('/banks/practice/batch', { bankIds, allowPractice });
+}
+
 /** 题库复制入参（v1.7④ S4） */
 export interface BankClonePayload {
   /** 新题库名称（省略 → 「原名（副本）」） */

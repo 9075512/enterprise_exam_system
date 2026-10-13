@@ -1,7 +1,7 @@
 /**
  * 题库模块 —— 数据访问层（SQL 集中在此，参数化查询防注入）。
  */
-import type { RowDataPacket } from 'mysql2/promise';
+import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { query, runQuery, type SqlExecutor } from '../../db/pool.js';
 
 /** `question_banks` 表原始行。 */
@@ -119,6 +119,22 @@ export async function update(
     `UPDATE question_banks SET name = ?, description = ?, category = ?, allow_practice = ? WHERE id = ?`,
     [row.name, row.description, row.category, row.allowPractice ? 1 : 0, id],
   );
+}
+
+/** 批量设置「对外开放练题」开关（仅改 allow_practice 一列）。 */
+export async function updatePracticeFlag(
+  ids: string[],
+  allowPractice: boolean,
+  exec?: SqlExecutor,
+): Promise<number> {
+  if (ids.length === 0) return 0;
+  const placeholders = ids.map(() => '?').join(',');
+  const result = await runQuery<ResultSetHeader>(
+    exec,
+    `UPDATE question_banks SET allow_practice = ? WHERE id IN (${placeholders})`,
+    [allowPractice ? 1 : 0, ...ids],
+  );
+  return result.affectedRows;
 }
 
 /** 删除题库。 */

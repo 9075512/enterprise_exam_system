@@ -14,8 +14,9 @@ import {
   migrateQuestionsSchema,
   bankAuthorsBatchSchema,
   bankCloneSchema,
+  bankPracticeBatchSchema,
 } from './banks.schema.js';
-import type { BankAuthorBatchInput, BankCloneInput } from './banks.schema.js';
+import type { BankAuthorBatchInput, BankCloneInput, BankPracticeBatchInput } from './banks.schema.js';
 import * as banksService from './banks.service.js';
 import * as questionsService from '../questions/questions.service.js';
 import { normalizePaging } from '../../utils/pagination.js';
@@ -105,6 +106,17 @@ banksRouter.get(
       pageSize: paging.pageSize,
     }, req.user!);
     return ok(res, result);
+  }),
+);
+
+/** POST /api/banks/practice/batch —— 批量设置「对外开放练题」开关（v1.8+，仅 admin）。 */
+banksRouter.post(
+  '/practice/batch',
+  requireRole('admin'),
+  validate(bankPracticeBatchSchema, 'body'),
+  asyncHandler(async (req, res) => {
+    const body = req.body as BankPracticeBatchInput;
+    return ok(res, await banksService.setPracticeFlagBatch(body, req.user!));
   }),
 );
 
