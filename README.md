@@ -80,7 +80,7 @@ Vue 3 (Vite, Element Plus, Pinia, Vue Router)  ──REST/JSON──▶  Express
    npm run db:init
    ```
 
-   > 该脚本 = `server` 的 `db:init`（`tsx src/db/init.ts`），会创建 `enterprise_exam_system` 库的 **34 张表**、按需执行幂等结构升级（补列 / 扩 ENUM），并幂等写入种子数据。
+   > 该脚本 = `server` 的 `db:init`（`tsx src/db/init.ts`），会创建 `enterprise_exam_system` 库的 **37 张表**、按需执行幂等结构升级（补列 / 扩 ENUM），并幂等写入种子数据。
    > 需要**清空重建**时执行：`npm --prefix server run db:reset`（仅作用于 `enterprise_exam_system`）。
 
 ## 开发
@@ -97,13 +97,13 @@ npm run dev          # 启动前端（Vite，:5173），已配置 /api 代理到
 ```bash
 # 前端
 npm run typecheck        # vue-tsc --noEmit
-npm run test             # vitest（55 用例）
+npm run test             # vitest（61 用例）
 npm run build            # vue-tsc + vite build（产物 dist/）
 npm run preview          # 预览构建产物
 
 # 后端
 npm --prefix server run typecheck   # tsc --noEmit
-npm --prefix server run test        # vitest + supertest（432 用例）
+npm --prefix server run test        # vitest + supertest（523 用例）
 npm --prefix server run build       # 编译到 server/dist
 npm --prefix server run start       # 运行编译产物
 ```
@@ -150,8 +150,14 @@ npm --prefix server run start       # 运行编译产物
 - **练题端设置扩展（v1.9⑤）**：新增 11 项配置 —— 默认练题方式、单次题量上下限、作答后是否展示答案/解析、每日一练重置时点与最少题量、错题本连续答对自动移除阈值、学习报告/错题本/收藏夹三个页面入口开关；新增 `GET /api/practice/config` 供练题端读取，功能关闭时接口统一返回 1017。
 - **公告与轮播图（v1.9⑥）**：新增 `announcements` / `banners` 两表与「公告与轮播」菜单（公告 / 轮播图两页签）。一份内容可选发布到 **考试端 / 练题端 / 两端**，支持启停、置顶、排序与**生效时间窗**；可见性口径统一在服务端判定（`enabled=1` 且 `target ∈ {scope, both}` 且在时间窗内）。管理端 `/api/content/*` 仅 admin；考生侧考试端走 `GET /api/content/feed?scope=exam`，练题端走 `GET /api/practice/feed`（公网实例对两表**仅 SELECT**）。
 - **考试端首页（v1.9⑦）**：考生新增默认落地页「首页」（`/exam/home`，菜单 key `home`），聚合**轮播图与公告**（复用考试端内容看板）、**未读消息**（点击进消息中心）、**我的考试统计**（待考 / 进行中 / 已交卷 / 平均分，由考生可见数据即时计算，不新增接口）与**快捷入口**（我的考试 / 我的成绩 / 我的补考 / 消息中心）；登录与越权重定向的考生落地页由「我的考试」改为「首页」。
+- **公告富文本与图片（v2.0①）**：公告正文由纯文本升级为富文本（长度上限 5000 → 20000），管理端换用富文本编辑器（加粗 / 列表 / 插入图片 / 粘贴截图，图片走对象存储回填站内签名 URL）。**安全边界放在服务端**：新建/编辑均经 `sanitizeRichText` 白名单净化（危险标签连内容删除、`on*` 属性剔除、图片仅接受内联 `data:image` 与站内附件签名 URL），净化后为空 → 1001；前端 `v-html` 只渲染已净化内容。附带**重要公告首次进入强提醒**（本地标记保证同一公告只提醒一次）。
+- **考试端首页数据后端化（v2.0②）**：新增 `GET /api/home/summary` 一次聚合统计（待考 / 进行中 / 已交卷 / 平均分 + **及格率**）、最近 10 次成绩趋势、待办（待考 / 未交卷 / 可补考 / 未读消息）与个性化入口，取代此前前端三次并发 + 本地即时计算；统计直接查 `exam_records ∪ exam_records_archive` 派生源，**全量口径不受前端分页上限影响**。
+- **公告已读 / 触达统计（v2.0③）**：新增 `announcement_reads` / `banner_clicks` 两表，唯一键按「内容 + 用户 + 端」去重 + `INSERT IGNORE`，**上报天然幂等**；双端在打开详情 / 强提醒弹出 / 点击轮播时上报（失败静默），管理端列表回传阅读 / 点击人数并提供「触达概览」弹层（受众规模 + 阅读率 / 点击率）。顺带修复轮播列表按关键字搜索引用不存在列的缺陷。
+- **内容预约发布与批量上下线（v2.0④）**：**零新调度** —— 预约发布复用既有生效时间窗（`start_at` 未到即未生效，`end_at` 到点自动下线）；新增 `POST /api/content/announcements|banners/batch`（批量上线 / 下线 / 删除，≤200 条，返回受影响行数并落审计），管理端两表加多选列与批量按钮。
+- **练题端打卡与激励（v2.0⑤）**：**零迁移** —— 连续打卡天数与 9 枚成就徽章（初次练题 / 坚持三天 / 一周不辍 / 月度恒心 / 百题斩 / 五百题达人 / 精准射手 / 每日一练达人 / 错题清零）全部由既有 `practice_answers` / `practice_daily_tasks` / `practice_wrong_book` 派生；**今日未练从昨日回溯**（不因「今天还没练」归零）、断链后保留历史最长纪录；新增 `GET /api/practice/achievements` 与 `achievementEnabled` 开关（关闭 → 练题端隐藏入口，接口 1017）。
+- **考试端首页个性化（v2.0⑥）**：新增 `home_dept_configs` 表与「首页配置」菜单，按科室下发首页**快捷入口启停 / 文案覆盖**与**推荐练题题库**（最多 6 个）。生效优先级 **本科室配置行 → 全局默认行（`*`）→ 内置默认**，按行覆盖不做逐项合并；推荐题库保存时校验 `allow_practice = 1`、**解析时二次过滤**（配置后被关闭对外练题则自动摘除，不留死链）。
 
-## 数据表（34 张，一句话说明）
+## 数据表（37 张，一句话说明）
 
 | 表 | 说明 |
 | --- | --- |
@@ -187,10 +193,13 @@ npm --prefix server run start       # 运行编译产物
 | `exam_records_archive` | 考试记录归档表（v1.7④，无外键可长期保留；历史读路径 union 合并） |
 | `user_recovery_codes` | 两步验证恢复码（v1.8②，仅存 bcrypt 哈希，一次性使用） |
 | `attachments` | 富文本附件（v1.8④，图片作答对象存储元数据；文件本体落盘 `server/storage/attachments`） |
-| `announcements` | 公告（v1.9⑥，发布范围 exam/practice/both + 启停 + 置顶 + 生效时间窗） |
+| `announcements` | 公告（v1.9⑥，发布范围 exam/practice/both + 启停 + 置顶 + 生效时间窗；v2.0① 正文富文本） |
 | `banners` | 轮播图（v1.9⑥，图片地址 + 跳转链接 + 排序 + 发布范围 + 生效时间窗） |
+| `announcement_reads` | 公告已读回执（v2.0③，按「公告 + 用户 + 端」唯一，`INSERT IGNORE` 幂等） |
+| `banner_clicks` | 轮播点击回执（v2.0③，按「轮播 + 用户 + 端」唯一，`INSERT IGNORE` 幂等） |
+| `home_dept_configs` | 考生首页个性化配置（v2.0⑥，`department_id` 主键，`*` 为全局默认；快捷入口启停/文案 + 推荐题库） |
 
 ## ⚠️ 红线说明
 
-- 本系统只使用数据库 **`enterprise_exam_system`**（34 张表）。
+- 本系统只使用数据库 **`enterprise_exam_system`**（37 张表）。
 - 同名/同实例下的 **`exam_system`** 库属于**其他项目**（17 张表），**严禁对其执行任何 DDL/DML 操作**。所有脚本、测试与初始化均仅针对 `enterprise_exam_system`（及测试库 `enterprise_exam_system_test`）。
