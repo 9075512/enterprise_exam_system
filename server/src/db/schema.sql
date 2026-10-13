@@ -593,3 +593,19 @@ CREATE TABLE IF NOT EXISTS banner_clicks (
   KEY idx_banner_click_banner (banner_id),
   KEY idx_banner_click_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- v2.0⑥ 考生首页个性化（科室级可配置）
+-- department_id 取科室 id；哨兵值 '*' 表示「全局默认」（未单独配置的科室回退到它）。
+-- 不加外键：'*' 不是真实科室，且科室删除后配置保留以便恢复同名科室。
+-- 考试域专用表，公网练题实例不访问 → 无需追加 db-grants-practice.sql。
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS home_dept_configs (
+  department_id     VARCHAR(64) NOT NULL,
+  shortcuts         JSON        NOT NULL,
+  recommended_banks JSON        NOT NULL,
+  updated_by        VARCHAR(64) NULL,
+  updated_at        DATETIME(3) NOT NULL,
+  PRIMARY KEY (department_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

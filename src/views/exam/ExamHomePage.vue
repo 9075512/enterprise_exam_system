@@ -201,6 +201,7 @@ onMounted(load);
               <span class="exam-home__bank-name">{{ bank.bankName }}</span>
               <span class="exam-home__bank-meta">共 {{ bank.questionCount }} 题 · {{ bank.reason }}</span>
             </div>
+            <span class="exam-home__bank-hint">请前往练题端「题库」练习</span>
           </div>
         </div>
       </template>
@@ -505,11 +506,19 @@ onMounted(load);
   &__bank {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 10px;
     padding: 14px 16px;
     background: #fff;
     border: 1px solid $border-color;
     border-left: 3px solid $color-primary;
     border-radius: 6px;
+  }
+
+  &__bank-hint {
+    flex: none;
+    font-size: 12px;
+    color: $text-secondary;
   }
 
   &__bank-main {

@@ -1346,3 +1346,48 @@ export interface HomeSummary {
   recommendedBanks: HomeRecommendedBank[];
   generatedAt: string;
 }
+
+/* ============================================================
+ * v2.0⑥ 考生首页个性化（科室级可配置）
+ * ============================================================ */
+
+/** 快捷入口目录项（管理端勾选列表用；key 为固定目录，不可增删） */
+export interface HomeShortcutCatalogItem {
+  key: string;
+  /** 目录默认文案（未覆盖时生效） */
+  text: string;
+  desc: string;
+  path: string;
+  icon: string;
+}
+
+/** 单条快捷入口配置（保存用；text 为空表示沿用目录默认文案） */
+export interface HomeShortcutConfigItem {
+  key: string;
+  enabled: boolean;
+  /** 文案覆盖（可选；空 = 用目录默认） */
+  text?: string;
+}
+
+/** 某科室的首页配置 */
+export interface HomeDeptConfig {
+  /** 科室 id；'*' 表示全局默认 */
+  departmentId: string;
+  departmentName: string;
+  isGlobal: boolean;
+  shortcuts: HomeShortcutConfigItem[];
+  recommendedBankIds: string[];
+  recommendedBanks: HomeRecommendedBank[];
+  updatedBy: string | null;
+  updatedByName: string | null;
+  updatedAt: string | null;
+}
+
+/** 管理端「首页配置」总览 */
+export interface HomeConfigOverview {
+  catalog: HomeShortcutCatalogItem[];
+  departments: Array<{ id: string; name: string }>;
+  configs: HomeDeptConfig[];
+  globalShortcuts: HomeShortcut[];
+  globalRecommendedBanks: HomeRecommendedBank[];
+}

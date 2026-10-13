@@ -229,6 +229,7 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
   // v1.7④：新增「系统维护」（admin）。
   // v1.9⑥：新增「公告与轮播」（admin）。
   // v1.9⑦：新增「首页」（examinee，考生默认落地页）。
+  // v2.0⑥：新增「首页配置」（admin，考生首页科室级个性化）。
   const NEW_MENU_KEYS: Record<string, string[]> = {
     reviews: ['admin', 'author'],
     appeals: ['admin'],
@@ -236,6 +237,7 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     maintenance: ['admin'],
     content: ['admin'],
     home: ['examinee'],
+    'home-config': ['admin'],
   };
   const [menuRows] = await conn.query<mysql.RowDataPacket[]>(`SELECT role, menu_keys FROM menu_permissions`);
   for (const mr of menuRows) {

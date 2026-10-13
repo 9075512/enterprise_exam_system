@@ -67,6 +67,7 @@ GRANT SELECT, INSERT ON `enterprise_exam_system`.`banner_clicks`      TO 'practi
 -- 6. 说明：以下考试域表**不授予任何权限**（物理隔离）：
 --    papers / paper_questions / paper_bank_refs /
 --    exams / exam_records / import_batches / system_settings
+--    v2.0⑥ 新增：home_dept_configs（考生首页个性化配置，考试域专用，练题实例不访问）
 --    注：system_settings 保持零授权不变——练题配置存于独立表 practice_settings（仅 SELECT）。
 
 FLUSH PRIVILEGES;

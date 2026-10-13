@@ -1,10 +1,11 @@
 /**
- * 考试端首页聚合 —— 数据访问层（v2.0②）。
+ * 考试端首页聚合 —— 数据访问层（v2.0②，v2.0⑥ 增科室配置）。
  *
  * 只读考试域表（exam_records ∪ exam_records_archive 派生源 + exams），
- * 供 `home.service.getSummary` 一次性算出统计 / 趋势，避免前端多次并发拉取后再本地汇总。
+ * 供 `home.service.getSummary` 一次性算出统计 / 趋势，避免前端多次并发拉取后再本地汇总；
+ * v2.0⑥ 增 `home_dept_configs` 读写（考生首页个性化配置）。
  */
-import type { RowDataPacket } from 'mysql2/promise';
+import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { query } from '../../db/pool.js';
 import { RECORD_SOURCE } from '../../db/recordSource.js';
 
@@ -53,4 +54,74 @@ export async function listRecentScores(userId: string, limit: number): Promise<H
       LIMIT ?`,
     [userId, limit],
   );
+}
+
+/* ============================================================
+ * v2.0⑥ 考生首页个性化配置（home_dept_configs）
+ * ============================================================ */
+
+/** `home_dept_configs` 表原始行。 */
+export interface HomeDeptConfigRow extends RowDataPacket {
+  department_id: string;
+  /** JSON 字符串：[{ key, enabled, text? }] */
+  shortcuts: string | unknown;
+  /** JSON 字符串：题库 id 数组 */
+  recommended_banks: string | unknown;
+  updated_by: string | null;
+  updated_at: string | null;
+}
+
+/** 取某科室（或全局默认行）的配置；不存在返回 null。 */
+export async function getDeptConfig(departmentId: string): Promise<HomeDeptConfigRow | null> {
+  const rows = await query<HomeDeptConfigRow[]>(
+    `SELECT department_id, shortcuts, recommended_banks, updated_by, updated_at
+       FROM home_dept_configs WHERE department_id = ?`,
+    [departmentId],
+  );
+  return rows[0] ?? null;
+}
+
+/** 列出全部已配置行（含全局默认行），按更新时间倒序。 */
+export async function listDeptConfigs(): Promise<HomeDeptConfigRow[]> {
+  return query<HomeDeptConfigRow[]>(
+    `SELECT department_id, shortcuts, recommended_banks, updated_by, updated_at
+       FROM home_dept_configs ORDER BY updated_at DESC`,
+  );
+}
+
+/** 新增或覆盖某科室配置（department_id 为主键 → ON DUPLICATE KEY UPDATE）。 */
+export async function upsertDeptConfig(
+  departmentId: string,
+  shortcuts: unknown,
+  recommendedBankIds: string[],
+  updatedBy: string,
+  now: string,
+): Promise<void> {
+  await query<ResultSetHeader>(
+    `INSERT INTO home_dept_configs (department_id, shortcuts, recommended_banks, updated_by, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE shortcuts = VALUES(shortcuts),
+                             recommended_banks = VALUES(recommended_banks),
+                             updated_by = VALUES(updated_by),
+                             updated_at = VALUES(updated_at)`,
+    [departmentId, JSON.stringify(shortcuts), JSON.stringify(recommendedBankIds), updatedBy, now],
+  );
+}
+
+/** 删除某科室配置（回到全局默认）；返回是否命中。 */
+export async function deleteDeptConfig(departmentId: string): Promise<number> {
+  const res = await query<ResultSetHeader>(`DELETE FROM home_dept_configs WHERE department_id = ?`, [departmentId]);
+  return Number(res.affectedRows ?? 0);
+}
+
+/** 批量取用户名（配置页展示「最后修改人」）。 */
+export async function listUserNames(ids: string[]): Promise<Array<{ id: string; name: string }>> {
+  const unique = [...new Set(ids.filter((v) => v !== ''))];
+  if (unique.length === 0) return [];
+  const placeholders = unique.map(() => '?').join(',');
+  const rows = await query<RowDataPacket[]>(
+    `SELECT id, name FROM users WHERE id IN (${placeholders})`,
+    unique,
+  );
+  return rows.map((r) => ({ id: String(r.id), name: String(r.name) }));
 }

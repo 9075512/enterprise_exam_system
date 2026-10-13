@@ -1546,3 +1546,55 @@ export interface HomeSummaryDto {
   generatedAt: string;
 }
 
+
+/* ============================================================
+ * v2.0⑥ 考生首页个性化（科室级可配置）
+ * ============================================================ */
+
+/** 快捷入口目录项（管理端「首页配置」勾选列表用；key 为固定目录，不可增删） */
+export interface HomeShortcutCatalogItemDto {
+  key: string;
+  /** 目录默认文案（未覆盖时生效） */
+  text: string;
+  desc: string;
+  path: string;
+  icon: string;
+}
+
+/** 单条快捷入口配置（保存用；text 为空表示沿用目录默认文案） */
+export interface HomeShortcutConfigItemDto {
+  key: string;
+  enabled: boolean;
+  /** 文案覆盖（可选；空 = 用目录默认） */
+  text?: string;
+}
+
+/** 某科室的首页配置（未落库的科室不出现在 configs 中） */
+export interface HomeDeptConfigDto {
+  /** 科室 id；哨兵值 '*' 表示全局默认 */
+  departmentId: string;
+  /** 科室名（'*' 为「全局默认」；科室已删除时为「已删除科室」） */
+  departmentName: string;
+  /** 是否全局默认行 */
+  isGlobal: boolean;
+  shortcuts: HomeShortcutConfigItemDto[];
+  recommendedBankIds: string[];
+  /** 推荐题库详情（含题库名与题量，便于管理端直接回显） */
+  recommendedBanks: HomeRecommendedBankDto[];
+  updatedBy: string | null;
+  updatedByName: string | null;
+  updatedAt: string | null;
+}
+
+/** 管理端「首页配置」总览（GET /api/home/configs） */
+export interface HomeConfigOverviewDto {
+  /** 快捷入口固定目录 */
+  catalog: HomeShortcutCatalogItemDto[];
+  /** 可选科室（树扁平化后的列表，含层级路径名） */
+  departments: Array<{ id: string; name: string }>;
+  /** 已配置项（含全局默认行，若已配置） */
+  configs: HomeDeptConfigDto[];
+  /** 当前全局默认生效值（未配置全局行时为内置默认） */
+  globalShortcuts: HomeShortcutDto[];
+  globalRecommendedBanks: HomeRecommendedBankDto[];
+}
