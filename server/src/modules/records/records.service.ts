@@ -207,3 +207,11 @@ export async function listByExam(examId: string, page?: number, pageSize?: numbe
   ]);
   return buildPage(rows.map(mapRecordRow), total, paging.page, paging.pageSize);
 }
+
+/** 某场考试含切屏事件的已交卷记录（切屏审查，admin）。 */
+export async function listCheatByExam(examId: string): Promise<ExamRecordDto[]> {
+  const exam = await examsRepo.findById(examId);
+  if (!exam) throw notFound('考试不存在或已被删除');
+  const rows = await repo.listCheatByExam(examId);
+  return rows.map(mapRecordDetailRow);
+}

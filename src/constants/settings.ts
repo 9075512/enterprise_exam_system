@@ -24,6 +24,8 @@ export const SETTINGS_DEFAULTS: SystemSettings = {
   cheatCountThreshold: CHEAT_COUNT_THRESHOLD,
   cheatSecondsThreshold: CHEAT_SECONDS_THRESHOLD,
   cheatAutoSubmitEnabled: false,
+  cheatWatermarkEnabled: true,
+  cheatCopyGuardEnabled: true,
   shuffleDefaultEnabled: false,
   shuffleOptionsDefault: true,
   loginLockEnabled: true,

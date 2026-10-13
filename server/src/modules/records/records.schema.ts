@@ -30,3 +30,8 @@ export const examRecordsQuerySchema = z.object({
   examId: z.string().min(1, '请指定考试'),
   ...paginationQuery,
 });
+
+/** 切屏审查入参（examId 必填，无分页）。 */
+export const cheatQuerySchema = z.object({
+  examId: z.string().min(1, '请指定考试'),
+});

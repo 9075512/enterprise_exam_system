@@ -44,6 +44,10 @@ export const settingsSchema = z.object({
 
   cheatAutoSubmitEnabled: z.boolean({ invalid_type_error: '切屏自动交卷开关必须为布尔值' }),
 
+  cheatWatermarkEnabled: z.boolean({ invalid_type_error: '答题页浮水印开关必须为布尔值' }),
+
+  cheatCopyGuardEnabled: z.boolean({ invalid_type_error: '答题页复制限制开关必须为布尔值' }),
+
   shuffleDefaultEnabled: z.boolean({ invalid_type_error: '人手一卷默认开关必须为布尔值' }),
 
   shuffleOptionsDefault: z.boolean({ invalid_type_error: '选项乱序默认开关必须为布尔值' }),

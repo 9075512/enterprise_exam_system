@@ -46,6 +46,8 @@ const FIELD_TAB: Record<string, SettingsTab> = {
   cheatCountThreshold: 'exam',
   cheatSecondsThreshold: 'exam',
   cheatAutoSubmitEnabled: 'exam',
+  cheatWatermarkEnabled: 'exam',
+  cheatCopyGuardEnabled: 'exam',
   shuffleDefaultEnabled: 'exam',
   shuffleOptionsDefault: 'exam',
   retakeDefaultEnabled: 'exam',
@@ -325,6 +327,34 @@ async function handleReset(): Promise<void> {
                     />
                     <p class="settings-page__hint">
                       开启后，考生切屏次数或累计离开秒数达到上方阈值时将自动强制交卷；关闭则仅记录异常。
+                    </p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="答题页浮水印（考生姓名/账号）" prop="cheatWatermarkEnabled">
+                  <div class="settings-page__control">
+                    <el-switch
+                      v-model="form.cheatWatermarkEnabled"
+                      active-text="开启"
+                      inactive-text="关闭"
+                    />
+                    <p class="settings-page__hint">
+                      开启后答题页铺陈考生姓名与账号的淡浮水印，防止截屏/拍照泄题。
+                    </p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="答题页复制/粘贴限制" prop="cheatCopyGuardEnabled">
+                  <div class="settings-page__control">
+                    <el-switch
+                      v-model="form.cheatCopyGuardEnabled"
+                      active-text="开启"
+                      inactive-text="关闭"
+                    />
+                    <p class="settings-page__hint">
+                      开启后答题页禁用复制、右键菜单与长按选择，降低题目内容外泄风险。
                     </p>
                   </div>
                 </el-form-item>

@@ -31,6 +31,11 @@ export function listByExam(query: {
   });
 }
 
+/** 某场考试切屏异常记录（admin，切屏审查，无分页） */
+export function listCheatByExam(examId: string): Promise<ExamRecord[]> {
+  return get<ExamRecord[]>('/records/cheat', { examId });
+}
+
 /** 暂存答案 */
 export function saveAnswers(id: string, answers: Record<string, number[]>): Promise<null> {
   return put<null>(`/records/${id}/answers`, { answers });

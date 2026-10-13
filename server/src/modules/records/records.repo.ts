@@ -177,6 +177,28 @@ export async function countByExam(examId: string): Promise<number> {
   return Number(rows[0]?.c ?? 0);
 }
 
+/**
+ * 某场考试「含切屏事件」的已交卷记录（切屏审查用）。
+ * 附带考生姓名 / 科室名，按切屏次数降序；上限 500 条（异常审查场景，量级可控）。
+ */
+export async function listCheatByExam(examId: string): Promise<ExamRecordDetailRow[]> {
+  return query<ExamRecordDetailRow[]>(
+    `SELECT r.id, r.exam_id, r.user_id, r.attempt_no, r.department_id, r.paper_snapshot, r.status, r.answers,
+            r.started_at, r.submitted_at, r.auto_submitted, r.score, r.cheat_events,
+            e.name AS exam_name, e.pass_score AS pass_score,
+            u.name AS user_name, COALESCE(d.name, du.name, '') AS department_name
+       FROM exam_records r
+       LEFT JOIN exams e ON e.id = r.exam_id
+       LEFT JOIN users u ON u.id = r.user_id
+       LEFT JOIN departments d ON d.id = r.department_id
+       LEFT JOIN departments du ON du.id = u.department_id
+      WHERE r.exam_id = ? AND r.status = 'submitted' AND JSON_LENGTH(r.cheat_events) > 0
+      ORDER BY JSON_LENGTH(r.cheat_events) DESC, r.submitted_at DESC
+      LIMIT 500`,
+    [examId],
+  );
+}
+
 /** 新增记录。 */
 export async function insert(
   row: {

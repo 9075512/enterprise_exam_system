@@ -53,6 +53,18 @@ const unansweredCount = computed<number>(() => questions.value.length - answered
 /** 姓名首字（头像占位） */
 const avatarText = computed<string>(() => (auth.currentUser?.name ?? '').trim().slice(0, 1) || '考');
 
+/** 防作弊：答题页浮水印 / 复制限制（读系统设置，响应式） */
+const watermarkEnabled = computed<boolean>(() => settingsStore.settings.cheatWatermarkEnabled);
+const watermarkText = computed<string>(() => {
+  const u = auth.currentUser;
+  return u ? `${u.name} ${u.username}` : '考生作答';
+});
+
+/** 复制/右键/选择守卫：仅在「复制限制」开启时阻止默认行为 */
+function guardCopy(event: Event): void {
+  if (settingsStore.settings.cheatCopyGuardEnabled) event.preventDefault();
+}
+
 let tickTimer: number | undefined;
 let saveTimer: number | undefined;
 
@@ -213,7 +225,19 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
 </script>
 
 <template>
-  <div class="taking">
+  <div
+    class="taking"
+    @copy="guardCopy"
+    @cut="guardCopy"
+    @contextmenu="guardCopy"
+    @selectstart="guardCopy"
+    @dragstart="guardCopy"
+  >
+    <!-- 防泄题浮水印（pointer-events: none，不影响作答） -->
+    <div v-if="watermarkEnabled" class="taking__watermark" aria-hidden="true">
+      <span v-for="n in 40" :key="n" class="taking__watermark-text">{{ watermarkText }}</span>
+    </div>
+
     <LoadingSkeleton v-if="loading" :rows="8" />
 
     <template v-else-if="record && exam">
@@ -313,6 +337,30 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
 .taking {
   min-height: 100vh;
   background: $bg-page;
+
+  &__watermark {
+    position: fixed;
+    inset: 0;
+    z-index: 150;
+    pointer-events: none;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 56px 96px;
+    padding: 48px 24px;
+    overflow: hidden;
+  }
+
+  &__watermark-text {
+    flex: 0 0 auto;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    color: rgba(16, 24, 40, 0.06);
+    transform: rotate(-24deg);
+    user-select: none;
+    white-space: nowrap;
+  }
 
   &__header {
     position: sticky;

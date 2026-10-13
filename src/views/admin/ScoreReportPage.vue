@@ -95,15 +95,36 @@ async function loadReport(): Promise<void> {
   }
 }
 
+/* ------------------------------ 切屏审查 ------------------------------ */
+const cheatList = ref<ExamRecord[]>([]);
+const cheatLoading = ref(false);
+
+async function loadCheat(): Promise<void> {
+  if (!selectedExamId.value) {
+    cheatList.value = [];
+    return;
+  }
+  cheatLoading.value = true;
+  try {
+    cheatList.value = await recordsApi.listCheatByExam(selectedExamId.value);
+  } catch {
+    cheatList.value = [];
+  } finally {
+    cheatLoading.value = false;
+  }
+}
+
 watch(selectedExamId, (examId) => {
   if (!examId) {
     report.value = null;
     records.value = [];
     total.value = 0;
+    cheatList.value = [];
     return;
   }
   void loadReport();
   resetRecords();
+  void loadCheat();
 });
 
 /* ------------------------------ 图表实例与自适应 ------------------------------ */
@@ -336,6 +357,57 @@ function cheatSummary(record: ExamRecord): string {
           </el-table>
         </el-card>
       </el-tab-pane>
+
+      <!-- 5. 切屏审查 -->
+      <el-tab-pane label="切屏审查" name="cheat" lazy>
+        <el-card class="table-card" shadow="never">
+          <el-table v-loading="cheatLoading" :data="cheatList" row-key="id" stripe>
+            <el-table-column type="expand">
+              <template #default="{ row }">
+                <div class="report-page__cheat-timeline">
+                  <p class="report-page__cheat-timeline-title">
+                    切屏时间线（共 {{ (row as ExamRecord).cheatEvents.length }} 次）
+                  </p>
+                  <el-table :data="(row as ExamRecord).cheatEvents" size="small" border>
+                    <el-table-column type="index" label="#" width="60" align="center" />
+                    <el-table-column label="发生时间" min-width="220">
+                      <template #default="{ row: e }">{{ formatDateTime(e.at) }}</template>
+                    </el-table-column>
+                    <el-table-column label="离开时长（秒）" width="160" align="center">
+                      <template #default="{ row: e }">{{ e.awaySeconds }}</template>
+                    </el-table-column>
+                  </el-table>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="考生姓名" width="120">
+              <template #default="{ row }">{{ row.userName || userNameMap[row.userId] || row.userId }}</template>
+            </el-table-column>
+            <el-table-column label="科室" width="140">
+              <template #default="{ row }">{{ row.departmentName || departmentNameMap[row.departmentId] || '—' }}</template>
+            </el-table-column>
+            <el-table-column label="作答次数" width="100" align="center">
+              <template #default="{ row }">第 {{ (row as ExamRecord).attemptNo }} 次</template>
+            </el-table-column>
+            <el-table-column label="得分" width="90" align="center">
+              <template #default="{ row }">{{ formatScore(row.score) }}</template>
+            </el-table-column>
+            <el-table-column label="切屏" width="170" align="center">
+              <template #default="{ row }">
+                <el-tag :type="isCheat(row as ExamRecord) ? 'danger' : 'warning'" size="small">
+                  {{ cheatSummary(row as ExamRecord) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="交卷时间" min-width="170">
+              <template #default="{ row }">{{ formatDateTime(row.submittedAt) }}</template>
+            </el-table-column>
+            <template #empty>
+              <EmptyState text="该考试暂无切屏记录" />
+            </template>
+          </el-table>
+        </el-card>
+      </el-tab-pane>
     </el-tabs>
 
     <ScoreExportDialog v-model="exportVisible" :exam-id="selectedExamId" :exam-name="exportExamName" />
@@ -399,6 +471,17 @@ function cheatSummary(record: ExamRecord): string {
     text-overflow: ellipsis;
     white-space: nowrap;
     vertical-align: bottom;
+  }
+
+  &__cheat-timeline {
+    padding: 4px 48px 8px;
+  }
+
+  &__cheat-timeline-title {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: $text-primary;
   }
 }
 </style>

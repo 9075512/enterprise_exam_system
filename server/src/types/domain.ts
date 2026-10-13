@@ -367,6 +367,10 @@ export interface SystemSettings {
   cheatSecondsThreshold: number;
   /** 切屏超阈值是否自动强制交卷（开关） */
   cheatAutoSubmitEnabled: boolean;
+  /** 答题页考生信息浮水印开关（防截屏泄题） */
+  cheatWatermarkEnabled: boolean;
+  /** 答题页复制/粘贴限制开关（禁用复制/右键/长按选择） */
+  cheatCopyGuardEnabled: boolean;
   /** 人手一卷全局默认开关（单场考试可覆盖） */
   shuffleDefaultEnabled: boolean;
   /** 选项乱序全局默认开关（单场考试可覆盖） */

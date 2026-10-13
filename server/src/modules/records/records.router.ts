@@ -14,6 +14,7 @@ import {
   submitSchema,
   myRecordsQuerySchema,
   examRecordsQuerySchema,
+  cheatQuerySchema,
 } from './records.schema.js';
 import * as recordsService from './records.service.js';
 
@@ -29,6 +30,17 @@ recordsRouter.get(
   asyncHandler(async (req, res) => {
     const q = req.query as unknown as { page: number; pageSize: number; keyword?: string };
     return ok(res, await recordsService.listMy(req.user!.id, q.page, q.pageSize, q.keyword));
+  }),
+);
+
+/** GET /api/records/cheat?examId= —— 某场考试切屏异常记录（admin，切屏审查）。 */
+recordsRouter.get(
+  '/cheat',
+  requireRole('admin'),
+  validate(cheatQuerySchema, 'query'),
+  asyncHandler(async (req, res) => {
+    const q = req.query as unknown as { examId: string };
+    return ok(res, await recordsService.listCheatByExam(q.examId));
   }),
 );
 
