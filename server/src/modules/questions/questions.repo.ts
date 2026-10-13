@@ -116,7 +116,7 @@ export async function insert(
     type: QuestionType;
     stem: string;
     options: string[];
-    answer: number[];
+    answer: number[] | string[];
     defaultScore: number;
     analysis: string;
     subject: string;
@@ -154,7 +154,7 @@ export async function update(
     type: QuestionType;
     stem: string;
     options: string[];
-    answer: number[];
+    answer: number[] | string[];
     defaultScore: number;
     analysis: string;
     subject: string;

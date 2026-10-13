@@ -36,8 +36,18 @@ export function listCheatByExam(examId: string): Promise<ExamRecord[]> {
   return get<ExamRecord[]>('/records/cheat', { examId });
 }
 
+/** 待阅卷列表（admin/author，分页） */
+export function listPending(query: { page?: number; pageSize?: number } = {}): Promise<Page<ExamRecord>> {
+  return get<Page<ExamRecord>>('/records/pending', { page: query.page, pageSize: query.pageSize });
+}
+
+/** 提交人工阅卷（逐题主观分） */
+export function review(id: string, subjectiveScores: Record<string, number>): Promise<ExamRecord> {
+  return put<ExamRecord>(`/records/${id}/review`, { subjectiveScores });
+}
+
 /** 暂存答案 */
-export function saveAnswers(id: string, answers: Record<string, number[]>): Promise<null> {
+export function saveAnswers(id: string, answers: Record<string, number[] | string[]>): Promise<null> {
   return put<null>(`/records/${id}/answers`, { answers });
 }
 

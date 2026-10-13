@@ -63,6 +63,8 @@ const drawRules = reactive<Record<QuestionType, { count: number; score: number }
   single: { count: 0, score: 2 },
   multiple: { count: 0, score: 4 },
   judge: { count: 0, score: 4 },
+  fill: { count: 0, score: 4 },
+  short: { count: 0, score: 5 },
 });
 const shortages = ref<DrawShortage[]>([]);
 const drawing = ref(false);
@@ -179,11 +181,13 @@ function onPoolResetFilters(): void {
 /* ------------------------------ 已选清单 ------------------------------ */
 const selectedIds = computed<Set<string>>(() => new Set(selected.value.map((q) => q.questionId)));
 
-/** 题型展示顺序：单选 → 多选 → 判断（与后端保存及答题页题号一致） */
+/** 题型展示顺序：单选 → 多选 → 判断 → 填空 → 简答（与后端保存及答题页题号一致） */
 const QUESTION_TYPE_ORDER: Record<QuestionType, number> = {
   single: 0,
   multiple: 1,
   judge: 2,
+  fill: 3,
+  short: 4,
 };
 
 /** 已选题目按题型稳定排序（题型内部保持原有相对顺序），保证组卷页所见即所得。 */

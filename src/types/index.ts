@@ -7,14 +7,14 @@
 /** 用户角色 */
 export type Role = 'admin' | 'author' | 'examinee';
 
-/** 题型：单选 / 多选 / 判断 */
-export type QuestionType = 'single' | 'multiple' | 'judge';
+/** 题型：单选 / 多选 / 判断 / 填空 / 简答 */
+export type QuestionType = 'single' | 'multiple' | 'judge' | 'fill' | 'short';
 
 /** 考试状态（由时间窗实时推导，不落库） */
 export type ExamStatus = 'not_started' | 'ongoing' | 'ended';
 
-/** 考试记录状态 */
-export type RecordStatus = 'in_progress' | 'submitted';
+/** 考试记录状态（pending_review：含主观题待人工阅卷） */
+export type RecordStatus = 'in_progress' | 'submitted' | 'pending_review';
 
 /** 补考申请状态 */
 export type RetakeStatus = 'pending' | 'approved' | 'rejected';
@@ -97,10 +97,15 @@ export interface Question {
   bankId: string;
   type: QuestionType;
   stem: string;
-  /** 选项文本数组（判断题固定为 ['正确', '错误']） */
+  /** 选项文本数组（判断题固定为 ['正确', '错误']；填空/简答为空数组） */
   options: string[];
-  /** 正确答案：选项索引数组；单选/判断恒为长度 1；多选升序 */
-  answer: number[];
+  /**
+   * 正确答案：
+   * - 单选/多选/判断：选项索引数组（单选/判断恒长度 1；多选升序）
+   * - 填空：逐空参考答案（文本数组，按空顺序）
+   * - 简答：参考文本（长度 1 的文本数组）
+   */
+  answer: number[] | string[];
   defaultScore: number;
   analysis: string;
   subject: string;
@@ -220,8 +225,10 @@ export interface ExamRecord {
   attemptNo: number;
   paperSnapshot: PaperSnapshot;
   status: RecordStatus;
-  /** 答案：Record<questionId, number[]>（多选升序） */
-  answers: Record<string, number[]>;
+  /** 答案：Record<questionId, number[] | string[]>（客观题为选项索引，填空/简答为文本数组） */
+  answers: Record<string, number[] | string[]>;
+  /** 主观题阅卷得分：Record<questionId, number>（未阅卷为空对象） */
+  subjectiveScores: Record<string, number>;
   /** 开考时刻 ISO 8601（倒计时基准，刷新不重置） */
   startedAt: string;
   /** 交卷时刻 ISO 8601，未交卷为 null */
@@ -307,6 +314,8 @@ export interface DrawRules {
   single?: DrawRule;
   multiple?: DrawRule;
   judge?: DrawRule;
+  fill?: DrawRule;
+  short?: DrawRule;
 }
 
 /** 抽题结果项 */
@@ -359,7 +368,8 @@ export interface QuestionSaveInput {
   type: QuestionType;
   stem: string;
   options: string[];
-  answer: number[];
+  /** 客观题为选项索引数组；填空为逐空参考答案文本数组；简答为参考文本数组 */
+  answer: number[] | string[];
   defaultScore: number;
   analysis?: string;
   subject?: string;

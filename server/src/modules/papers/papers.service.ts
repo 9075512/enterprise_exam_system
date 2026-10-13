@@ -28,11 +28,13 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
-/** 题型展示顺序：单选 → 多选 → 判断（组卷页与答题页题号一致）。 */
+/** 题型展示顺序：单选 → 多选 → 判断 → 填空 → 简答（组卷页与答题页题号一致）。 */
 const QUESTION_TYPE_ORDER: Record<QuestionType, number> = {
   single: 0,
   multiple: 1,
   judge: 2,
+  fill: 3,
+  short: 4,
 };
 
 /** 未识别题型（理论上不会出现）统一排在末尾。 */
@@ -217,11 +219,8 @@ export async function remove(id: string): Promise<void> {
  */
 export async function drawQuestions(input: {
   bankIds: string[];
-  rules: {
-    single?: { count: number; score: number };
-    multiple?: { count: number; score: number };
-    judge?: { count: number; score: number };
-  };
+  /** 抽题规则（仅客观题 single/multiple/judge 可随机抽；填空/简答需手动勾选） */
+  rules: Partial<Record<QuestionType, { count: number; score: number }>>;
 }): Promise<DrawResult> {
   const types: QuestionType[] = ['single', 'multiple', 'judge'];
   const shortages: DrawShortage[] = [];
@@ -278,7 +277,7 @@ export async function getSnapshot(paperId: string): Promise<PaperSnapshot> {
     questions.push({
       questionId: r.question_id,
       score: Number(r.score),
-      question: { ...dto, options: [...dto.options], answer: [...dto.answer] },
+      question: { ...dto, options: [...dto.options], answer: [...dto.answer] as number[] | string[] },
     });
   }
 

@@ -25,6 +25,8 @@ export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   single: '单选题',
   multiple: '多选题',
   judge: '判断题',
+  fill: '填空题',
+  short: '简答题',
 };
 
 /** 题型下拉选项 */
@@ -32,6 +34,8 @@ export const QUESTION_TYPE_OPTIONS: ReadonlyArray<{ value: QuestionType; label: 
   { value: 'single', label: '单选题' },
   { value: 'multiple', label: '多选题' },
   { value: 'judge', label: '判断题' },
+  { value: 'fill', label: '填空题' },
+  { value: 'short', label: '简答题' },
 ];
 
 /** 考试状态文案 */

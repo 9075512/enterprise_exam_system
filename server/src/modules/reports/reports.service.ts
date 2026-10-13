@@ -86,7 +86,9 @@ function buildWrongRate(records: ExamRecordDto[]): WrongItem[] {
   if (records.length === 0) return [];
   const snapshot = records[0].paperSnapshot;
   const totalAnswered = records.length;
-  const items: WrongItem[] = snapshot.questions.map((sq) => {
+  // 简答题为人工阅卷，不纳入「错题率」口径（否则恒被计为答错，产生误导）
+  const objectiveQuestions = snapshot.questions.filter((sq) => sq.question.type !== 'short');
+  const items: WrongItem[] = objectiveQuestions.map((sq) => {
     const wrongCount = records.filter((r) => !isAnswerCorrect(sq.question, r.answers[sq.questionId])).length;
     return {
       questionId: sq.questionId,

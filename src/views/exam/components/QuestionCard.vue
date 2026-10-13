@@ -2,6 +2,7 @@
 /**
  * 单题作答卡片（W3-T1）。考试中不显示正确答案。
  * 单选/判断 → 单选；多选 → 复选（提交前升序）。
+ * 填空 → 逐空文本输入（空数由题干 ___ 推断，回退参考答案长度）；简答 → 文本域。
  * 选项行样式化为「可选卡片」：左侧圆形（单选）/圆角方形（多选）字母徽标表示选项，
  * 原生控件视觉隐藏但保留可点击与键盘可达性。
  */
@@ -14,25 +15,49 @@ const props = defineProps<{
   index: number;
   question: Question;
   score: number;
-  modelValue: number[];
+  modelValue: number[] | string[];
 }>();
 
-const emit = defineEmits<{ (e: 'update:modelValue', value: number[]): void }>();
+const emit = defineEmits<{ (e: 'update:modelValue', value: number[] | string[]): void }>();
 
 const isMultiple = computed<boolean>(() => props.question.type === 'multiple');
+const isFill = computed<boolean>(() => props.question.type === 'fill');
+const isShort = computed<boolean>(() => props.question.type === 'short');
 
 function letter(i: number): string {
   return String.fromCharCode(65 + i);
 }
 
+/** 填空空数：优先数题干中的 ___，回退到参考答案长度。 */
+const fillBlankCount = computed<number>(() => {
+  const matches = props.question.stem.match(/_{3,}/g);
+  const fromStem = matches ? matches.length : 0;
+  return fromStem > 0 ? fromStem : (props.question.answer as string[]).length;
+});
+
 const radioValue = computed<number | undefined>({
-  get: () => props.modelValue[0],
+  get: () => props.modelValue[0] as number | undefined,
   set: (value) => emit('update:modelValue', value === undefined ? [] : [value]),
 });
 
 const checkboxValue = computed<number[]>({
-  get: () => props.modelValue,
+  get: () => props.modelValue as number[],
   set: (value) => emit('update:modelValue', [...value].sort((a, b) => a - b)),
+});
+
+/** 填空逐空文本（长度对齐空数） */
+const fillValue = computed<string[]>({
+  get: () => {
+    const arr = Array.isArray(props.modelValue) ? (props.modelValue as string[]) : [];
+    return Array.from({ length: fillBlankCount.value }, (_, i) => arr[i] ?? '');
+  },
+  set: (value) => emit('update:modelValue', value),
+});
+
+/** 简答单行文本（存储为长度 1 的数组） */
+const shortValue = computed<string>({
+  get: () => (Array.isArray(props.modelValue) ? ((props.modelValue[0] as string) ?? '') : ''),
+  set: (value) => emit('update:modelValue', [value]),
 });
 </script>
 
@@ -48,19 +73,44 @@ const checkboxValue = computed<number[]>({
 
     <p class="question-card__stem">{{ question.stem }}</p>
 
-    <el-radio-group v-if="!isMultiple" v-model="radioValue" class="question-card__options">
+    <!-- 单选 / 判断 -->
+    <el-radio-group
+      v-if="question.type === 'single' || question.type === 'judge'"
+      v-model="radioValue"
+      class="question-card__options"
+    >
       <el-radio v-for="(option, i) in question.options" :key="i" :value="i" class="question-card__option">
         <span class="question-card__letter">{{ letter(i) }}</span>
         <span class="question-card__text">{{ option }}</span>
       </el-radio>
     </el-radio-group>
 
-    <el-checkbox-group v-else v-model="checkboxValue" class="question-card__options">
+    <!-- 多选 -->
+    <el-checkbox-group v-else-if="isMultiple" v-model="checkboxValue" class="question-card__options">
       <el-checkbox v-for="(option, i) in question.options" :key="i" :value="i" class="question-card__option">
         <span class="question-card__letter question-card__letter--multi">{{ letter(i) }}</span>
         <span class="question-card__text">{{ option }}</span>
       </el-checkbox>
     </el-checkbox-group>
+
+    <!-- 填空 -->
+    <div v-else-if="isFill" class="question-card__fills">
+      <div v-for="(_, i) in fillValue" :key="i" class="question-card__fill">
+        <span class="question-card__fill-no">第 {{ i + 1 }} 空</span>
+        <el-input v-model="fillValue[i]" placeholder="请输入答案" />
+      </div>
+    </div>
+
+    <!-- 简答 -->
+    <el-input
+      v-else-if="isShort"
+      v-model="shortValue"
+      type="textarea"
+      :rows="4"
+      maxlength="2000"
+      show-word-limit
+      placeholder="请输入你的答案"
+    />
   </div>
 </template>
 
@@ -94,7 +144,7 @@ const checkboxValue = computed<number[]>({
     letter-spacing: 0.4px;
   }
 
-  /* 题型徽标配色与答题卡分组色点保持一致（单选蓝 / 多选紫 / 判断橙） */
+  /* 题型徽标配色与答题卡分组色点保持一致（单选蓝 / 多选紫 / 判断橙 / 填空青 / 简答灰） */
   &__type {
     display: inline-flex;
     align-items: center;
@@ -117,6 +167,16 @@ const checkboxValue = computed<number[]>({
     &--judge {
       color: $color-warning;
       background: rgba($color-warning, 0.12);
+    }
+
+    &--fill {
+      color: $color-success;
+      background: rgba($color-success, 0.1);
+    }
+
+    &--short {
+      color: $text-secondary;
+      background: $color-table-head;
     }
   }
 
@@ -253,6 +313,29 @@ const checkboxValue = computed<number[]>({
     flex: 1;
     min-width: 0;
     word-break: break-word;
+  }
+
+  &__fills {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__fill {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .el-input {
+      max-width: 360px;
+    }
+  }
+
+  &__fill-no {
+    flex: 0 0 52px;
+    font-size: 13px;
+    font-weight: 600;
+    color: $text-secondary;
   }
 }
 </style>

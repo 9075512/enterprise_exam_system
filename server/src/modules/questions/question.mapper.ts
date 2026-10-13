@@ -29,7 +29,7 @@ export function mapQuestionRow(row: QuestionRow): QuestionDto {
     type: row.type,
     stem: row.stem,
     options: parseJsonColumn<string[]>(row.options, []),
-    answer: parseJsonColumn<number[]>(row.answer, []),
+    answer: parseJsonColumn<number[] | string[]>(row.answer, []),
     defaultScore: Number(row.default_score),
     analysis: row.analysis ?? '',
     subject: row.subject,

@@ -1,13 +1,14 @@
 <script setup lang="ts">
 /**
- * 考试结果（W3-T1）。考生仅本人（后端 403 拦截）。
- * 结果区只展示结论性信息（考试名称/姓名/科室/得分/是否合格/交卷时间）；
- * 逐题对错与解析、切屏记录改为点击「查看成绩明细」在弹窗内查看。
+ * 考试结果（W3-T1）。考生仅本人（后端 403 拦截）；管理员任意。
+ * 结果区只展示结论性信息；逐题对错/解析/切屏记录在弹窗内查看。
+ * v1.6：支持填空/简答展示；含简答题的答卷交卷后进 pending_review（客观题先行计分），
+ *       显示「待阅卷」态，阅卷完成后总分 = 客观 + 主观。
  */
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { ArrowLeft, CircleCheck, CircleClose, List } from '@element-plus/icons-vue';
+import { ArrowLeft, CircleCheck, CircleClose, List, Clock } from '@element-plus/icons-vue';
 import * as examsApi from '@/api/exams';
 import * as recordsApi from '@/api/records';
 import { useRequest } from '@/composables/useRequest';
@@ -20,7 +21,7 @@ import { formatScore, optionLetter } from '@/utils/format';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
-import type { ExamRecord, PaperSnapshotQuestion, QuestionType } from '@/types';
+import type { ExamRecord, PaperSnapshotQuestion, Question, QuestionType } from '@/types';
 
 const route = useRoute();
 const router = useRouter();
@@ -70,21 +71,33 @@ const passScore = computed<number | null>(() => {
   return examMap.value[record.value.examId]?.passScore ?? null;
 });
 
+/** 是否待阅卷（含主观题且尚未阅卷） */
+const isPendingReview = computed<boolean>(() => record.value?.status === 'pending_review');
+
 const passed = computed<boolean>(() => {
-  if (!record.value || passScore.value === null) return false;
+  if (!record.value || passScore.value === null || isPendingReview.value) return false;
   return record.value.score >= passScore.value;
 });
 
 const totalQuestions = computed<number>(() => record.value?.paperSnapshot.questions.length ?? 0);
 
-/** 答对 / 答错题数与正确率（由快照 + 答案推导，不额外请求接口） */
-const correctCount = computed<number>(() => {
-  const questions = record.value?.paperSnapshot.questions ?? [];
-  return questions.filter((item) => questionCorrect(item.questionId, item.question.answer)).length;
-});
-const wrongCount = computed<number>(() => totalQuestions.value - correctCount.value);
+/** 客观题（含填空）——可自动判分；简答题人工阅卷，不计入对错统计 */
+const gradableQuestions = computed<PaperSnapshotQuestion[]>(() =>
+  (record.value?.paperSnapshot.questions ?? []).filter((q) => q.question.type !== 'short'),
+);
+
+function questionCorrect(q: Question): boolean {
+  return isAnswerCorrect(q, userAnswer(q.id));
+}
+
+/** 答对 / 答错题数与正确率（仅客观 + 填空；简答不计入） */
+const correctCount = computed<number>(
+  () => gradableQuestions.value.filter((q) => questionCorrect(q.question)).length,
+);
+const gradableCount = computed<number>(() => gradableQuestions.value.length);
+const wrongCount = computed<number>(() => gradableCount.value - correctCount.value);
 const accuracy = computed<number>(() =>
-  totalQuestions.value === 0 ? 0 : Math.round((correctCount.value / totalQuestions.value) * 100),
+  gradableCount.value === 0 ? 0 : Math.round((correctCount.value / gradableCount.value) * 100),
 );
 
 /** 明细弹窗筛选：全部 / 仅答错（题号始终沿用原始全局索引） */
@@ -92,7 +105,9 @@ const detailFilter = ref<'all' | 'wrong'>('all');
 const detailQuestions = computed<{ item: PaperSnapshotQuestion; index: number }[]>(() => {
   const questions = (record.value?.paperSnapshot.questions ?? []).map((item, index) => ({ item, index }));
   if (detailFilter.value === 'wrong') {
-    return questions.filter(({ item }) => !questionCorrect(item.questionId, item.question.answer));
+    return questions.filter(
+      ({ item }) => item.question.type !== 'short' && !questionCorrect(item.question),
+    );
   }
   return questions;
 });
@@ -117,12 +132,53 @@ const cheatAbnormal = computed<boolean>(
     cheatTotalSeconds.value >= settingsStore.settings.cheatSecondsThreshold,
 );
 
-function userAnswer(questionId: string): number[] {
+function userAnswer(questionId: string): number[] | string[] {
   return record.value?.answers[questionId] ?? [];
 }
 
-function questionCorrect(questionId: string, correct: number[]): boolean {
-  return isAnswerCorrect(correct, userAnswer(questionId));
+/* ------------------------------ 展示辅助 ------------------------------ */
+
+function isObjectiveType(type: QuestionType): boolean {
+  return type === 'single' || type === 'multiple' || type === 'judge';
+}
+
+type QStatus = 'correct' | 'wrong' | 'pending' | 'scored';
+
+function qStatus(q: PaperSnapshotQuestion): QStatus {
+  if (q.question.type === 'short') return isPendingReview.value ? 'pending' : 'scored';
+  return questionCorrect(q.question) ? 'correct' : 'wrong';
+}
+
+/** 主观题阅卷得分（未阅卷返回 null） */
+function subjectiveScore(questionId: string): number | null {
+  const s = record.value?.subjectiveScores?.[questionId];
+  return typeof s === 'number' ? s : null;
+}
+
+/** 客观题答案文案 */
+function objectiveAnswerText(q: PaperSnapshotQuestion): string {
+  const user = userAnswer(q.questionId) as number[];
+  const correct = q.question.answer as number[];
+  return `你的答案：${user.map((i) => optionLetter(i)).join('') || '未作答'} ／ 正确答案：${correct
+    .map((i) => optionLetter(i))
+    .join('')}`;
+}
+
+/** 填空逐空对比行 */
+function fillRows(q: PaperSnapshotQuestion): Array<{ no: number; user: string; correct: string }> {
+  const correct = q.question.answer as string[];
+  const user = userAnswer(q.questionId) as string[];
+  return correct.map((c, i) => ({ no: i + 1, user: user[i] ?? '', correct: c }));
+}
+
+/** 简答：考生作答文本 */
+function shortUserText(questionId: string): string {
+  return (userAnswer(questionId) as string[])[0] ?? '';
+}
+
+/** 简答：参考答案文本 */
+function shortReference(q: PaperSnapshotQuestion): string {
+  return (q.question.answer as string[])[0] ?? '';
 }
 
 function back(): void {
@@ -168,21 +224,41 @@ onMounted(async () => {
     <EmptyState v-else-if="inProgressByAdmin" text="该记录尚未交卷，暂无可查看的成绩" />
 
     <template v-else>
+      <!-- 待阅卷提示 -->
+      <el-alert
+        v-if="isPendingReview"
+        class="score-detail__pending"
+        type="warning"
+        :closable="false"
+        show-icon
+        title="答卷已提交，待人工阅卷"
+        description="本卷含简答题，当前仅显示客观题（含填空）自动判分结果；待阅卷完成后公布最终成绩。"
+      />
+
       <!-- 结果卡：一屏内看完的结论性信息 -->
       <el-card
         class="score-detail__result"
         shadow="never"
-        :class="passed ? 'score-detail__result--pass' : 'score-detail__result--fail'"
+        :class="isPendingReview ? '' : passed ? 'score-detail__result--pass' : 'score-detail__result--fail'"
       >
         <div class="score-detail__hero">
           <div class="score-detail__score-block">
             <div class="score-detail__score-wrap">
-              <div class="score-detail__score num" :class="passed ? 'is-pass' : 'is-fail'">
+              <div
+                class="score-detail__score num"
+                :class="isPendingReview ? '' : passed ? 'is-pass' : 'is-fail'"
+              >
                 {{ formatScore(record.score) }}
                 <span class="score-detail__score-total">/ {{ formatScore(record.paperSnapshot.totalScore) }}</span>
               </div>
               <div class="score-detail__pass">
-                <template v-if="passScore !== null">
+                <template v-if="isPendingReview">
+                  <el-tag size="large" effect="dark" type="warning">
+                    <el-icon class="score-detail__pass-icon"><Clock /></el-icon>待阅卷
+                  </el-tag>
+                  <span class="score-detail__pass-hint">当前为客观题得分</span>
+                </template>
+                <template v-else-if="passScore !== null">
                   <el-tag size="large" effect="dark" :type="passed ? 'success' : 'danger'">
                     {{ passed ? '合格' : '不合格' }}
                   </el-tag>
@@ -286,8 +362,9 @@ onMounted(async () => {
             class="score-detail__question"
             shadow="never"
             :class="{
-              'score-detail__question--correct': questionCorrect(item.questionId, item.question.answer),
-              'score-detail__question--wrong': !questionCorrect(item.questionId, item.question.answer),
+              'score-detail__question--correct': qStatus(item) === 'correct',
+              'score-detail__question--wrong': qStatus(item) === 'wrong',
+              'score-detail__question--pending': qStatus(item) === 'pending' || qStatus(item) === 'scored',
             }"
           >
             <div class="score-detail__qhead">
@@ -296,46 +373,108 @@ onMounted(async () => {
                 {{ QUESTION_TYPE_LABELS[item.question.type as QuestionType] }}
               </el-tag>
               <el-tag size="small" type="info" effect="plain">{{ formatScore(item.score) }} 分</el-tag>
+
+              <!-- 客观/填空：答对答错 -->
               <el-tag
+                v-if="qStatus(item) === 'correct' || qStatus(item) === 'wrong'"
                 size="small"
                 effect="dark"
-                :type="questionCorrect(item.questionId, item.question.answer) ? 'success' : 'danger'"
+                :type="qStatus(item) === 'correct' ? 'success' : 'danger'"
               >
                 <el-icon class="score-detail__qresult-icon">
-                  <CircleCheck v-if="questionCorrect(item.questionId, item.question.answer)" />
+                  <CircleCheck v-if="qStatus(item) === 'correct'" />
                   <CircleClose v-else />
                 </el-icon>
-                {{ questionCorrect(item.questionId, item.question.answer) ? '答对' : '答错' }}
+                {{ qStatus(item) === 'correct' ? '答对' : '答错' }}
+              </el-tag>
+              <!-- 简答：待阅卷 / 已阅卷 -->
+              <el-tag v-else-if="qStatus(item) === 'pending'" size="small" effect="dark" type="warning">
+                待阅卷
+              </el-tag>
+              <el-tag v-else size="small" effect="dark" type="success">
+                得分 {{ formatScore(subjectiveScore(item.questionId) ?? 0) }}
               </el-tag>
             </div>
 
             <p class="score-detail__stem">{{ item.question.stem }}</p>
 
-            <ul class="score-detail__options">
-              <li
-                v-for="(option, optIndex) in item.question.options"
-                :key="optIndex"
-                class="score-detail__option"
-                :class="{
-                  'score-detail__option--correct': item.question.answer.includes(optIndex),
-                  'score-detail__option--chosen': userAnswer(item.questionId).includes(optIndex),
-                }"
-              >
-                <span class="score-detail__option-letter">{{ optionLetter(optIndex) }}</span>
-                <span class="score-detail__option-text">{{ option }}</span>
-                <el-tag v-if="item.question.answer.includes(optIndex)" size="small" type="success" effect="plain">
-                  正确答案
-                </el-tag>
-                <el-tag v-if="userAnswer(item.questionId).includes(optIndex)" size="small" type="primary" effect="plain">
-                  你的选择
-                </el-tag>
-              </li>
-            </ul>
+            <!-- 客观题：选项 + 答案行 -->
+            <template v-if="isObjectiveType(item.question.type)">
+              <ul class="score-detail__options">
+                <li
+                  v-for="(option, optIndex) in item.question.options"
+                  :key="optIndex"
+                  class="score-detail__option"
+                  :class="{
+                    'score-detail__option--correct': (item.question.answer as number[]).includes(optIndex),
+                    'score-detail__option--chosen': (userAnswer(item.questionId) as number[]).includes(optIndex),
+                  }"
+                >
+                  <span class="score-detail__option-letter">{{ optionLetter(optIndex) }}</span>
+                  <span class="score-detail__option-text">{{ option }}</span>
+                  <el-tag
+                    v-if="(item.question.answer as number[]).includes(optIndex)"
+                    size="small"
+                    type="success"
+                    effect="plain"
+                  >
+                    正确答案
+                  </el-tag>
+                  <el-tag
+                    v-if="(userAnswer(item.questionId) as number[]).includes(optIndex)"
+                    size="small"
+                    type="primary"
+                    effect="plain"
+                  >
+                    你的选择
+                  </el-tag>
+                </li>
+              </ul>
 
-            <p class="score-detail__answer-line">
-              你的答案：{{ userAnswer(item.questionId).map((i) => optionLetter(i)).join('') || '未作答' }}
-              ／ 正确答案：{{ item.question.answer.map((i) => optionLetter(i)).join('') }}
-            </p>
+              <p class="score-detail__answer-line">{{ objectiveAnswerText(item) }}</p>
+            </template>
+
+            <!-- 填空：逐空对比 -->
+            <template v-else-if="item.question.type === 'fill'">
+              <ul class="score-detail__fills">
+                <li v-for="row in fillRows(item)" :key="row.no" class="score-detail__fill">
+                  <span class="score-detail__fill-no">第 {{ row.no }} 空</span>
+                  <span class="score-detail__fill-cell score-detail__fill-cell--user">
+                    {{ row.user || '未作答' }}
+                  </span>
+                  <span class="score-detail__fill-cell score-detail__fill-cell--correct">
+                    {{ row.correct }}
+                  </span>
+                  <el-tag
+                    :type="row.user.trim().toLowerCase() === row.correct.trim().toLowerCase() ? 'success' : 'danger'"
+                    size="small"
+                    effect="plain"
+                  >
+                    {{ row.user.trim().toLowerCase() === row.correct.trim().toLowerCase() ? '正确' : '错误' }}
+                  </el-tag>
+                </li>
+              </ul>
+            </template>
+
+            <!-- 简答：你的答案 + 参考答案 + 得分 -->
+            <template v-else>
+              <div class="score-detail__short">
+                <div class="score-detail__short-row">
+                  <span class="score-detail__short-label">你的答案</span>
+                  <span class="score-detail__short-text">{{ shortUserText(item.questionId) || '未作答' }}</span>
+                </div>
+                <div class="score-detail__short-row score-detail__short-row--ref">
+                  <span class="score-detail__short-label">参考答案</span>
+                  <span class="score-detail__short-text">{{ shortReference(item) }}</span>
+                </div>
+                <div v-if="subjectiveScore(item.questionId) !== null" class="score-detail__short-row">
+                  <span class="score-detail__short-label">阅卷得分</span>
+                  <strong class="score-detail__short-score">
+                    {{ formatScore(subjectiveScore(item.questionId)!) }} / {{ formatScore(item.score) }}
+                  </strong>
+                </div>
+              </div>
+            </template>
 
             <el-alert
               v-if="item.question.analysis"
@@ -388,6 +527,10 @@ onMounted(async () => {
 @use '@/styles/variables.scss' as *;
 
 .score-detail {
+  &__pending {
+    margin-bottom: 16px;
+  }
+
   &__result {
     border-radius: $radius-lg;
     overflow: hidden;
@@ -451,6 +594,11 @@ onMounted(async () => {
     display: inline-flex;
     align-items: center;
     gap: 8px;
+  }
+
+  &__pass-icon {
+    margin-right: 4px;
+    vertical-align: -2px;
   }
 
   &__pass-hint {
@@ -615,6 +763,10 @@ onMounted(async () => {
     &--wrong {
       border-left-color: $color-error;
     }
+
+    &--pending {
+      border-left-color: $color-warning;
+    }
   }
 
   &__qhead {
@@ -677,6 +829,80 @@ onMounted(async () => {
     margin: 12px 0 0;
     font-size: 13px;
     color: $text-secondary;
+  }
+
+  &__fills {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__fill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: $radius-sm;
+    font-size: 13px;
+    color: $text-primary;
+
+    &-no {
+      flex: 0 0 52px;
+      font-weight: 600;
+      color: $text-secondary;
+    }
+
+    &-cell {
+      flex: 1;
+      min-width: 0;
+      padding: 6px 10px;
+      border-radius: $radius-sm;
+      border: 1px solid $border-color;
+      word-break: break-word;
+
+      &--correct {
+        background: rgba($color-success, 0.08);
+      }
+    }
+  }
+
+  &__short {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &__short-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 13px;
+
+    &--ref {
+      padding: 8px 10px;
+      border-radius: $radius-sm;
+      background: $color-primary-soft;
+      border: 1px solid rgba($color-primary, 0.16);
+    }
+  }
+
+  &__short-label {
+    flex: 0 0 64px;
+    font-weight: 600;
+    color: $text-secondary;
+  }
+
+  &__short-text {
+    flex: 1;
+    min-width: 0;
+    color: $text-primary;
+    line-height: 1.6;
+    word-break: break-word;
+  }
+
+  &__short-score {
+    color: $color-primary;
+    font-size: 14px;
   }
 
   &__analysis {

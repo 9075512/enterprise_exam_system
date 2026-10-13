@@ -7,13 +7,13 @@
 export type Role = 'admin' | 'author' | 'examinee';
 
 /** 题型：单选 / 多选 / 判断 */
-export type QuestionType = 'single' | 'multiple' | 'judge';
+export type QuestionType = 'single' | 'multiple' | 'judge' | 'fill' | 'short';
 
 /** 账号状态 */
 export type UserStatus = 'active' | 'disabled';
 
-/** 考试记录状态 */
-export type RecordStatus = 'in_progress' | 'submitted';
+/** 考试记录状态（pending_review：含主观题待人工阅卷） */
+export type RecordStatus = 'in_progress' | 'submitted' | 'pending_review';
 
 /** 科室 DTO */
 export interface DepartmentDto {
@@ -85,10 +85,15 @@ export interface QuestionDto {
   bankId: string;
   type: QuestionType;
   stem: string;
-  /** 选项文本数组（判断题固定 ['正确','错误']） */
+  /** 选项文本数组（判断题固定 ['正确','错误']；填空/简答为空数组） */
   options: string[];
-  /** 正确答案：选项索引数组；单选/判断恒长度 1；多选升序 */
-  answer: number[];
+  /**
+   * 正确答案：
+   * - 单选/多选/判断：选项索引数组（单选/判断恒长度 1；多选升序）
+   * - 填空：逐空参考答案（文本数组，按空顺序，逐空 trim+忽略大小写匹配）
+   * - 简答：参考文本（长度 1 的文本数组，仅作阅卷参考，不自动判分）
+   */
+  answer: number[] | string[];
   defaultScore: number;
   analysis: string;
   subject: string;
@@ -287,8 +292,13 @@ export interface ExamRecordDto {
   departmentId: string;
   paperSnapshot: PaperSnapshot;
   status: RecordStatus;
-  /** 答案：Record<questionId, number[]>（多选升序） */
-  answers: Record<string, number[]>;
+  /**
+   * 答案：Record<questionId, number[] | string[]>。
+   * 客观题为选项索引数组（多选升序）；填空/简答为文本数组（按空顺序 / 单元素文本）。
+   */
+  answers: Record<string, number[] | string[]>;
+  /** 主观题阅卷得分：Record<questionId, number>（未阅卷为空对象） */
+  subjectiveScores: Record<string, number>;
   /** 开考时刻 ISO 8601 */
   startedAt: string;
   /** 交卷时刻 ISO 8601，未交卷为 null */

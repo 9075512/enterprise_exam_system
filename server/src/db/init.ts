@@ -38,6 +38,16 @@ async function columnExists(conn: mysql.Connection, table: string, column: strin
   return Number(rows[0]?.c ?? 0) > 0;
 }
 
+/** 判断某列 ENUM 是否已包含指定值（用于幂等扩 ENUM 成员）。 */
+async function enumHasValue(conn: mysql.Connection, table: string, column: string, value: string): Promise<boolean> {
+  const [rows] = await conn.query<mysql.RowDataPacket[]>(
+    `SELECT COLUMN_TYPE FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+    [DB_NAME, table, column],
+  );
+  return String(rows[0]?.COLUMN_TYPE ?? '').includes(`'${value}'`);
+}
+
 /** 判断某索引是否存在（information_schema）。 */
 async function indexExists(conn: mysql.Connection, table: string, index: string): Promise<boolean> {
   const [rows] = await conn.query<mysql.RowDataPacket[]>(
@@ -123,6 +133,45 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
   if (!(await indexExists(conn, 'practice_answers', 'idx_pa_user_answered'))) {
     await conn.query(`ALTER TABLE practice_answers ADD KEY idx_pa_user_answered (user_id, answered_at)`);
     changes.push('practice_answers.idx_pa_user_answered');
+  }
+
+  // v1.6：题型扩展（填空/简答）
+  if (!(await enumHasValue(conn, 'questions', 'type', 'fill'))) {
+    await conn.query(`ALTER TABLE questions MODIFY type ENUM('single','multiple','judge','fill','short') NOT NULL`);
+    changes.push('questions.type +fill/short');
+  }
+
+  // v1.6：记录状态（待人工阅卷）+ 主观题得分列
+  if (!(await enumHasValue(conn, 'exam_records', 'status', 'pending_review'))) {
+    await conn.query(
+      `ALTER TABLE exam_records MODIFY status ENUM('in_progress','submitted','pending_review') NOT NULL DEFAULT 'in_progress'`,
+    );
+    changes.push('exam_records.status +pending_review');
+  }
+  if (!(await columnExists(conn, 'exam_records', 'subjective_scores'))) {
+    await conn.query(`ALTER TABLE exam_records ADD COLUMN subjective_scores JSON NOT NULL AFTER score`);
+    changes.push('exam_records.subjective_scores');
+  }
+
+  // v1.6：菜单权限目录新增「人工阅卷」（defaultRoles: admin/author）。
+  // 若已有角色权限行（admin 曾在菜单权限页保存过），需把新菜单合并进去，否则会看不到新入口。
+  const [menuRows] = await conn.query<mysql.RowDataPacket[]>(`SELECT role, menu_keys FROM menu_permissions`);
+  for (const mr of menuRows) {
+    const role = String(mr.role);
+    if (role !== 'admin' && role !== 'author') continue;
+    let keys: string[] = [];
+    try {
+      const raw = typeof mr.menu_keys === 'string' ? mr.menu_keys : JSON.stringify(mr.menu_keys ?? []);
+      const parsed = JSON.parse(raw);
+      keys = Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch {
+      keys = [];
+    }
+    if (!keys.includes('reviews')) {
+      keys.push('reviews');
+      await conn.query(`UPDATE menu_permissions SET menu_keys = ? WHERE role = ?`, [JSON.stringify(keys), role]);
+      changes.push(`menu_permissions.${role} +reviews`);
+    }
   }
 
   console.log(

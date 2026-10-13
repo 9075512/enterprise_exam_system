@@ -9,6 +9,7 @@
  * 纯函数、无副作用、无外部依赖（仅依赖类型）。同一 seed 结果完全一致（可复现 / 审计）。
  */
 import type { PaperSnapshot, PaperSnapshotQuestion } from '../types/domain.js';
+import { isObjectiveType } from './grading.js';
 
 /**
  * 由种子字符串生成可复现的 [0,1) 伪随机函数（FNV-1a 散列 + mulberry32）。
@@ -58,14 +59,16 @@ export function shuffleSnapshot(
       return { ...sq, question: { ...sq.question } };
     }
     const opts = sq.question.options;
-    if (opts.length <= 1) {
+    // 填空/简答题无选项，或客观题选项不足以乱序时，保持原样
+    if (opts.length <= 1 || !isObjectiveType(sq.question.type)) {
       return { ...sq, question: { ...sq.question, options: [...opts] } };
     }
     const order = shuffleArray(opts.map((_, idx) => idx), rnd);
     const posMap = new Map<number, number>();
     order.forEach((oldIdx, newIdx) => posMap.set(oldIdx, newIdx));
     const newOptions = order.map((oldIdx) => opts[oldIdx]);
-    const newAnswer = sq.question.answer.map((oldIdx) => posMap.get(oldIdx) ?? oldIdx).sort((a, b) => a - b);
+    const rawAnswer = sq.question.answer as number[];
+    const newAnswer = rawAnswer.map((oldIdx) => posMap.get(oldIdx) ?? oldIdx).sort((a, b) => a - b);
     return {
       ...sq,
       question: { ...sq.question, options: newOptions, answer: newAnswer },

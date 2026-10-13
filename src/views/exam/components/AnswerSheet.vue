@@ -9,14 +9,14 @@ import type { QuestionType } from '@/types';
 
 const props = defineProps<{
   questions: { id: string; type: QuestionType }[];
-  answers: Record<string, number[]>;
+  answers: Record<string, number[] | string[]>;
   currentIndex: number;
 }>();
 
 const emit = defineEmits<{ (e: 'jump', index: number): void }>();
 
-/** 分组固定顺序 */
-const TYPE_ORDER: QuestionType[] = ['single', 'multiple', 'judge'];
+/** 分组固定顺序（与后端组卷展示顺序一致） */
+const TYPE_ORDER: QuestionType[] = ['single', 'multiple', 'judge', 'fill', 'short'];
 
 interface GroupItem {
   /** 全局题号（原始索引 + 1），始终按原顺序编号 */
@@ -240,6 +240,14 @@ function onJump(index: number): void {
 
     &--judge {
       background: $color-warning;
+    }
+
+    &--fill {
+      background: $color-success;
+    }
+
+    &--short {
+      background: $text-disabled;
     }
   }
 

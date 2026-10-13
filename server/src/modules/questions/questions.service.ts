@@ -23,23 +23,29 @@ export interface NormalizedQuestion {
   type: QuestionType;
   stem: string;
   options: string[];
-  answer: number[];
+  answer: number[] | string[];
   defaultScore: number;
   analysis: string;
   subject: string;
 }
 
+/** 分值归一（> 0 且 ≤ MAX_SCORE）。 */
+function normalizeScore(raw: unknown): number {
+  const defaultScore = Number(raw ?? 10);
+  if (!Number.isFinite(defaultScore) || defaultScore <= 0) throw badRequest('分值必须为正数');
+  if (defaultScore > MAX_SCORE) throw badRequest(`分值不能超过 ${MAX_SCORE}`);
+  return defaultScore;
+}
+
 /**
  * 校验并归一化试题入参。
- * 与 v1.0 `questionService.save` 规则一致：题干非空；选项去空非空、≥2 且 ≤6；
- * 判断题强制两选项；答案去重升序；单选/判断恰 1 个、多选 ≥2 个；索引不越界；分值 > 0 且 ≤ 9999。
- * 失败抛 AppError(1001)。
+ * 客观题（单选/多选/判断）规则与 v1.0 一致；填空/简答为文本答案、无选项。
  */
 export function normalizeQuestion(input: {
   type: QuestionType;
   stem: string;
   options?: string[];
-  answer?: number[];
+  answer?: Array<number | string>;
   defaultScore?: number;
   analysis?: string;
   subject?: string;
@@ -48,11 +54,24 @@ export function normalizeQuestion(input: {
   if (!stem) throw badRequest('题干不能为空');
 
   const type = input.type;
-  const rawOptions = Array.isArray(input.options) ? input.options.map((o) => String(o).trim()) : [];
 
+  // 填空 / 简答：无选项，答案为文本数组
+  if (type === 'fill' || type === 'short') {
+    const answer = (Array.isArray(input.answer) ? input.answer : [])
+      .map((a) => String(a ?? '').trim())
+      .filter((s) => s !== '');
+    if (answer.length === 0) {
+      throw badRequest(type === 'fill' ? '请填写每空的参考答案' : '请填写参考答案');
+    }
+    const analysis = String(input.analysis ?? '').trim();
+    const subject = String(input.subject ?? '').trim() || '未分类';
+    return { type, stem, options: [], answer, defaultScore: normalizeScore(input.defaultScore), analysis, subject };
+  }
+
+  // 客观题（single / multiple / judge）
+  const rawOptions = Array.isArray(input.options) ? input.options.map((o) => String(o).trim()) : [];
   let options: string[];
   if (type === 'judge') {
-    // 判断题选项强制为 ['正确','错误']
     options = [...JUDGE_OPTIONS];
   } else {
     if (rawOptions.some((o) => !o)) throw badRequest('选项内容不能为空');
@@ -75,14 +94,10 @@ export function normalizeQuestion(input: {
     throw badRequest('正确答案的选项索引越界');
   }
 
-  const defaultScore = Number(input.defaultScore ?? 10);
-  if (!Number.isFinite(defaultScore) || defaultScore <= 0) throw badRequest('分值必须为正数');
-  if (defaultScore > MAX_SCORE) throw badRequest(`分值不能超过 ${MAX_SCORE}`);
-
   const analysis = String(input.analysis ?? '').trim();
   const subject = String(input.subject ?? '').trim() || '未分类';
 
-  return { type, stem, options, answer, defaultScore, analysis, subject };
+  return { type, stem, options, answer, defaultScore: normalizeScore(input.defaultScore), analysis, subject };
 }
 
 /** 题库内试题列表（筛选 + 分页）。 */
@@ -141,7 +156,7 @@ export async function create(
     type: QuestionType;
     stem: string;
     options?: string[];
-    answer?: number[];
+    answer?: Array<number | string>;
     defaultScore?: number;
     analysis?: string;
     subject?: string;
@@ -168,7 +183,7 @@ export async function update(
     type: QuestionType;
     stem: string;
     options?: string[];
-    answer?: number[];
+    answer?: Array<number | string>;
     defaultScore?: number;
     analysis?: string;
     subject?: string;

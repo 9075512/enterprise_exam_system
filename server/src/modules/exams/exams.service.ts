@@ -110,7 +110,7 @@ export async function listForExaminee(userId: string, departmentId: string): Pro
   const latestSubmitted = new Map<string, number>(); // exam_id → 最近一次已交卷分数
   const prevAttempt = new Map<string, number>(); // exam_id → 已交卷的最大 attempt_no
   for (const r of records) {
-    if (r.status === 'submitted') {
+    if (r.status === 'submitted' || r.status === 'pending_review') {
       usedMap.set(r.exam_id, (usedMap.get(r.exam_id) ?? 0) + 1);
       if (!statusMap.has(r.exam_id)) statusMap.set(r.exam_id, 'submitted');
       const attemptNo = Number(r.attempt_no);

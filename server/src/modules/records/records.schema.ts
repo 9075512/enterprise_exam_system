@@ -4,9 +4,9 @@
 import { z } from 'zod';
 import { paginationQuery } from '../../utils/pagination.js';
 
-/** 暂存答案入参。 */
+/** 暂存答案入参（客观题为选项索引数组；填空/简答为文本数组）。 */
 export const saveAnswersSchema = z.object({
-  answers: z.record(z.string(), z.array(z.coerce.number().int())),
+  answers: z.record(z.string(), z.array(z.union([z.number(), z.string()]))),
 });
 
 /** 切屏事件入参。 */
@@ -17,6 +17,11 @@ export const cheatEventSchema = z.object({
 /** 交卷入参。 */
 export const submitSchema = z.object({
   auto: z.boolean().optional().default(false),
+});
+
+/** 人工阅卷入参（逐题主观分）。 */
+export const reviewSchema = z.object({
+  subjectiveScores: z.record(z.string(), z.number()),
 });
 
 /** 我的成绩列表入参（可选按考试名称关键字筛选）。 */
@@ -34,4 +39,9 @@ export const examRecordsQuerySchema = z.object({
 /** 切屏审查入参（examId 必填，无分页）。 */
 export const cheatQuerySchema = z.object({
   examId: z.string().min(1, '请指定考试'),
+});
+
+/** 待阅卷列表入参（分页）。 */
+export const pendingQuerySchema = z.object({
+  ...paginationQuery,
 });

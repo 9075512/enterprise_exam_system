@@ -3,8 +3,9 @@
  * 试题新建 / 编辑弹窗（W3-T4，新建/编辑复用）。
  * - v-model:visible 控制；question 有值 = 编辑。
  * - 题型切换会重置答案；判断题选项固定 ['正确','错误'] 且禁止增删。
- * - 选项动态列表 A~F（MIN_OPTIONS=2，MAX_OPTIONS=6）。
- * - 提交前本地校验：题干非空、选项非空且 ≥2、答案数量符合题型、分值 > 0。
+ * - 选项动态列表 A~F（MIN_OPTIONS=2，MAX_OPTIONS=6），仅客观题显示。
+ * - 填空：多空参考答案（逐空文本，题干用 ___ 标记）；简答：参考文本。
+ * - 提交前本地校验：题干非空、客观题选项/答案数量、填空/简答参考非空、分值 > 0。
  *   后端会再校验一遍（normalizeQuestion），错误由拦截器统一提示。
  */
 import { computed, reactive, ref, watch } from 'vue';
@@ -42,17 +43,32 @@ const dialogVisible = computed<boolean>({
 
 const isEdit = computed<boolean>(() => Boolean(props.question?.id));
 
+/** 填空最大空数 */
+const MAX_FILL_BLANKS = 10;
+
 const form = reactive({
   type: 'single' as QuestionType,
   stem: '',
   options: ['', ''] as string[],
+  /** 客观题答案：选项索引数组 */
   answer: [] as number[],
+  /** 填空题参考答案：逐空文本数组 */
+  fillAnswers: [''] as string[],
+  /** 简答题参考答案文本 */
+  shortAnswer: '',
   defaultScore: 10,
   analysis: '',
   subject: '',
 });
 
 const submitting = ref(false);
+
+/** 客观题（有选项、自动判分） */
+const isObjective = computed<boolean>(
+  () => form.type === 'single' || form.type === 'multiple' || form.type === 'judge',
+);
+const isFill = computed<boolean>(() => form.type === 'fill');
+const isShort = computed<boolean>(() => form.type === 'short');
 
 /** 是否已是判断题固定选项 */
 function isJudgeOptions(options: string[]): boolean {
@@ -70,7 +86,19 @@ function resetForm(): void {
     form.type = q.type;
     form.stem = q.stem;
     form.options = q.type === 'judge' ? [...JUDGE_OPTIONS] : [...q.options];
-    form.answer = [...q.answer];
+    if (q.type === 'fill') {
+      form.fillAnswers = (q.answer as string[]).length > 0 ? [...(q.answer as string[])] : [''];
+      form.answer = [];
+      form.shortAnswer = '';
+    } else if (q.type === 'short') {
+      form.shortAnswer = (q.answer as string[])[0] ?? '';
+      form.fillAnswers = [''];
+      form.answer = [];
+    } else {
+      form.answer = [...(q.answer as number[])];
+      form.fillAnswers = [''];
+      form.shortAnswer = '';
+    }
     form.defaultScore = q.defaultScore;
     form.analysis = q.analysis;
     form.subject = q.subject;
@@ -79,6 +107,8 @@ function resetForm(): void {
     form.stem = '';
     form.options = ['', ''];
     form.answer = [];
+    form.fillAnswers = [''];
+    form.shortAnswer = '';
     form.defaultScore = 10;
     form.analysis = '';
     form.subject = props.defaultSubject ?? '';
@@ -97,10 +127,14 @@ const canAddOption = computed<boolean>(() => !isJudge.value && form.options.leng
 const canRemoveOption = computed<boolean>(
   () => !isJudge.value && form.options.length > MIN_OPTIONS,
 );
+const canAddBlank = computed<boolean>(() => form.fillAnswers.length < MAX_FILL_BLANKS);
+const canRemoveBlank = computed<boolean>(() => form.fillAnswers.length > 1);
 
 /** 题型切换：清空答案，并按新题型修正选项 */
 function onTypeChange(): void {
   form.answer = [];
+  form.fillAnswers = [''];
+  form.shortAnswer = '';
   if (form.type === 'judge') {
     form.options = [...JUDGE_OPTIONS];
   } else if (isJudgeOptions(form.options) || form.options.length < MIN_OPTIONS) {
@@ -121,10 +155,23 @@ function removeOption(index: number): void {
     .map((i) => (i > index ? i - 1 : i));
 }
 
+function addBlank(): void {
+  if (canAddBlank.value) form.fillAnswers.push('');
+}
+
+function removeBlank(index: number): void {
+  if (!canRemoveBlank.value) return;
+  form.fillAnswers.splice(index, 1);
+}
+
 /** 本地校验，返回错误文案或 null */
 function validateLocal(): string | null {
   if (!form.stem.trim()) return '题干不能为空';
-  if (form.type === 'judge') {
+  if (form.type === 'fill') {
+    if (form.fillAnswers.some((a) => !a.trim())) return '请填写每空的参考答案';
+  } else if (form.type === 'short') {
+    if (!form.shortAnswer.trim()) return '请填写参考答案';
+  } else if (form.type === 'judge') {
     if (form.answer.length !== 1) return '请设置正确答案';
   } else {
     const options = form.options.map((o) => o.trim());
@@ -147,14 +194,29 @@ async function handleSubmit(): Promise<void> {
     return;
   }
 
+  // 组合 answer：客观题=索引数组；填空=逐空文本；简答=单元素文本数组
+  let answer: number[] | string[];
+  if (form.type === 'fill') {
+    answer = form.fillAnswers.map((s) => s.trim());
+  } else if (form.type === 'short') {
+    answer = [form.shortAnswer.trim()];
+  } else {
+    answer = [...form.answer].sort((a, b) => a - b);
+  }
+
   submitting.value = true;
   try {
     const payload = {
       bankId: props.bankId,
       type: form.type,
       stem: form.stem.trim(),
-      options: form.type === 'judge' ? [...JUDGE_OPTIONS] : form.options.map((o) => o.trim()),
-      answer: [...form.answer].sort((a, b) => a - b),
+      options:
+        form.type === 'judge'
+          ? [...JUDGE_OPTIONS]
+          : isObjective.value
+            ? form.options.map((o) => o.trim())
+            : [],
+      answer,
       defaultScore: form.defaultScore,
       analysis: form.analysis.trim(),
       subject: form.subject.trim() || props.defaultSubject || '',
@@ -210,11 +272,11 @@ function handleCancel(): void {
           :rows="2"
           maxlength="1000"
           show-word-limit
-          placeholder="请输入题干"
+          :placeholder="isFill ? '请输入题干，用 ___ 标记每个空' : '请输入题干'"
         />
       </el-form-item>
 
-      <el-form-item label="选项">
+      <el-form-item v-if="isObjective" label="选项">
         <div class="option-list">
           <div v-for="(_, index) in form.options" :key="index" class="option-row">
             <span class="option-row__letter">{{ optionLetter(index) }}</span>
@@ -244,27 +306,51 @@ function handleCancel(): void {
         </div>
       </el-form-item>
 
-      <el-form-item label="正确答案">
+      <el-form-item :label="isFill ? '参考答案（逐空）' : '正确答案'">
         <!-- 单选 / 判断：单选一组 -->
-        <el-radio-group v-if="form.type !== 'multiple'" v-model="form.answer[0]">
-          <el-radio
-            v-for="(opt, index) in form.options"
-            :key="index"
-            :value="index"
-          >
+        <el-radio-group
+          v-if="form.type === 'single' || form.type === 'judge'"
+          v-model="form.answer[0]"
+        >
+          <el-radio v-for="(opt, index) in form.options" :key="index" :value="index">
             {{ optionLetter(index) }}{{ opt ? ` · ${opt}` : '' }}
           </el-radio>
         </el-radio-group>
         <!-- 多选：复选一组 -->
-        <el-checkbox-group v-else v-model="form.answer">
-          <el-checkbox
-            v-for="(opt, index) in form.options"
-            :key="index"
-            :value="index"
-          >
+        <el-checkbox-group v-else-if="form.type === 'multiple'" v-model="form.answer">
+          <el-checkbox v-for="(opt, index) in form.options" :key="index" :value="index">
             {{ optionLetter(index) }}{{ opt ? ` · ${opt}` : '' }}
           </el-checkbox>
         </el-checkbox-group>
+        <!-- 填空：逐空参考答案 -->
+        <div v-else-if="form.type === 'fill'" class="fill-list">
+          <div v-for="(_, index) in form.fillAnswers" :key="index" class="fill-row">
+            <span class="fill-row__label">第 {{ index + 1 }} 空</span>
+            <el-input v-model="form.fillAnswers[index]" placeholder="参考答案" />
+            <el-button
+              type="danger"
+              link
+              :icon="Delete"
+              :disabled="!canRemoveBlank"
+              @click="removeBlank(index)"
+            >
+              删除
+            </el-button>
+          </div>
+          <el-button class="fill-list__add" :icon="Plus" :disabled="!canAddBlank" @click="addBlank">
+            添加空
+          </el-button>
+        </div>
+        <!-- 简答：参考答案文本 -->
+        <el-input
+          v-else-if="form.type === 'short'"
+          v-model="form.shortAnswer"
+          type="textarea"
+          :rows="3"
+          maxlength="1000"
+          show-word-limit
+          placeholder="请输入参考答案（供阅卷参考）"
+        />
       </el-form-item>
 
       <el-form-item label="分值">
@@ -316,6 +402,29 @@ function handleCancel(): void {
   &__letter {
     flex: 0 0 20px;
     text-align: center;
+    font-weight: 600;
+    color: $text-secondary;
+  }
+}
+
+.fill-list {
+  width: 100%;
+
+  &__add {
+    margin-top: 4px;
+  }
+}
+
+.fill-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+
+  &__label {
+    flex: 0 0 52px;
+    text-align: right;
+    font-size: 13px;
     font-weight: 600;
     color: $text-secondary;
   }

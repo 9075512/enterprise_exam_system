@@ -7,13 +7,13 @@ import { getExamStatus } from '../utils/examStatus.js';
 import type { ExamRecordDto, PaperSnapshot, QuestionDto, QuestionType } from '../types/domain.js';
 
 /** 构造仅含判分所需字段的题目。 */
-function q(type: QuestionType, answer: number[]): Pick<QuestionDto, 'type' | 'answer'> {
+function q(type: QuestionType, answer: number[] | string[]): Pick<QuestionDto, 'type' | 'answer'> {
   return { type, answer };
 }
 
 function recordWith(
   questions: Array<{ questionId: string; score: number; question: Pick<QuestionDto, 'type' | 'answer'> }>,
-  answers: Record<string, number[]>,
+  answers: Record<string, number[] | string[]>,
 ): ExamRecordDto {
   const snapshot: PaperSnapshot = {
     paperId: 'p',
@@ -48,6 +48,20 @@ describe('isAnswerCorrect', () => {
   it('空答案/未作答不得分', () => {
     expect(isAnswerCorrect(q('single', [0]), [])).toBe(false);
     expect(isAnswerCorrect(q('single', [0]), undefined)).toBe(false);
+  });
+
+  it('填空：逐空 trim + 忽略大小写匹配，全对才得分', () => {
+    expect(isAnswerCorrect(q('fill', ['北京', 'China']), [' 北京 ', 'china'])).toBe(true);
+    expect(isAnswerCorrect(q('fill', ['北京', 'China']), ['北京', 'china'])).toBe(true);
+    expect(isAnswerCorrect(q('fill', ['北京', 'China']), ['上海', 'china'])).toBe(false);
+    expect(isAnswerCorrect(q('fill', ['北京', 'China']), ['北京'])).toBe(false); // 漏空
+    expect(isAnswerCorrect(q('fill', ['北京']), [])).toBe(false);
+  });
+
+  it('简答：不自动判分（恒 false，人工阅卷给分）', () => {
+    expect(isAnswerCorrect(q('short', ['参考答案']), ['参考答案'])).toBe(false);
+    expect(isAnswerCorrect(q('short', ['参考答案']), [])).toBe(false);
+    expect(isAnswerCorrect(q('short', ['参考答案']), undefined)).toBe(false);
   });
 });
 
@@ -84,6 +98,18 @@ describe('grade', () => {
       { a: [0], b: [0] },
     );
     expect(grade(record)).toBe(0);
+  });
+
+  it('混合题型：填空自动判分、简答记 0（阅卷后补）', () => {
+    const record = recordWith(
+      [
+        { questionId: 'a', score: 5, question: q('fill', ['北京']) },
+        { questionId: 'b', score: 5, question: q('short', ['参考']) },
+        { questionId: 'c', score: 2, question: q('single', [0]) },
+      ],
+      { a: ['北京'], b: ['参考'], c: [0] },
+    );
+    expect(grade(record)).toBe(7); // 5 + 0 + 2
   });
 });
 

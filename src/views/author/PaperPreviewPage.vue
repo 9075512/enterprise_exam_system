@@ -14,7 +14,7 @@ import { formatScore, optionLetter } from '@/utils/format';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
-import type { QuestionType } from '@/types';
+import type { Question, QuestionType } from '@/types';
 
 const route = useRoute();
 const router = useRouter();
@@ -32,6 +32,20 @@ function goEdit(): void {
 
 function isCorrectAnswer(answer: readonly number[], index: number): boolean {
   return answer.includes(index);
+}
+
+/** 客观题：有选项、可标注正确答案 */
+function isObjective(type: QuestionType): boolean {
+  return type === 'single' || type === 'multiple' || type === 'judge';
+}
+
+/** 填空/简答参考答案展示文案 */
+function referenceText(question: Question): string {
+  if (question.type === 'fill') {
+    return (question.answer as string[]).map((a, i) => `第 ${i + 1} 空：${a}`).join('；');
+  }
+  if (question.type === 'short') return (question.answer as string[])[0] ?? '';
+  return '';
 }
 </script>
 
@@ -111,12 +125,12 @@ function isCorrectAnswer(answer: readonly number[], index: number): boolean {
 
         <p class="preview__question-stem">{{ item.question.stem }}</p>
 
-        <ul class="preview__options">
+        <ul v-if="isObjective(item.question.type)" class="preview__options">
           <li v-for="(option, optIndex) in item.question.options" :key="optIndex" class="preview__option">
             <span class="preview__option-letter">{{ optionLetter(optIndex) }}</span>
             <span class="preview__option-text">{{ option }}</span>
             <el-tag
-              v-if="isCorrectAnswer(item.question.answer, optIndex)"
+              v-if="isCorrectAnswer(item.question.answer as number[], optIndex)"
               size="small"
               type="success"
               effect="dark"
@@ -125,6 +139,11 @@ function isCorrectAnswer(answer: readonly number[], index: number): boolean {
             </el-tag>
           </li>
         </ul>
+
+        <div v-else class="preview__reference">
+          <span class="preview__reference-label">参考答案</span>
+          <span class="preview__reference-text">{{ referenceText(item.question) }}</span>
+        </div>
 
         <el-alert
           v-if="item.question.analysis"
@@ -238,6 +257,28 @@ function isCorrectAnswer(answer: readonly number[], index: number): boolean {
 
   &__analysis {
     margin-top: 12px;
+  }
+
+  &__reference {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: $radius-sm;
+    background: $color-primary-soft;
+    border: 1px solid rgba($color-primary, 0.16);
+    font-size: 13px;
+
+    &-label {
+      flex-shrink: 0;
+      font-weight: 600;
+      color: $color-primary;
+    }
+
+    &-text {
+      color: $text-primary;
+      line-height: 1.6;
+    }
   }
 }
 </style>

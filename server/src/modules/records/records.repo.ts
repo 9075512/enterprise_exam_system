@@ -8,7 +8,7 @@ import type { ExamRecordDetailRow, ExamRecordRow } from './records.mapper.js';
 export type { ExamRecordRow } from './records.mapper.js';
 
 const COLUMNS =
-  'id, exam_id, user_id, attempt_no, department_id, paper_snapshot, status, answers, started_at, submitted_at, auto_submitted, score, cheat_events';
+  'id, exam_id, user_id, attempt_no, department_id, paper_snapshot, status, answers, started_at, submitted_at, auto_submitted, score, subjective_scores, cheat_events';
 
 /**
  * 关联 `exams`（用于按考试名称筛选）时的记录列，全部显式加 `r.` 前缀，
@@ -16,7 +16,7 @@ const COLUMNS =
  */
 const RECORD_COLUMNS_R =
   'r.id, r.exam_id, r.user_id, r.attempt_no, r.department_id, r.paper_snapshot, r.status, r.answers, ' +
-  'r.started_at, r.submitted_at, r.auto_submitted, r.score, r.cheat_events';
+  'r.started_at, r.submitted_at, r.auto_submitted, r.score, r.subjective_scores, r.cheat_events';
 
 /**
  * 转义 LIKE 模式中的特殊字符：先转义反斜杠，再转义 `%` 与 `_`，
@@ -40,7 +40,7 @@ export async function findDetailById(id: string, exec?: SqlExecutor): Promise<Ex
   const rows = await runQuery<ExamRecordDetailRow[]>(
     exec,
     `SELECT r.id, r.exam_id, r.user_id, r.attempt_no, r.department_id, r.paper_snapshot, r.status, r.answers,
-            r.started_at, r.submitted_at, r.auto_submitted, r.score, r.cheat_events,
+            r.started_at, r.submitted_at, r.auto_submitted, r.score, r.subjective_scores, r.cheat_events,
             e.name AS exam_name, e.pass_score AS pass_score,
             u.name AS user_name, COALESCE(d.name, du.name, '') AS department_name
        FROM exam_records r
@@ -99,7 +99,10 @@ export async function findInProgressByExamAndUser(
   return rows[0] ?? null;
 }
 
-/** 某用户在某场考试下「已交卷」的次数（答题次数上限校验用）。 */
+/**
+ * 某用户在某场考试下「已交卷」的次数（答题次数上限校验用）。
+ * 含主观题的交卷进入 pending_review，同样占用一次答题次数，故与 submitted 一并计数。
+ */
 export async function countSubmittedByExamAndUser(
   examId: string,
   userId: string,
@@ -107,7 +110,8 @@ export async function countSubmittedByExamAndUser(
 ): Promise<number> {
   const rows = await runQuery<RowDataPacket[]>(
     exec,
-    `SELECT COUNT(*) AS c FROM exam_records WHERE exam_id = ? AND user_id = ? AND status = 'submitted'`,
+    `SELECT COUNT(*) AS c FROM exam_records
+       WHERE exam_id = ? AND user_id = ? AND status IN ('submitted', 'pending_review')`,
     [examId, userId],
   );
   return Number(rows[0]?.c ?? 0);
@@ -184,7 +188,7 @@ export async function countByExam(examId: string): Promise<number> {
 export async function listCheatByExam(examId: string): Promise<ExamRecordDetailRow[]> {
   return query<ExamRecordDetailRow[]>(
     `SELECT r.id, r.exam_id, r.user_id, r.attempt_no, r.department_id, r.paper_snapshot, r.status, r.answers,
-            r.started_at, r.submitted_at, r.auto_submitted, r.score, r.cheat_events,
+            r.started_at, r.submitted_at, r.auto_submitted, r.score, r.subjective_scores, r.cheat_events,
             e.name AS exam_name, e.pass_score AS pass_score,
             u.name AS user_name, COALESCE(d.name, du.name, '') AS department_name
        FROM exam_records r
@@ -217,8 +221,8 @@ export async function insert(
   await runQuery(
     exec,
     `INSERT INTO exam_records
-       (id, exam_id, user_id, attempt_no, department_id, paper_snapshot, status, answers, started_at, submitted_at, auto_submitted, score, cheat_events)
-     VALUES (?, ?, ?, ?, ?, ?, 'in_progress', ?, ?, NULL, 0, 0, ?)`,
+       (id, exam_id, user_id, attempt_no, department_id, paper_snapshot, status, answers, started_at, submitted_at, auto_submitted, score, subjective_scores, cheat_events)
+     VALUES (?, ?, ?, ?, ?, ?, 'in_progress', ?, ?, NULL, 0, 0, '{}', ?)`,
     [
       row.id,
       row.examId,
@@ -243,15 +247,53 @@ export async function updateCheatEvents(id: string, events: unknown, exec?: SqlE
   await runQuery(exec, `UPDATE exam_records SET cheat_events = ? WHERE id = ?`, [JSON.stringify(events), id]);
 }
 
-/** 交卷：写入状态、交卷时间、自动标记与分数。 */
+/** 交卷：写入状态、交卷时间、自动标记与分数（客观题=submitted，含主观题=pending_review）。 */
 export async function submit(
   id: string,
-  data: { submittedAt: string; autoSubmitted: boolean; score: number },
+  data: { submittedAt: string; autoSubmitted: boolean; score: number; status: 'submitted' | 'pending_review' },
   exec?: SqlExecutor,
 ): Promise<void> {
   await runQuery(
     exec,
-    `UPDATE exam_records SET status = 'submitted', submitted_at = ?, auto_submitted = ?, score = ? WHERE id = ?`,
-    [data.submittedAt, data.autoSubmitted ? 1 : 0, data.score, id],
+    `UPDATE exam_records SET status = ?, submitted_at = ?, auto_submitted = ?, score = ? WHERE id = ?`,
+    [data.status, data.submittedAt, data.autoSubmitted ? 1 : 0, data.score, id],
+  );
+}
+
+/** 待阅卷记录（含主观题、status=pending_review，分页，按交卷时间升序——先交先阅）。 */
+export async function listPending(paging: { pageSize: number; offset: number }): Promise<ExamRecordDetailRow[]> {
+  return query<ExamRecordDetailRow[]>(
+    `SELECT r.id, r.exam_id, r.user_id, r.attempt_no, r.department_id, r.paper_snapshot, r.status, r.answers,
+            r.started_at, r.submitted_at, r.auto_submitted, r.score, r.subjective_scores, r.cheat_events,
+            e.name AS exam_name, e.pass_score AS pass_score,
+            u.name AS user_name, COALESCE(d.name, du.name, '') AS department_name
+       FROM exam_records r
+       LEFT JOIN exams e ON e.id = r.exam_id
+       LEFT JOIN users u ON u.id = r.user_id
+       LEFT JOIN departments d ON d.id = r.department_id
+       LEFT JOIN departments du ON du.id = u.department_id
+      WHERE r.status = 'pending_review'
+      ORDER BY r.submitted_at ASC
+      LIMIT ? OFFSET ?`,
+    [paging.pageSize, paging.offset],
+  );
+}
+
+/** 待阅卷记录数。 */
+export async function countPending(): Promise<number> {
+  const rows = await query<RowDataPacket[]>(`SELECT COUNT(*) AS c FROM exam_records WHERE status = 'pending_review'`);
+  return Number(rows[0]?.c ?? 0);
+}
+
+/** 提交阅卷结果：写主观分、重算总分、状态转 submitted。 */
+export async function updateReview(
+  id: string,
+  data: { subjectiveScores: Record<string, number>; score: number },
+  exec?: SqlExecutor,
+): Promise<void> {
+  await runQuery(
+    exec,
+    `UPDATE exam_records SET subjective_scores = ?, score = ?, status = 'submitted' WHERE id = ?`,
+    [JSON.stringify(data.subjectiveScores), data.score, id],
   );
 }

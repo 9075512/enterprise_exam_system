@@ -30,7 +30,7 @@ const recordId = String(route.params.recordId ?? '');
 const loading = ref(true);
 const record = ref<ExamRecord | null>(null);
 const exam = ref<Exam | null>(null);
-const answers = ref<Record<string, number[]>>({});
+const answers = ref<Record<string, number[] | string[]>>({});
 const remaining = ref(0);
 const submitted = ref(false);
 const submitting = ref(false);
@@ -132,7 +132,7 @@ async function handleAutoSubmit(): Promise<void> {
 }
 
 /* ------------------------------ 作答与暂存 ------------------------------ */
-function updateAnswer(questionId: string, value: number[]): void {
+function updateAnswer(questionId: string, value: number[] | string[]): void {
   if (submitted.value) return;
   answers.value = { ...answers.value, [questionId]: value };
   scheduleSave();

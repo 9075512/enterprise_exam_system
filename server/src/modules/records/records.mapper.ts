@@ -20,6 +20,7 @@ export interface ExamRecordRow extends RowDataPacket {
   submitted_at: string | null;
   auto_submitted: number | boolean;
   score: number | string;
+  subjective_scores: unknown;
   cheat_events: unknown;
   /** 详情查询 JOIN 附加列（列表查询不返回，故为可选） */
   exam_name?: string | null;
@@ -49,7 +50,8 @@ export function mapRecordRow(row: ExamRecordRow): ExamRecordDto {
     departmentId: row.department_id ?? '',
     paperSnapshot: parseJsonColumn<PaperSnapshot>(row.paper_snapshot, EMPTY_SNAPSHOT),
     status: row.status,
-    answers: parseJsonColumn<Record<string, number[]>>(row.answers, {}),
+    answers: parseJsonColumn<Record<string, number[] | string[]>>(row.answers, {}),
+    subjectiveScores: parseJsonColumn<Record<string, number>>(row.subjective_scores, {}),
     startedAt: fromDbDateSafe(row.started_at),
     submittedAt: fromDbDate(row.submitted_at),
     autoSubmitted: Boolean(row.auto_submitted),

@@ -10,7 +10,7 @@ import { mapExamRow } from '../exams/exams.mapper.js';
 import * as papersService from '../papers/papers.service.js';
 import * as retakesService from '../retakes/retakes.service.js';
 import { getExamStatus } from '../../utils/examStatus.js';
-import { badRequest, forbidden, notFound, attemptsExhausted } from '../../utils/errors.js';
+import { badRequest, forbidden, notFound, attemptsExhausted, conflict } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
 import { nowDb } from '../../utils/datetime.js';
 import { parseJsonColumn } from '../../utils/json.js';
@@ -115,20 +115,31 @@ export async function startExam(
   return mapRecordRow(created!);
 }
 
-/** 暂存答案：仅 in_progress 可写；答案数组升序归一化。 */
+/** 暂存答案：仅 in_progress 可写；按题型归一化（客观题排序去重，填空/简答 trim 文本）。 */
 export async function saveAnswers(
   recordId: string,
   userId: string,
-  answers: Record<string, number[]>,
+  answers: Record<string, number[] | string[]>,
 ): Promise<void> {
   const row = await repo.findById(recordId);
   if (!row) throw notFound('考试记录不存在');
   assertOwner(row, userId);
   if (row.status !== 'in_progress') return; // 幂等忽略
 
-  const normalized: Record<string, number[]> = {};
+  const record = mapRecordRow(row);
+  const typeMap = new Map(record.paperSnapshot.questions.map((sq) => [sq.questionId, sq.question.type]));
+  const normalized: Record<string, number[] | string[]> = {};
   for (const [qid, arr] of Object.entries(answers)) {
-    normalized[qid] = Array.isArray(arr) ? [...arr].map((n) => Number(n)).sort((a, b) => a - b) : [];
+    if (!Array.isArray(arr)) {
+      normalized[qid] = [];
+      continue;
+    }
+    const type = typeMap.get(qid);
+    if (type === 'fill' || type === 'short') {
+      normalized[qid] = arr.map((s) => String(s ?? '').trim());
+    } else {
+      normalized[qid] = [...arr].map((n) => Number(n)).filter((n) => Number.isInteger(n)).sort((a, b) => a - b);
+    }
   }
   await repo.updateAnswers(recordId, normalized);
 }
@@ -145,28 +156,42 @@ export async function addCheatEvent(recordId: string, userId: string, awaySecond
   await repo.updateCheatEvents(recordId, events);
 }
 
-/** 交卷判分（幂等）：已交卷直接返回原结果。 */
+/** 交卷判分（幂等）：已交卷（submitted / pending_review）直接返回原结果。 */
 export async function submit(recordId: string, userId: string, auto: boolean): Promise<ExamRecordDto> {
   const row = await repo.findById(recordId);
   if (!row) throw notFound('考试记录不存在');
   assertOwner(row, userId);
-  if (row.status === 'submitted') return mapRecordRow(row);
+  if (row.status === 'submitted' || row.status === 'pending_review') return mapRecordRow(row);
 
   const record = mapRecordRow(row);
-  const score = grade(record);
-  await repo.submit(recordId, { submittedAt: nowDb(), autoSubmitted: auto, score });
+  const score = grade(record); // 客观题 + 填空自动判分；简答记 0（阅卷后补）
+  const hasSubjective = record.paperSnapshot.questions.some((sq) => sq.question.type === 'short');
+  await repo.submit(recordId, {
+    submittedAt: nowDb(),
+    autoSubmitted: auto,
+    score,
+    status: hasSubjective ? 'pending_review' : 'submitted',
+  });
   const updated = await repo.findById(recordId);
   const dto = mapRecordRow(updated!);
 
-  // 成绩通知（交卷出成绩；fail-open，不影响交卷）
+  // 成绩通知（交卷出成绩；fail-open，不影响交卷）。含主观题者仅通知「待阅卷」。
   const exam = await examsRepo.findById(record.examId);
   if (exam) {
-    const passed = score >= Number(exam.pass_score);
-    await notifyUsers([record.userId], {
-      type: 'result',
-      title: `考试成绩已发布：${exam.name}`,
-      content: `你的考试成绩为 ${score} 分，${passed ? '已及格' : '未及格'}。`,
-    });
+    if (hasSubjective) {
+      await notifyUsers([record.userId], {
+        type: 'result',
+        title: `答卷已提交，待阅卷：${exam.name}`,
+        content: `你已提交「${exam.name}」的答卷，含主观题，待人工阅卷后公布最终成绩。`,
+      });
+    } else {
+      const passed = score >= Number(exam.pass_score);
+      await notifyUsers([record.userId], {
+        type: 'result',
+        title: `考试成绩已发布：${exam.name}`,
+        content: `你的考试成绩为 ${score} 分，${passed ? '已及格' : '未及格'}。`,
+      });
+    }
   }
 
   return dto;
@@ -214,4 +239,60 @@ export async function listCheatByExam(examId: string): Promise<ExamRecordDto[]> 
   if (!exam) throw notFound('考试不存在或已被删除');
   const rows = await repo.listCheatByExam(examId);
   return rows.map(mapRecordDetailRow);
+}
+
+/** 待阅卷列表（admin/author，分页，按交卷时间升序）。 */
+export async function listPending(page?: number, pageSize?: number): Promise<Page<ExamRecordDto>> {
+  const paging = normalizePaging(page, pageSize);
+  const [rows, total] = await Promise.all([repo.listPending(paging), repo.countPending()]);
+  return buildPage(rows.map(mapRecordDetailRow), total, paging.page, paging.pageSize);
+}
+
+/** 人工阅卷：提交逐题主观分，重算总分（客观分 + 主观分），状态转 submitted。 */
+export async function review(
+  recordId: string,
+  subjectiveScores: Record<string, number>,
+): Promise<ExamRecordDto> {
+  const row = await repo.findDetailById(recordId);
+  if (!row) throw notFound('考试记录不存在');
+  if (row.status !== 'pending_review') throw conflict('该记录不在待阅卷状态');
+
+  const record = mapRecordDetailRow(row);
+
+  // 校验：仅简答题可给分，且 0 ≤ 分 ≤ 该题分值
+  let subjectiveTotal = 0;
+  for (const sq of record.paperSnapshot.questions) {
+    if (sq.question.type !== 'short') continue;
+    const given = subjectiveScores[sq.questionId];
+    if (given === undefined) throw badRequest('请为所有简答题打分');
+    if (!Number.isFinite(given) || given < 0 || given > sq.score) {
+      throw badRequest(`主观题得分必须在 0~${sq.score} 之间`);
+    }
+    subjectiveTotal += given;
+  }
+
+  // 客观分（单选/多选/判断/填空自动判）
+  let objectiveTotal = 0;
+  for (const sq of record.paperSnapshot.questions) {
+    if (sq.question.type === 'short') continue;
+    if (isAnswerCorrect(sq.question, record.answers[sq.questionId])) objectiveTotal += sq.score;
+  }
+  const finalScore = round1(objectiveTotal + subjectiveTotal);
+
+  await repo.updateReview(recordId, { subjectiveScores, score: finalScore });
+  const updated = await repo.findById(recordId);
+  const dto = mapRecordRow(updated!);
+
+  // 阅卷完成通知（fail-open）
+  const exam = await examsRepo.findById(record.examId);
+  if (exam) {
+    const passed = finalScore >= Number(exam.pass_score);
+    await notifyUsers([record.userId], {
+      type: 'result',
+      title: `阅卷完成：${exam.name}`,
+      content: `你「${exam.name}」的答卷已完成阅卷，最终成绩 ${finalScore} 分，${passed ? '已及格' : '未及格'}。`,
+    });
+  }
+
+  return dto;
 }

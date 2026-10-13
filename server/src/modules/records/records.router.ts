@@ -12,9 +12,11 @@ import {
   saveAnswersSchema,
   cheatEventSchema,
   submitSchema,
+  reviewSchema,
   myRecordsQuerySchema,
   examRecordsQuerySchema,
   cheatQuerySchema,
+  pendingQuerySchema,
 } from './records.schema.js';
 import * as recordsService from './records.service.js';
 
@@ -44,6 +46,17 @@ recordsRouter.get(
   }),
 );
 
+/** GET /api/records/pending —— 待阅卷列表（admin/author，分页）。 */
+recordsRouter.get(
+  '/pending',
+  requireRole('admin', 'author'),
+  validate(pendingQuerySchema, 'query'),
+  asyncHandler(async (req, res) => {
+    const q = req.query as unknown as { page: number; pageSize: number };
+    return ok(res, await recordsService.listPending(q.page, q.pageSize));
+  }),
+);
+
 /** GET /api/records/:id —— 记录详情（考生仅本人，admin 任意）。 */
 recordsRouter.get(
   '/:id',
@@ -70,7 +83,7 @@ recordsRouter.put(
   requireRole('examinee'),
   validate(saveAnswersSchema, 'body'),
   asyncHandler(async (req, res) => {
-    const { answers } = req.body as { answers: Record<string, number[]> };
+    const { answers } = req.body as { answers: Record<string, number[] | string[]> };
     await recordsService.saveAnswers(req.params.id, req.user!.id, answers);
     return ok(res, null);
   }),
@@ -96,5 +109,16 @@ recordsRouter.post(
   asyncHandler(async (req, res) => {
     const { auto } = req.body as { auto: boolean };
     return ok(res, await recordsService.submit(req.params.id, req.user!.id, auto));
+  }),
+);
+
+/** PUT /api/records/:id/review —— 人工阅卷（admin/author）。 */
+recordsRouter.put(
+  '/:id/review',
+  requireRole('admin', 'author'),
+  validate(reviewSchema, 'body'),
+  asyncHandler(async (req, res) => {
+    const { subjectiveScores } = req.body as { subjectiveScores: Record<string, number> };
+    return ok(res, await recordsService.review(req.params.id, subjectiveScores));
   }),
 );
