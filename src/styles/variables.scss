@@ -71,26 +71,3 @@ $transition-base: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
 // 顶栏
 $header-height: 60px;
-
-// =============================================================
-// 公网练题端视觉 token（v1.7 冷静蓝 · 商务风 · 仅练题端使用）
-// 设计原则：单一蓝色主色、平铺浅底（无渐变 / 无氛围光）、
-// 小圆角、细边框取代浮动阴影，贴近企业考试系统的正式调性。
-// =============================================================
-
-// 页面底色（平铺）
-$practice-bg: #f1f3f7;
-// 顶栏实色（沉稳深蓝）
-$practice-header: #1e40af;
-// 主色（按钮 / 强调 / 选中）
-$practice-primary: #1d4ed8;
-$practice-primary-dark: #1e3a8a;
-// 浅蓝底（选中态 / 标签 / 信息块）
-$practice-soft: #eef3f9;
-// 描边（浅）
-$border-soft: #e8edf5;
-// 描边（标准）
-$practice-border: #dde3ec;
-// 圆角（商务风：小圆角）
-$practice-radius: 8px;
-$practice-radius-sm: 6px;

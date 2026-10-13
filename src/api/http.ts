@@ -12,19 +12,10 @@ import { ElMessage } from 'element-plus';
 /** 登录令牌存储 key（与 src/constants 保持一致；此处内联以避免循环依赖） */
 export const TOKEN_KEY = 'exam_sys.token';
 
-/** 练题登录令牌存储 key（与内网 Token **分离**，练题登录态仅解锁练题能力） */
-export const PRACTICE_TOKEN_KEY = 'practice.token';
-
 /** 401 回调：由 main.ts 注册（清会话 + 跳登录），避免此处直接 import store/router 造成循环依赖 */
 let onUnauthorized: (() => void) | null = null;
 export function setUnauthorizedHandler(fn: () => void): void {
   onUnauthorized = fn;
-}
-
-/** 练题 401 回调：由 main.ts 注册（清练题会话 + 跳练题登录页） */
-let onPracticeUnauthorized: (() => void) | null = null;
-export function setPracticeUnauthorizedHandler(fn: () => void): void {
-  onPracticeUnauthorized = fn;
 }
 
 /**
@@ -35,17 +26,9 @@ export function setPracticeUnauthorizedHandler(fn: () => void): void {
  */
 let unauthorizedHandled = false;
 
-/** 练题 401 去重闸门（与内网闸门相互独立）。 */
-let practiceUnauthorizedHandled = false;
-
 /** 重新武装 401 处理（登录成功后必须调用，否则下次会话失效不会提示）。 */
 export function resetUnauthorizedGuard(): void {
   unauthorizedHandled = false;
-}
-
-/** 重新武装练题 401 处理（练题登录成功后调用）。 */
-export function resetPracticeUnauthorizedGuard(): void {
-  practiceUnauthorizedHandled = false;
 }
 
 /**
@@ -55,15 +38,12 @@ export function resetPracticeUnauthorizedGuard(): void {
  *   不清 Token、不回调登出），由调用方自行处理。
  *   典型场景：登录接口（401 = 账号密码错误，而非会话失效）、登出接口（Token 可能已失效）。
  * - `suppressErrorToast`：该请求失败时**不弹统一错误提示**（调用方自己展示，或本就无需提示）。
- * - `practiceAuth`：该请求使用**练题 Token**（`practice.token`）而非内网 Token；
- *   其 401 走练题专属流程（清练题 Token + 跳练题登录页），**不触发内网全局登出**。
  *
- * 三者正交：登录 = 仅 `skipAuthRedirect`（仍弹后端文案）；练题业务 = `practiceAuth`。
+ * 二者正交：登录 = 仅 `skipAuthRedirect`（仍弹后端文案）。
  */
 export interface AppRequestConfig extends AxiosRequestConfig {
   skipAuthRedirect?: boolean;
   suppressErrorToast?: boolean;
-  practiceAuth?: boolean;
 }
 
 const http: AxiosInstance = axios.create({
@@ -75,9 +55,7 @@ const http: AxiosInstance = axios.create({
 // 注意：若调用方已显式设置 Authorization（如登出时携带旧 Token），不得覆盖。
 http.interceptors.request.use((config) => {
   if (!config.headers.get('Authorization')) {
-    // 练题请求使用练题 Token；其余请求使用内网 Token（两者物理分离）
-    const isPractice = (config as AppRequestConfig).practiceAuth === true;
-    const token = localStorage.getItem(isPractice ? PRACTICE_TOKEN_KEY : TOKEN_KEY);
+    const token = localStorage.getItem(TOKEN_KEY);
     if (token) config.headers.set('Authorization', `Bearer ${token}`);
   }
   return config;
@@ -101,17 +79,8 @@ http.interceptors.response.use(
     const config = error?.config as AppRequestConfig | undefined;
     const skipAuthRedirect = config?.skipAuthRedirect === true;
     const suppressErrorToast = config?.suppressErrorToast === true;
-    const isPractice = config?.practiceAuth === true;
 
-    if (status === 401 && isPractice) {
-      // 练题登录态失效：清练题 Token + 跳练题登录页；**不**触发内网全局登出。同轮只处理一次。
-      if (!practiceUnauthorizedHandled) {
-        practiceUnauthorizedHandled = true;
-        localStorage.removeItem(PRACTICE_TOKEN_KEY);
-        ElMessage.error('登录状态已失效，请重新登录');
-        onPracticeUnauthorized?.();
-      }
-    } else if (status === 401 && !skipAuthRedirect) {
+    if (status === 401 && !skipAuthRedirect) {
       // 全局「会话失效」流程：只在「首次」发现会话失效时提示并登出；并发 401 与后续 401 一律静默，
       // 避免 Toast 堆叠，更避免与 onUnauthorized → logout() 形成递归。
       if (!unauthorizedHandled) {
@@ -128,7 +97,7 @@ http.interceptors.response.use(
   },
 );
 
-/** 业务错误对象：保留 code / status 供调用方（如练题验证码 1012）按码分流。 */
+/** 业务错误对象：保留 code / status 供调用方按错误码分流。 */
 export interface ApiError extends Error {
   code?: number;
   status?: number;

@@ -3,8 +3,7 @@ import { createPinia } from 'pinia';
 import App from './App.vue';
 import router from './router';
 import { useAuthStore } from './stores/auth';
-import { usePracticeAuthStore } from './stores/practiceAuth';
-import { setPracticeUnauthorizedHandler, setUnauthorizedHandler } from './api/http';
+import { setUnauthorizedHandler } from './api/http';
 
 // Element Plus 命令式组件（ElMessage/ElMessageBox/ElNotification）样式兜底：
 // 按需引入下这些组件的样式不会被组件 resolver 自动注入，此处显式引入。
@@ -25,14 +24,6 @@ setUnauthorizedHandler(() => {
   const auth = useAuthStore();
   auth.clearSession();
   void router.replace('/login');
-});
-
-// 注册练题 401 全局回调：清练题会话 + 跳练题登录页。
-// 与内网回调相互独立：练题登录态失效**不**触发内网登出，反之亦然。
-setPracticeUnauthorizedHandler(() => {
-  const practiceAuth = usePracticeAuthStore();
-  practiceAuth.clearSession();
-  void router.replace('/practice');
 });
 
 app.mount('#app');
