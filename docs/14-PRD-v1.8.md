@@ -22,8 +22,8 @@
 | 期 | 主题 | 状态 |
 | --- | --- | --- |
 | ② | U2 两步验证增强（恢复码 + 管理员强制重置） | ✅ 已完成 |
-| ③ | U3 归档自动定时任务 | ⏳ 进行中 |
-| ① | U1 实时监控 SSE 推送 | ⏳ 待开始 |
+| ③ | U3 归档自动定时任务 | ✅ 已完成 |
+| ① | U1 实时监控 SSE 推送 | ⏳ 进行中 |
 | ④ | U4 富文本附件对象存储 | ⏳ 待开始 |
 | ⑤ | U5 题库复制内容去重复用 | ⏳ 待开始 |
 
@@ -196,3 +196,42 @@
 - 后端 typecheck **0 错**；新增 `server/src/test/v18a.test.ts`（14 用例）全通过，全量 **332/332（22 文件）**（`v17e` 的模板数量断言同步更新为 9）。
 - 前端 typecheck **0 错**、vitest **28/28**、`vite build` **成功**；练题端 typecheck **0 错**。
 - `db:init` 幂等复跑：**表数量 31**，「结构升级：无需变更（已是最新）」。
+
+---
+
+## 9. U3 交付详情（③ 归档自动定时任务，已交付）
+
+### 9.1 服务层（零依赖调度）
+
+- `maintenance.service.archive(input, actor: { id, name? }, extraDetail = {})`：签名由 `operatorId: string` 改为 **actor 对象**，审计 detail 可展开 `extraDetail`（自动任务传 `{ auto: true }`）；`record()` 的 actor 名称解析链为 `actor?.name ?? entry.actorName ?? entry.actorId`。
+- 新增内部 `SYSTEM_ACTOR = { id: 'system', name: '系统自动' }`；模块级状态 `running`（单飞互斥）/ `lastAutoDate`（本地时区 `YYYY-MM-DD` 去重）/ `lastAutoRun`（最近一次结果）。
+- `runAutoArchive(now = new Date(), opts = {})`：设置关闭 → `{ triggered: false, reason: 'disabled' }`；`archiveRetentionDays ≤ 0` → `reason: 'retention-disabled'`；否则调 `archive({ days }, SYSTEM_ACTOR, { auto: true })` 并归一化返回 `ArchiveAutoRunDto`；**失败 fail-open 不崩进程**。
+- `maybeRunAutoArchive(now)`：单飞 + 开关 + 保留天数 + 时点（`archiveAutoHour`） + 同日去重 五重门控。
+- `startArchiveScheduler()`：`setInterval(60_000).unref()`，在 `index.ts` 的 `app.listen` 后注册（`unref` 保证不阻塞进程退出与测试）。
+
+### 9.2 接口与设置
+
+| 项 | 说明 |
+| --- | --- |
+| `GET /maintenance/stats` | 扩展返回 `autoEnabled` / `autoHour` / `lastAutoArchive`（`ArchiveAutoRunDto \| null`） |
+| `POST /maintenance/archive/auto-run` | admin；**忽略开关与时点**立即执行一次（便于验证），审计带 `auto: true`、actor 为「系统自动」 |
+| `archiveAutoEnabled` | 设置项，默认 **false**（安全默认，与引入前行为一致） |
+| `archiveAutoHour` | 设置项，默认 **3**，校验 0~23 |
+| `archiveRetentionDays` | 已有；为 0 时自动任务跳过（`retention-disabled`） |
+
+`ArchiveAutoRunDto`：`{ at, triggered, reason: 'scheduled' | 'manual' | 'disabled' | 'retention-disabled' | 'error', days, archived, skipped, archiveTotal, ok, error? }`。
+
+### 9.3 前端
+
+| 位置 | 变更 |
+| --- | --- |
+| `views/admin/SystemMaintenancePage.vue` | 新增「自动归档（定时任务）」卡片：开关 + 执行时点下拉（00:00–23:00）+ 保存设置 + 「立即执行一次」+ 上次结果/原因标签（`AUTO_REASON_LABEL`）+ 说明 alert |
+| `views/admin/SettingsPage.vue` | `FIELD_TAB` 登记 `archiveAutoEnabled` / `archiveAutoHour` |
+| `api/maintenance.ts` / `types` / `constants` | 新增 `ArchiveAutoRun` 类型与 `autoRun()` 接口；`MaintenanceStats` 增三字段；`SystemSettings` 与 `SETTINGS_DEFAULTS` 增两字段 |
+
+### 9.4 验证结论
+
+- 后端 typecheck **0 错**；新增 `server/src/test/v18b.test.ts`（9 用例：默认值/键存在、stats 暴露、出题人 1003、关闭不执行、时点不符不执行、到点执行且同日不重复、`auto-run` 忽略开关时点并写系统审计、保留天数 0 跳过、出题人调 `auto-run` 1003）全通过；全量 **341/341（23 文件）**。
+- 前端 typecheck **0 错**、vitest **28/28**、`vite build` **成功**；练题端 typecheck **0 错**。
+- `db:init` 幂等复跑：**表数量 31**，「结构升级：无需变更（已是最新）」（本期无新表，纯行为扩展）。
+- **已知限制**：调度为**进程内**定时器，多实例部署会重复执行（当前为单实例内网部署；后续可加 DB 乐观锁）。

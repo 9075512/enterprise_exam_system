@@ -567,12 +567,35 @@ export interface ArchiveResultDto {
   archiveTotal: number;
 }
 
-/** 维护统计（v1.7④ T5） */
+/** 自动归档运行结果（v1.8③ U3；仅保留本进程内最近一次，持久记录见审计日志） */
+export interface ArchiveAutoRunDto {
+  /** 本次判定/执行时刻（ISO 8601） */
+  at: string;
+  /** 是否真正执行了归档 */
+  triggered: boolean;
+  /** 触发原因：scheduled 定时 / manual 立即执行 / disabled 开关关闭 / retention-disabled 保留天数为 0 / error 失败 */
+  reason: 'scheduled' | 'manual' | 'disabled' | 'retention-disabled' | 'error';
+  /** 本次使用的保留天数 */
+  days: number;
+  archived: number;
+  skipped: number;
+  archiveTotal: number;
+  ok: boolean;
+  error?: string;
+}
+
+/** 维护统计（v1.7④ T5 + v1.8③ U3） */
 export interface MaintenanceStatsDto {
   tables: Array<{ name: string; label: string; rows: number }>;
   archiveTotal: number;
   /** 归档保留天数设置（0 = 未启用自动归档） */
   retentionDays: number;
+  /** 自动归档开关 */
+  autoEnabled: boolean;
+  /** 自动归档执行时点（0~23 时） */
+  autoHour: number;
+  /** 本进程内最近一次自动归档结果（重启后为 null） */
+  lastAutoArchive: ArchiveAutoRunDto | null;
   generatedAt: string;
 }
 
@@ -652,6 +675,10 @@ export interface SystemSettings {
   auditRetentionDays: number;
   /** 历史成绩归档保留天数（0 = 未启用自动归档；手动归档可覆盖，v1.7④ T5） */
   archiveRetentionDays: number;
+  /** 自动归档总开关（默认关闭 = 安全默认，v1.8③ U3） */
+  archiveAutoEnabled: boolean;
+  /** 自动归档执行时点（0~23 时；默认 3 = 凌晨 3 点，v1.8③ U3） */
+  archiveAutoHour: number;
   /** 站内信通知总开关 */
   notifySiteEnabled: boolean;
   /** 邮件通知总开关 */

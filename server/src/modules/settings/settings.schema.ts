@@ -160,6 +160,16 @@ export const settingsSchema = z.object({
     .min(0, '成绩归档保留天数必须为 0~3650 天')
     .max(3650, '成绩归档保留天数必须为 0~3650 天'),
 
+  archiveAutoEnabled: z.boolean({
+    invalid_type_error: '自动归档开关必须为布尔值',
+  }),
+
+  archiveAutoHour: z
+    .number({ invalid_type_error: '自动归档时点必须为 0~23 时' })
+    .int('自动归档时点必须为 0~23 时')
+    .min(0, '自动归档时点必须为 0~23 时')
+    .max(23, '自动归档时点必须为 0~23 时'),
+
   notifySiteEnabled: z.boolean({ invalid_type_error: '站内信通知开关必须为布尔值' }),
   notifyEmailEnabled: z.boolean({ invalid_type_error: '邮件通知开关必须为布尔值' }),
   notifyOnPublish: z.boolean({ invalid_type_error: '考试发布通知开关必须为布尔值' }),

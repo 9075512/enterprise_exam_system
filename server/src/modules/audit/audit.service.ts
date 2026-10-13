@@ -85,6 +85,8 @@ export const ALL_AUDIT_TARGET_TYPES: readonly string[] = Object.keys(AUDIT_TARGE
 /** 审计记录入参（actor 姓名由服务端按 id 解析，日志自包含）。 */
 export interface AuditEntry {
   actorId: string;
+  /** 显式指定 actor 名称（用于系统任务等无对应账号的场景；优先级高于按 id 反查的兜底） */
+  actorName?: string;
   action: AuditAction;
   targetType: AuditTargetType;
   targetId?: string;
@@ -94,7 +96,7 @@ export interface AuditEntry {
 
 /**
  * 写入一条审计日志（fail-open：任何失败仅打印，不向上抛）。
- * actor 姓名按 actorId 反查；查不到时回退 actorId（保证日志可读）。
+ * actor 姓名按 actorId 反查；查不到时回退显式 actorName，最后回退 actorId（保证日志可读）。
  */
 export async function record(entry: AuditEntry): Promise<void> {
   try {
@@ -102,7 +104,7 @@ export async function record(entry: AuditEntry): Promise<void> {
     await repo.insert({
       id: genId('audit-'),
       actorId: entry.actorId,
-      actorName: actor?.name ?? entry.actorId,
+      actorName: actor?.name ?? entry.actorName ?? entry.actorId,
       action: entry.action,
       targetType: entry.targetType,
       targetId: entry.targetId ?? '',

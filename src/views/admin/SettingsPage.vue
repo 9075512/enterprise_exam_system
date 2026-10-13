@@ -71,6 +71,8 @@ const FIELD_TAB: Record<string, SettingsTab> = {
   importMaxRows: 'list',
   importMaxFileMb: 'list',
   archiveRetentionDays: 'list',
+  archiveAutoEnabled: 'list',
+  archiveAutoHour: 'list',
   notifyTemplates: 'notify',
   systemName: 'brand',
   systemShortName: 'brand',

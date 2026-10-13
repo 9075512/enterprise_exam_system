@@ -783,11 +783,30 @@ export interface ArchiveResult {
   archiveTotal: number;
 }
 
+/** 自动归档运行结果（v1.8③ U3；仅保留服务端进程内最近一次） */
+export interface ArchiveAutoRun {
+  at: string;
+  triggered: boolean;
+  reason: 'scheduled' | 'manual' | 'disabled' | 'retention-disabled' | 'error';
+  days: number;
+  archived: number;
+  skipped: number;
+  archiveTotal: number;
+  ok: boolean;
+  error?: string;
+}
+
 /** 维护统计 */
 export interface MaintenanceStats {
   tables: Array<{ name: string; label: string; rows: number }>;
   archiveTotal: number;
   retentionDays: number;
+  /** 自动归档开关（v1.8③） */
+  autoEnabled: boolean;
+  /** 自动归档执行时点（0~23 时，v1.8③） */
+  autoHour: number;
+  /** 服务端进程内最近一次自动归档结果（重启后为 null，v1.8③） */
+  lastAutoArchive: ArchiveAutoRun | null;
   generatedAt: string;
 }
 
@@ -919,6 +938,10 @@ export interface SystemSettings {
   notifyOnRetake: boolean;
   /** 历史成绩归档保留天数（0 = 未启用自动归档，v1.7④ T5） */
   archiveRetentionDays: number;
+  /** 自动归档总开关（默认关闭 = 安全默认，v1.8③ U3） */
+  archiveAutoEnabled: boolean;
+  /** 自动归档执行时点（0~23 时，v1.8③ U3） */
+  archiveAutoHour: number;
   /** SMTP 服务器地址（空 = 未配置） */
   smtpHost: string;
   /** SMTP 端口 */

@@ -59,6 +59,8 @@ export const SETTINGS_DEFAULTS: SystemSettings = {
   notifyOnResult: true,
   notifyOnRetake: true,
   archiveRetentionDays: 0,
+  archiveAutoEnabled: false,
+  archiveAutoHour: 3,
   smtpHost: '',
   smtpPort: 465,
   smtpSecure: true,

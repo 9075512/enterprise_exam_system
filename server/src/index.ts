@@ -4,6 +4,7 @@
 import { app } from './app.js';
 import { env } from './config/env.js';
 import { ping, closePool } from './db/pool.js';
+import { startArchiveScheduler } from './modules/maintenance/maintenance.service.js';
 
 async function bootstrap(): Promise<void> {
   // 启动自检：探测 MySQL 连通性（失败不阻断启动，仅告警，便于前端联调时排查）
@@ -19,6 +20,9 @@ async function bootstrap(): Promise<void> {
     console.log(`[server] 已启动：http://localhost:${env.PORT}（env=${env.NODE_ENV}）`);
     console.log(`[server] 健康检查：GET http://localhost:${env.PORT}/api/health`);
   });
+
+  // 归档定时任务（v1.8③ U3）：每分钟检查一次；默认关闭，需在「系统维护」开启
+  startArchiveScheduler();
 
   // 优雅退出：停止接收新连接 → 关闭连接池
   const shutdown = async (signal: string): Promise<void> => {

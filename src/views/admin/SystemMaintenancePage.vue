@@ -1,21 +1,22 @@
 <script setup lang="ts">
 /**
- * 系统维护（v1.7④ T5，管理员）。
+ * 系统维护（v1.7④ T5 + v1.8③ U3，管理员）。
  *
  * - 核心表行数统计（含归档量），用于评估数据体量；
  * - 历史成绩归档：把早于保留期的已出成绩记录搬入归档表，减轻业务表体积；
- *   存档记录仍参与成绩报表 / 导出 / 看板与考生历史成绩查询（读路径已 union 归档表）。
+ *   存档记录仍参与成绩报表 / 导出 / 看板与考生历史成绩查询（读路径已 union 归档表）；
+ * - 自动归档定时任务（v1.8③）：默认关闭；开启后服务端每日到达指定时点自动执行一次。
  */
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Refresh, Files } from '@element-plus/icons-vue';
+import { Refresh, Files, Timer } from '@element-plus/icons-vue';
 import * as maintenanceApi from '@/api/maintenance';
 import { useRequest } from '@/composables/useRequest';
 import { useSettingsStore } from '@/stores/settings';
 import { formatDateTime } from '@/utils/datetime';
 import PageHeader from '@/components/common/PageHeader.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
-import type { ArchiveResult, MaintenanceStats } from '@/types';
+import type { ArchiveAutoRun, ArchiveResult, MaintenanceStats } from '@/types';
 
 const settingsStore = useSettingsStore();
 
@@ -26,6 +27,76 @@ const archiveDays = ref<number>(0);
 const archiveLimit = ref<number>(2000);
 const archiving = ref(false);
 const lastResult = ref<ArchiveResult | null>(null);
+
+/* ---------------- 自动归档（v1.8③ U3） ---------------- */
+const autoEnabled = ref(false);
+const autoHour = ref(3);
+const savingAuto = ref(false);
+const autoRunning = ref(false);
+
+watch(
+  stats,
+  (v) => {
+    if (!v) return;
+    autoEnabled.value = v.autoEnabled;
+    autoHour.value = v.autoHour;
+  },
+  { immediate: true },
+);
+
+/** 自动归档结果的原因文案。 */
+const AUTO_REASON_LABEL: Record<ArchiveAutoRun['reason'], string> = {
+  scheduled: '定时触发',
+  manual: '手动触发',
+  disabled: '开关关闭（未执行）',
+  'retention-disabled': '保留天数为 0（未执行）',
+  error: '执行失败',
+};
+
+async function handleSaveAuto(): Promise<void> {
+  if (autoEnabled.value && settingsStore.settings.archiveRetentionDays <= 0) {
+    ElMessage.warning('请先设置「归档保留天数」（大于 0），否则自动归档不会执行');
+    return;
+  }
+  savingAuto.value = true;
+  try {
+    await settingsStore.save({
+      ...settingsStore.settings,
+      archiveAutoEnabled: autoEnabled.value,
+      archiveAutoHour: autoHour.value,
+    });
+    ElMessage.success('自动归档设置已保存');
+    void refresh();
+  } catch {
+    /* 已由拦截器提示 */
+  } finally {
+    savingAuto.value = false;
+  }
+}
+
+/** 立即执行一次自动归档策略（忽略开关与时点，便于验证）。 */
+async function handleAutoRun(): Promise<void> {
+  autoRunning.value = true;
+  try {
+    const res = await maintenanceApi.autoRun();
+    if (!res.triggered) {
+      ElMessage.warning(
+        res.reason === 'retention-disabled'
+          ? '归档保留天数为 0，未执行（请先设置保留天数）'
+          : '当前未启用自动归档，未执行',
+      );
+    } else if (res.ok) {
+      ElMessage.success(`自动归档完成：归档 ${res.archived} 条，跳过 ${res.skipped} 条`);
+    } else {
+      ElMessage.error(res.error || '自动归档失败');
+    }
+    void refresh();
+  } catch {
+    /* 已由拦截器提示 */
+  } finally {
+    autoRunning.value = false;
+  }
+}
 
 const retentionHint = computed(() =>
   settingsStore.settings.archiveRetentionDays > 0
@@ -116,6 +187,52 @@ const tableRows = computed(() => stats.value?.tables ?? []);
           </div>
         </div>
       </div>
+
+      <el-card class="table-card maintenance__panel" shadow="never">
+        <template #header>
+          <div class="maintenance__panel-header">
+            <span class="maintenance__panel-title">
+              <el-icon><Timer /></el-icon>
+              自动归档（定时任务）
+            </span>
+            <el-tag size="small" :type="stats?.autoEnabled ? 'success' : 'info'">
+              {{ stats?.autoEnabled ? '已开启' : '未开启' }}
+            </el-tag>
+          </div>
+        </template>
+
+        <el-form inline class="maintenance__form">
+          <el-form-item label="启用自动归档">
+            <el-switch v-model="autoEnabled" />
+          </el-form-item>
+          <el-form-item label="每日执行时点">
+            <el-select v-model="autoHour" class="maintenance__hour">
+              <el-option v-for="h in 24" :key="h - 1" :label="`${String(h - 1).padStart(2, '0')}:00`" :value="h - 1" />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="savingAuto" @click="handleSaveAuto">保存设置</el-button>
+            <el-button :loading="autoRunning" @click="handleAutoRun">立即执行一次</el-button>
+          </el-form-item>
+        </el-form>
+
+        <el-alert type="info" :closable="false" show-icon class="maintenance__alert">
+          <p>· 自动归档按「保留天数」策略执行，默认<strong>关闭</strong>；开启后由服务端每日到点自动执行一次。</p>
+          <p>· 若「保留天数」为 0，自动任务不会执行（可在此页或系统设置中配置）。</p>
+          <p>· 「立即执行一次」忽略开关与时点，用于验证策略；执行记录会写入操作审计日志（操作者为「系统自动」）。</p>
+        </el-alert>
+
+        <div v-if="stats?.lastAutoArchive" class="maintenance__result">
+          上次自动归档：{{ AUTO_REASON_LABEL[stats.lastAutoArchive.reason] }} ·
+          {{ formatDateTime(stats.lastAutoArchive.at) }} · 归档 <b>{{ stats.lastAutoArchive.archived }}</b> 条，
+          跳过 <b>{{ stats.lastAutoArchive.skipped }}</b> 条，归档表现有
+          <b>{{ stats.lastAutoArchive.archiveTotal }}</b> 条。
+          <span v-if="!stats.lastAutoArchive.ok" class="maintenance__error">
+            （失败：{{ stats.lastAutoArchive.error }}）
+          </span>
+        </div>
+        <div v-else class="maintenance__result">尚未执行过自动归档（服务端重启后该记录会重置）。</div>
+      </el-card>
 
       <el-card class="table-card maintenance__panel" shadow="never">
         <template #header>
@@ -234,6 +351,14 @@ const tableRows = computed(() => stats.value?.tables ?? []);
 
   &__form {
     margin-bottom: 6px;
+  }
+
+  &__hour {
+    width: 130px;
+  }
+
+  &__error {
+    color: $color-error;
   }
 
   &__alert {

@@ -2,7 +2,7 @@
  * 系统维护 API（v1.7④ T5，仅 admin）。
  */
 import { get, post } from './http';
-import type { ArchiveResult, MaintenanceStats } from '@/types';
+import type { ArchiveAutoRun, ArchiveResult, MaintenanceStats } from '@/types';
 
 /** 核心表行数与归档量统计 */
 export function stats(): Promise<MaintenanceStats> {
@@ -12,4 +12,9 @@ export function stats(): Promise<MaintenanceStats> {
 /** 执行历史成绩归档（days/limit 省略时取系统设置与内置默认） */
 export function archive(payload: { days?: number; limit?: number } = {}): Promise<ArchiveResult> {
   return post<ArchiveResult>('/maintenance/archive', payload);
+}
+
+/** 立即执行一次「自动归档策略」（v1.8③ U3，忽略开关与时点） */
+export function autoRun(): Promise<ArchiveAutoRun> {
+  return post<ArchiveAutoRun>('/maintenance/archive/auto-run');
 }

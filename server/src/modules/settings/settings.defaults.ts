@@ -45,6 +45,8 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   appealWindowDays: 7,
   auditRetentionDays: 180,
   archiveRetentionDays: 0,
+  archiveAutoEnabled: false,
+  archiveAutoHour: 3,
   notifySiteEnabled: true,
   notifyEmailEnabled: false,
   notifyOnPublish: true,

@@ -21,12 +21,18 @@ maintenanceRouter.get(
   asyncHandler(async (_req, res) => ok(res, await maintenanceService.getStats())),
 );
 
-/** POST /api/maintenance/archive —— 执行历史成绩归档。 */
+/** POST /api/maintenance/archive —— 执行历史成绩归档（手动，可覆盖保留天数与上限）。 */
 maintenanceRouter.post(
   '/archive',
   validate(archiveSchema, 'body'),
   asyncHandler(async (req, res) => {
     const body = req.body as ArchiveInput;
-    return ok(res, await maintenanceService.archive(body, req.user!.id));
+    return ok(res, await maintenanceService.archive(body, { id: req.user!.id }));
   }),
+);
+
+/** POST /api/maintenance/archive/auto-run —— 立即执行一次「自动归档策略」（v1.8③ U3）。 */
+maintenanceRouter.post(
+  '/archive/auto-run',
+  asyncHandler(async (_req, res) => ok(res, await maintenanceService.runAutoArchive(new Date(), { force: true }))),
 );
