@@ -80,7 +80,7 @@ Vue 3 (Vite, Element Plus, Pinia, Vue Router)  ──REST/JSON──▶  Express
    npm run db:init
    ```
 
-   > 该脚本 = `server` 的 `db:init`（`tsx src/db/init.ts`），会创建 `enterprise_exam_system` 库的 **32 张表**、按需执行幂等结构升级（补列 / 扩 ENUM），并幂等写入种子数据。
+   > 该脚本 = `server` 的 `db:init`（`tsx src/db/init.ts`），会创建 `enterprise_exam_system` 库的 **34 张表**、按需执行幂等结构升级（补列 / 扩 ENUM），并幂等写入种子数据。
    > 需要**清空重建**时执行：`npm --prefix server run db:reset`（仅作用于 `enterprise_exam_system`）。
 
 ## 开发
@@ -148,8 +148,10 @@ npm --prefix server run start       # 运行编译产物
 - **系统设置重排（v1.9③）**：原 4 个混装 Tab → 7 类（考试默认值 / 作答与防作弊 / 阅卷与复核 / 账号与安全 / 通知与模板 / 数据与归档 / 网站与品牌），每类有说明文案、组内再分组；补齐 3 个此前「后端有、前端无入口」的设置项（审计保留天数、自动归档开关与时点）。
 - **考务按考试维度打通（v1.9④）**：待阅卷 / 补考 / 成绩复核三个列表接口新增 `examId` 过滤；三页支持 `?examId=` 直达并显示考试筛选器；考试管理行操作新增「补考 / 复核 / 阅卷」一键直达（自动按该考试过滤）。
 - **练题端设置扩展（v1.9⑤）**：新增 11 项配置 —— 默认练题方式、单次题量上下限、作答后是否展示答案/解析、每日一练重置时点与最少题量、错题本连续答对自动移除阈值、学习报告/错题本/收藏夹三个页面入口开关；新增 `GET /api/practice/config` 供练题端读取，功能关闭时接口统一返回 1017。
+- **公告与轮播图（v1.9⑥）**：新增 `announcements` / `banners` 两表与「公告与轮播」菜单（公告 / 轮播图两页签）。一份内容可选发布到 **考试端 / 练题端 / 两端**，支持启停、置顶、排序与**生效时间窗**；可见性口径统一在服务端判定（`enabled=1` 且 `target ∈ {scope, both}` 且在时间窗内）。管理端 `/api/content/*` 仅 admin；考生侧考试端走 `GET /api/content/feed?scope=exam`，练题端走 `GET /api/practice/feed`（公网实例对两表**仅 SELECT**）。
+- **考试端首页（v1.9⑦）**：考生新增默认落地页「首页」（`/exam/home`，菜单 key `home`），聚合**轮播图与公告**（复用考试端内容看板）、**未读消息**（点击进消息中心）、**我的考试统计**（待考 / 进行中 / 已交卷 / 平均分，由考生可见数据即时计算，不新增接口）与**快捷入口**（我的考试 / 我的成绩 / 我的补考 / 消息中心）；登录与越权重定向的考生落地页由「我的考试」改为「首页」。
 
-## 数据表（32 张，一句话说明）
+## 数据表（34 张，一句话说明）
 
 | 表 | 说明 |
 | --- | --- |
@@ -185,8 +187,10 @@ npm --prefix server run start       # 运行编译产物
 | `exam_records_archive` | 考试记录归档表（v1.7④，无外键可长期保留；历史读路径 union 合并） |
 | `user_recovery_codes` | 两步验证恢复码（v1.8②，仅存 bcrypt 哈希，一次性使用） |
 | `attachments` | 富文本附件（v1.8④，图片作答对象存储元数据；文件本体落盘 `server/storage/attachments`） |
+| `announcements` | 公告（v1.9⑥，发布范围 exam/practice/both + 启停 + 置顶 + 生效时间窗） |
+| `banners` | 轮播图（v1.9⑥，图片地址 + 跳转链接 + 排序 + 发布范围 + 生效时间窗） |
 
 ## ⚠️ 红线说明
 
-- 本系统只使用数据库 **`enterprise_exam_system`**（32 张表）。
+- 本系统只使用数据库 **`enterprise_exam_system`**（34 张表）。
 - 同名/同实例下的 **`exam_system`** 库属于**其他项目**（17 张表），**严禁对其执行任何 DDL/DML 操作**。所有脚本、测试与初始化均仅针对 `enterprise_exam_system`（及测试库 `enterprise_exam_system_test`）。
