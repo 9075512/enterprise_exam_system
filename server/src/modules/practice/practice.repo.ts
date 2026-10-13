@@ -798,6 +798,15 @@ export async function listAnsweredBizDates(
   return rows.map((r) => String(r.d).slice(0, 10));
 }
 
+/** 已完成的每日一练次数（completed_at 非空；v2.0⑤ 成就徽章用）。 */
+export async function countCompletedDailyTasks(userId: string): Promise<number> {
+  const rows = await query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS c FROM practice_daily_tasks WHERE user_id = ? AND completed_at IS NOT NULL`,
+    [userId],
+  );
+  return Number(rows[0]?.c ?? 0);
+}
+
 /** 按科目聚合（仅开放题库），正确率升序。 */
 export async function listSubjectStats(
   userId: string,

@@ -12,7 +12,7 @@ import PracticeNoticeCard from './components/PracticeNoticeCard.vue';
 import { usePracticeAuthStore } from '@/stores/practiceAuth';
 import { usePracticeConfigStore } from '@/stores/practiceConfig';
 import * as practiceApi from '@/api/practice';
-import type { PracticeBank, PracticeDailyTask, PracticeSessionInput } from '@/types';
+import type { PracticeAchievements, PracticeBank, PracticeDailyTask, PracticeSessionInput } from '@/types';
 
 const router = useRouter();
 const practiceAuth = usePracticeAuthStore();
@@ -25,6 +25,8 @@ const banks = ref<PracticeBank[]>([]);
 const wrongTotal = ref(0);
 const favoriteTotal = ref(0);
 const daily = ref<PracticeDailyTask | null>(null);
+/** 打卡与成就（v2.0⑤；模块关闭时后端 1017，静默不显示） */
+const achievements = ref<PracticeAchievements | null>(null);
 
 const userName = computed<string>(() => practiceAuth.currentUser?.name ?? '');
 
@@ -45,13 +47,13 @@ function bankNo(index: number): string {
   return String(index + 1).padStart(2, '0');
 }
 
-/** 加载题库列表、错题本数量、收藏数量与今日任务 */
+/** 加载题库列表、错题本数量、收藏数量、今日任务与打卡成就 */
 async function load(): Promise<void> {
   loading.value = true;
   try {
-    // 先取练题端配置：决定是否请求错题本 / 收藏数量（功能关闭时接口会 404）
+    // 先取练题端配置：决定是否请求错题本 / 收藏数量 / 打卡成就（功能关闭时接口会 404）
     await configStore.load();
-    const [bankList, wrongPage, favPage, dailyTask] = await Promise.all([
+    const [bankList, wrongPage, favPage, dailyTask, ach] = await Promise.all([
       practiceApi.listBanks(),
       configStore.config.wrongBookEnabled
         ? practiceApi.wrongBook({ page: 1, pageSize: 1 }).catch(() => null)
@@ -61,11 +63,14 @@ async function load(): Promise<void> {
         : Promise.resolve(null),
       // 每日一练可能被后台关闭或暂无题目 → 失败静默降级为不显示
       practiceApi.daily().catch(() => null),
+      // 打卡与成就（模块关闭时 404）
+      configStore.config.achievementEnabled ? practiceApi.achievements().catch(() => null) : Promise.resolve(null),
     ]);
     banks.value = bankList;
     wrongTotal.value = wrongPage?.total ?? 0;
     favoriteTotal.value = favPage?.total ?? 0;
     daily.value = dailyTask;
+    achievements.value = ach;
   } catch {
     // 错误提示已由 http 拦截器统一弹出
   } finally {
@@ -154,6 +159,35 @@ onMounted(load);
           <el-button class="home__daily-btn" type="primary" size="small" :disabled="daily?.completed">
             {{ daily?.completed ? '已完成' : '开始' }}
           </el-button>
+        </div>
+
+        <!-- 打卡与成就（v2.0⑤；模块关闭或接口失败时整体不显示） -->
+        <div v-if="achievements" class="home__ach">
+          <div class="home__ach-head">
+            <div class="home__ach-streak">
+              <span class="home__ach-num">{{ achievements.streakDays }}</span>
+              <span class="home__ach-unit">天</span>
+            </div>
+            <div class="home__ach-text">
+              <span class="home__ach-title">连续打卡</span>
+              <span class="home__ach-sub">
+                最长 {{ achievements.bestStreak }} 天 · 累计 {{ achievements.answeredTotal }} 题 · 正确率
+                {{ achievements.accuracy }}%
+              </span>
+            </div>
+            <span class="home__ach-count">{{ achievements.unlockedCount }}/{{ achievements.badges.length }}</span>
+          </div>
+          <div class="home__badges">
+            <span
+              v-for="badge in achievements.badges"
+              :key="badge.key"
+              class="home__badge"
+              :class="{ 'is-locked': !badge.unlocked }"
+              :title="badge.unlocked ? badge.desc : `未解锁：${badge.desc}`"
+            >
+              {{ badge.name }}
+            </span>
+          </div>
         </div>
 
         <!-- 错题本入口（后台可关闭） -->
@@ -406,6 +440,94 @@ onMounted(load);
     }
   }
 
+  /* 打卡与成就卡（v2.0⑤） */
+  &__ach {
+    margin-bottom: 12px;
+    padding: 14px 16px;
+    background: #fff;
+    border: 1px solid $practice-border;
+    border-left: 3px solid $practice-primary;
+    border-radius: $practice-radius;
+  }
+
+  &__ach-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  &__ach-streak {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+    min-width: 52px;
+  }
+
+  &__ach-num {
+    font-size: 26px;
+    font-weight: 700;
+    color: $practice-primary;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  &__ach-unit {
+    font-size: 12px;
+    color: $text-secondary;
+  }
+
+  &__ach-text {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  &__ach-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: $text-primary;
+  }
+
+  &__ach-sub {
+    font-size: 12px;
+    color: $text-secondary;
+  }
+
+  &__ach-count {
+    flex: 0 0 auto;
+    font-size: 12px;
+    font-weight: 600;
+    color: $practice-primary;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  &__badge {
+    padding: 3px 9px;
+    border-radius: 4px;
+    background: $practice-soft;
+    border: 1px solid $practice-border;
+    font-size: 12px;
+    font-weight: 600;
+    color: $practice-primary;
+
+    &.is-locked {
+      background: #f8fafc;
+      border-color: $practice-border;
+      color: $text-disabled;
+      font-weight: 400;
+    }
+  }
+
   &__hint {
     margin: 0 0 12px;
     padding-left: 10px;
@@ -413,7 +535,6 @@ onMounted(load);
     font-size: 13px;
     font-weight: 700;
     color: $text-primary;
-
     &::before {
       content: '';
       position: absolute;

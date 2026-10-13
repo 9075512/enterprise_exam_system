@@ -1064,6 +1064,8 @@ export interface PracticeSettings {
   wrongBookEnabled: boolean;
   /** 收藏夹功能开关 */
   favoriteEnabled: boolean;
+  /** 打卡与成就模块开关（v2.0⑤） */
+  achievementEnabled: boolean;
 }
 
 // ============================================================

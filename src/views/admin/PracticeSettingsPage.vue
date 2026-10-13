@@ -499,6 +499,16 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
             </div>
           </div>
         </el-col>
+
+        <el-col :xs="24" :sm="24" :md="8">
+          <div class="practice-settings-page__item">
+            <label class="practice-settings-page__label">打卡与成就</label>
+            <div class="practice-settings-page__control">
+              <el-switch v-model="practiceForm.achievementEnabled" active-text="开启" inactive-text="关闭" />
+              <p class="practice-settings-page__hint">关闭后练题首页隐藏连续打卡与成就徽章（接口返回 1017）。</p>
+            </div>
+          </div>
+        </el-col>
       </el-row>
     </el-card>
   </div>

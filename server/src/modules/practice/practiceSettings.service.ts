@@ -70,6 +70,9 @@ function normalize(raw: Partial<PracticeSettings>): PracticeSettings {
     reportEnabled: boolOr(raw.reportEnabled, D.reportEnabled),
     wrongBookEnabled: boolOr(raw.wrongBookEnabled, D.wrongBookEnabled),
     favoriteEnabled: boolOr(raw.favoriteEnabled, D.favoriteEnabled),
+
+    /* ---------------- v2.0⑤ ---------------- */
+    achievementEnabled: boolOr(raw.achievementEnabled, D.achievementEnabled),
   };
 }
 
@@ -120,5 +123,6 @@ export async function getPracticeConfig(): Promise<PracticeConfigDto> {
     wrongBookEnabled: s.wrongBookEnabled,
     favoriteEnabled: s.favoriteEnabled,
     dailyEnabled: s.dailyEnabled,
+    achievementEnabled: s.achievementEnabled,
   };
 }

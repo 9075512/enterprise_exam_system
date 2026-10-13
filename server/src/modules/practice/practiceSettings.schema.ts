@@ -90,6 +90,9 @@ export const practiceSettingsSchema = z
     reportEnabled: z.boolean({ invalid_type_error: '学习报告开关必须为布尔值' }),
     wrongBookEnabled: z.boolean({ invalid_type_error: '错题本开关必须为布尔值' }),
     favoriteEnabled: z.boolean({ invalid_type_error: '收藏夹开关必须为布尔值' }),
+
+    /* ---------------- v2.0⑤ 新增 ---------------- */
+    achievementEnabled: z.boolean({ invalid_type_error: '打卡与成就开关必须为布尔值' }),
   })
   .refine((v) => v.sessionMaxCount >= v.sessionMinCount, {
     message: '单次题量上限不能小于下限',

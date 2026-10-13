@@ -413,3 +413,13 @@ practiceRouter.get(
   practiceRateLimit('report'),
   asyncHandler(async (req, res) => ok(res, await service.getReportBanks(req.practiceUser!.id))),
 );
+
+/* ------------------------------ 打卡与激励（需登录，v2.0⑤） ------------------------------ */
+
+/** GET /api/practice/achievements —— 连续打卡 + 成就徽章 + 累计数据（模块关闭时 1017）。 */
+practiceRouter.get(
+  '/achievements',
+  practiceAuthRequired,
+  practiceRateLimit('report'),
+  asyncHandler(async (req, res) => ok(res, await service.getAchievements(req.practiceUser!.id))),
+);

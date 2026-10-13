@@ -681,6 +681,8 @@ export interface PracticeSettings {
   wrongBookEnabled: boolean;
   /** 收藏夹功能开关 */
   favoriteEnabled: boolean;
+  /** 打卡与成就模块开关（v2.0⑤） */
+  achievementEnabled: boolean;
 }
 
 /**
@@ -702,6 +704,38 @@ export interface PracticeConfig {
   favoriteEnabled: boolean;
   /** 每日一练是否开启 */
   dailyEnabled: boolean;
+  /** 打卡与成就模块是否开启（v2.0⑤） */
+  achievementEnabled: boolean;
+}
+
+/* ============================================================
+ * v2.0⑤ 打卡与激励
+ * ============================================================ */
+
+/** 成就徽章 */
+export interface PracticeBadge {
+  key: string;
+  name: string;
+  desc: string;
+  target: number;
+  current: number;
+  unlocked: boolean;
+}
+
+/** 打卡与成就总览（GET /api/practice/achievements） */
+export interface PracticeAchievements {
+  enabled: boolean;
+  streakDays: number;
+  bestStreak: number;
+  answeredTotal: number;
+  correctTotal: number;
+  accuracy: number;
+  wrongTotal: number;
+  favoriteTotal: number;
+  dailyCompleted: number;
+  badges: PracticeBadge[];
+  unlockedCount: number;
+  generatedAt: string;
 }
 
 /* ============================================================

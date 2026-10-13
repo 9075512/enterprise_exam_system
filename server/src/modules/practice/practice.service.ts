@@ -42,6 +42,8 @@ import {
 } from './practice.time.js';
 import type {
   Page,
+  PracticeAchievementsDto,
+  PracticeBadgeDto,
   PracticeBankDto,
   PracticeBankStatDto,
   PracticeCheckResult,
@@ -756,4 +758,118 @@ export async function getReportBanks(userId: string): Promise<PracticeBankStatDt
     totalCount: r.totalCount,
     accuracy: percent(r.correct, r.done),
   }));
+}
+
+/* ============================================================
+ * v2.0⑤ 打卡与激励（连续打卡 + 成就徽章）
+ * 零迁移：全部由既有 practice_answers / practice_daily_tasks / practice_wrong_book 计算。
+ * ============================================================ */
+
+/** 从「有作答的业务日集合」计算以 today 结尾的连续天数（今日未练则从昨日回溯）。 */
+function streakEndingAt(set: Set<string>, today: string): number {
+  let cursor = set.has(today) ? today : addDays(today, -1);
+  if (!set.has(cursor)) return 0;
+  let streak = 0;
+  while (set.has(cursor)) {
+    streak += 1;
+    cursor = addDays(cursor, -1);
+  }
+  return streak;
+}
+
+/** 从业务日集合计算历史最长连续天数。 */
+function bestStreakOf(set: Set<string>): number {
+  const sorted = [...set].sort();
+  let best = 0;
+  let run = 0;
+  let prev = '';
+  for (const day of sorted) {
+    run = prev && addDays(prev, 1) === day ? run + 1 : 1;
+    prev = day;
+    if (run > best) best = run;
+  }
+  return best;
+}
+
+/** 打开打卡与成就（关闭 → 1017）。 */
+async function requireAchievementEnabled(): Promise<void> {
+  const s = await practiceSettingsService.getPracticeSettings();
+  if (!s.achievementEnabled) throw practiceFeatureDisabled('打卡与成就暂未开放');
+}
+
+/** 打卡与成就总览（连续打卡 + 成就徽章 + 累计数据）。 */
+export async function getAchievements(userId: string): Promise<PracticeAchievementsDto> {
+  await requireAchievementEnabled();
+  const settings = await practiceSettingsService.getPracticeSettings();
+  const dayOffset = practiceDayOffsetMinutes(settings.dailyResetHour);
+  const today = bizToday(dayOffset);
+  const fromUtc = bizDayRangeUtc(addDays(today, -400), dayOffset).startUtc;
+
+  const [dates, total, wrongTotal, favoriteTotal, dailyCompleted] = await Promise.all([
+    repo.listAnsweredBizDates(userId, dayOffset, fromUtc),
+    repo.countAnswersTotal(userId),
+    repo.countWrongBook(userId),
+    repo.countFavorites(userId),
+    repo.countCompletedDailyTasks(userId),
+  ]);
+
+  const set = new Set(dates);
+  const streakDays = streakEndingAt(set, today);
+  const bestStreak = bestStreakOf(set);
+  const accuracy = percent(total.correct, total.done);
+
+  const badges: PracticeBadgeDto[] = [
+    { key: 'first', name: '初次练题', desc: '完成第一道练习题', target: 1, current: total.done, unlocked: total.done >= 1 },
+    { key: 'streak-3', name: '坚持三天', desc: '连续打卡 3 天', target: 3, current: bestStreak, unlocked: bestStreak >= 3 },
+    { key: 'streak-7', name: '一周不辍', desc: '连续打卡 7 天', target: 7, current: bestStreak, unlocked: bestStreak >= 7 },
+    { key: 'streak-30', name: '月度恒心', desc: '连续打卡 30 天', target: 30, current: bestStreak, unlocked: bestStreak >= 30 },
+    { key: 'answered-100', name: '百题斩', desc: '累计练习 100 题', target: 100, current: total.done, unlocked: total.done >= 100 },
+    {
+      key: 'answered-500',
+      name: '五百题达人',
+      desc: '累计练习 500 题',
+      target: 500,
+      current: total.done,
+      unlocked: total.done >= 500,
+    },
+    {
+      key: 'accuracy-90',
+      name: '精准射手',
+      desc: '累计正确率 ≥ 90%（至少 50 题）',
+      target: 90,
+      current: accuracy,
+      unlocked: total.done >= 50 && accuracy >= 90,
+    },
+    {
+      key: 'daily-10',
+      name: '每日一练达人',
+      desc: '完成 10 次每日一练',
+      target: 10,
+      current: dailyCompleted,
+      unlocked: dailyCompleted >= 10,
+    },
+    {
+      key: 'wrong-clear',
+      name: '错题清零',
+      desc: '错题本已清空（至少练过 20 题）',
+      target: 1,
+      current: wrongTotal === 0 && total.done >= 20 ? 1 : 0,
+      unlocked: total.done >= 20 && wrongTotal === 0,
+    },
+  ];
+
+  return {
+    enabled: true,
+    streakDays,
+    bestStreak,
+    answeredTotal: total.done,
+    correctTotal: total.correct,
+    accuracy,
+    wrongTotal,
+    favoriteTotal,
+    dailyCompleted,
+    badges,
+    unlockedCount: badges.filter((b) => b.unlocked).length,
+    generatedAt: new Date().toISOString(),
+  };
 }

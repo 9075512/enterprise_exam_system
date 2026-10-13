@@ -26,6 +26,9 @@ export const PRACTICE_SETTINGS_DEFAULTS: PracticeSettings = {
   reportEnabled: true,
   wrongBookEnabled: true,
   favoriteEnabled: true,
+
+  /* v2.0⑤ */
+  achievementEnabled: true,
 };
 
 /** 每日一练题量可选范围。 */

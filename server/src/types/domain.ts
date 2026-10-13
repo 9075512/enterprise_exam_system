@@ -910,6 +910,11 @@ export interface PracticeSettings {
   wrongBookEnabled: boolean;
   /** 收藏夹功能开关（false = 练题端隐藏收藏入口 / 按钮，接口一并拒绝） */
   favoriteEnabled: boolean;
+
+  /* ------------------------- v2.0⑤ 新增（打卡与激励） ------------------------- */
+
+  /** 打卡与成就模块开关（false = 练题端隐藏打卡 / 徽章，接口返回 1017） */
+  achievementEnabled: boolean;
 }
 
 /**
@@ -933,6 +938,49 @@ export interface PracticeConfigDto {
   favoriteEnabled: boolean;
   /** 每日一练是否开启（练题端首页入口判定） */
   dailyEnabled: boolean;
+  /** 打卡与成就模块是否开启（v2.0⑤） */
+  achievementEnabled: boolean;
+}
+
+/* ============================================================
+ * v2.0⑤ 练题端打卡与激励
+ * ============================================================ */
+
+/** 成就徽章 */
+export interface PracticeBadgeDto {
+  key: string;
+  name: string;
+  /** 达成条件描述 */
+  desc: string;
+  /** 目标值 */
+  target: number;
+  /** 当前进度值 */
+  current: number;
+  /** 是否已解锁 */
+  unlocked: boolean;
+}
+
+/** 打卡与成就总览（GET /api/practice/achievements） */
+export interface PracticeAchievementsDto {
+  enabled: boolean;
+  /** 当前连续打卡天数（今日未练则从昨日回溯） */
+  streakDays: number;
+  /** 历史最长连续打卡天数 */
+  bestStreak: number;
+  /** 累计作答题数 / 正确题数 */
+  answeredTotal: number;
+  correctTotal: number;
+  /** 累计正确率（0~100 整数） */
+  accuracy: number;
+  /** 错题本题数 / 收藏题数 */
+  wrongTotal: number;
+  favoriteTotal: number;
+  /** 已完成的每日一练次数 */
+  dailyCompleted: number;
+  badges: PracticeBadgeDto[];
+  /** 已解锁徽章数 */
+  unlockedCount: number;
+  generatedAt: string;
 }
 
 /** 收藏夹条目 DTO（题目内容 **不含** answer/analysis + 收藏时间） */

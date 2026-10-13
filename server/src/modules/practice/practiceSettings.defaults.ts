@@ -42,4 +42,8 @@ export const DEFAULT_PRACTICE_SETTINGS: PracticeSettings = {
   wrongBookEnabled: true,
   /** 默认开启收藏夹功能 */
   favoriteEnabled: true,
+
+  /* ---------------- v2.0⑤ 新增 ---------------- */
+  /** 默认开启打卡与成就模块 */
+  achievementEnabled: true,
 };

@@ -12,6 +12,7 @@ import type {
   ContentFeed,
   Page,
   PracticeBank,
+  PracticeAchievements,
   PracticeBankStat,
   PracticeCheckResult,
   PracticeCaptcha,
@@ -248,4 +249,11 @@ export function reportSubjects(): Promise<PracticeSubjectStat[]> {
 /** 开放题库概览 */
 export function reportBanks(): Promise<PracticeBankStat[]> {
   return get<PracticeBankStat[]>('/practice/report/banks', undefined, AUTHED);
+}
+
+/* ------------------------------ 打卡与激励（v2.0⑤） ------------------------------ */
+
+/** 连续打卡 + 成就徽章 + 累计数据（模块关闭时后端返回 1017） */
+export function achievements(): Promise<PracticeAchievements> {
+  return get<PracticeAchievements>('/practice/achievements', undefined, AUTHED);
 }
