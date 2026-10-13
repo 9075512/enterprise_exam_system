@@ -191,9 +191,11 @@ describe('S4 题库复制', () => {
       .set(bearer(admin))
       .send({ name: '安全知识题库（复制）', copyQuestions: true });
     expect(res.body.code).toBe(0);
-    const cloneId = res.body.data.id as string;
+    // v1.8⑤ U5：复制结果改为 { bank, copied, reused }
+    const cloneId = res.body.data.bank.id as string;
     expect(cloneId).toBeTruthy();
-    expect(res.body.data.name).toBe('安全知识题库（复制）');
+    expect(res.body.data.bank.name).toBe('安全知识题库（复制）');
+    expect(res.body.data.reused).toBe(0);
 
     const [src, dst] = await Promise.all([
       request(app).get('/api/banks/bank-security/questions').query({ pageSize: 50 }).set(bearer(admin)),
@@ -220,8 +222,8 @@ describe('S4 题库复制', () => {
       .set(bearer(admin))
       .send({ copyQuestions: false });
     expect(res.body.code).toBe(0);
-    expect(res.body.data.name).toBe('企业文化题库（副本）');
-    expect(res.body.data.questionCount).toBe(0);
+    expect(res.body.data.bank.name).toBe('企业文化题库（副本）');
+    expect(res.body.data.bank.questionCount).toBe(0);
   });
 
   it('出题人复制未授权题库 → 1003', async () => {

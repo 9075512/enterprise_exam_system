@@ -18,8 +18,16 @@ import { badRequest, conflict, forbidden, notFound } from '../../utils/errors.js
 import { genId } from '../../utils/id.js';
 import { nowDb, fromDbDateSafe } from '../../utils/datetime.js';
 import { parseJsonColumn } from '../../utils/json.js';
+import { questionFingerprint } from '../../utils/questionFingerprint.js';
 import * as auditService from '../audit/audit.service.js';
-import type { BankAuthorBatchResult, BankDetailDto, BankDto, Role, RubricBand } from '../../types/domain.js';
+import type {
+  BankAuthorBatchResult,
+  BankCloneResultDto,
+  BankDetailDto,
+  BankDto,
+  Role,
+  RubricBand,
+} from '../../types/domain.js';
 
 /** 行 → 基础 DTO（authorIds/authorNames 由 attachAuthors 补充）。 */
 function mapRow(row: BankRowWithCount): Omit<BankDto, 'authorIds' | 'authorNames'> {
@@ -415,14 +423,19 @@ export async function batchRevokeAuthors(
  * - 新题库归属当前操作者，名称默认「原名（副本）」；
  * - `copyQuestions` 默认 true：题目以**新 id** 复制（不影响源题与其试卷引用），
  *   保留题型/选项/答案/分值/解析/科目/知识点标签/评分细则；
+ * - **内容去重式复用（v1.8⑤ U5）**：以「题型+规范化题干+选项+答案」为指纹，
+ *   同一批复制中内容完全相同的题目**只新建一行**（后续同内容题目复用该行 id），
+ *   避免题库膨胀（决策 D3：不引入引用计数与跨库引用表）；
  * - 授权出题人：admin 可显式指定 `authorIds`，否则继承源题库作者；
  *   author 复制时在继承基础上自动加入自己（保证可见）。
+ *
+ * @returns `{ bank, copied, reused }`：`copied` 为实际新建的题目数，`reused` 为被去重复用的题目数。
  */
 export async function cloneBank(
   id: string,
   input: BankCloneInput,
   operator: Operator,
-): Promise<BankDto> {
+): Promise<BankCloneResultDto> {
   const source = await repo.findById(id);
   if (!source) throw notFound('题库不存在或已被删除');
   await bankAuth.assertBankAccess(id, operator);
@@ -444,6 +457,7 @@ export async function cloneBank(
   }
 
   let copied = 0;
+  let reused = 0;
   await withTransaction(async (conn) => {
     await repo.insert(
       {
@@ -460,15 +474,30 @@ export async function cloneBank(
 
     if (copyQuestions) {
       const rows = await questionRepo.listAllByBank(id, conn);
+      // 指纹 → 已新建题目 id（同一批内同内容只建一行，v1.8⑤ U5）
+      const createdByFingerprint = new Map<string, string>();
       for (const r of rows) {
+        const options = parseJsonColumn<string[]>(r.options, []);
+        const answer = parseJsonColumn<number[] | string[]>(r.answer, []);
+        const fingerprint = questionFingerprint({
+          type: r.type,
+          stem: r.stem,
+          options,
+          answer,
+        });
+        if (createdByFingerprint.has(fingerprint)) {
+          reused += 1;
+          continue;
+        }
+        const questionId = genId('q-');
         await questionRepo.insert(
           {
-            id: genId('q-'),
+            id: questionId,
             bankId: newId,
             type: r.type,
             stem: r.stem,
-            options: parseJsonColumn<string[]>(r.options, []),
-            answer: parseJsonColumn<number[] | string[]>(r.answer, []),
+            options,
+            answer,
             defaultScore: Number(r.default_score),
             analysis: r.analysis ?? '',
             subject: r.subject,
@@ -479,6 +508,7 @@ export async function cloneBank(
           },
           conn,
         );
+        createdByFingerprint.set(fingerprint, questionId);
         copied += 1;
       }
     }
@@ -496,7 +526,7 @@ export async function cloneBank(
     targetType: 'bank',
     targetId: newId,
     targetName: dto.name,
-    detail: { sourceBankId: id, sourceBankName: source.name, copyQuestions, copied, authorIds },
+    detail: { sourceBankId: id, sourceBankName: source.name, copyQuestions, copied, reused, authorIds },
   });
-  return dto;
+  return { bank: dto, copied, reused };
 }

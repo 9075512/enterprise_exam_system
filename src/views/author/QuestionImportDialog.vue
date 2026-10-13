@@ -46,6 +46,8 @@ const uploadRef = ref<UploadInstance>();
 const selectedFile = ref<File | null>(null);
 const preview = ref<PreviewResult | null>(null);
 const result = ref<CommitResult | null>(null);
+/** 内容去重式复用开关（v1.8⑤ U5）：跳过目标题库中已存在的相同题目；默认关闭（行为不变） */
+const dedupe = ref(false);
 
 const parsing = ref(false);
 const committing = ref(false);
@@ -72,6 +74,7 @@ function reset(): void {
   selectedFile.value = null;
   preview.value = null;
   result.value = null;
+  dedupe.value = false;
   parsing.value = false;
   committing.value = false;
   uploadRef.value?.clearFiles();
@@ -186,8 +189,13 @@ async function handleCommit(): Promise<void> {
       fileName: selectedFile.value.name,
       validRows: preview.value.validRows,
       errors: preview.value.errors,
+      dedupe: dedupe.value,
     });
-    ElMessage.success(`导入完成：成功 ${result.value.successCount} 条，失败 ${result.value.failCount} 条`);
+    // v1.8⑤ U5：如实反馈内容去重跳过的条数
+    const reusedPart = result.value.reused > 0 ? `，跳过重复 ${result.value.reused} 条` : '';
+    ElMessage.success(
+      `导入完成：成功 ${result.value.successCount} 条，失败 ${result.value.failCount} 条${reusedPart}`,
+    );
     step.value = 3;
     emit('imported');
   } catch {
@@ -316,6 +324,14 @@ function importAgain(): void {
         <el-table-column prop="reason" label="原因" min-width="220" show-overflow-tooltip />
       </el-table>
 
+      <div class="import-dedupe">
+        <el-switch v-model="dedupe" />
+        <span class="import-dedupe__label">跳过重复题目（内容去重）</span>
+        <span class="import-dedupe__hint">
+          开启后，「题型 + 题干 + 选项 + 答案」完全相同且已存在于本题库的题目将不再重复写入
+        </span>
+      </div>
+
       <p class="import-tip">确认后将仅写入成功的 {{ preview.successCount }} 条，失败行将被跳过。</p>
     </div>
 
@@ -323,7 +339,13 @@ function importAgain(): void {
     <div v-else-if="step === 3 && result" class="import-pane import-done">
       <el-result icon="success" title="导入完成">
         <template #sub-title>
-          <p>成功 {{ result.successCount }} 条 · 失败 {{ result.failCount }} 条 · 共 {{ result.totalRows }} 行</p>
+          <p>
+            成功 {{ result.successCount }} 条 · 失败 {{ result.failCount }} 条 · 共 {{ result.totalRows }} 行<template
+              v-if="result.reused > 0"
+            >
+              · 跳过重复 {{ result.reused }} 条</template
+            >
+          </p>
         </template>
       </el-result>
     </div>
@@ -440,6 +462,28 @@ function importAgain(): void {
   margin: 12px 0 0;
   font-size: 13px;
   color: $text-secondary;
+}
+
+.import-dedupe {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-top: 12px;
+  background: $bg-paper;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+
+  &__label {
+    font-size: 13px;
+    color: $text-primary;
+  }
+
+  &__hint {
+    font-size: 12px;
+    color: $text-disabled;
+  }
 }
 
 .import-done {

@@ -14,6 +14,7 @@ import { fileInvalid, notFound } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
 import { nowDb, fromDbDateSafe } from '../../utils/datetime.js';
 import { parseJsonColumn } from '../../utils/json.js';
+import { questionFingerprint } from '../../utils/questionFingerprint.js';
 import { normalizePaging, buildPage } from '../../utils/pagination.js';
 import { parseQuestionWorkbook } from '../../utils/excel.js';
 import { getSettings } from '../settings/settings.service.js';
@@ -51,6 +52,9 @@ export async function preview(buffer: Buffer, bankId: string, operator: Operator
 /**
  * 确认导入：单事务写入成功行 + 写导入批次。
  * 信任 preview 回传的 validRows，但服务端再校验一遍关键字段以防篡改。
+ *
+ * `dedupe=true`（v1.8⑤ U5）时按内容指纹去重：目标题库已存在「题型+题干+选项+答案」完全相同的题目
+ * → **跳过建行**（复用既有题目），计入 `reused`；同批内重复同样只建一行。默认关闭（行为不变）。
  */
 export async function commit(
   input: {
@@ -67,6 +71,7 @@ export async function commit(
       subject: string;
     }>;
     errors: RowIssue[];
+    dedupe?: boolean;
   },
   operator: Operator,
 ): Promise<CommitResult> {
@@ -77,14 +82,45 @@ export async function commit(
   const batchId = genId('batch-');
   const totalRows = input.validRows.length + input.errors.length;
   const failIssues: RowIssue[] = [...input.errors];
+  const dedupe = input.dedupe === true;
   let successCount = 0;
+  let reusedCount = 0;
   let failCount = input.errors.length;
 
   await withTransaction(async (conn) => {
+    // 去重基准：目标题库既有题目的内容指纹（含本批已新建的）
+    const fingerprints = new Set<string>();
+    if (dedupe) {
+      const existing = await questionsRepo.listAllByBank(input.bankId, conn);
+      for (const r of existing) {
+        fingerprints.add(
+          questionFingerprint({
+            type: r.type,
+            stem: r.stem,
+            options: parseJsonColumn<string[]>(r.options, []),
+            answer: parseJsonColumn<number[] | string[]>(r.answer, []),
+          }),
+        );
+      }
+    }
+
     for (const vr of input.validRows) {
       try {
         // 服务端二次校验（防篡改）
         const normalized = normalizeQuestion(vr);
+        if (dedupe) {
+          const fingerprint = questionFingerprint({
+            type: normalized.type,
+            stem: normalized.stem,
+            options: normalized.options,
+            answer: normalized.answer,
+          });
+          if (fingerprints.has(fingerprint)) {
+            reusedCount += 1;
+            continue;
+          }
+          fingerprints.add(fingerprint);
+        }
         await questionsRepo.insert(
           {
             id: genId('q-'),
@@ -123,7 +159,7 @@ export async function commit(
     );
   });
 
-  return { batchId, successCount, failCount, totalRows };
+  return { batchId, successCount, failCount, totalRows, reused: reusedCount };
 }
 
 /** 导入批次历史（分页）。 */

@@ -67,13 +67,18 @@ async function handleSubmit(): Promise<void> {
   }
   submitting.value = true;
   try {
-    const created = await banksApi.clone(props.bank.id, {
+    const result = await banksApi.clone(props.bank.id, {
       name,
       copyQuestions: form.value.copyQuestions,
       ...(props.isAdmin ? { authorIds: form.value.authorIds } : {}),
     });
-    ElMessage.success('题库已复制');
-    emit('saved', created);
+    // v1.8⑤ U5：内容去重式复用 —— 同内容题目只新建一行，如实反馈
+    ElMessage.success(
+      result.reused > 0
+        ? `题库已复制（新建题目 ${result.copied} 道，内容重复复用 ${result.reused} 道）`
+        : '题库已复制',
+    );
+    emit('saved', result.bank);
     dialogVisible.value = false;
   } catch {
     /* 已由拦截器提示 */
@@ -95,7 +100,8 @@ async function handleSubmit(): Promise<void> {
       <el-form-item label="复制试题">
         <el-switch v-model="form.copyQuestions" />
         <span class="bank-clone__hint">
-          开启后将复制源题库全部试题（含题型/选项/答案/分值/知识点/评分细则），新题 id 独立，不影响原题库
+          开启后将复制源题库全部试题（含题型/选项/答案/分值/知识点/评分细则），新题 id 独立，不影响原题库；
+          内容完全相同的题目会自动去重复用，只保留一行
         </span>
       </el-form-item>
       <el-form-item v-if="isAdmin" label="授权出题人">

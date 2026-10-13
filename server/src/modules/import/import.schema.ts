@@ -36,6 +36,11 @@ export const createCommitSchema = (maxRows: number) =>
     fileName: z.string().optional().default(''),
     validRows: z.array(validRowSchema).min(1, '没有可导入的数据').max(maxRows, `单次导入不得超过 ${maxRows} 行`),
     errors: z.array(rowIssueSchema).optional().default([]),
+    /**
+     * 内容去重式复用（v1.8⑤ U5）：目标题库已存在「题型+题干+选项+答案」完全相同的题目时
+     * **跳过建行**（复用既有题目 id），避免重复导入导致题库膨胀。默认 false（保持原有行为）。
+     */
+    dedupe: z.boolean().optional().default(false),
   });
 
 /** 批次列表查询入参。 */

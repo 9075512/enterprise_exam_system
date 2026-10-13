@@ -15,12 +15,13 @@ export function preview(file: File, bankId: string): Promise<PreviewResult> {
   return upload<PreviewResult>('/questions/import/preview', form);
 }
 
-/** 确认导入（单事务） */
+/** 确认导入（单事务）；`dedupe=true` 时按内容指纹跳过目标题库中已存在的相同题目（v1.8⑤ U5） */
 export function commit(payload: {
   bankId: string;
   fileName: string;
   validRows: ValidRow[];
   errors?: RowIssue[];
+  dedupe?: boolean;
 }): Promise<CommitResult> {
   return post<CommitResult>('/questions/import/commit', payload);
 }

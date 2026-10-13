@@ -2,6 +2,7 @@
 import { del, get, post, put } from './http';
 import type {
   BankAuthorBatchResult,
+  BankCloneResult,
   BankDetail,
   QuestionBank,
   Question,
@@ -119,7 +120,12 @@ export interface BankClonePayload {
   authorIds?: string[];
 }
 
-/** 复制题库（可选连同试题；返回新题库，v1.7④ S4） */
-export function clone(bankId: string, payload: BankClonePayload = {}): Promise<QuestionBank> {
-  return post<QuestionBank>(`/banks/${bankId}/clone`, payload);
+/**
+ * 复制题库（可选连同试题；v1.7④ S4）。
+ *
+ * v1.8⑤ U5：返回 `{ bank, copied, reused }` —— 题目按「题型+题干+选项+答案」内容指纹
+ * **去重复用**，同内容题目只新建一行（`reused` 为被复用数）。
+ */
+export function clone(bankId: string, payload: BankClonePayload = {}): Promise<BankCloneResult> {
+  return post<BankCloneResult>(`/banks/${bankId}/clone`, payload);
 }

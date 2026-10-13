@@ -37,7 +37,7 @@ Vue 3 (Vite, Element Plus, Pinia, Vue Router)  ──REST/JSON──▶  Express
 │  ├─ src/db/                # init.ts（建表 + 幂等迁移 + 种子）、seed.ts
 │  ├─ src/middleware/        # auth / role / validate / error
 │  ├─ src/utils/             # 响应、错误、分页、Excel（exceljs）、PDF（pdfkit）、鉴权、JWT 等
-│  └─ src/test/              # vitest + supertest（368 用例）
+│  └─ src/test/              # vitest + supertest（377 用例）
 ├─ practice-web/             # 公网练题端（独立前端工程）
 ├─ docs/                     # 增量 PRD 与架构设计文档
 ├─ deploy/                   # 部署脚本（Nginx / DB 授权）
@@ -103,7 +103,7 @@ npm run preview          # 预览构建产物
 
 # 后端
 npm --prefix server run typecheck   # tsc --noEmit
-npm --prefix server run test        # vitest + supertest（368 用例）
+npm --prefix server run test        # vitest + supertest（377 用例）
 npm --prefix server run build       # 编译到 server/dist
 npm --prefix server run start       # 运行编译产物
 ```
@@ -142,6 +142,7 @@ npm --prefix server run start       # 运行编译产物
 - **归档自动化（v1.8③）**：归档定时任务（开关 + 执行时点可配，单飞 + 每天一次 + 系统 actor 审计；默认关闭），支持「立即执行一次」。
 - **监考实时推送（v1.8①）**：监考大屏由 15s 轮询升级为 **SSE 推送**（零依赖；同一场考试的全部监考页**共享一次查库**，按考试聚合广播；15s 心跳 + 连接数上限），推送不可用时前端**自动回退轮询**。
 - **富文本附件对象存储（v1.8④）**：简答作答图片支持**粘贴/选图上传**（服务端落盘 `storage/attachments/yyyy/MM`，可替换为云对象存储），答案回填站内带签名 URL，不再内联 base64；读取走**双通道鉴权**（Bearer 归属校验 / HMAC 签名 URL），净化白名单收敛到站内前缀。
+- **题库内容去重复用（v1.8⑤）**：题库复制与 Excel 导入按「题型+题干+选项+答案」内容指纹去重（复制同批内同内容只建一行；导入可选「跳过重复题目」，默认关闭），降低题库膨胀。
 
 ## 数据表（32 张，一句话说明）
 

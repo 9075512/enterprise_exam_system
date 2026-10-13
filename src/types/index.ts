@@ -143,6 +143,16 @@ export interface QuestionBank {
   authorNames: string[];
 }
 
+/** 题库复制结果（v1.8⑤ U5；含内容去重复用计数） */
+export interface BankCloneResult {
+  /** 新建的题库 */
+  bank: QuestionBank;
+  /** 实际新建的题目数 */
+  copied: number;
+  /** 因内容完全相同而被去重复用的题目数（未新建行） */
+  reused: number;
+}
+
 /** 题库详情（含被引用统计） */
 export interface BankDetail extends QuestionBank {
   /** 该题库的试题已被多少份不重复试卷引用 */
@@ -394,6 +404,8 @@ export interface CommitResult {
   successCount: number;
   failCount: number;
   totalRows: number;
+  /** 因内容完全相同而跳过的题目数（v1.8⑤ U5；仅开启「跳过重复题目」时可能大于 0） */
+  reused: number;
 }
 
 /** 导入批次（历史） */
