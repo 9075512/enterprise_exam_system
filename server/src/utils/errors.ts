@@ -27,6 +27,8 @@ export const ERROR_CODES = {
   CAPTCHA_REQUIRED: 1015, // 需要/校验图形验证码（400）
   // —— v1.8① 实时监控推送 ——
   MONITOR_PUSH_DISABLED: 1016, // 实时推送已关闭（503，前端应回退轮询）
+  // —— v1.9⑤ 练题端功能开关 ——
+  PRACTICE_FEATURE_DISABLED: 1017, // 练题端功能（报告/错题本/收藏夹）已被后台关闭（404）
   INTERNAL: 5000, // 服务器内部错误
 } as const;
 
@@ -51,6 +53,7 @@ export const ERROR_HTTP_STATUS: Record<number, number> = {
   [ERROR_CODES.PRACTICE_DAILY_DISABLED]: 404,
   [ERROR_CODES.CAPTCHA_REQUIRED]: 400,
   [ERROR_CODES.MONITOR_PUSH_DISABLED]: 503,
+  [ERROR_CODES.PRACTICE_FEATURE_DISABLED]: 404,
   [ERROR_CODES.INTERNAL]: 500,
 };
 
@@ -142,6 +145,11 @@ export function practiceFavoriteLimit(message = '收藏已达上限，请先清�
 /** 便捷构造：每日一练未开放 1014/404（后台关闭时）。 */
 export function practiceDailyDisabled(message = '每日一练暂未开放'): AppError {
   return new AppError(ERROR_CODES.PRACTICE_DAILY_DISABLED, message, 404);
+}
+
+/** 便捷构造：练题端功能被后台关闭 1017/404（学习报告 / 错题本 / 收藏夹，v1.9⑤）。 */
+export function practiceFeatureDisabled(message = '该功能暂未开放'): AppError {
+  return new AppError(ERROR_CODES.PRACTICE_FEATURE_DISABLED, message, 404);
 }
 
 /** 便捷构造：需要/校验图形验证码 1015/400（v1.7③）。 */

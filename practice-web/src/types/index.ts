@@ -514,12 +514,16 @@ export interface PracticeSession {
 export interface PracticeCheckResult {
   /** 是否正确 */
   correct: boolean;
-  /** 正确答案：选项索引数组 */
+  /** 正确答案：选项索引数组（`answerVisible=false` 时为 `[]`） */
   correctAnswer: number[];
-  /** 解析（可能为 ''） */
+  /** 解析（可能为 ''；`analysisVisible=false` 时为 ''） */
   analysis: string;
   /** 题型 */
   type: QuestionType;
+  /** 本次判分是否下发了正确答案（v1.9⑤ 后台可关闭） */
+  answerVisible?: boolean;
+  /** 本次判分是否下发了题目解析（v1.9⑤ 后台可关闭） */
+  analysisVisible?: boolean;
 }
 
 /** 练题进度 */
@@ -554,7 +558,8 @@ export type PracticeMode = 'sequence' | 'random';
 /** 生成练习序列入参 */
 export interface PracticeSessionInput {
   bankId: string;
-  mode: PracticeMode;
+  /** 练题方式；缺省时后端按「练题端设置 → 默认练题方式」兜底（v1.9⑤） */
+  mode?: PracticeMode;
   count?: number;
   types?: QuestionType[];
 }
@@ -652,4 +657,49 @@ export interface PracticeSettings {
   dailyBankScope: PracticeDailyBankScope;
   /** 收藏夹上限（1~2000） */
   favoriteLimit: number;
+
+  /* ------------------------- v1.9⑤ 新增 ------------------------- */
+  /** 默认练题方式 */
+  defaultPracticeMode: PracticeMode;
+  /** 单次练习题量下限（1~100） */
+  sessionMinCount: number;
+  /** 单次练习题量上限（1~100，且 >= 下限） */
+  sessionMaxCount: number;
+  /** 判分后是否展示正确答案 */
+  showAnswer: boolean;
+  /** 判分后是否展示解析 */
+  showAnalysis: boolean;
+  /** 每日一练重置时点（0~23 时；0 = 自然日） */
+  dailyResetHour: number;
+  /** 每日一练最少抽题数（1~50） */
+  dailyMinQuestionCount: number;
+  /** 错题本自动移除阈值（0 = 不自动移除） */
+  wrongAutoRemoveStreak: number;
+  /** 学习报告页开关 */
+  reportEnabled: boolean;
+  /** 错题本页开关 */
+  wrongBookEnabled: boolean;
+  /** 收藏夹功能开关 */
+  favoriteEnabled: boolean;
+}
+
+/**
+ * 练题端公开配置（`GET /api/practice/config` 返回，v1.9⑤）。
+ * 由后端 `PracticeConfigDto` 下发，练题端据此渲染默认模式 / 题量范围 / 答案可见性 / 页面入口。
+ */
+export interface PracticeConfig {
+  /** 默认练题方式 */
+  defaultPracticeMode: PracticeMode;
+  /** 单次练习题量可选范围 */
+  sessionMinCount: number;
+  sessionMaxCount: number;
+  /** 判分后是否展示正确答案 / 解析 */
+  showAnswer: boolean;
+  showAnalysis: boolean;
+  /** 页面入口开关 */
+  reportEnabled: boolean;
+  wrongBookEnabled: boolean;
+  favoriteEnabled: boolean;
+  /** 每日一练是否开启 */
+  dailyEnabled: boolean;
 }

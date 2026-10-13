@@ -5,11 +5,13 @@
  * 视觉：冷静蓝 · 商务风（小圆角、细边框、实色主按钮、无渐变）。
  */
 import { computed, ref, watch } from 'vue';
-import type { PracticeBank, PracticeMode, PracticeSessionInput, QuestionType } from '@/types';
+import type { PracticeBank, PracticeConfig, PracticeMode, PracticeSessionInput, QuestionType } from '@/types';
 
 const props = defineProps<{
   visible: boolean;
   bank: PracticeBank;
+  /** 练题端公开配置（v1.9⑤）：默认模式与单次题量范围 */
+  config: PracticeConfig;
 }>();
 
 const emit = defineEmits<{
@@ -22,19 +24,19 @@ const innerVisible = computed<boolean>({
   set: (value) => emit('update:visible', value),
 });
 
-/** 练题方式 */
+/** 练题方式（默认取后台配置） */
 const mode = ref<PracticeMode>('sequence');
 /** 题量：'all' 或具体数字 */
 const countMode = ref<'all' | number>('all');
 /** 题型（默认全选） */
 const types = ref<QuestionType[]>(['single', 'multiple', 'judge']);
 
-/** 每次打开重置默认值 */
+/** 每次打开重置默认值（练题方式取后台默认，题量取「全部」） */
 watch(
   () => props.visible,
   (visible) => {
     if (!visible) return;
-    mode.value = 'sequence';
+    mode.value = props.config.defaultPracticeMode;
     countMode.value = 'all';
     types.value = ['single', 'multiple', 'judge'];
   },
@@ -43,13 +45,25 @@ watch(
 /** 该题库是否有题可练 */
 const hasQuestions = computed<boolean>(() => props.bank.questionCount > 0);
 
+/** 「全部」实际可练题量（受后台单次题量上限约束） */
+const allCount = computed<number>(() =>
+  Math.min(props.bank.questionCount, Math.max(1, props.config.sessionMaxCount)),
+);
+
+/** 快捷题量选项：落在 [下限, 上限] 且小于题库总题量（避免与「全部」重复） */
+const countOptions = computed<number[]>(() =>
+  [10, 20, 50, 100].filter(
+    (v) => v >= props.config.sessionMinCount && v <= props.config.sessionMaxCount && v < props.bank.questionCount,
+  ),
+);
+
 /** 开始练习：组装入参并通知父组件 */
 function confirm(): void {
   if (!hasQuestions.value || types.value.length === 0) return;
   emit('start', {
     bankId: props.bank.id,
     mode: mode.value,
-    count: countMode.value === 'all' ? undefined : countMode.value,
+    count: countMode.value === 'all' ? allCount.value : countMode.value,
     types: [...types.value],
   });
   innerVisible.value = false;
@@ -77,11 +91,12 @@ function confirm(): void {
       <div class="opt__group">
         <div class="opt__label">题量</div>
         <el-radio-group v-model="countMode" class="opt__choices">
-          <el-radio value="all">全部（{{ bank.questionCount }} 题）</el-radio>
-          <el-radio :value="10">10 题</el-radio>
-          <el-radio :value="20">20 题</el-radio>
-          <el-radio :value="50">50 题</el-radio>
+          <el-radio value="all">全部（{{ allCount }} 题）</el-radio>
+          <el-radio v-for="n in countOptions" :key="n" :value="n">{{ n }} 题</el-radio>
         </el-radio-group>
+        <p v-if="countOptions.length === 0" class="opt__tip">
+          该题库题量未超过单次上限，默认一次练完（上限 {{ config.sessionMaxCount }} 题）
+        </p>
       </div>
 
       <div class="opt__group">
@@ -186,6 +201,13 @@ function confirm(): void {
     margin: 0;
     font-size: 13px;
     color: $color-warning;
+  }
+
+  &__tip {
+    margin: 8px 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: $text-secondary;
   }
 
   /* 选项做成可点选卡片（移动端触控区 ≥42px） */

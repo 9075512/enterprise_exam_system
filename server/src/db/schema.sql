@@ -235,12 +235,16 @@ CREATE TABLE IF NOT EXISTS practice_answers (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 14. 错题本（由 practice_answers 派生维护）
+--     correct_streak：进入错题本后**连续答对**次数（答错归零），
+--     达到 practice_settings.wrongAutoRemoveStreak 阈值时自动移出（v1.9⑤）；
+--     旧库由 init.ts 的 applyMigrations 幂等补列。
 CREATE TABLE IF NOT EXISTS practice_wrong_book (
-  id            VARCHAR(64) NOT NULL,
-  user_id       VARCHAR(64) NOT NULL,
-  question_id   VARCHAR(64) NOT NULL,
-  wrong_count   INT NOT NULL DEFAULT 1,
-  last_wrong_at DATETIME(3) NOT NULL,
+  id             VARCHAR(64) NOT NULL,
+  user_id        VARCHAR(64) NOT NULL,
+  question_id    VARCHAR(64) NOT NULL,
+  wrong_count    INT NOT NULL DEFAULT 1,
+  correct_streak INT NOT NULL DEFAULT 0,
+  last_wrong_at  DATETIME(3) NOT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uk_pwb_user_question (user_id, question_id),
   CONSTRAINT fk_pwb_question FOREIGN KEY (question_id) REFERENCES questions(id)

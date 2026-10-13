@@ -19,9 +19,18 @@ import {
   DAILY_BANK_SCOPE_OPTIONS,
   DAILY_COUNT_MAX,
   DAILY_COUNT_MIN,
+  DAILY_MIN_COUNT_MAX,
+  DAILY_MIN_COUNT_MIN,
+  DAILY_RESET_HOUR_MAX,
+  DAILY_RESET_HOUR_MIN,
+  DEFAULT_PRACTICE_MODE_OPTIONS,
   FAVORITE_LIMIT_MAX,
   FAVORITE_LIMIT_MIN,
   PRACTICE_SETTINGS_DEFAULTS,
+  SESSION_COUNT_MAX,
+  SESSION_COUNT_MIN,
+  WRONG_AUTO_REMOVE_MAX,
+  WRONG_AUTO_REMOVE_MIN,
 } from '@/constants/practiceSettings';
 import PageHeader from '@/components/common/PageHeader.vue';
 import type { PracticeSettings, QuestionBank, QuestionType } from '@/types';
@@ -301,6 +310,44 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
 
         <el-col :xs="24" :sm="24" :md="12">
           <div class="practice-settings-page__item">
+            <label class="practice-settings-page__label">重置时点（时）</label>
+            <div class="practice-settings-page__control">
+              <el-input-number
+                v-model="practiceForm.dailyResetHour"
+                :min="DAILY_RESET_HOUR_MIN"
+                :max="DAILY_RESET_HOUR_MAX"
+                :step="1"
+                :disabled="!practiceForm.dailyEnabled"
+                class="practice-settings-page__num"
+              />
+              <p class="practice-settings-page__hint">
+                默认 0 点。设为 4 点则凌晨 4 点前仍算作前一天，适合「跨零点仍在练题」的场景；打卡统计与趋势图同步按此切分。
+              </p>
+            </div>
+          </div>
+        </el-col>
+
+        <el-col :xs="24" :sm="24" :md="12">
+          <div class="practice-settings-page__item">
+            <label class="practice-settings-page__label">最少抽题数（题）</label>
+            <div class="practice-settings-page__control">
+              <el-input-number
+                v-model="practiceForm.dailyMinQuestionCount"
+                :min="DAILY_MIN_COUNT_MIN"
+                :max="DAILY_MIN_COUNT_MAX"
+                :step="1"
+                :disabled="!practiceForm.dailyEnabled"
+                class="practice-settings-page__num"
+              />
+              <p class="practice-settings-page__hint">
+                开放题库题量不足该值时，当日视为「无题可练」（不显示入口），避免只抽到一两题就开练。
+              </p>
+            </div>
+          </div>
+        </el-col>
+
+        <el-col :xs="24" :sm="24" :md="12">
+          <div class="practice-settings-page__item">
             <label class="practice-settings-page__label">收藏夹上限（题）</label>
             <div class="practice-settings-page__control">
               <el-input-number
@@ -311,6 +358,144 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
                 class="practice-settings-page__num"
               />
               <p class="practice-settings-page__hint">调小仅限制新增收藏，不会删除已有收藏。</p>
+            </div>
+          </div>
+        </el-col>
+      </el-row>
+    </el-card>
+
+    <!-- ============ 3. 练题行为与作答反馈 ============ -->
+    <el-card v-loading="practiceLoading" class="practice-settings-page__panel" shadow="never">
+      <template #header>
+        <div class="practice-settings-page__head">
+          <span class="practice-settings-page__head-title">练题行为与作答反馈</span>
+        </div>
+      </template>
+
+      <el-row :gutter="24">
+        <el-col :xs="24" :sm="24" :md="12">
+          <div class="practice-settings-page__item">
+            <label class="practice-settings-page__label">默认练题方式</label>
+            <div class="practice-settings-page__control">
+              <el-radio-group v-model="practiceForm.defaultPracticeMode">
+                <el-radio v-for="opt in DEFAULT_PRACTICE_MODE_OPTIONS" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </el-radio>
+              </el-radio-group>
+              <p class="practice-settings-page__hint">
+                练题端发起练习时未显式选择方式时的默认值；考生仍可在题库内手动切换。
+              </p>
+            </div>
+          </div>
+        </el-col>
+
+        <el-col :xs="24" :sm="24" :md="12">
+          <div class="practice-settings-page__item">
+            <label class="practice-settings-page__label">单次练习题量范围</label>
+            <div class="practice-settings-page__control">
+              <div class="practice-settings-page__inline">
+                <el-input-number
+                  v-model="practiceForm.sessionMinCount"
+                  :min="SESSION_COUNT_MIN"
+                  :max="SESSION_COUNT_MAX"
+                  :step="1"
+                  class="practice-settings-page__num-sm"
+                />
+                <span class="practice-settings-page__sep">~</span>
+                <el-input-number
+                  v-model="practiceForm.sessionMaxCount"
+                  :min="SESSION_COUNT_MIN"
+                  :max="SESSION_COUNT_MAX"
+                  :step="1"
+                  class="practice-settings-page__num-sm"
+                />
+                <span class="practice-settings-page__unit">题</span>
+              </div>
+              <p class="practice-settings-page__hint">
+                限制练题端「抽取题量」的可选区间；上限须不小于下限。题库题量不足时按实际题量出题。
+              </p>
+            </div>
+          </div>
+        </el-col>
+
+        <el-col :xs="24" :sm="24" :md="12">
+          <div class="practice-settings-page__item">
+            <label class="practice-settings-page__label">作答后展示正确答案</label>
+            <div class="practice-settings-page__control">
+              <el-switch v-model="practiceForm.showAnswer" active-text="展示" inactive-text="隐藏" />
+              <p class="practice-settings-page__hint">
+                关闭后判分仍返回正误，但不下发正确答案（防止「边练边看答案」）。
+              </p>
+            </div>
+          </div>
+        </el-col>
+
+        <el-col :xs="24" :sm="24" :md="12">
+          <div class="practice-settings-page__item">
+            <label class="practice-settings-page__label">作答后展示解析</label>
+            <div class="practice-settings-page__control">
+              <el-switch v-model="practiceForm.showAnalysis" active-text="展示" inactive-text="隐藏" />
+              <p class="practice-settings-page__hint">关闭后判分不下发题目解析。</p>
+            </div>
+          </div>
+        </el-col>
+
+        <el-col :xs="24" :sm="24" :md="12">
+          <div class="practice-settings-page__item">
+            <label class="practice-settings-page__label">错题本自动移除阈值</label>
+            <div class="practice-settings-page__control">
+              <el-input-number
+                v-model="practiceForm.wrongAutoRemoveStreak"
+                :min="WRONG_AUTO_REMOVE_MIN"
+                :max="WRONG_AUTO_REMOVE_MAX"
+                :step="1"
+                class="practice-settings-page__num"
+              />
+              <p class="practice-settings-page__hint">
+                设为 0 表示不自动移除（仅手动移除）；设为 N（1~20）时，错题连续答对 N 次后自动移出错题本。
+              </p>
+            </div>
+          </div>
+        </el-col>
+      </el-row>
+    </el-card>
+
+    <!-- ============ 4. 页面入口开关 ============ -->
+    <el-card v-loading="practiceLoading" class="practice-settings-page__panel" shadow="never">
+      <template #header>
+        <div class="practice-settings-page__head">
+          <span class="practice-settings-page__head-title">页面入口开关</span>
+          <span class="practice-settings-page__head-meta">关闭后练题端隐藏对应入口，接口一并拒绝</span>
+        </div>
+      </template>
+
+      <el-row :gutter="24">
+        <el-col :xs="24" :sm="24" :md="8">
+          <div class="practice-settings-page__item">
+            <label class="practice-settings-page__label">学习报告</label>
+            <div class="practice-settings-page__control">
+              <el-switch v-model="practiceForm.reportEnabled" active-text="开启" inactive-text="关闭" />
+              <p class="practice-settings-page__hint">关闭后练题端底部「报告」入口隐藏。</p>
+            </div>
+          </div>
+        </el-col>
+
+        <el-col :xs="24" :sm="24" :md="8">
+          <div class="practice-settings-page__item">
+            <label class="practice-settings-page__label">错题本</label>
+            <div class="practice-settings-page__control">
+              <el-switch v-model="practiceForm.wrongBookEnabled" active-text="开启" inactive-text="关闭" />
+              <p class="practice-settings-page__hint">关闭后「错题本」入口隐藏，作答不再进入错题本浏览。</p>
+            </div>
+          </div>
+        </el-col>
+
+        <el-col :xs="24" :sm="24" :md="8">
+          <div class="practice-settings-page__item">
+            <label class="practice-settings-page__label">收藏夹</label>
+            <div class="practice-settings-page__control">
+              <el-switch v-model="practiceForm.favoriteEnabled" active-text="开启" inactive-text="关闭" />
+              <p class="practice-settings-page__hint">关闭后作答页收藏按钮与收藏夹入口隐藏。</p>
             </div>
           </div>
         </el-col>
@@ -407,6 +592,25 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
     margin: 0;
     font-size: 12.5px;
     line-height: 1.45;
+    color: $text-secondary;
+  }
+
+  &__inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__num-sm {
+    width: 120px;
+  }
+
+  &__sep {
+    color: $text-secondary;
+  }
+
+  &__unit {
+    font-size: 13px;
     color: $text-secondary;
   }
 }

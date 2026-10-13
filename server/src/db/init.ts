@@ -215,6 +215,14 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     changes.push('login_logs.idx_login_logs_source_created');
   }
 
+  // v1.9⑤：错题本新增「连续答对次数」列（进入错题本后连续答对 N 次可自动移出，阈值可配）。
+  if (!(await columnExists(conn, 'practice_wrong_book', 'correct_streak'))) {
+    await conn.query(
+      `ALTER TABLE practice_wrong_book ADD COLUMN correct_streak INT NOT NULL DEFAULT 0 AFTER wrong_count`,
+    );
+    changes.push('practice_wrong_book.correct_streak');
+  }
+
   // v1.6：菜单权限目录新增「人工阅卷」（defaultRoles: admin/author）。
   // 若已有角色权限行（admin 曾在菜单权限页保存过），需把新菜单合并进去，否则会看不到新入口。
   // v1.7①：新增「成绩复核」（admin）。

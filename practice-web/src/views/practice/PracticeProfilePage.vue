@@ -12,10 +12,14 @@ import { ElMessageBox } from 'element-plus';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
 import * as practiceApi from '@/api/practice';
 import { usePracticeAuthStore } from '@/stores/practiceAuth';
+import { usePracticeConfigStore } from '@/stores/practiceConfig';
 import type { Role } from '@/types';
 
 const router = useRouter();
 const practiceAuth = usePracticeAuthStore();
+const configStore = usePracticeConfigStore();
+/** 练题端公开配置（页面入口开关，v1.9⑤） */
+const config = computed(() => configStore.config);
 
 const loading = ref(true);
 const doneTotal = ref(0);
@@ -44,11 +48,17 @@ const accuracy = computed<number>(() =>
 async function loadStats(): Promise<void> {
   loading.value = true;
   try {
+    await configStore.load();
+    // 功能被后台关闭时接口会 404 → 各自静默降级（不影响另一项统计）
     const [wrongPage, report] = await Promise.all([
-      practiceApi.wrongBook({ page: 1, pageSize: 1 }),
-      practiceApi.reportSummary().catch(() => null),
+      configStore.config.wrongBookEnabled
+        ? practiceApi.wrongBook({ page: 1, pageSize: 1 }).catch(() => null)
+        : Promise.resolve(null),
+      configStore.config.reportEnabled
+        ? practiceApi.reportSummary().catch(() => null)
+        : Promise.resolve(null),
     ]);
-    wrongTotal.value = wrongPage.total;
+    wrongTotal.value = wrongPage?.total ?? 0;
     streakDays.value = report?.streakDays ?? 0;
     doneTotal.value = report?.doneTotal ?? 0;
     correctTotal.value = report?.correctTotal ?? 0;
@@ -76,6 +86,7 @@ async function handleLogout(): Promise<void> {
     return;
   }
   practiceAuth.logout();
+  configStore.reset();
   void router.replace('/practice');
 }
 
@@ -127,15 +138,17 @@ onMounted(loadStats);
       </div>
       <p v-if="loading" class="pf__loading">统计加载中…</p>
 
-      <!-- 学习 -->
-      <div class="pf__section">学习</div>
-      <button type="button" class="pf__row" @click="goReport">
-        <span class="pf__row-text">学习报告</span>
-        <span class="pf__row-tail">
-          <span v-if="streakDays > 0" class="pf__badge">连续 {{ streakDays }} 天</span>
-          <span class="pf__row-arrow" aria-hidden="true">›</span>
-        </span>
-      </button>
+      <!-- 学习（学习报告入口可被后台关闭，v1.9⑤） -->
+      <template v-if="config.reportEnabled">
+        <div class="pf__section">学习</div>
+        <button type="button" class="pf__row" @click="goReport">
+          <span class="pf__row-text">学习报告</span>
+          <span class="pf__row-tail">
+            <span v-if="streakDays > 0" class="pf__badge">连续 {{ streakDays }} 天</span>
+            <span class="pf__row-arrow" aria-hidden="true">›</span>
+          </span>
+        </button>
+      </template>
 
       <!-- 账号操作 -->
       <div class="pf__section">账号</div>

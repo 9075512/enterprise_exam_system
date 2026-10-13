@@ -1030,6 +1030,30 @@ export interface PracticeSettings {
   dailyBankScope: PracticeDailyBankScope;
   /** 收藏夹上限（1~2000） */
   favoriteLimit: number;
+
+  /* ------------------------- v1.9⑤ 新增 ------------------------- */
+  /** 默认练题方式：sequence = 顺序；random = 随机 */
+  defaultPracticeMode: 'sequence' | 'random';
+  /** 单次练习题量下限（1~100） */
+  sessionMinCount: number;
+  /** 单次练习题量上限（1~100，且 >= 下限） */
+  sessionMaxCount: number;
+  /** 判分后是否展示正确答案 */
+  showAnswer: boolean;
+  /** 判分后是否展示解析 */
+  showAnalysis: boolean;
+  /** 每日一练重置时点（0~23 时；0 = 自然日） */
+  dailyResetHour: number;
+  /** 每日一练最少抽题数（1~50） */
+  dailyMinQuestionCount: number;
+  /** 错题本自动移除阈值：连续答对 N 次自动移出；0 = 不自动移除 */
+  wrongAutoRemoveStreak: number;
+  /** 学习报告页开关 */
+  reportEnabled: boolean;
+  /** 错题本页开关 */
+  wrongBookEnabled: boolean;
+  /** 收藏夹功能开关 */
+  favoriteEnabled: boolean;
 }
 
 // ============================================================

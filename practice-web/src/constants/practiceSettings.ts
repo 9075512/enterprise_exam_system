@@ -4,7 +4,7 @@
  * 必须与后端 `server/src/modules/practice/practiceSettings.defaults.ts` 保持一致（跨端约定）。
  * 默认值与「引入该配置项之前」的硬编码行为一致，保证后端不可用或配置未初始化时练题表现不变。
  */
-import type { PracticeSettings } from '@/types';
+import type { PracticeConfig, PracticeSettings } from '@/types';
 
 /** 练题配置默认值。 */
 export const PRACTICE_SETTINGS_DEFAULTS: PracticeSettings = {
@@ -13,6 +13,35 @@ export const PRACTICE_SETTINGS_DEFAULTS: PracticeSettings = {
   dailyTypes: [],
   dailyBankScope: 'practiced',
   favoriteLimit: 500,
+
+  /* v1.9⑤ */
+  defaultPracticeMode: 'sequence',
+  sessionMinCount: 1,
+  sessionMaxCount: 50,
+  showAnswer: true,
+  showAnalysis: true,
+  dailyResetHour: 0,
+  dailyMinQuestionCount: 1,
+  wrongAutoRemoveStreak: 0,
+  reportEnabled: true,
+  wrongBookEnabled: true,
+  favoriteEnabled: true,
+};
+
+/**
+ * 练题端公开配置默认值（`GET /api/practice/config` 不可用时的兜底）。
+ * 与后端默认值一致 → 接口失败时练题端表现与「引入配置项之前」完全相同。
+ */
+export const PRACTICE_CONFIG_DEFAULTS: PracticeConfig = {
+  defaultPracticeMode: 'sequence',
+  sessionMinCount: 1,
+  sessionMaxCount: 50,
+  showAnswer: true,
+  showAnalysis: true,
+  reportEnabled: true,
+  wrongBookEnabled: true,
+  favoriteEnabled: true,
+  dailyEnabled: true,
 };
 
 /** 每日一练题量可选范围。 */

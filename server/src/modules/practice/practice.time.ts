@@ -33,6 +33,22 @@ export function practiceTzOffsetMinutes(): number {
   return parseTzOffsetMinutes(env.PRACTICE_TZ_OFFSET);
 }
 
+/**
+ * 业务日切分偏移（分钟）= 时区偏移 − 重置小时 × 60（v1.9⑤）。
+ *
+ * 用途：把「每日一练重置时点」折算进既有的「时区偏移」通道，使
+ * `bizToday(dayOffset)` / `bizDayRangeUtc(date, dayOffset)` /
+ * `DATE_ADD(col, INTERVAL dayOffset MINUTE)` 全部自动按业务日切分，无需改动调用方语义。
+ *
+ * 语义：设为 4 时，凌晨 04:00（业务时区）之前仍算作**前一个业务日**。
+ * `resetHour = 0` 时返回值与 `practiceTzOffsetMinutes()` 完全一致（保持历史行为）。
+ * 非法值（非 0~23 整数）按 0 处理。
+ */
+export function practiceDayOffsetMinutes(resetHour: number): number {
+  const hour = Number.isInteger(resetHour) && resetHour >= 0 && resetHour <= 23 ? resetHour : 0;
+  return practiceTzOffsetMinutes() - hour * 60;
+}
+
 /** 某时刻在业务时区下的自然日（`YYYY-MM-DD`）。 */
 export function bizDate(at: Date, offsetMinutes: number = practiceTzOffsetMinutes()): string {
   return new Date(at.getTime() + offsetMinutes * 60_000).toISOString().slice(0, 10);

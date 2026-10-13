@@ -45,7 +45,8 @@ export const practiceQuestionsByIdsQuerySchema = z.object({
 /** 生成练习序列入参。 */
 export const practiceSessionSchema = z.object({
   bankId: z.string().min(1, '请选择题库'),
-  mode: z.enum(['sequence', 'random'], { errorMap: () => ({ message: '练题方式不合法' }) }),
+  /** 练题方式；缺省时由后端按「练题端设置 → 默认练题方式」兜底（v1.9⑤） */
+  mode: z.enum(['sequence', 'random'], { errorMap: () => ({ message: '练题方式不合法' }) }).optional(),
   count: z
     .number({ invalid_type_error: '题量必须为数字' })
     .int('题量必须为整数')

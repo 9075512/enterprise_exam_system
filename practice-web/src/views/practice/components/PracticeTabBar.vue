@@ -10,6 +10,7 @@ import type { Component } from 'vue';
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Collection, Notebook, TrendCharts, User } from '@element-plus/icons-vue';
+import { usePracticeConfigStore } from '@/stores/practiceConfig';
 
 interface TabItem {
   key: string;
@@ -29,8 +30,18 @@ const TABS: TabItem[] = [
 
 const route = useRoute();
 const router = useRouter();
+const configStore = usePracticeConfigStore();
 
-const activeKey = computed<string>(() => TABS.find((t) => route.path.startsWith(t.match))?.key ?? '');
+/** 按后台「页面入口开关」过滤 Tab（错题本 / 报告可关闭，v1.9⑤） */
+const tabs = computed<TabItem[]>(() =>
+  TABS.filter((t) => {
+    if (t.key === 'wrong') return configStore.config.wrongBookEnabled;
+    if (t.key === 'report') return configStore.config.reportEnabled;
+    return true;
+  }),
+);
+
+const activeKey = computed<string>(() => tabs.value.find((t) => route.path.startsWith(t.match))?.key ?? '');
 
 function go(tab: TabItem): void {
   if (activeKey.value === tab.key) return;
@@ -41,7 +52,7 @@ function go(tab: TabItem): void {
 <template>
   <nav class="tabbar" aria-label="练题导航">
     <button
-      v-for="tab in TABS"
+      v-for="tab in tabs"
       :key="tab.key"
       type="button"
       class="tabbar__item"

@@ -30,6 +30,7 @@ import {
   practiceBankUnavailable,
   practiceDailyDisabled,
   practiceFavoriteLimit,
+  practiceFeatureDisabled,
   unauthorized,
 } from '../../utils/errors.js';
 import { signSessionToken, verifySessionToken } from './practice.session.js';
@@ -37,7 +38,7 @@ import {
   addDays,
   bizDayRangeUtc,
   bizToday,
-  practiceTzOffsetMinutes,
+  practiceDayOffsetMinutes,
 } from './practice.time.js';
 import type {
   Page,
@@ -51,6 +52,7 @@ import type {
   PracticeQuestionDto,
   PracticeReportSummaryDto,
   PracticeSession,
+  PracticeSettings,
   PracticeSubjectStatDto,
   PracticeTrendPointDto,
   PracticeUserDto,
@@ -195,25 +197,33 @@ export async function getQuestionsByIds(ids: string[]): Promise<PracticeQuestion
 export async function createSession(userId: string, input: PracticeSessionInput): Promise<PracticeSession> {
   const bank = await repo.findOpenBankById(input.bankId);
   if (!bank) throw practiceBankUnavailable();
+  const settings = await practiceSettingsService.getPracticeSettings();
+  // 练题方式：入参缺省时回退后台配置的默认模式（v1.9⑤）
+  const mode = input.mode ?? settings.defaultPracticeMode;
   const types = input.types && input.types.length > 0 ? input.types : undefined;
-  const limit = input.count && input.count > 0 ? input.count : undefined;
+  // 题量：客户端越界时收敛到配置区间（前端步进器已限制，此处为服务端兜底，避免请求被硬拒）
+  let limit = input.count && input.count > 0 ? input.count : undefined;
+  if (limit !== undefined) {
+    limit = Math.min(Math.max(limit, settings.sessionMinCount), settings.sessionMaxCount);
+  }
   const qids = await repo.listQuestionIds({
     bankId: input.bankId,
     types,
-    random: input.mode === 'random',
+    random: mode === 'random',
     limit,
   });
   const sessionToken = signSessionToken({
     sub: userId,
     bankId: input.bankId,
     qids,
-    mode: input.mode,
+    mode,
   });
   return { sessionToken, questionIds: qids, total: qids.length };
 }
 
 /** 从错题本生成练习序列（可按题库过滤；跨库时 bankId 为空串）。 */
 export async function createWrongReansSession(userId: string, bankId?: string): Promise<PracticeSession> {
+  await requireWrongBookEnabled();
   const scopedBankId = bankId?.trim() ?? '';
   if (scopedBankId !== '') {
     const bank = await repo.findOpenBankById(scopedBankId);
@@ -252,6 +262,9 @@ export async function check(userId: string, input: PracticeCheckInput): Promise<
   const correct = isAnswerCorrect({ type: row.type, answer: correctAnswer }, input.answer);
   const normalized = [...new Set(input.answer)].sort((a, b) => a - b);
 
+  // 答案 / 解析可见性 + 错题本自动移除阈值（v1.9⑤）——判分前读取一次即可
+  const settings = await practiceSettingsService.getPracticeSettings();
+
   await withTransaction(async (conn) => {
     // 统计口径：以「首次作答」为准（重做不覆盖首次）
     const existing = await repo.findAnswer(userId, input.questionId, conn);
@@ -283,14 +296,47 @@ export async function check(userId: string, input: PracticeCheckInput): Promise<
       }
     }
     if (!correct) {
+      // 答错：入错题本（若已在其中则累加错误次数并把连续答对计数清零）
       await repo.upsertWrongBook(
         { id: genId('pw-'), userId, questionId: input.questionId, wrongAt: nowDb() },
         conn,
       );
+    } else {
+      // 答对：若该题在错题本中，累计「连续答对」；达阈值自动移出（阈值 0 = 不自动移除）
+      const entry = await repo.findWrongBookEntry(userId, input.questionId, conn);
+      if (entry) {
+        const next = entry.correct_streak + 1;
+        if (settings.wrongAutoRemoveStreak > 0 && next >= settings.wrongAutoRemoveStreak) {
+          await repo.deleteWrongBookEntry(userId, input.questionId, conn);
+        } else {
+          await repo.setWrongStreak(userId, input.questionId, next, conn);
+        }
+      }
     }
   });
 
-  return { correct, correctAnswer, analysis, type: row.type };
+  return {
+    correct,
+    correctAnswer: settings.showAnswer ? correctAnswer : [],
+    analysis: settings.showAnalysis ? analysis : '',
+    type: row.type,
+    answerVisible: settings.showAnswer,
+    analysisVisible: settings.showAnalysis,
+  };
+}
+
+/**
+ * 校验练题端「页面类功能」是否开放（v1.9⑤，关闭 → 1017/404）。
+ * 学习报告的各接口自行内联判定，错题本 / 收藏夹走本函数。
+ */
+async function requireWrongBookEnabled(): Promise<void> {
+  const s = await practiceSettingsService.getPracticeSettings();
+  if (!s.wrongBookEnabled) throw practiceFeatureDisabled('错题本暂未开放');
+}
+
+async function requireFavoriteEnabled(): Promise<void> {
+  const s = await practiceSettingsService.getPracticeSettings();
+  if (!s.favoriteEnabled) throw practiceFeatureDisabled('收藏夹暂未开放');
 }
 
 /* ------------------------------ 进度 / 错题本 ------------------------------ */
@@ -331,6 +377,7 @@ export async function listWrongBook(
   page?: number,
   pageSize?: number,
 ): Promise<Page<PracticeWrongQuestionDto>> {
+  await requireWrongBookEnabled();
   const paging = normalizePaging(page, pageSize);
   const [rows, total] = await Promise.all([
     repo.listWrongBook(userId, paging.page, paging.pageSize),
@@ -367,6 +414,7 @@ export async function listFavorites(
   userId: string,
   filter: { bankId?: string; page?: number; pageSize?: number },
 ): Promise<Page<PracticeFavoriteQuestionDto>> {
+  await requireFavoriteEnabled();
   const bankId = filter.bankId?.trim() ?? '';
   const paging = normalizePaging(filter.page, filter.pageSize);
   const [rows, total] = await Promise.all([
@@ -378,6 +426,9 @@ export async function listFavorites(
 
 /** 我收藏的题目 id 列表（作答页批量回显收藏态用；可按题库过滤）。 */
 export async function listFavoriteIds(userId: string, bankId?: string): Promise<string[]> {
+  // 收藏功能关闭时返回空集（作答页收藏态回显用，不应因此报错）
+  const s = await practiceSettingsService.getPracticeSettings();
+  if (!s.favoriteEnabled) return [];
   return repo.listFavoriteQuestionIds(userId, bankId);
 }
 
@@ -389,6 +440,7 @@ export async function addFavorite(
   userId: string,
   questionId: string,
 ): Promise<{ favorited: boolean; favoriteTotal: number }> {
+  await requireFavoriteEnabled();
   const question = await repo.findQuestionForCheck(questionId);
   if (!question) throw practiceBankUnavailable();
 
@@ -412,6 +464,7 @@ export async function removeFavorite(
   userId: string,
   questionId: string,
 ): Promise<{ favorited: boolean; favoriteTotal: number }> {
+  await requireFavoriteEnabled();
   await repo.deleteFavorite(userId, questionId);
   const total = await repo.countFavorites(userId);
   return { favorited: false, favoriteTotal: total };
@@ -422,6 +475,7 @@ export async function createFavoriteReansSession(
   userId: string,
   bankId?: string,
 ): Promise<PracticeSession> {
+  await requireFavoriteEnabled();
   const scopedBankId = bankId?.trim() ?? '';
   if (scopedBankId !== '') {
     const bank = await repo.findOpenBankById(scopedBankId);
@@ -442,12 +496,11 @@ export async function createFavoriteReansSession(
  * ============================================================ */
 
 /** 连续打卡天数（含今日；今日未作答时以昨日为端点不视为中断）。 */
-async function computeStreakDays(userId: string): Promise<number> {
-  const offset = practiceTzOffsetMinutes();
-  const today = bizToday(offset);
+async function computeStreakDays(userId: string, dayOffset: number): Promise<number> {
+  const today = bizToday(dayOffset);
   // 只回溯最近 400 天，避免全表扫描
-  const fromUtc = bizDayRangeUtc(addDays(today, -400), offset).startUtc;
-  const dates = await repo.listAnsweredBizDates(userId, offset, fromUtc);
+  const fromUtc = bizDayRangeUtc(addDays(today, -400), dayOffset).startUtc;
+  const dates = await repo.listAnsweredBizDates(userId, dayOffset, fromUtc);
   const set = new Set(dates);
   let cursor = set.has(today) ? today : addDays(today, -1);
   if (!set.has(cursor)) return 0;
@@ -464,11 +517,14 @@ async function computeStreakDays(userId: string): Promise<number> {
  * 抽题策略：先按 `dailyBankScope` 取范围，再按 `dailyTypes` 过滤题型，随机抽取 `dailyQuestionCount` 题；
  * 已练题库不足时用全部开放题库补足（去重）。
  */
-async function ensureDailyTask(userId: string, date: string): Promise<PracticeDailyTaskRow> {
+async function ensureDailyTask(
+  userId: string,
+  date: string,
+  settings: PracticeSettings,
+): Promise<PracticeDailyTaskRow> {
   const existing = await repo.findDailyTask(userId, date);
   if (existing) return existing;
 
-  const settings = await practiceSettingsService.getPracticeSettings();
   const types = settings.dailyTypes;
   const want = settings.dailyQuestionCount;
 
@@ -512,10 +568,11 @@ async function ensureDailyTask(userId: string, date: string): Promise<PracticeDa
 async function refreshDailyProgress(
   userId: string,
   row: PracticeDailyTaskRow,
+  dayOffset: number,
 ): Promise<{ done: number; correct: number; completed: boolean }> {
   const date = String(row.practice_date).slice(0, 10);
   const qids = parseJsonColumn<string[]>(row.question_ids, []);
-  const { startUtc, endUtc } = bizDayRangeUtc(date);
+  const { startUtc, endUtc } = bizDayRangeUtc(date, dayOffset);
   const { done, correct } = await repo.countAnswersOfQuestionsBetween(userId, qids, startUtc, endUtc);
   const total = qids.length;
   const completed = total > 0 && done >= total;
@@ -551,16 +608,18 @@ function dailyDisabledDto(enabled: boolean, date: string, streakDays: number): P
 /** 查询今日任务（关闭时返回 enabled=false 的降级结构，不生成任务）。 */
 export async function getDaily(userId: string): Promise<PracticeDailyTaskDto> {
   const settings = await practiceSettingsService.getPracticeSettings();
-  const date = bizToday();
-  const streakDays = await computeStreakDays(userId);
+  const dayOffset = practiceDayOffsetMinutes(settings.dailyResetHour);
+  const date = bizToday(dayOffset);
+  const streakDays = await computeStreakDays(userId, dayOffset);
 
   if (!settings.dailyEnabled) return dailyDisabledDto(false, date, streakDays);
 
-  const row = await ensureDailyTask(userId, date);
+  const row = await ensureDailyTask(userId, date, settings);
   const qids = parseJsonColumn<string[]>(row.question_ids, []);
-  if (qids.length === 0) return dailyDisabledDto(true, date, streakDays);
+  // 抽到题量低于「最少题量」门限（默认 1，等价于旧「0 题」判定）→ 视为今日无题可练
+  if (qids.length < settings.dailyMinQuestionCount) return dailyDisabledDto(true, date, streakDays);
 
-  const { done, correct, completed } = await refreshDailyProgress(userId, row);
+  const { done, correct, completed } = await refreshDailyProgress(userId, row, dayOffset);
   return {
     enabled: true,
     date,
@@ -578,12 +637,15 @@ export async function createDailySession(userId: string): Promise<PracticeSessio
   const settings = await practiceSettingsService.getPracticeSettings();
   if (!settings.dailyEnabled) throw practiceDailyDisabled();
 
-  const date = bizToday();
-  const row = await ensureDailyTask(userId, date);
+  const dayOffset = practiceDayOffsetMinutes(settings.dailyResetHour);
+  const date = bizToday(dayOffset);
+  const row = await ensureDailyTask(userId, date, settings);
   const qids = parseJsonColumn<string[]>(row.question_ids, []);
-  // 当天确实无题可抽（开放题库为空或题型过滤后为空）→ 拒绝，而不是返回一个 0 题的会话，
-  // 避免前端进入「空作答页」；与 getDaily 的 total=0 语义对齐。
-  if (qids.length === 0) throw practiceDailyDisabled('今日暂无可练题目，请稍后再试');
+  // 当天确实无题可抽（开放题库为空 / 题型过滤后为空 / 低于最少题量门限）→ 拒绝，
+  // 而不是返回一个 0 题的会话，避免前端进入「空作答页」；与 getDaily 的 total=0 语义对齐。
+  if (qids.length < settings.dailyMinQuestionCount) {
+    throw practiceDailyDisabled('今日暂无可练题目，请稍后再试');
+  }
   const sessionToken = signSessionToken({
     sub: userId,
     // 每日任务可能跨题库 → bankId 置空串，check 时跳过题库归属校验
@@ -601,15 +663,17 @@ export async function createDailySession(userId: string): Promise<PracticeSessio
 /** 报告总览。 */
 export async function getReportSummary(userId: string): Promise<PracticeReportSummaryDto> {
   const settings = await practiceSettingsService.getPracticeSettings();
-  const date = bizToday();
-  const { startUtc, endUtc } = bizDayRangeUtc(date);
+  if (!settings.reportEnabled) throw practiceFeatureDisabled('学习报告暂未开放');
+  const dayOffset = practiceDayOffsetMinutes(settings.dailyResetHour);
+  const date = bizToday(dayOffset);
+  const { startUtc, endUtc } = bizDayRangeUtc(date, dayOffset);
 
   const [total, today, wrongTotal, favoriteTotal, streakDays] = await Promise.all([
     repo.countAnswersTotal(userId),
     repo.countAnswersBetween(userId, startUtc, endUtc),
     repo.countWrongBook(userId),
     repo.countFavorites(userId),
-    computeStreakDays(userId),
+    computeStreakDays(userId, dayOffset),
   ]);
 
   let todayTotal = 0;
@@ -641,13 +705,15 @@ export async function getReportTrend(
   userId: string,
   days: 7 | 30,
 ): Promise<PracticeTrendPointDto[]> {
-  const offset = practiceTzOffsetMinutes();
-  const today = bizToday(offset);
+  const settings = await practiceSettingsService.getPracticeSettings();
+  if (!settings.reportEnabled) throw practiceFeatureDisabled('学习报告暂未开放');
+  const dayOffset = practiceDayOffsetMinutes(settings.dailyResetHour);
+  const today = bizToday(dayOffset);
   const firstDate = addDays(today, -(days - 1));
-  const startUtc = bizDayRangeUtc(firstDate, offset).startUtc;
-  const endUtc = bizDayRangeUtc(today, offset).endUtc;
+  const startUtc = bizDayRangeUtc(firstDate, dayOffset).startUtc;
+  const endUtc = bizDayRangeUtc(today, dayOffset).endUtc;
 
-  const rows = await repo.listAnswersByDay(userId, offset, startUtc, endUtc);
+  const rows = await repo.listAnswersByDay(userId, dayOffset, startUtc, endUtc);
   const map = new Map(rows.map((r) => [r.date, r]));
 
   const points: PracticeTrendPointDto[] = [];
@@ -663,6 +729,8 @@ export async function getReportTrend(
 
 /** 科目掌握度（正确率升序；正确率 < 70 且作答数 >= 5 标记薄弱）。 */
 export async function getReportSubjects(userId: string): Promise<PracticeSubjectStatDto[]> {
+  const settings = await practiceSettingsService.getPracticeSettings();
+  if (!settings.reportEnabled) throw practiceFeatureDisabled('学习报告暂未开放');
   const rows = await repo.listSubjectStats(userId);
   return rows.map((r) => {
     const accuracy = percent(r.correct, r.done);
@@ -678,6 +746,8 @@ export async function getReportSubjects(userId: string): Promise<PracticeSubject
 
 /** 开放题库概览。 */
 export async function getReportBanks(userId: string): Promise<PracticeBankStatDto[]> {
+  const settings = await practiceSettingsService.getPracticeSettings();
+  if (!settings.reportEnabled) throw practiceFeatureDisabled('学习报告暂未开放');
   const rows = await repo.listBankStats(userId);
   return rows.map((r) => ({
     bankId: r.bankId,

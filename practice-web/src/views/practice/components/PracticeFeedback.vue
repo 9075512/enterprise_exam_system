@@ -24,6 +24,10 @@ function lettersOf(indexes: number[]): string {
 
 const correctLetters = computed<string>(() => lettersOf(props.result.correctAnswer));
 const selectedLetters = computed<string>(() => (props.selected.length ? lettersOf(props.selected) : '（未作答）'));
+
+/** 答案 / 解析可见性（v1.9⑤：后台可关闭；旧响应无该字段时按可见处理） */
+const answerVisible = computed<boolean>(() => props.result.answerVisible !== false);
+const analysisVisible = computed<boolean>(() => props.result.analysisVisible !== false);
 </script>
 
 <template>
@@ -35,9 +39,13 @@ const selectedLetters = computed<string>(() => (props.selected.length ? lettersO
     </div>
 
     <div class="feedback__rows">
-      <div class="feedback__row">
+      <div v-if="answerVisible" class="feedback__row">
         <span class="feedback__label">正确答案</span>
         <span class="feedback__value feedback__value--answer">{{ correctLetters }}</span>
+      </div>
+      <div v-else class="feedback__row">
+        <span class="feedback__label">正确答案</span>
+        <span class="feedback__value feedback__value--muted">已隐藏（后台关闭了答案展示）</span>
       </div>
 
       <div class="feedback__row">
@@ -46,9 +54,13 @@ const selectedLetters = computed<string>(() => (props.selected.length ? lettersO
       </div>
     </div>
 
-    <div class="feedback__analysis">
+    <div v-if="analysisVisible" class="feedback__analysis">
       <div class="feedback__analysis-head">解析</div>
       <p class="feedback__analysis-text">{{ result.analysis || '暂无解析' }}</p>
+    </div>
+    <div v-else class="feedback__analysis feedback__analysis--muted">
+      <div class="feedback__analysis-head">解析</div>
+      <p class="feedback__analysis-text">已隐藏（后台关闭了解析展示）</p>
     </div>
   </div>
 </template>
@@ -161,6 +173,11 @@ const selectedLetters = computed<string>(() => (props.selected.length ? lettersO
       color: $color-success;
       letter-spacing: 1.5px;
     }
+
+    &--muted {
+      font-weight: 400;
+      color: $text-secondary;
+    }
   }
 
   &__analysis {
@@ -184,6 +201,15 @@ const selectedLetters = computed<string>(() => (props.selected.length ? lettersO
     line-height: 1.8;
     color: $text-primary;
     word-break: break-word;
+  }
+
+  &__analysis--muted {
+    background: #f8fafc;
+    border-style: dashed;
+
+    .feedback__analysis-text {
+      color: $text-secondary;
+    }
   }
 }
 

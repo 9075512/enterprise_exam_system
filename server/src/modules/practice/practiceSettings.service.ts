@@ -13,10 +13,21 @@ import { DEFAULT_PRACTICE_SETTINGS } from './practiceSettings.defaults.js';
 import { practiceSettingsSchema } from './practiceSettings.schema.js';
 import { badRequest } from '../../utils/errors.js';
 import { parseJsonColumn, toJsonColumn } from '../../utils/json.js';
-import type { PracticeSettings, QuestionType } from '../../types/domain.js';
+import type { PracticeConfigDto, PracticeSettings, QuestionType } from '../../types/domain.js';
 
 /** 合法题型白名单（防止库中脏数据透出）。 */
 const VALID_TYPES: readonly QuestionType[] = ['single', 'multiple', 'judge'];
+
+/** 取布尔值（非布尔回退默认）。 */
+function boolOr(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+/** 取区间内整数（非整数 / 越界回退默认）。 */
+function intInRange(value: unknown, min: number, max: number, fallback: number): number {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= min && n <= max ? n : fallback;
+}
 
 /** 归一化：补齐缺失字段、清洗越界/脏值，保证返回对象恒合法。 */
 function normalize(raw: Partial<PracticeSettings>): PracticeSettings {
@@ -24,21 +35,41 @@ function normalize(raw: Partial<PracticeSettings>): PracticeSettings {
     ? [...new Set(raw.dailyTypes.filter((t): t is QuestionType => VALID_TYPES.includes(t)))]
     : DEFAULT_PRACTICE_SETTINGS.dailyTypes;
 
-  const count = Number(raw.dailyQuestionCount);
-  const limit = Number(raw.favoriteLimit);
+  const D = DEFAULT_PRACTICE_SETTINGS;
+
+  // 单次题量上下限：各自校验后若次序颠倒，整体回退默认（避免出现 min>max 的非法组合）
+  let sessionMinCount = intInRange(raw.sessionMinCount, 1, 100, D.sessionMinCount);
+  let sessionMaxCount = intInRange(raw.sessionMaxCount, 1, 100, D.sessionMaxCount);
+  if (sessionMinCount > sessionMaxCount) {
+    sessionMinCount = D.sessionMinCount;
+    sessionMaxCount = D.sessionMaxCount;
+  }
 
   return {
-    dailyEnabled:
-      typeof raw.dailyEnabled === 'boolean' ? raw.dailyEnabled : DEFAULT_PRACTICE_SETTINGS.dailyEnabled,
-    dailyQuestionCount:
-      Number.isInteger(count) && count >= 1 && count <= 50 ? count : DEFAULT_PRACTICE_SETTINGS.dailyQuestionCount,
+    dailyEnabled: boolOr(raw.dailyEnabled, D.dailyEnabled),
+    dailyQuestionCount: intInRange(raw.dailyQuestionCount, 1, 50, D.dailyQuestionCount),
     dailyTypes: types,
     dailyBankScope:
       raw.dailyBankScope === 'all' || raw.dailyBankScope === 'practiced'
         ? raw.dailyBankScope
-        : DEFAULT_PRACTICE_SETTINGS.dailyBankScope,
-    favoriteLimit:
-      Number.isInteger(limit) && limit >= 1 && limit <= 2000 ? limit : DEFAULT_PRACTICE_SETTINGS.favoriteLimit,
+        : D.dailyBankScope,
+    favoriteLimit: intInRange(raw.favoriteLimit, 1, 2000, D.favoriteLimit),
+
+    /* ---------------- v1.9⑤ ---------------- */
+    defaultPracticeMode:
+      raw.defaultPracticeMode === 'random' || raw.defaultPracticeMode === 'sequence'
+        ? raw.defaultPracticeMode
+        : D.defaultPracticeMode,
+    sessionMinCount,
+    sessionMaxCount,
+    showAnswer: boolOr(raw.showAnswer, D.showAnswer),
+    showAnalysis: boolOr(raw.showAnalysis, D.showAnalysis),
+    dailyResetHour: intInRange(raw.dailyResetHour, 0, 23, D.dailyResetHour),
+    dailyMinQuestionCount: intInRange(raw.dailyMinQuestionCount, 1, 50, D.dailyMinQuestionCount),
+    wrongAutoRemoveStreak: intInRange(raw.wrongAutoRemoveStreak, 0, 20, D.wrongAutoRemoveStreak),
+    reportEnabled: boolOr(raw.reportEnabled, D.reportEnabled),
+    wrongBookEnabled: boolOr(raw.wrongBookEnabled, D.wrongBookEnabled),
+    favoriteEnabled: boolOr(raw.favoriteEnabled, D.favoriteEnabled),
   };
 }
 
@@ -70,4 +101,24 @@ export async function updatePracticeSettings(
   const normalized = normalize(parsed);
   await repo.saveRaw(toJsonColumn(normalized), operatorId);
   return normalized;
+}
+
+/**
+ * 读取**练题端公开配置**（`GET /api/practice/config`）：
+ * 由完整 `PracticeSettings` 投影，仅暴露练题端 UI 需要的字段。
+ * 练题实例（PRACTICE_ONLY）只读 `practice_settings`，因此本函数可在公网实例安全调用。
+ */
+export async function getPracticeConfig(): Promise<PracticeConfigDto> {
+  const s = await getPracticeSettings();
+  return {
+    defaultPracticeMode: s.defaultPracticeMode,
+    sessionMinCount: s.sessionMinCount,
+    sessionMaxCount: s.sessionMaxCount,
+    showAnswer: s.showAnswer,
+    showAnalysis: s.showAnalysis,
+    reportEnabled: s.reportEnabled,
+    wrongBookEnabled: s.wrongBookEnabled,
+    favoriteEnabled: s.favoriteEnabled,
+    dailyEnabled: s.dailyEnabled,
+  };
 }

@@ -16,6 +16,7 @@ import QuestionCard from '@/views/exam/components/QuestionCard.vue';
 import PracticeFeedback from './components/PracticeFeedback.vue';
 import PracticeProgressDots from './components/PracticeProgressDots.vue';
 import { usePracticeAuthStore } from '@/stores/practiceAuth';
+import { usePracticeConfigStore } from '@/stores/practiceConfig';
 import * as practiceApi from '@/api/practice';
 import type {
   PracticeCheckResult,
@@ -30,6 +31,7 @@ import type {
 const route = useRoute();
 const router = useRouter();
 const practiceAuth = usePracticeAuthStore();
+const configStore = usePracticeConfigStore();
 
 /** 是否为错题复习模式 */
 const isReans = computed<boolean>(() => Boolean(route.meta.reans));
@@ -87,6 +89,11 @@ const currentFavorited = computed<boolean>(() => favoriteIds.value.has(currentId
 
 /** 拉取收藏态（失败静默降级为「未收藏」，不阻塞答题） */
 async function loadFavoriteIds(): Promise<void> {
+  // 收藏功能关闭时不再请求（服务端亦会拒绝），直接视为未收藏
+  if (!configStore.config.favoriteEnabled) {
+    favoriteIds.value = new Set();
+    return;
+  }
   try {
     const ids = await practiceApi.favoriteIds();
     favoriteIds.value = new Set(ids);
@@ -166,6 +173,8 @@ async function init(): Promise<void> {
   results.value = {};
   finished.value = false;
   try {
+    // 练题端配置（默认模式 / 题量范围）：失败保持默认，不阻塞作答
+    await configStore.load();
     let s: PracticeSession;
     if (isDaily.value) {
       // 每日一练：后端返回当日固定题序的会话（关闭时抛 1014，由 catch 统一展示）
@@ -178,7 +187,11 @@ async function init(): Promise<void> {
       const bankId = typeof route.query.bankId === 'string' ? route.query.bankId : undefined;
       s = await practiceApi.wrongReans(bankId);
     } else {
-      const mode: PracticeMode = route.query.mode === 'random' ? 'random' : 'sequence';
+      // 方式：URL 显式指定优先；缺省时用后台配置的默认练题方式（v1.9⑤）
+      const mode: PracticeMode =
+        route.query.mode === 'random' || route.query.mode === 'sequence'
+          ? route.query.mode
+          : configStore.config.defaultPracticeMode;
       const countRaw = typeof route.query.count === 'string' ? Number(route.query.count) : NaN;
       const count = Number.isFinite(countRaw) && countRaw > 0 ? countRaw : undefined;
       const types = typeof route.query.types === 'string'
@@ -368,6 +381,7 @@ onMounted(init);
         <span v-else-if="isFavorite" class="session__source">收藏重练</span>
         <span v-else-if="isReans" class="session__source">错题复习</span>
         <button
+          v-if="configStore.config.favoriteEnabled"
           type="button"
           class="session__fav"
           :class="{ 'is-on': currentFavorited }"

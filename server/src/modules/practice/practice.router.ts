@@ -43,6 +43,7 @@ import {
   type PracticeLoginInput,
 } from './practice.schema.js';
 import * as service from './practice.service.js';
+import * as practiceSettingsService from './practiceSettings.service.js';
 import type {
   PracticeCheckInput,
   PracticeProgressPutInput,
@@ -125,6 +126,17 @@ practiceRouter.post(
 );
 
 /* ------------------------------ 题库 / 题目（需登录） ------------------------------ */
+
+/**
+ * GET /api/practice/config —— 练题端公开配置（v1.9⑤）。
+ * 返回默认练题方式 / 单次题量范围 / 答案与解析可见性 / 页面入口开关；
+ * 练题端据此渲染步进器范围与 Tab 入口，无需再各自硬编码默认值。
+ */
+practiceRouter.get(
+  '/config',
+  practiceAuthRequired,
+  asyncHandler(async (_req, res) => ok(res, await practiceSettingsService.getPracticeConfig())),
+);
 
 /** GET /api/practice/banks —— 对外开放练题的题库列表。 */
 practiceRouter.get(

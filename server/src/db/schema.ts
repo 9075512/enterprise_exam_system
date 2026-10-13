@@ -241,11 +241,12 @@ export const DDL_STATEMENTS: readonly string[] = [
 
   // 14. 错题本（由 practice_answers 派生维护）
   `CREATE TABLE IF NOT EXISTS practice_wrong_book (
-    id            VARCHAR(64) NOT NULL,
-    user_id       VARCHAR(64) NOT NULL,
-    question_id   VARCHAR(64) NOT NULL,
-    wrong_count   INT NOT NULL DEFAULT 1,
-    last_wrong_at DATETIME(3) NOT NULL,
+    id             VARCHAR(64) NOT NULL,
+    user_id        VARCHAR(64) NOT NULL,
+    question_id    VARCHAR(64) NOT NULL,
+    wrong_count    INT NOT NULL DEFAULT 1,
+    correct_streak INT NOT NULL DEFAULT 0,
+    last_wrong_at  DATETIME(3) NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_pwb_user_question (user_id, question_id),
     CONSTRAINT fk_pwb_question FOREIGN KEY (question_id) REFERENCES questions(id)

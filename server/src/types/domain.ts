@@ -819,12 +819,19 @@ export interface PracticeSession {
 export interface PracticeCheckResult {
   /** 是否正确（判分口径与考试完全一致，复用 utils/grading.isAnswerCorrect） */
   correct: boolean;
-  /** 正确答案：选项索引数组（单选/判断恒长度 1；多选升序） */
+  /**
+   * 正确答案：选项索引数组（单选/判断恒长度 1；多选升序）。
+   * 当管理员关闭「展示正确答案」时恒为 `[]`，前端应据 `answerVisible` 判定而非空数组。
+   */
   correctAnswer: number[];
-  /** 解析（可能为 ''） */
+  /** 解析（可能为 ''）。当管理员关闭「展示解析」时恒为 ''，前端应据 `analysisVisible` 判定。 */
   analysis: string;
   /** 题型 */
   type: QuestionType;
+  /** 本次判分是否下发了正确答案（false = 管理员在练题端设置中关闭） */
+  answerVisible: boolean;
+  /** 本次判分是否下发了题目解析（false = 管理员在练题端设置中关闭） */
+  analysisVisible: boolean;
 }
 
 /** 练题进度 DTO（按 用户×题库 唯一） */
@@ -878,6 +885,54 @@ export interface PracticeSettings {
   dailyBankScope: 'practiced' | 'all';
   /** 收藏夹上限（1~2000；超出仅限制新增，不回溯删除） */
   favoriteLimit: number;
+
+  /* ------------------------- v1.9⑤ 新增（练题端设置扩展） ------------------------- */
+
+  /** 默认练题方式：sequence = 顺序；random = 随机（练题端发起练习未显式指定时兜底） */
+  defaultPracticeMode: 'sequence' | 'random';
+  /** 单次练习题量下限（1~100；练题端步进器最小值 + 后端校验） */
+  sessionMinCount: number;
+  /** 单次练习题量上限（1~100；须 >= sessionMinCount） */
+  sessionMaxCount: number;
+  /** 判分后是否下发正确答案（false = 练题端作答后不显示答案） */
+  showAnswer: boolean;
+  /** 判分后是否下发题目解析（false = 练题端作答后不显示解析） */
+  showAnalysis: boolean;
+  /** 每日一练重置时点（0~23 时；0 = 按自然日 00:00 切分，与历史行为一致） */
+  dailyResetHour: number;
+  /** 每日一练最少抽题数（1~50；实际抽到题量低于该值时视为「今日无题可练」） */
+  dailyMinQuestionCount: number;
+  /** 错题本自动移除阈值：连续答对 N 次后自动移出错题本；0 = 不自动移除 */
+  wrongAutoRemoveStreak: number;
+  /** 学习报告页开关（false = 练题端隐藏报告入口，接口一并拒绝） */
+  reportEnabled: boolean;
+  /** 错题本页开关（false = 练题端隐藏错题本入口，接口一并拒绝） */
+  wrongBookEnabled: boolean;
+  /** 收藏夹功能开关（false = 练题端隐藏收藏入口 / 按钮，接口一并拒绝） */
+  favoriteEnabled: boolean;
+}
+
+/**
+ * 练题端公开配置（`GET /api/practice/config` 返回）。
+ *
+ * 只暴露练题端 UI 需要的字段（不含 favoriteLimit / wrongAutoRemoveStreak 等管理侧口径），
+ * 由 `PracticeSettings` 投影而来；练题端按此渲染默认模式、题量范围、答案可见性与页面入口。
+ */
+export interface PracticeConfigDto {
+  /** 默认练题方式 */
+  defaultPracticeMode: 'sequence' | 'random';
+  /** 单次练习题量可选范围 */
+  sessionMinCount: number;
+  sessionMaxCount: number;
+  /** 判分后是否展示正确答案 / 解析 */
+  showAnswer: boolean;
+  showAnalysis: boolean;
+  /** 页面入口开关 */
+  reportEnabled: boolean;
+  wrongBookEnabled: boolean;
+  favoriteEnabled: boolean;
+  /** 每日一练是否开启（练题端首页入口判定） */
+  dailyEnabled: boolean;
 }
 
 /** 收藏夹条目 DTO（题目内容 **不含** answer/analysis + 收藏时间） */

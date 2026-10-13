@@ -9,11 +9,15 @@ import { useRouter } from 'vue-router';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
 import PracticeOptionModal from './components/PracticeOptionModal.vue';
 import { usePracticeAuthStore } from '@/stores/practiceAuth';
+import { usePracticeConfigStore } from '@/stores/practiceConfig';
 import * as practiceApi from '@/api/practice';
 import type { PracticeBank, PracticeDailyTask, PracticeSessionInput } from '@/types';
 
 const router = useRouter();
 const practiceAuth = usePracticeAuthStore();
+const configStore = usePracticeConfigStore();
+/** 练题端公开配置（页面入口开关 / 默认模式 / 题量范围，v1.9⑤） */
+const config = computed(() => configStore.config);
 
 const loading = ref(true);
 const banks = ref<PracticeBank[]>([]);
@@ -44,16 +48,22 @@ function bankNo(index: number): string {
 async function load(): Promise<void> {
   loading.value = true;
   try {
+    // 先取练题端配置：决定是否请求错题本 / 收藏数量（功能关闭时接口会 404）
+    await configStore.load();
     const [bankList, wrongPage, favPage, dailyTask] = await Promise.all([
       practiceApi.listBanks(),
-      practiceApi.wrongBook({ page: 1, pageSize: 1 }),
-      practiceApi.favorites({ page: 1, pageSize: 1 }),
+      configStore.config.wrongBookEnabled
+        ? practiceApi.wrongBook({ page: 1, pageSize: 1 }).catch(() => null)
+        : Promise.resolve(null),
+      configStore.config.favoriteEnabled
+        ? practiceApi.favorites({ page: 1, pageSize: 1 }).catch(() => null)
+        : Promise.resolve(null),
       // 每日一练可能被后台关闭或暂无题目 → 失败静默降级为不显示
       practiceApi.daily().catch(() => null),
     ]);
     banks.value = bankList;
-    wrongTotal.value = wrongPage.total;
-    favoriteTotal.value = favPage.total;
+    wrongTotal.value = wrongPage?.total ?? 0;
+    favoriteTotal.value = favPage?.total ?? 0;
     daily.value = dailyTask;
   } catch {
     // 错误提示已由 http 拦截器统一弹出
@@ -142,8 +152,13 @@ onMounted(load);
           </el-button>
         </div>
 
-        <!-- 错题本入口 -->
-        <div class="home__wrong" :class="{ 'is-empty': wrongTotal === 0 }" @click="goWrongBook">
+        <!-- 错题本入口（后台可关闭） -->
+        <div
+          v-if="config.wrongBookEnabled"
+          class="home__wrong"
+          :class="{ 'is-empty': wrongTotal === 0 }"
+          @click="goWrongBook"
+        >
           <span class="home__wrong-icon" aria-hidden="true">错</span>
           <div class="home__wrong-body">
             <span class="home__wrong-title">我的错题本</span>
@@ -152,8 +167,13 @@ onMounted(load);
           <el-button class="home__wrong-btn" size="small" :disabled="wrongTotal === 0">查看错题</el-button>
         </div>
 
-        <!-- 我的收藏入口 -->
-        <div class="home__wrong home__wrong--fav" :class="{ 'is-empty': favoriteTotal === 0 }" @click="goFavorites">
+        <!-- 我的收藏入口（后台可关闭） -->
+        <div
+          v-if="config.favoriteEnabled"
+          class="home__wrong home__wrong--fav"
+          :class="{ 'is-empty': favoriteTotal === 0 }"
+          @click="goFavorites"
+        >
           <span class="home__wrong-icon home__wrong-icon--fav" aria-hidden="true">藏</span>
           <div class="home__wrong-body">
             <span class="home__wrong-title">我的收藏</span>
@@ -187,7 +207,13 @@ onMounted(load);
       </template>
     </div>
 
-    <PracticeOptionModal v-if="selectedBank" v-model:visible="modalVisible" :bank="selectedBank" @start="handleStart" />
+    <PracticeOptionModal
+      v-if="selectedBank"
+      v-model:visible="modalVisible"
+      :bank="selectedBank"
+      :config="config"
+      @start="handleStart"
+    />
   </PracticeLayout>
 </template>
 

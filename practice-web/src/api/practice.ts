@@ -14,6 +14,7 @@ import type {
   PracticeBankStat,
   PracticeCheckResult,
   PracticeCaptcha,
+  PracticeConfig,
   PracticeDailyTask,
   PracticeFavoriteQuestion,
   PracticeLoginResult,
@@ -38,7 +39,8 @@ const PUBLIC: AppRequestConfig = { skipAuthRedirect: true };
 /** 生成练习序列入参 */
 export interface PracticeSessionPayload {
   bankId: string;
-  mode: PracticeMode;
+  /** 缺省时后端按「练题端设置 → 默认练题方式」兜底（v1.9⑤） */
+  mode?: PracticeMode;
   count?: number;
   types?: QuestionType[];
 }
@@ -119,6 +121,10 @@ export function questionsByIds(ids: string[]): Promise<PracticeQuestion[]> {
 /** 生成一次练习序列 */
 export function createSession(payload: PracticeSessionPayload): Promise<PracticeSession> {
   return post<PracticeSession>('/practice/sessions', payload, AUTHED);
+}
+/** 练题端公开配置（默认模式 / 题量范围 / 答案可见性 / 页面入口开关，v1.9⑤） */
+export function getConfig(): Promise<PracticeConfig> {
+  return get<PracticeConfig>('/practice/config', {}, AUTHED);
 }
 
 /** 提交单题作答 → 即时判分 */

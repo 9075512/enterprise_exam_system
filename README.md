@@ -37,7 +37,7 @@ Vue 3 (Vite, Element Plus, Pinia, Vue Router)  ──REST/JSON──▶  Express
 │  ├─ src/db/                # init.ts（建表 + 幂等迁移 + 种子）、seed.ts
 │  ├─ src/middleware/        # auth / role / validate / error
 │  ├─ src/utils/             # 响应、错误、分页、Excel（exceljs）、PDF（pdfkit）、鉴权、JWT 等
-│  └─ src/test/              # vitest + supertest（377 用例）
+│  └─ src/test/              # vitest + supertest（432 用例）
 ├─ practice-web/             # 公网练题端（独立前端工程）
 ├─ docs/                     # 增量 PRD 与架构设计文档
 ├─ deploy/                   # 部署脚本（Nginx / DB 授权）
@@ -97,13 +97,13 @@ npm run dev          # 启动前端（Vite，:5173），已配置 /api 代理到
 ```bash
 # 前端
 npm run typecheck        # vue-tsc --noEmit
-npm run test             # vitest（28 用例）
+npm run test             # vitest（55 用例）
 npm run build            # vue-tsc + vite build（产物 dist/）
 npm run preview          # 预览构建产物
 
 # 后端
 npm --prefix server run typecheck   # tsc --noEmit
-npm --prefix server run test        # vitest + supertest（377 用例）
+npm --prefix server run test        # vitest + supertest（432 用例）
 npm --prefix server run build       # 编译到 server/dist
 npm --prefix server run start       # 运行编译产物
 ```
@@ -143,6 +143,11 @@ npm --prefix server run start       # 运行编译产物
 - **监考实时推送（v1.8①）**：监考大屏由 15s 轮询升级为 **SSE 推送**（零依赖；同一场考试的全部监考页**共享一次查库**，按考试聚合广播；15s 心跳 + 连接数上限），推送不可用时前端**自动回退轮询**。
 - **富文本附件对象存储（v1.8④）**：简答作答图片支持**粘贴/选图上传**（服务端落盘 `storage/attachments/yyyy/MM`，可替换为云对象存储），答案回填站内带签名 URL，不再内联 base64；读取走**双通道鉴权**（Bearer 归属校验 / HMAC 签名 URL），净化白名单收敛到站内前缀。
 - **题库内容去重复用（v1.8⑤）**：题库复制与 Excel 导入按「题型+题干+选项+答案」内容指纹去重（复制同批内同内容只建一行；导入可选「跳过重复题目」，默认关闭），降低题库膨胀。
+- **练题端可见性修复（v1.9①）**：`question_banks.allow_practice` 是练题端唯一入口闸门（种子默认 0 → 题库与每日一练「看不到」）；种子改为默认开放，新增 `POST /api/banks/practice/batch` 批量开/关（仅 admin，审计留痕），练题端设置页新增「练题题库（对外开放）」卡片（行级开关 + 汇总 + 高危提示），并修复「无题可抽仍返回 200/0 题会话」的隐患（→ 1014）。
+- **管理端侧栏二级分组（v1.9②）**：17 项平铺菜单归为 5 组（数据中心 / 教学资源 / 考试运营 / 练题运营 / 组织与系统），可折叠二级菜单、默认展开当前组；同时修复**折叠态图标被裁切**（Element Plus 折叠宽度 64px vs 侧栏 44px，原兜底选择器写错成后代选择器永不命中）。分组是**纯展示层**，菜单 key 与权限矩阵不变。
+- **系统设置重排（v1.9③）**：原 4 个混装 Tab → 7 类（考试默认值 / 作答与防作弊 / 阅卷与复核 / 账号与安全 / 通知与模板 / 数据与归档 / 网站与品牌），每类有说明文案、组内再分组；补齐 3 个此前「后端有、前端无入口」的设置项（审计保留天数、自动归档开关与时点）。
+- **考务按考试维度打通（v1.9④）**：待阅卷 / 补考 / 成绩复核三个列表接口新增 `examId` 过滤；三页支持 `?examId=` 直达并显示考试筛选器；考试管理行操作新增「补考 / 复核 / 阅卷」一键直达（自动按该考试过滤）。
+- **练题端设置扩展（v1.9⑤）**：新增 11 项配置 —— 默认练题方式、单次题量上下限、作答后是否展示答案/解析、每日一练重置时点与最少题量、错题本连续答对自动移除阈值、学习报告/错题本/收藏夹三个页面入口开关；新增 `GET /api/practice/config` 供练题端读取，功能关闭时接口统一返回 1017。
 
 ## 数据表（32 张，一句话说明）
 
@@ -161,7 +166,7 @@ npm --prefix server run start       # 运行编译产物
 | `system_settings` | 系统设置（单行 JSON：默认分值、及格线、乱序、防作弊、通知等） |
 | `practice_progress` | 练题进度（继续练习） |
 | `practice_answers` | 练题作答流水 |
-| `practice_wrong_book` | 练题错题本 |
+| `practice_wrong_book` | 练题错题本（v1.9⑤ 起含 `correct_streak`，连续答对达阈值自动移出） |
 | `practice_favorites` | 练题收藏夹 |
 | `practice_daily_tasks` | 每日一练任务 |
 | `practice_settings` | 练题端设置（每日题量/目标等） |

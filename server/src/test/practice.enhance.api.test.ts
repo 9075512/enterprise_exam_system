@@ -19,6 +19,7 @@ import { app } from '../app.js';
 import { prepareTestDb } from './db.js';
 import { closePool, query } from '../db/pool.js';
 import { nowDb, toDbDate } from '../utils/datetime.js';
+import { DEFAULT_PRACTICE_SETTINGS } from '../modules/practice/practiceSettings.defaults.js';
 
 /* ============================ 常量 ============================ */
 
@@ -30,14 +31,8 @@ const CLOSED_BANK = 'bank-culture';
 /** 独立写入用户（避免与其它测试文件互相污染） */
 const USER = { id: 'user-qa-enh', username: 'qa_enh', password: 'qa-enh-123' };
 
-/** 默认配置（与 practiceSettings.defaults.ts 保持一致） */
-const DEFAULTS = {
-  dailyEnabled: true,
-  dailyQuestionCount: 10,
-  dailyTypes: [] as string[],
-  dailyBankScope: 'practiced',
-  favoriteLimit: 500,
-};
+/** 默认配置（直接复用后端单一事实来源，新增设置项时自动同步，避免测试与实现脱节） */
+const DEFAULTS = DEFAULT_PRACTICE_SETTINGS;
 
 const bearer = (token: string): Record<string, string> => ({ Authorization: `Bearer ${token}` });
 
@@ -128,7 +123,7 @@ describe('A. 管理端练题配置（/api/settings/practice）', () => {
   it('admin 保存后回读一致（含题型范围与抽题范围）', async () => {
     const admin = await internalLogin('admin', 'admin123');
     const payload = {
-      dailyEnabled: true,
+      ...DEFAULTS,
       dailyQuestionCount: 3,
       dailyTypes: ['single', 'judge'],
       dailyBankScope: 'all',

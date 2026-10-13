@@ -377,11 +377,55 @@ export async function upsertWrongBook(
 ): Promise<void> {
   await runQuery(
     exec,
-    `INSERT INTO practice_wrong_book (id, user_id, question_id, wrong_count, last_wrong_at)
-     VALUES (?, ?, ?, 1, ?)
-     ON DUPLICATE KEY UPDATE wrong_count = wrong_count + 1, last_wrong_at = VALUES(last_wrong_at)`,
+    // 答错入错题本 / 再次答错：连续答对计数清零（v1.9⑤）
+    `INSERT INTO practice_wrong_book (id, user_id, question_id, wrong_count, correct_streak, last_wrong_at)
+     VALUES (?, ?, ?, 1, 0, ?)
+     ON DUPLICATE KEY UPDATE wrong_count = wrong_count + 1,
+                             correct_streak = 0,
+                             last_wrong_at = VALUES(last_wrong_at)`,
     [row.id, row.userId, row.questionId, row.wrongAt],
   );
+}
+
+/** 查询错题本条目（含连续答对计数）；不在错题本返回 null。 */
+export async function findWrongBookEntry(
+  userId: string,
+  questionId: string,
+  exec?: SqlExecutor,
+): Promise<{ correct_streak: number } | null> {
+  const rows = await runQuery<RowDataPacket[]>(
+    exec,
+    `SELECT correct_streak FROM practice_wrong_book WHERE user_id = ? AND question_id = ? LIMIT 1`,
+    [userId, questionId],
+  );
+  const row = rows[0];
+  return row ? { correct_streak: Number(row.correct_streak ?? 0) } : null;
+}
+
+/** 更新错题本条目的「连续答对」计数（答对但未达自动移除阈值时调用）。 */
+export async function setWrongStreak(
+  userId: string,
+  questionId: string,
+  streak: number,
+  exec?: SqlExecutor,
+): Promise<void> {
+  await runQuery(
+    exec,
+    `UPDATE practice_wrong_book SET correct_streak = ? WHERE user_id = ? AND question_id = ?`,
+    [streak, userId, questionId],
+  );
+}
+
+/** 移出错题本（连续答对达阈值；自动移除与手动移除共用）。 */
+export async function deleteWrongBookEntry(
+  userId: string,
+  questionId: string,
+  exec?: SqlExecutor,
+): Promise<void> {
+  await runQuery(exec, `DELETE FROM practice_wrong_book WHERE user_id = ? AND question_id = ?`, [
+    userId,
+    questionId,
+  ]);
 }
 
 /** 错题本条数（仅统计仍开放题库的题）。 */
