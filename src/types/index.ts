@@ -80,6 +80,23 @@ export interface TwoFactorChallenge {
 /** 登录接口返回：直接登录成功，或要求继续两步验证 */
 export type LoginOutcome = LoginResult | TwoFactorChallenge;
 
+/** 账号安全策略（个人安全页展示；v1.7③ 密码策略 + v1.8② 两步验证状态） */
+export interface AccountSecurityPolicy {
+  /** 密码复杂度要求的中文描述 */
+  text: string;
+  /** 密码有效期（天；0 = 不过期） */
+  expireDays: number;
+  /** 本人的两步验证是否已开启 */
+  twoFactorEnabled: boolean;
+  /** 剩余可用的恢复码数量（未开启 2FA 时为 0） */
+  recoveryCodesRemaining: number;
+}
+
+/** 启用 / 重新生成的恢复码（明文仅此一次下发，v1.8② U2） */
+export interface RecoveryCodes {
+  recoveryCodes: string[];
+}
+
 /** 登录会话 / 设备（v1.7③） */
 export interface LoginSession {
   id: string;
@@ -587,6 +604,8 @@ export type AuditAction =
   | 'user.two_factor_enable'
   /** 关闭两步验证（v1.7③） */
   | 'user.two_factor_disable'
+  /** 重置两步验证（管理员强制重置 / 本人重新生成恢复码，v1.8②） */
+  | 'user.two_factor_reset'
   /** 强制下线设备（v1.7③） */
   | 'user.force_logout'
   | 'exam.create'
@@ -774,7 +793,7 @@ export interface MaintenanceStats {
 
 /* ============================ v1.7④ S3：通知模板 ============================ */
 
-/** 通知事件 key（可配置模板的 8 个事件） */
+/** 通知事件 key（可配置模板的事件） */
 export type NotifyTemplateKey =
   | 'examPublish'
   | 'resultPending'
@@ -783,7 +802,9 @@ export type NotifyTemplateKey =
   | 'retakeApproved'
   | 'retakeRejected'
   | 'appealApproved'
-  | 'appealRejected';
+  | 'appealRejected'
+  /** 管理员重置两步验证（v1.8② U2） */
+  | 'twoFactorReset';
 
 /** 单个通知模板（正文支持 `{变量}` 占位） */
 export interface NotifyTemplate {

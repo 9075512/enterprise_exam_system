@@ -130,7 +130,7 @@ async function handleSubmit(): Promise<void> {
 /** 第二步：两步验证码。 */
 async function handleTwoFactor(): Promise<void> {
   if (!twoFactorCode.value.trim()) {
-    errorMsg.value = '请输入验证器中的 6 位验证码';
+    errorMsg.value = '请输入验证码或恢复码';
     return;
   }
   loading.value = true;
@@ -196,7 +196,7 @@ function backToCredentials(): void {
       <div class="login__form-wrap">
         <h2 class="login__title">{{ step === 'twofa' ? '两步验证' : '欢迎登录' }}</h2>
         <p class="login__subtitle">
-          {{ step === 'twofa' ? '请输入验证器 App 中的 6 位动态验证码' : '请使用企业账号登录系统' }}
+          {{ step === 'twofa' ? '请输入验证器 App 中的 6 位动态验证码，或使用恢复码' : '请使用企业账号登录系统' }}
         </p>
 
         <el-form
@@ -269,13 +269,16 @@ function backToCredentials(): void {
           <el-form-item label="动态验证码">
             <el-input
               v-model="twoFactorCode"
-              placeholder="6 位数字验证码"
-              maxlength="6"
+              placeholder="6 位验证码，或恢复码 XXXXX-XXXXX"
+              maxlength="11"
               autocomplete="one-time-code"
               @input="clearError"
               @keyup.enter="handleTwoFactor"
             />
           </el-form-item>
+          <p class="login__twofa-hint">
+            验证器不可用时，可输入启用两步验证时保存的恢复码（每个仅可用一次）。
+          </p>
 
           <el-alert
             v-if="errorMsg"
@@ -514,6 +517,13 @@ function backToCredentials(): void {
       font-size: 13px;
       line-height: 1.5;
     }
+  }
+
+  &__twofa-hint {
+    margin: -6px 0 14px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: $text-secondary;
   }
 
   &__submit {

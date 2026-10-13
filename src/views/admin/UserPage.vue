@@ -214,7 +214,27 @@ async function handleForceLogout(user: User): Promise<void> {
   }
 }
 
-async function handleToggleStatus(user: User): Promise<void> {  const next = user.status === 'active' ? 'disabled' : 'active';
+/** 管理员强制重置该账号的两步验证（v1.8② U2）。 */
+async function handleResetTwoFactor(user: User): Promise<void> {
+  const ok = await confirm(
+    `将重置「${user.name}」的两步验证：清空其密钥与全部恢复码，并强制其所有设备下线`,
+    { title: '重置两步验证', confirmButtonText: '确认重置', type: 'warning' },
+  );
+  if (!ok) return;
+  busy.value = true;
+  try {
+    await usersApi.resetTwoFactor(user.id);
+    ElMessage.success('已重置该账号的两步验证');
+    await refresh();
+  } catch {
+    // 拦截器已提示
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function handleToggleStatus(user: User): Promise<void> {
+  const next = user.status === 'active' ? 'disabled' : 'active';
   busy.value = true;
   try {
     await usersApi.update(user.id, {
@@ -315,11 +335,14 @@ async function handleDelete(user: User): Promise<void> {
         <el-table-column label="创建时间" width="170">
           <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="310" fixed="right">
+        <el-table-column label="操作" width="380" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="openEdit(row as User)">编辑</el-button>
             <el-button link @click="handleResetPassword(row as User)">重置密码</el-button>
             <el-button link @click="handleForceLogout(row as User)">强制下线</el-button>
+            <el-button v-if="row.twoFactorEnabled" link @click="handleResetTwoFactor(row as User)">
+              重置2FA
+            </el-button>
             <el-button link @click="handleToggleStatus(row as User)">
               {{ row.status === 'active' ? '停用' : '启用' }}
             </el-button>

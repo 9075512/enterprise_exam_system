@@ -494,6 +494,18 @@ export const DDL_STATEMENTS: readonly string[] = [
     KEY idx_archive_user (user_id),
     KEY idx_archive_archived_at (archived_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  // 31. 两步验证恢复码（v1.8② U2；仅存 bcrypt 哈希，明文仅下发一次；无外键便于账号删除后自包含）
+  `CREATE TABLE IF NOT EXISTS user_recovery_codes (
+    id         VARCHAR(64)  NOT NULL,
+    user_id    VARCHAR(64)  NOT NULL,
+    code_hash  VARCHAR(100) NOT NULL,
+    used_at    DATETIME(3)  NULL,
+    created_at DATETIME(3)  NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_recovery_user (user_id),
+    KEY idx_recovery_user_used (user_id, used_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 ];
 
 /** 建表完成后用于统计的核心表名列表（含练题域 6 张表）。 */
@@ -528,4 +540,5 @@ export const TABLE_NAMES: readonly string[] = [
   'login_logs',
   'user_sessions',
   'exam_records_archive',
+  'user_recovery_codes',
 ];

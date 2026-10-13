@@ -47,3 +47,8 @@ export function listSessions(id: string): Promise<LoginSession[]> {
 export function revokeSessions(id: string): Promise<{ count: number }> {
   return del<{ count: number }>(`/users/${id}/sessions`);
 }
+
+/** 管理员强制重置某账号的两步验证（v1.8② U2；同时作废恢复码并撤销其全部会话） */
+export function resetTwoFactor(id: string): Promise<null> {
+  return post<null>(`/users/${id}/2fa/reset`);
+}

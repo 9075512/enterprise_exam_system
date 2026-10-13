@@ -49,6 +49,10 @@ export const NOTIFY_TEMPLATES_DEFAULT: NotifyTemplates = {
     title: '成绩复核未通过：{examName}',
     content: '你的成绩复核申请未通过，原成绩保持不变。复核意见：{comment}',
   },
+  twoFactorReset: {
+    title: '两步验证已被重置',
+    content: '你的账号（{username}）的两步验证已由管理员重置，请使用登录密码重新登录，并尽快在「账号安全」中重新开启两步验证。',
+  },
 };
 
 /**
@@ -72,6 +76,7 @@ export const NOTIFY_TEMPLATE_META: Array<{
     vars: ['examName', 'originalScore', 'newScore', 'passedText', 'comment'],
   },
   { key: 'appealRejected', label: '复核驳回通知', vars: ['examName', 'comment'] },
+  { key: 'twoFactorReset', label: '两步验证重置通知', vars: ['username'] },
 ];
 
 /** 全部模板键（按展示顺序）。 */

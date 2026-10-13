@@ -31,6 +31,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'user.change_password': '修改本人密码',
   'user.two_factor_enable': '开启两步验证',
   'user.two_factor_disable': '关闭两步验证',
+  'user.two_factor_reset': '重置两步验证',
   'user.force_logout': '强制下线设备',
   'exam.create': '新建考试',
   'exam.update': '编辑考试',

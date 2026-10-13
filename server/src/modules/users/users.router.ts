@@ -83,6 +83,15 @@ usersRouter.post(
   }),
 );
 
+/** POST /api/users/:id/2fa/reset —— 管理员强制重置某账号的两步验证（v1.8② U2）。 */
+usersRouter.post(
+  '/:id/2fa/reset',
+  asyncHandler(async (req, res) => {
+    await usersService.resetTwoFactor(req.params.id, req.user!.id);
+    return ok(res, null);
+  }),
+);
+
 /** GET /api/users/:id/sessions —— 查看某用户的登录设备（v1.7③）。 */
 usersRouter.get(
   '/:id/sessions',

@@ -102,7 +102,7 @@ npm run preview          # 预览构建产物
 
 # 后端
 npm --prefix server run typecheck   # tsc --noEmit
-npm --prefix server run test        # vitest + supertest（318 用例）
+npm --prefix server run test        # vitest + supertest（332 用例）
 npm --prefix server run build       # 编译到 server/dist
 npm --prefix server run start       # 运行编译产物
 ```
@@ -136,9 +136,10 @@ npm --prefix server run start       # 运行编译产物
 - **考试运营闭环（v1.7①）**：试卷 PDF 导出（含答案版/考生版）；成绩复核申请与审批流（`score_appeals`，可配开关与时限，通过可改分）；特殊考试安排（`exam_exceptions`：加时 / 额外次数 / 免考）。
 - **题库与数据运营深化（v1.7②）**：知识点（标签）体系与筛选；试卷克隆 + 题目批量编辑；看板下钻与筛选；审计日志导出与保留归档。
 - **安全与合规加固（v1.7③）**：图形验证码（替换自研算术题，`utils/captcha.ts`）；登录审计（`login_logs`）+ 密码策略（复杂度/有效期可配）+ 登录会话与设备管理（`user_sessions`，可远程下线）+ 两步验证（零依赖 TOTP，`utils/totp.ts`）；简答富文本/图片作答（服务端白名单净化 XSS）与评分细则（rubric 分档给分）；题库授权批量维护（按科室/角色圈选）。
-- **工程化与稳定性（v1.7④）**：实时考试监控大屏（轮询：花名册 + 进度 + 剩余时长 + 监考加时 + 强制交卷）；题库复制（含试题与授权）；数据归档与读路径 union（`exam_records_archive`，历史报表/成绩透明）+ 复合索引优化；通知文案模板化（8 事件可配文案）。
+- **工程化与稳定性（v1.7④）**：实时考试监控大屏（轮询：花名册 + 进度 + 剩余时长 + 监考加时 + 强制交卷）；题库复制（含试题与授权）；数据归档与读路径 union（`exam_records_archive`，历史报表/成绩透明）+ 复合索引优化；通知文案模板化（可配文案）。
+- **两步验证增强（v1.8②）**：恢复码（10 个，一次性、仅存哈希、可重新生成）+ 管理员强制重置（清空密钥、作废恢复码、撤销会话并通知本人）。
 
-## 数据表（30 张，一句话说明）
+## 数据表（31 张，一句话说明）
 
 | 表 | 说明 |
 | --- | --- |
@@ -172,8 +173,9 @@ npm --prefix server run start       # 运行编译产物
 | `login_logs` | 登录审计日志（v1.7③，自包含无外键，区分管理端/练题端来源） |
 | `user_sessions` | 登录会话与设备（v1.7③，支持远程下线与强制登出） |
 | `exam_records_archive` | 考试记录归档表（v1.7④，无外键可长期保留；历史读路径 union 合并） |
+| `user_recovery_codes` | 两步验证恢复码（v1.8②，仅存 bcrypt 哈希，一次性使用） |
 
 ## ⚠️ 红线说明
 
-- 本系统只使用数据库 **`enterprise_exam_system`**（30 张表）。
+- 本系统只使用数据库 **`enterprise_exam_system`**（31 张表）。
 - 同名/同实例下的 **`exam_system`** 库属于**其他项目**（17 张表），**严禁对其执行任何 DDL/DML 操作**。所有脚本、测试与初始化均仅针对 `enterprise_exam_system`（及测试库 `enterprise_exam_system_test`）。

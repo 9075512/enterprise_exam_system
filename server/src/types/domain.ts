@@ -66,6 +66,24 @@ export interface TwoFactorChallenge {
 /** 登录接口返回：直接登录成功，或要求继续两步验证（v1.7③） */
 export type LoginOutcome = LoginResult | TwoFactorChallenge;
 
+/** 账号安全策略（个人安全页展示；v1.7③ + v1.8②） */
+export interface AccountSecurityPolicyDto {
+  /** 密码复杂度要求的中文描述 */
+  text: string;
+  /** 密码有效期（天；0 = 不过期） */
+  expireDays: number;
+  /** 本人的两步验证是否已开启 */
+  twoFactorEnabled: boolean;
+  /** 剩余可用的恢复码数量（未开启 2FA 时为 0） */
+  recoveryCodesRemaining: number;
+}
+
+/** 启用 / 重新生成恢复码的返回（明文**仅此一次**下发，v1.8② U2） */
+export interface RecoveryCodesDto {
+  /** 新生成的恢复码明文（使用一次即作废） */
+  recoveryCodes: string[];
+}
+
 /** 登录会话 / 设备（v1.7③） */
 export interface SessionDto {
   id: string;
@@ -473,7 +491,9 @@ export type NotifyTemplateKey =
   | 'retakeApproved'
   | 'retakeRejected'
   | 'appealApproved'
-  | 'appealRejected';
+  | 'appealRejected'
+  /** 管理员重置某账号两步验证（v1.8② U2） */
+  | 'twoFactorReset';
 
 /** 单个通知模板（标题 + 正文，正文支持 `{变量}` 占位） */
 export interface NotifyTemplate {
@@ -1001,6 +1021,8 @@ export type AuditAction =
   | 'user.change_password'
   | 'user.two_factor_enable'
   | 'user.two_factor_disable'
+  /** 管理员重置某账号的两步验证（v1.8② U2） */
+  | 'user.two_factor_reset'
   | 'user.force_logout'
   | 'exam.create'
   | 'exam.update'

@@ -142,6 +142,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'user.change_password': '修改本人密码',
   'user.two_factor_enable': '开启两步验证',
   'user.two_factor_disable': '关闭两步验证',
+  'user.two_factor_reset': '重置两步验证',
   'user.force_logout': '强制下线设备',
   'exam.create': '新建考试',
   'exam.update': '编辑考试',
@@ -272,6 +273,10 @@ export const NOTIFY_TEMPLATES_DEFAULT: NotifyTemplates = {
     title: '成绩复核未通过：{examName}',
     content: '你的成绩复核申请未通过，原成绩保持不变。复核意见：{comment}',
   },
+  twoFactorReset: {
+    title: '两步验证已被重置',
+    content: '你的账号（{username}）的两步验证已由管理员重置，请使用登录密码重新登录，并尽快在「账号安全」中重新开启两步验证。',
+  },
 };
 
 /** 模板键 → 展示名与可用变量（与后端 NOTIFY_TEMPLATE_META 一致）。 */
@@ -292,4 +297,5 @@ export const NOTIFY_TEMPLATE_META: ReadonlyArray<{
     vars: ['examName', 'originalScore', 'newScore', 'passedText', 'comment'],
   },
   { key: 'appealRejected', label: '复核驳回通知', vars: ['examName', 'comment'] },
+  { key: 'twoFactorReset', label: '两步验证重置通知', vars: ['username'] },
 ];

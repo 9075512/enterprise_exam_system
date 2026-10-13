@@ -1,6 +1,6 @@
 /** 鉴权 API（§4.5 鉴权 / v1.7③ 账号安全） */
 import { del, get, post, put } from './http';
-import type { LoginOutcome, LoginResult, LoginSession, User } from '@/types';
+import type { AccountSecurityPolicy, LoginOutcome, LoginResult, LoginSession, RecoveryCodes, User } from '@/types';
 
 /**
  * 登录签发 JWT（v1.7③：失败达阈值后需附图形验证码；开启 2FA 的账号返回挑战令牌）。
@@ -60,9 +60,9 @@ export function changePassword(oldPassword: string, newPassword: string): Promis
 
 /* ------------------------------ 账号安全（v1.7③） ------------------------------ */
 
-/** 密码策略与两步验证可用性 */
-export function twoFactorPolicy(): Promise<{ text: string; expireDays: number }> {
-  return get<{ text: string; expireDays: number }>('/auth/2fa/policy');
+/** 账号安全策略与两步验证状态（v1.8② 增 twoFactorEnabled / recoveryCodesRemaining） */
+export function twoFactorPolicy(): Promise<AccountSecurityPolicy> {
+  return get<AccountSecurityPolicy>('/auth/2fa/policy');
 }
 
 /** 生成两步验证密钥（未启用） */
@@ -70,9 +70,14 @@ export function setupTwoFactor(): Promise<{ secret: string; otpauthUrl: string }
   return post<{ secret: string; otpauthUrl: string }>('/auth/2fa/setup');
 }
 
-/** 验证验证码后启用两步验证 */
-export function enableTwoFactor(code: string): Promise<null> {
-  return post<null>('/auth/2fa/enable', { code });
+/** 验证验证码后启用两步验证，返回一次性下发的恢复码（v1.8②） */
+export function enableTwoFactor(code: string): Promise<RecoveryCodes> {
+  return post<RecoveryCodes>('/auth/2fa/enable', { code });
+}
+
+/** 重新生成恢复码（需密码 + 验证码；作废旧码，v1.8②） */
+export function regenerateRecoveryCodes(password: string, code: string): Promise<RecoveryCodes> {
+  return post<RecoveryCodes>('/auth/2fa/recovery-codes', { password, code });
 }
 
 /** 关闭两步验证（密码 + 验证码） */

@@ -12,6 +12,7 @@ import bcrypt from 'bcryptjs';
 import * as repo from './auth.repo.js';
 import * as attemptsRepo from './loginAttempts.repo.js';
 import * as sessions from './sessions.service.js';
+import * as recoveryRepo from './recoveryCodes.repo.js';
 import * as loginLogs from '../loginLogs/loginLogs.service.js';
 import * as auditService from '../audit/audit.service.js';
 import { signToken, signChallengeToken, verifyChallengeToken } from '../../middleware/auth.js';
@@ -21,8 +22,24 @@ import { toDbDate, fromDbDate, nowDb } from '../../utils/datetime.js';
 import { verifyCaptcha } from '../../utils/captcha.js';
 import { generateTotpSecret, verifyTotp, otpauthUrl } from '../../utils/totp.js';
 import { assertPasswordPolicy, describePolicy, isPasswordExpired } from '../../utils/passwordPolicy.js';
+import {
+  generateRecoveryCodes,
+  hashRecoveryCode,
+  matchRecoveryCode,
+  isRecoveryCodeFormat,
+} from '../../utils/recoveryCode.js';
+import { genId } from '../../utils/id.js';
+import { withTransaction } from '../../db/pool.js';
+import { notifyEvent } from '../../utils/notify.js';
 import { getSettings, getSettings as loadSettings } from '../settings/settings.service.js';
-import type { LoginOutcome, LoginResult, SessionDto, UserDto } from '../../types/domain.js';
+import type {
+  AccountSecurityPolicyDto,
+  LoginOutcome,
+  LoginResult,
+  RecoveryCodesDto,
+  SessionDto,
+  UserDto,
+} from '../../types/domain.js';
 import type { LoginUserRow } from './auth.repo.js';
 
 /** 登录上下文（IP / UA / 图形验证码）。 */
@@ -199,17 +216,24 @@ export async function verifyTwoFactor(
   if (!authRow || authRow.two_factor_enabled !== 1 || !authRow.two_factor_secret) {
     throw badRequest('该账号未开启两步验证');
   }
+  let usedRecovery = false;
   if (!verifyTotp(authRow.two_factor_secret, code)) {
-    await loginLogs.record({
-      username: authRow.username,
-      userId,
-      role: authRow.role,
-      ip: ctx.ip,
-      userAgent: ctx.userAgent,
-      success: false,
-      reason: 'two_factor',
-    });
-    throw unauthorized('两步验证码不正确或已失效');
+    // 非 TOTP：尝试匹配一次性恢复码（v1.8② U2）。仅当格式合法才查库，避免热路径无谓 bcrypt 计算。
+    const candidates = isRecoveryCodeFormat(code) ? await recoveryRepo.listUnused(userId) : [];
+    const hitId = candidates.length > 0 ? await matchRecoveryCode(code, candidates) : null;
+    if (!hitId || !(await recoveryRepo.markUsed(hitId, nowDb()))) {
+      await loginLogs.record({
+        username: authRow.username,
+        userId,
+        role: authRow.role,
+        ip: ctx.ip,
+        userAgent: ctx.userAgent,
+        success: false,
+        reason: 'two_factor',
+      });
+      throw unauthorized('两步验证码不正确或已失效');
+    }
+    usedRecovery = true;
   }
   const settings = await getSettings();
   const passwordExpired = isPasswordExpired(authRow.password_changed_at, settings.passwordExpireDays);
@@ -221,7 +245,7 @@ export async function verifyTwoFactor(
     ip: ctx.ip,
     userAgent: ctx.userAgent,
     success: true,
-    reason: 'two_factor',
+    reason: usedRecovery ? 'recovery_code' : 'two_factor',
   });
   return { token, user, passwordExpired };
 }
@@ -278,21 +302,61 @@ export async function setupTwoFactor(
   };
 }
 
-/** 验证一次验证码后正式启用 2FA。 */
-export async function enableTwoFactor(userId: string, code: string): Promise<void> {
+/** 生成并用新一批恢复码替换用户现有的全部恢复码，返回明文（仅此一次）。 */
+async function issueRecoveryCodes(userId: string): Promise<string[]> {
+  const codes = generateRecoveryCodes();
+  const items = await Promise.all(codes.map(async (c) => ({ id: genId('rc-'), codeHash: await hashRecoveryCode(c) })));
+  const now = nowDb();
+  await withTransaction(async (conn) => {
+    await recoveryRepo.deleteByUser(userId, conn);
+    await recoveryRepo.insertMany(userId, items, now, conn);
+  });
+  return codes;
+}
+
+/** 验证一次验证码后正式启用 2FA，并一次性下发恢复码。 */
+export async function enableTwoFactor(userId: string, code: string): Promise<RecoveryCodesDto> {
   const row = await repo.findAuthById(userId);
   if (!row) throw notFound('用户不存在或已被删除');
   if (!row.two_factor_secret) throw badRequest('请先生成两步验证密钥');
   if (!verifyTotp(row.two_factor_secret, code)) throw badRequest('验证码不正确，请重新输入');
   await repo.setTwoFactorEnabled(userId, true);
+  const recoveryCodes = await issueRecoveryCodes(userId);
   await auditService.record({
     actorId: userId,
     action: 'user.two_factor_enable',
     targetType: 'user',
     targetId: userId,
     targetName: row.name,
-    detail: { username: row.username },
+    detail: { username: row.username, recoveryCodes: recoveryCodes.length },
   });
+  return { recoveryCodes };
+}
+
+/** 重新生成恢复码（需校验登录密码 + 当前验证码；作废旧码）。 */
+export async function regenerateRecoveryCodes(
+  userId: string,
+  password: string,
+  code: string,
+): Promise<RecoveryCodesDto> {
+  const row = await repo.findAuthById(userId);
+  if (!row) throw notFound('用户不存在或已被删除');
+  if (row.two_factor_enabled !== 1) throw badRequest('当前账号未开启两步验证');
+  const matched = await bcrypt.compare(password, row.password_hash);
+  if (!matched) throw badRequest('登录密码不正确');
+  if (!row.two_factor_secret || !verifyTotp(row.two_factor_secret, code)) {
+    throw badRequest('验证码不正确，请重新输入');
+  }
+  const recoveryCodes = await issueRecoveryCodes(userId);
+  await auditService.record({
+    actorId: userId,
+    action: 'user.two_factor_reset',
+    targetType: 'user',
+    targetId: userId,
+    targetName: row.name,
+    detail: { username: row.username, self: true, reason: 'regenerate' },
+  });
+  return { recoveryCodes };
 }
 
 /** 关闭 2FA（需校验登录密码 + 当前验证码）。 */
@@ -306,6 +370,8 @@ export async function disableTwoFactor(userId: string, password: string, code: s
     throw badRequest('验证码不正确，请重新输入');
   }
   await repo.setTwoFactorEnabled(userId, false);
+  // 关闭 2FA 同时作废全部恢复码，避免残留可用凭证
+  await recoveryRepo.deleteByUser(userId);
   await auditService.record({
     actorId: userId,
     action: 'user.two_factor_disable',
@@ -316,10 +382,47 @@ export async function disableTwoFactor(userId: string, password: string, code: s
   });
 }
 
-/** 当前账号的密码策略描述（个人安全页展示）。 */
-export async function passwordPolicyText(): Promise<{ text: string; expireDays: number }> {
+/**
+ * 管理员强制重置某账号的两步验证（v1.8② U2）。
+ * 清空密钥与开关、作废全部恢复码、撤销该账号全部会话，并通知本人。
+ * 用于「用户丢失验证器且恢复码用尽」的兜底。
+ */
+export async function adminResetTwoFactor(
+  targetUserId: string,
+  operatorId: string,
+): Promise<void> {
+  const row = await repo.findAuthById(targetUserId);
+  if (!row) throw notFound('用户不存在或已被删除');
+  if (row.two_factor_enabled !== 1 && !row.two_factor_secret) {
+    throw badRequest('该账号当前未开启两步验证');
+  }
+  await repo.setTwoFactorEnabled(targetUserId, false); // 同时清空 two_factor_secret
+  await recoveryRepo.deleteByUser(targetUserId);
+  // 撤销全部会话：重置后需重新登录（避免旧会话继续持有已降级的安全上下文）
+  const revoked = await sessions.revokeAll(targetUserId);
+  await auditService.record({
+    actorId: operatorId,
+    action: 'user.two_factor_reset',
+    targetType: 'user',
+    targetId: targetUserId,
+    targetName: row.name,
+    detail: { username: row.username, revokedSessions: revoked },
+  });
+  await notifyEvent('twoFactorReset', [targetUserId], { username: row.username });
+}
+
+/** 当前账号的账号安全策略与两步验证状态（个人安全页展示）。 */
+export async function accountSecurityPolicy(userId: string): Promise<AccountSecurityPolicyDto> {
   const settings = await loadSettings();
-  return { text: describePolicy(settings), expireDays: settings.passwordExpireDays };
+  const row = await repo.findAuthById(userId);
+  const enabled = row?.two_factor_enabled === 1;
+  const remaining = enabled ? await recoveryRepo.countUnused(userId) : 0;
+  return {
+    text: describePolicy(settings),
+    expireDays: settings.passwordExpireDays,
+    twoFactorEnabled: enabled,
+    recoveryCodesRemaining: remaining,
+  };
 }
 
 /* ============================== 登录设备管理 ============================== */

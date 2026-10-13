@@ -29,6 +29,7 @@ const EVENT_TYPE: Record<NotifyTemplateKey, string> = {
   retakeRejected: 'retake',
   appealApproved: 'appeal',
   appealRejected: 'appeal',
+  twoFactorReset: 'security',
 };
 
 /** 事件 key → 对应的系统设置开关（null = 无独立开关，恒发送）。 */
@@ -41,6 +42,7 @@ const EVENT_GATE: Record<NotifyTemplateKey, keyof SystemSettings | null> = {
   retakeRejected: 'notifyOnRetake',
   appealApproved: null,
   appealRejected: null,
+  twoFactorReset: null,
 };
 
 /** 邮件传输器缓存（按 SMTP 配置生成；配置变更后下次调用重建）。 */

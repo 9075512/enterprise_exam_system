@@ -14,6 +14,7 @@ import {
   twoFactorVerifySchema,
   twoFactorEnableSchema,
   twoFactorDisableSchema,
+  twoFactorRecoveryRegenerateSchema,
 } from './auth.schema.js';
 import * as authService from './auth.service.js';
 
@@ -94,11 +95,11 @@ authRouter.put(
 
 /* ============================== 两步验证（TOTP，v1.7③） ============================== */
 
-/** GET /api/auth/2fa/policy —— 密码策略与两步验证可用性（个人安全页展示）。 */
+/** GET /api/auth/2fa/policy —— 账号安全策略与两步验证状态（个人安全页展示）。 */
 authRouter.get(
   '/2fa/policy',
   authRequired,
-  asyncHandler(async (_req, res) => ok(res, await authService.passwordPolicyText())),
+  asyncHandler(async (req, res) => ok(res, await authService.accountSecurityPolicy(req.user!.id))),
 );
 
 /** POST /api/auth/2fa/setup —— 生成 2FA 密钥（未启用）。 */
@@ -108,15 +109,25 @@ authRouter.post(
   asyncHandler(async (req, res) => ok(res, await authService.setupTwoFactor(req.user!.id))),
 );
 
-/** POST /api/auth/2fa/enable —— 验证验证码后启用 2FA。 */
+/** POST /api/auth/2fa/enable —— 验证验证码后启用 2FA，并一次性下发恢复码（v1.8②）。 */
 authRouter.post(
   '/2fa/enable',
   authRequired,
   validate(twoFactorEnableSchema, 'body'),
   asyncHandler(async (req, res) => {
     const { code } = req.body as { code: string };
-    await authService.enableTwoFactor(req.user!.id, code);
-    return ok(res, null);
+    return ok(res, await authService.enableTwoFactor(req.user!.id, code));
+  }),
+);
+
+/** POST /api/auth/2fa/recovery-codes —— 重新生成恢复码（需密码 + 验证码；作废旧码，v1.8②）。 */
+authRouter.post(
+  '/2fa/recovery-codes',
+  authRequired,
+  validate(twoFactorRecoveryRegenerateSchema, 'body'),
+  asyncHandler(async (req, res) => {
+    const { password, code } = req.body as { password: string; code: string };
+    return ok(res, await authService.regenerateRecoveryCodes(req.user!.id, password, code));
   }),
 );
 

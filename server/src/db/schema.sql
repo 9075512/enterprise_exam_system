@@ -491,3 +491,14 @@ CREATE TABLE IF NOT EXISTS exam_records_archive (
   KEY idx_archive_archived_at (archived_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 31. 两步验证恢复码（v1.8② U2；仅存 bcrypt 哈希，明文仅下发一次）
+CREATE TABLE IF NOT EXISTS user_recovery_codes (
+  id         VARCHAR(64)  NOT NULL,
+  user_id    VARCHAR(64)  NOT NULL,
+  code_hash  VARCHAR(100) NOT NULL,
+  used_at    DATETIME(3)  NULL,
+  created_at DATETIME(3)  NOT NULL,
+  PRIMARY KEY (id),
+  KEY idx_recovery_user (user_id),
+  KEY idx_recovery_user_used (user_id, used_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

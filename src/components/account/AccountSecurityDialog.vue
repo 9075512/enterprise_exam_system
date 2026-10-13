@@ -33,6 +33,12 @@ const disablePassword = ref('');
 const disableCode = ref('');
 const busy = ref(false);
 
+/* 恢复码（v1.8② U2）：明文仅在下发时展示一次 */
+const recoveryRemaining = ref(0);
+const recoveryCodes = ref<string[]>([]);
+const regenPassword = ref('');
+const regenCode = ref('');
+
 /* ------------------------------ 登录设备 ------------------------------ */
 const sessions = ref<LoginSession[]>([]);
 const sessionsLoading = ref(false);
@@ -42,6 +48,7 @@ async function loadPolicy(): Promise<void> {
     const res = await authApi.twoFactorPolicy();
     policyText.value = res.text;
     expireDays.value = res.expireDays;
+    recoveryRemaining.value = res.recoveryCodesRemaining;
   } catch {
     policyText.value = '';
   }
@@ -65,6 +72,9 @@ watch(visible, (open) => {
   setupCode.value = '';
   disablePassword.value = '';
   disableCode.value = '';
+  recoveryCodes.value = [];
+  regenPassword.value = '';
+  regenCode.value = '';
   void loadPolicy();
   void loadSessions();
 });
@@ -91,8 +101,10 @@ async function confirmEnable(): Promise<void> {
   }
   busy.value = true;
   try {
-    await authApi.enableTwoFactor(setupCode.value.trim());
-    ElMessage.success('两步验证已开启');
+    const res = await authApi.enableTwoFactor(setupCode.value.trim());
+    recoveryCodes.value = res.recoveryCodes;
+    recoveryRemaining.value = res.recoveryCodes.length;
+    ElMessage.success('两步验证已开启，请立即保存恢复码');
     setupSecret.value = '';
     setupUrl.value = '';
     setupCode.value = '';
@@ -102,6 +114,59 @@ async function confirmEnable(): Promise<void> {
   } finally {
     busy.value = false;
   }
+}
+
+/** 重新生成恢复码（需密码 + 验证码；旧码立即失效，v1.8②）。 */
+async function confirmRegenerate(): Promise<void> {
+  if (!regenPassword.value || !regenCode.value.trim()) {
+    ElMessage.warning('请输入登录密码与验证码');
+    return;
+  }
+  try {
+    await ElMessageBox.confirm('重新生成后，此前保存的所有恢复码将立即失效。确认继续？', '重新生成恢复码', {
+      type: 'warning',
+    });
+  } catch {
+    return;
+  }
+  busy.value = true;
+  try {
+    const res = await authApi.regenerateRecoveryCodes(regenPassword.value, regenCode.value.trim());
+    recoveryCodes.value = res.recoveryCodes;
+    recoveryRemaining.value = res.recoveryCodes.length;
+    regenPassword.value = '';
+    regenCode.value = '';
+    ElMessage.success('恢复码已重新生成，请立即保存');
+  } catch {
+    /* 拦截器已提示 */
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function copyRecoveryCodes(): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(recoveryCodes.value.join('\n'));
+    ElMessage.success('恢复码已复制');
+  } catch {
+    ElMessage.warning('复制失败，请手动记录');
+  }
+}
+
+/** 下载恢复码为 .txt（明文仅本次可下载）。 */
+function downloadRecoveryCodes(): void {
+  const header = `两步验证恢复码（${auth.currentUser?.username ?? ''}）\n每个恢复码仅可使用一次，请妥善离线保存。\n\n`;
+  const blob = new Blob([header + recoveryCodes.value.join('\n') + '\n'], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'two-factor-recovery-codes.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function dismissRecoveryCodes(): void {
+  recoveryCodes.value = [];
 }
 
 async function confirmDisable(): Promise<void> {
@@ -261,7 +326,16 @@ function describeAgent(ua: string): string {
         </template>
 
         <template v-else>
-          <p class="security__desc">两步验证已开启。关闭需校验登录密码与当前验证码。</p>
+          <p class="security__desc">
+            两步验证已开启。关闭需校验登录密码与当前验证码。
+          </p>
+          <p class="security__desc">
+            恢复码剩余
+            <el-tag size="small" :type="recoveryRemaining > 3 ? 'info' : 'warning'">
+              {{ recoveryRemaining }} / 10
+            </el-tag>
+            ；每个恢复码仅可使用一次，用于手机丢失时登录。用尽或疑似泄露可重新生成。
+          </p>
           <div class="security__confirm">
             <el-input
               v-model="disablePassword"
@@ -273,7 +347,36 @@ function describeAgent(ua: string): string {
             <el-input v-model="disableCode" class="security__code" placeholder="6 位验证码" maxlength="6" />
             <el-button type="danger" :loading="busy" @click="confirmDisable">关闭两步验证</el-button>
           </div>
+
+          <el-divider class="security__divider" />
+          <p class="security__desc">重新生成恢复码（需密码 + 验证码，旧码立即失效）：</p>
+          <div class="security__confirm">
+            <el-input
+              v-model="regenPassword"
+              class="security__code"
+              type="password"
+              show-password
+              placeholder="登录密码"
+            />
+            <el-input v-model="regenCode" class="security__code" placeholder="6 位验证码" maxlength="6" />
+            <el-button :loading="busy" @click="confirmRegenerate">重新生成</el-button>
+          </div>
         </template>
+
+        <!-- 恢复码明文（仅下发时展示一次，v1.8② U2） -->
+        <div v-if="recoveryCodes.length > 0" class="security__recovery">
+          <el-alert type="warning" :closable="false" show-icon>
+            以下恢复码<strong>仅本次显示</strong>，请立即复制或下载并离线保存；每个恢复码只能使用一次。
+          </el-alert>
+          <div class="security__recovery-actions">
+            <el-button text :icon="CopyDocument" @click="copyRecoveryCodes">复制全部</el-button>
+            <el-button text @click="downloadRecoveryCodes">下载 .txt</el-button>
+            <el-button text type="danger" @click="dismissRecoveryCodes">我已保存，关闭</el-button>
+          </div>
+          <div class="security__recovery-list">
+            <code v-for="c in recoveryCodes" :key="c">{{ c }}</code>
+          </div>
+        </div>
       </el-card>
 
       <!-- 登录设备 -->
@@ -424,6 +527,42 @@ function describeAgent(ua: string): string {
 
   &__dash {
     color: $text-secondary;
+  }
+
+  &__divider {
+    margin: 14px 0 10px;
+  }
+
+  &__recovery {
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px dashed $border-color;
+    border-radius: $radius-sm;
+    background: $bg-page;
+  }
+
+  &__recovery-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin: 8px 0;
+  }
+
+  &__recovery-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 12px;
+
+    code {
+      padding: 6px 10px;
+      font-family: Consolas, monospace;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-align: center;
+      background: #fff;
+      border: 1px solid $border-color;
+      border-radius: $radius-sm;
+    }
   }
 }
 </style>

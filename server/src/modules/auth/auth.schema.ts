@@ -34,5 +34,11 @@ export const twoFactorDisableSchema = z.object({
   code: z.string().min(1, '请输入验证器中的 6 位验证码'),
 });
 
+/** 两步验证 —— 重新生成恢复码（需密码 + 验证码，v1.8② U2）。 */
+export const twoFactorRecoveryRegenerateSchema = z.object({
+  password: z.string().min(1, '请输入登录密码'),
+  code: z.string().min(1, '请输入验证器中的 6 位验证码'),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

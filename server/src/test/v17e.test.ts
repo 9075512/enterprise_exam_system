@@ -65,8 +65,9 @@ describe('S3 通知模板渲染（纯函数）', () => {
     expect(blank.title).toBe('新考试发布：Y 考试');
   });
 
-  it('默认模板覆盖全部 8 个事件且与历史硬编码文案一致', () => {
-    expect(Object.keys(NOTIFY_TEMPLATES_DEFAULT)).toHaveLength(8);
+  it('默认模板覆盖全部事件且与历史硬编码文案一致', () => {
+    // v1.7④ 为 8 个事件；v1.8② 新增 twoFactorReset → 9 个
+    expect(Object.keys(NOTIFY_TEMPLATES_DEFAULT)).toHaveLength(9);
     expect(NOTIFY_TEMPLATES_DEFAULT.resultPublished.content).toBe('你的考试成绩为 {score} 分，{passedText}。');
     expect(NOTIFY_TEMPLATES_DEFAULT.retakeRejected.content).toBe('你申请的「{examName}」补考被驳回，原因：{reason}');
   });

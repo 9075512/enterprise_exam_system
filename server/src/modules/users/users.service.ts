@@ -13,6 +13,7 @@ import { nowDb } from '../../utils/datetime.js';
 import { getSettings } from '../settings/settings.service.js';
 import * as auditService from '../audit/audit.service.js';
 import * as sessions from '../auth/sessions.service.js';
+import * as authService from '../auth/auth.service.js';
 import type { Role, SessionDto, UserDto, UserStatus } from '../../types/domain.js';
 
 const BCRYPT_COST = 10;
@@ -206,6 +207,14 @@ export async function listUserSessions(id: string): Promise<SessionDto[]> {
   const current = await repo.findById(id);
   if (!current) throw notFound('用户不存在或已被删除');
   return sessions.listMySessions(id, '');
+}
+
+/**
+ * 管理员强制重置某账号的两步验证（v1.8② U2）。
+ * 用于「用户丢失验证器且恢复码用尽」的兜底：清空密钥与开关、作废恢复码、撤销全部会话并通知本人。
+ */
+export async function resetTwoFactor(id: string, operatorId: string): Promise<void> {
+  await authService.adminResetTwoFactor(id, operatorId);
 }
 
 /** 强制下线某用户全部设备（admin，v1.7③）。 */
