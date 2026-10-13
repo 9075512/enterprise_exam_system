@@ -158,6 +158,8 @@ CREATE TABLE IF NOT EXISTS exam_records (
   PRIMARY KEY (id),
   UNIQUE KEY uk_records_exam_user_attempt (exam_id, user_id, attempt_no),
   KEY idx_records_user (user_id),
+  KEY idx_records_exam_status (exam_id, status),
+  KEY idx_records_status_submitted (status, submitted_at),
   CONSTRAINT fk_records_exam FOREIGN KEY (exam_id)
     REFERENCES exams(id) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT fk_records_user FOREIGN KEY (user_id)
@@ -447,7 +449,8 @@ CREATE TABLE IF NOT EXISTS login_logs (
   PRIMARY KEY (id),
   KEY idx_login_logs_created (created_at),
   KEY idx_login_logs_username (username),
-  KEY idx_login_logs_user (user_id)
+  KEY idx_login_logs_user (user_id),
+  KEY idx_login_logs_source_created (source, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 29. 登录会话 / 设备（v1.7③；id = JWT jti）
@@ -463,5 +466,28 @@ CREATE TABLE IF NOT EXISTS user_sessions (
   PRIMARY KEY (id),
   KEY idx_sessions_user (user_id),
   KEY idx_sessions_expires (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 30. 历史成绩归档（v1.7④ T5；结构与 exam_records 一致，无外键）
+CREATE TABLE IF NOT EXISTS exam_records_archive (
+  id                VARCHAR(64)  NOT NULL,
+  exam_id           VARCHAR(64)  NOT NULL,
+  user_id           VARCHAR(64)  NOT NULL,
+  attempt_no        INT          NOT NULL DEFAULT 1,
+  department_id     VARCHAR(64)  NULL,
+  paper_snapshot    JSON         NOT NULL,
+  status            ENUM('in_progress','submitted','pending_review') NOT NULL DEFAULT 'submitted',
+  answers           JSON         NOT NULL,
+  started_at        DATETIME(3)  NOT NULL,
+  submitted_at      DATETIME(3)  NULL,
+  auto_submitted    TINYINT(1)   NOT NULL DEFAULT 0,
+  score             DECIMAL(7,1) NOT NULL DEFAULT 0.0,
+  subjective_scores JSON         NOT NULL,
+  cheat_events      JSON         NOT NULL,
+  archived_at       DATETIME(3)  NOT NULL,
+  PRIMARY KEY (id),
+  KEY idx_archive_exam (exam_id),
+  KEY idx_archive_user (user_id),
+  KEY idx_archive_archived_at (archived_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

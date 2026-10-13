@@ -36,3 +36,14 @@ export const examExceptionSchema = z.object({
 });
 
 export type ExamExceptionInput = z.infer<typeof examExceptionSchema>;
+
+/** 监考加时入参（v1.7④ T3）。 */
+export const examExtendSchema = z.object({
+  minutes: z.coerce
+    .number({ invalid_type_error: '加时分钟数必须为 1~600' })
+    .int('加时分钟数必须为 1~600')
+    .min(1, '加时分钟数必须为 1~600')
+    .max(600, '加时分钟数必须为 1~600'),
+});
+
+export type ExamExtendInput = z.infer<typeof examExtendSchema>;

@@ -51,6 +51,11 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: ['admin'], menuKey: 'exams', title: '考试管理' },
       },
       {
+        path: 'admin/exams/:id/monitor',
+        component: () => import('@/views/admin/ExamMonitorPage.vue'),
+        meta: { roles: ['admin'], menuKey: 'exams', title: '监考监控' },
+      },
+      {
         path: 'admin/retakes',
         component: () => import('@/views/admin/RetakeManagePage.vue'),
         meta: { roles: ['admin'], menuKey: 'retakes', title: '补考管理' },
@@ -94,6 +99,11 @@ const routes: RouteRecordRaw[] = [
         path: 'admin/login-logs',
         component: () => import('@/views/admin/LoginLogPage.vue'),
         meta: { roles: ['admin'], menuKey: 'login-logs', title: '登录日志' },
+      },
+      {
+        path: 'admin/maintenance',
+        component: () => import('@/views/admin/SystemMaintenancePage.vue'),
+        meta: { roles: ['admin'], menuKey: 'maintenance', title: '系统维护' },
       },
       // 出题人 + 管理员（题库/试卷域同权）
       {

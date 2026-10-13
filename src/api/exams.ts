@@ -1,6 +1,6 @@
 /** 考试 API（§4.5 考试 / 记录 / 报表） */
 import { del, get, post, put } from './http';
-import type { Exam, ExamException, ExamMy, ExamRecord, ExamSaveInput } from '@/types';
+import type { Exam, ExamException, ExamMonitor, ExamMy, ExamRecord, ExamSaveInput } from '@/types';
 
 /** 考试保存入参（不含 id） */
 export type ExamPayload = Omit<ExamSaveInput, 'id'>;
@@ -59,4 +59,21 @@ export function saveException(
 /** 删除某考生的特殊安排 */
 export function removeException(examId: string, userId: string): Promise<null> {
   return del<null>(`/exams/${examId}/exceptions/${userId}`);
+}
+
+/* ------------------------------ 实时考试监控（v1.7④ T3，admin） ------------------------------ */
+
+/** 监考大屏数据（花名册 + 进度 + 汇总；前端定时轮询本接口） */
+export function monitor(examId: string): Promise<ExamMonitor> {
+  return get<ExamMonitor>(`/exams/${examId}/monitor`);
+}
+
+/** 强制某考生交卷 */
+export function forceSubmit(examId: string, userId: string): Promise<ExamRecord> {
+  return post<ExamRecord>(`/exams/${examId}/monitor/${userId}/force-submit`);
+}
+
+/** 为某考生加时（分钟，累加） */
+export function extendTime(examId: string, userId: string, minutes: number): Promise<ExamException> {
+  return post<ExamException>(`/exams/${examId}/monitor/${userId}/extend`, { minutes });
 }

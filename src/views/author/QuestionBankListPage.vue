@@ -3,7 +3,7 @@
  * 题库管理页（W3-T3，PRD §7.3）。
  * 卡片网格 + 分类/关键字筛选（服务端）+ 新建/编辑/删除（删除走「空库直接删 / 有题二次强确认级联」双分支）。
  */
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { Plus, Search, Refresh } from '@element-plus/icons-vue';
@@ -12,15 +12,19 @@ import { useRequest } from '@/composables/useRequest';
 import { useConfirm } from '@/composables/useConfirm';
 import { formatDateTime } from '@/utils/datetime';
 import { BANK_TEXT } from '@/constants';
+import { useAuthStore } from '@/stores/auth';
 import PageHeader from '@/components/common/PageHeader.vue';
 import CardGrid from '@/components/common/CardGrid.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import QuestionBankFormDialog from './QuestionBankFormDialog.vue';
+import BankCloneDialog from './BankCloneDialog.vue';
 import type { QuestionBank } from '@/types';
 
 const router = useRouter();
 const { confirm } = useConfirm();
+const authStore = useAuthStore();
+const isAdmin = computed(() => authStore.currentUser?.role === 'admin');
 
 /** 分类 / 关键字输入（点击「查询」才应用，均走后端参数） */
 const keyword = ref('');
@@ -75,6 +79,20 @@ function openEdit(bank: QuestionBank): void {
 
 function goDetail(bank: QuestionBank): void {
   void router.push(`/author/banks/${bank.id}`);
+}
+
+/* ------------------------------ 复制题库（v1.7④ S4） ------------------------------ */
+const cloneVisible = ref(false);
+const cloneBank = ref<QuestionBank | null>(null);
+
+/** 复制成功：刷新列表（新题库即时出现）。 */
+function onCloned(): void {
+  void refresh();
+}
+
+function openClone(bank: QuestionBank): void {
+  cloneBank.value = bank;
+  cloneVisible.value = true;
 }
 
 const deleting = ref(false);
@@ -189,6 +207,7 @@ async function handleDelete(bank: QuestionBank): Promise<void> {
         </p>
         <div class="bank-card__actions" @click.stop>
           <el-button type="primary" link @click="goDetail(bank)">详情</el-button>
+          <el-button link @click="openClone(bank)">复制</el-button>
           <el-button link @click="openEdit(bank)">编辑</el-button>
           <el-button type="danger" link :loading="deleting" @click="handleDelete(bank)">
             删除
@@ -199,6 +218,14 @@ async function handleDelete(bank: QuestionBank): Promise<void> {
 
     <!-- 新建 / 编辑弹窗 -->
     <QuestionBankFormDialog v-model:visible="formVisible" :bank="editingBank" @saved="refresh" />
+
+    <!-- 复制题库弹窗 -->
+    <BankCloneDialog
+      v-model:visible="cloneVisible"
+      :bank="cloneBank"
+      :is-admin="isAdmin"
+      @saved="onCloned"
+    />
   </div>
 </template>
 

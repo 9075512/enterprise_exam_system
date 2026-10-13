@@ -7,8 +7,15 @@ import { validate } from '../../middleware/validate.js';
 import { authRequired } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/role.js';
 import { ok } from '../../utils/response.js';
-import { bankSchema, bankListQuerySchema, bankQuestionsQuerySchema, migrateQuestionsSchema, bankAuthorsBatchSchema } from './banks.schema.js';
-import type { BankAuthorBatchInput } from './banks.schema.js';
+import {
+  bankSchema,
+  bankListQuerySchema,
+  bankQuestionsQuerySchema,
+  migrateQuestionsSchema,
+  bankAuthorsBatchSchema,
+  bankCloneSchema,
+} from './banks.schema.js';
+import type { BankAuthorBatchInput, BankCloneInput } from './banks.schema.js';
 import * as banksService from './banks.service.js';
 import * as questionsService from '../questions/questions.service.js';
 import { normalizePaging } from '../../utils/pagination.js';
@@ -108,6 +115,16 @@ banksRouter.post(
   asyncHandler(async (req, res) => {
     const body = req.body as { targetBankId: string; questionIds: string[] };
     return ok(res, await banksService.migrateQuestions(req.params.id, body, req.user!));
+  }),
+);
+
+/** POST /api/banks/:id/clone —— 复制题库（v1.7④ S4；admin/author 均可）。 */
+banksRouter.post(
+  '/:id/clone',
+  validate(bankCloneSchema, 'body'),
+  asyncHandler(async (req, res) => {
+    const body = req.body as BankCloneInput;
+    return ok(res, await banksService.cloneBank(req.params.id, body, req.user!));
   }),
 );
 

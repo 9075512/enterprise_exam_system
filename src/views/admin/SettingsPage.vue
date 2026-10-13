@@ -8,7 +8,7 @@
  *
  * 注：练题端配置已拆为独立菜单「练题端设置」（独立单行表 practice_settings）。
  */
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import {
   ElMessage,
   ElMessageBox,
@@ -16,9 +16,10 @@ import {
   type FormItemRule,
   type FormRules,
 } from 'element-plus';
+import { NOTIFY_TEMPLATES_DEFAULT, NOTIFY_TEMPLATE_META } from '@/constants';
 import { useSettingsStore } from '@/stores/settings';
 import PageHeader from '@/components/common/PageHeader.vue';
-import type { SystemSettings } from '@/types';
+import type { NotifyTemplateKey, SystemSettings } from '@/types';
 
 const settingsStore = useSettingsStore();
 
@@ -69,6 +70,8 @@ const FIELD_TAB: Record<string, SettingsTab> = {
   defaultPageSize: 'list',
   importMaxRows: 'list',
   importMaxFileMb: 'list',
+  archiveRetentionDays: 'list',
+  notifyTemplates: 'notify',
   systemName: 'brand',
   systemShortName: 'brand',
   loginSlogan: 'brand',
@@ -87,7 +90,18 @@ const FIELD_TAB: Record<string, SettingsTab> = {
 };
 
 /* ------------------------------ 表单草稿 ------------------------------ */
-const form = reactive<SystemSettings>({ ...settingsStore.settings });
+/** 深拷贝通知模板（避免编辑草稿时污染全局 store）。 */
+function cloneTemplates(t: SystemSettings['notifyTemplates']): SystemSettings['notifyTemplates'] {
+  const src = t ?? NOTIFY_TEMPLATES_DEFAULT;
+  return Object.fromEntries(
+    Object.entries(src).map(([k, v]) => [k, { ...v }]),
+  ) as SystemSettings['notifyTemplates'];
+}
+
+const form = reactive<SystemSettings>({
+  ...settingsStore.settings,
+  notifyTemplates: cloneTemplates(settingsStore.settings.notifyTemplates),
+});
 const formRef = ref<FormInstance>();
 const saving = ref(false);
 
@@ -159,6 +173,7 @@ const rules: FormRules = {
   defaultPageSize: numRules('列表默认每页条数', 1, 100, { unit: ' 条' }),
   importMaxRows: numRules('Excel 单次导入最大行数', 1, 50000, { unit: ' 行' }),
   importMaxFileMb: numRules('导入文件大小上限', 1, 50, { unit: ' MB' }),
+  archiveRetentionDays: numRules('成绩归档保留天数', 0, 3650, { unit: ' 天' }),
   // 系统品牌
   systemName: strRules('系统全称', 1, 40),
   systemShortName: strRules('系统简称', 1, 40),
@@ -170,12 +185,40 @@ const rules: FormRules = {
   smtpUser: strRules('SMTP 账号', 0, 120),
   smtpPass: strRules('SMTP 授权码', 0, 200),
   smtpFrom: strRules('发件人地址', 0, 120),
+  // 通知模板（v1.7④ S3：标题 ≤120、正文 ≤500；逐事件校验）
+  ...Object.fromEntries(
+    NOTIFY_TEMPLATE_META.flatMap((m) => [
+      [`notifyTemplates.${m.key}.title`, strRules(`${m.label}标题`, 1, 120)],
+      [`notifyTemplates.${m.key}.content`, strRules(`${m.label}正文`, 1, 500)],
+    ]),
+  ),
 };
+
+/* ------------------------------ 通知模板编辑（v1.7④ S3） ------------------------------ */
+/** 当前编辑的事件模板 */
+const tplKey = ref<NotifyTemplateKey>('examPublish');
+
+/** 当前事件元信息（标签 + 可用变量） */
+const tplMeta = computed(() => NOTIFY_TEMPLATE_META.find((m) => m.key === tplKey.value)!);
+
+/** 可用变量展示文本（在 script 内拼接，避免模板中 `}}` 触发解析错误） */
+const tplVarsText = computed(() => tplMeta.value.vars.map((v) => '{' + v + '}').join('、'));
+
+/** 当前事件的模板（读写 form.notifyTemplates） */
+const tpl = computed(() => form.notifyTemplates[tplKey.value]);
+
+/** 重置当前事件模板为内置默认文案 */
+function resetTpl(): void {
+  form.notifyTemplates[tplKey.value] = { ...NOTIFY_TEMPLATES_DEFAULT[tplKey.value] };
+  ElMessage.success('已恢复该事件的默认文案');
+}
 
 /* ------------------------------ 加载 ------------------------------ */
 onMounted(async () => {
   await settingsStore.load(true);
-  Object.assign(form, settingsStore.settings);
+  Object.assign(form, settingsStore.settings, {
+    notifyTemplates: cloneTemplates(settingsStore.settings.notifyTemplates),
+  });
 });
 
 /* ------------------------------ 保存 ------------------------------ */
@@ -644,6 +687,25 @@ async function handleReset(): Promise<void> {
                 </el-form-item>
               </el-col>
             </el-row>
+
+            <el-row :gutter="20">
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="成绩归档保留天数（天）" prop="archiveRetentionDays">
+                  <div class="settings-page__control">
+                    <el-input-number
+                      v-model="form.archiveRetentionDays"
+                      :min="0"
+                      :max="3650"
+                      :step="30"
+                      class="settings-page__num"
+                    />
+                    <p class="settings-page__hint">
+                      0 表示不启用自动归档；手动归档在「系统维护」页执行（未配置时以 365 天为默认保留期）。
+                    </p>
+                  </div>
+                </el-form-item>
+              </el-col>
+            </el-row>
           </el-tab-pane>
 
           <!-- 4. 网站信息 -->
@@ -801,6 +863,45 @@ async function handleReset(): Promise<void> {
                 </el-form-item>
               </el-col>
             </el-row>
+
+            <div class="settings-page__section-title">通知文案模板</div>
+            <el-alert type="info" :closable="false" show-icon class="settings-page__hint-block">
+              站内信与邮件的标题/正文均可自定义；正文支持 <code>{变量}</code> 占位，未提供的变量将被替换为空。
+            </el-alert>
+
+            <el-row :gutter="20">
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="通知事件">
+                  <div class="settings-page__control">
+                    <el-select v-model="tplKey" class="settings-page__input">
+                      <el-option v-for="m in NOTIFY_TEMPLATE_META" :key="m.key" :label="m.label" :value="m.key" />
+                    </el-select>
+                    <p class="settings-page__hint">
+                      可用变量：{{ tplVarsText }}
+                    </p>
+                  </div>
+                </el-form-item>
+              </el-col>
+            </el-row>
+
+            <el-form-item label="通知标题" :prop="`notifyTemplates.${tplKey}.title`">
+              <el-input v-model="tpl.title" maxlength="120" show-word-limit class="settings-page__input" />
+            </el-form-item>
+
+            <el-form-item label="通知正文" :prop="`notifyTemplates.${tplKey}.content`">
+              <el-input
+                v-model="tpl.content"
+                type="textarea"
+                :rows="3"
+                maxlength="500"
+                show-word-limit
+                class="settings-page__input"
+              />
+            </el-form-item>
+
+            <el-form-item label=" ">
+              <el-button @click="resetTpl">恢复该事件默认文案</el-button>
+            </el-form-item>
           </el-tab-pane>
         </el-tabs>
       </el-form>
@@ -896,6 +997,28 @@ async function handleReset(): Promise<void> {
     font-size: 12.5px;
     line-height: 1.45;
     color: $text-secondary;
+  }
+
+  /* 通知模板区（v1.7④ S3） */
+  &__section-title {
+    margin: 18px 0 10px;
+    padding-left: 9px;
+    font-size: 14px;
+    font-weight: 600;
+    color: $text-primary;
+    border-left: 3px solid $color-primary;
+  }
+
+  &__hint-block {
+    margin-bottom: 14px;
+
+    code {
+      padding: 0 3px;
+      font-size: 12px;
+      color: $color-primary-dark;
+      background: $color-primary-soft;
+      border-radius: 3px;
+    }
   }
 
   &__form :deep(.el-form-item) {

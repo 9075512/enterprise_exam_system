@@ -154,6 +154,12 @@ export const settingsSchema = z.object({
     .min(0, '审计日志保留天数必须为 0~3650 天')
     .max(3650, '审计日志保留天数必须为 0~3650 天'),
 
+  archiveRetentionDays: z
+    .number({ invalid_type_error: '成绩归档保留天数必须为 0~3650 天' })
+    .int('成绩归档保留天数必须为 0~3650 天')
+    .min(0, '成绩归档保留天数必须为 0~3650 天')
+    .max(3650, '成绩归档保留天数必须为 0~3650 天'),
+
   notifySiteEnabled: z.boolean({ invalid_type_error: '站内信通知开关必须为布尔值' }),
   notifyEmailEnabled: z.boolean({ invalid_type_error: '邮件通知开关必须为布尔值' }),
   notifyOnPublish: z.boolean({ invalid_type_error: '考试发布通知开关必须为布尔值' }),
@@ -178,6 +184,19 @@ export const settingsSchema = z.object({
   smtpFrom: z
     .string({ invalid_type_error: '发件人地址不能超过 120 个字符' })
     .max(120, '发件人地址不能超过 120 个字符'),
+
+  // 通知模板（v1.7④ S3）：按事件 key 的 { title, content }；缺省键回退默认文案
+  notifyTemplates: z.record(
+    z.string(),
+    z.object({
+      title: z
+        .string({ invalid_type_error: '通知标题必须为文本' })
+        .max(120, '通知标题不能超过 120 个字符'),
+      content: z
+        .string({ invalid_type_error: '通知正文必须为文本' })
+        .max(500, '通知正文不能超过 500 个字符'),
+    }),
+  ),
 });
 
 /** PUT /settings 入参类型（完整设置对象）。 */

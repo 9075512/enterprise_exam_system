@@ -8,8 +8,8 @@ import { validate } from '../../middleware/validate.js';
 import { authRequired } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/role.js';
 import { ok } from '../../utils/response.js';
-import { examSchema, examExceptionSchema } from './exams.schema.js';
-import type { ExamInput, ExamExceptionInput } from './exams.schema.js';
+import { examSchema, examExceptionSchema, examExtendSchema } from './exams.schema.js';
+import type { ExamInput, ExamExceptionInput, ExamExtendInput } from './exams.schema.js';
 import * as examsService from './exams.service.js';
 import * as recordsService from '../records/records.service.js';
 
@@ -112,5 +112,34 @@ examsRouter.delete(
   asyncHandler(async (req, res) => {
     await examsService.removeException(req.params.id, req.params.userId, req.user!.id);
     return ok(res, null);
+  }),
+);
+
+/* ============================ 实时考试监控（v1.7④ T3，admin） ============================ */
+
+/** GET /api/exams/:id/monitor —— 监考大屏数据（花名册 + 进度 + 汇总）。 */
+examsRouter.get(
+  '/:id/monitor',
+  requireRole('admin'),
+  asyncHandler(async (req, res) => ok(res, await examsService.getMonitor(req.params.id))),
+);
+
+/** POST /api/exams/:id/monitor/:userId/force-submit —— 强制某考生交卷。 */
+examsRouter.post(
+  '/:id/monitor/:userId/force-submit',
+  requireRole('admin'),
+  asyncHandler(async (req, res) =>
+    ok(res, await recordsService.forceSubmit(req.params.id, req.params.userId, req.user!.id)),
+  ),
+);
+
+/** POST /api/exams/:id/monitor/:userId/extend —— 为某考生加时（累加）。 */
+examsRouter.post(
+  '/:id/monitor/:userId/extend',
+  requireRole('admin'),
+  validate(examExtendSchema, 'body'),
+  asyncHandler(async (req, res) => {
+    const body = req.body as ExamExtendInput;
+    return ok(res, await examsService.extendTime(req.params.id, req.params.userId, body.minutes, req.user!.id));
   }),
 );

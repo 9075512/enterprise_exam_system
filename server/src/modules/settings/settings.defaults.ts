@@ -6,6 +6,7 @@
  * 保证后端不可用或设置未初始化时系统表现不变。
  */
 import type { SystemSettings } from '../../types/domain.js';
+import { NOTIFY_TEMPLATES_DEFAULT } from '../../utils/notifyTemplate.js';
 
 /** 全部设置的默认值。 */
 export const DEFAULT_SETTINGS: SystemSettings = {
@@ -43,6 +44,7 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   appealEnabled: true,
   appealWindowDays: 7,
   auditRetentionDays: 180,
+  archiveRetentionDays: 0,
   notifySiteEnabled: true,
   notifyEmailEnabled: false,
   notifyOnPublish: true,
@@ -54,4 +56,5 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   smtpUser: '',
   smtpPass: '',
   smtpFrom: '',
+  notifyTemplates: NOTIFY_TEMPLATES_DEFAULT,
 };

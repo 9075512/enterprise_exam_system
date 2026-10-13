@@ -10,13 +10,38 @@
 import { getSettings } from '../modules/settings/settings.service.js';
 import * as notificationsService from '../modules/notifications/notifications.service.js';
 import * as usersRepo from '../modules/users/users.repo.js';
-import type { SystemSettings } from '../types/domain.js';
+import { renderEvent } from './notifyTemplate.js';
+import type { NotifyTemplateKey, SystemSettings } from '../types/domain.js';
 
 export interface NotifyPayload {
   type: string;
   title: string;
   content: string;
 }
+
+/** 事件 key → 站内信 type 分类（与前端图标/筛选口径一致）。 */
+const EVENT_TYPE: Record<NotifyTemplateKey, string> = {
+  examPublish: 'publish',
+  resultPending: 'result',
+  resultPublished: 'result',
+  reviewDone: 'result',
+  retakeApproved: 'retake',
+  retakeRejected: 'retake',
+  appealApproved: 'appeal',
+  appealRejected: 'appeal',
+};
+
+/** 事件 key → 对应的系统设置开关（null = 无独立开关，恒发送）。 */
+const EVENT_GATE: Record<NotifyTemplateKey, keyof SystemSettings | null> = {
+  examPublish: 'notifyOnPublish',
+  resultPending: 'notifyOnResult',
+  resultPublished: 'notifyOnResult',
+  reviewDone: 'notifyOnResult',
+  retakeApproved: 'notifyOnRetake',
+  retakeRejected: 'notifyOnRetake',
+  appealApproved: null,
+  appealRejected: null,
+};
 
 /** 邮件传输器缓存（按 SMTP 配置生成；配置变更后下次调用重建）。 */
 let cachedKey = '';
@@ -85,5 +110,29 @@ export async function notifyUsers(userIds: string[], payload: NotifyPayload): Pr
     }
   } catch (err) {
     console.warn('[notify] 通知发送失败（已降级，不影响主流程）：', err instanceof Error ? err.message : err);
+  }
+}
+
+/**
+ * 按事件发送通知（v1.7④ S3）：读取可配置模板 → 渲染 → 交由 `notifyUsers` 分派。
+ *
+ * - 事件开关（notifyOnPublish / notifyOnResult / notifyOnRetake）关闭时直接跳过；
+ * - 模板文案由系统设置 `notifyTemplates` 提供，缺失/空串回退内置默认文案；
+ * - fail-open：任何异常仅打印日志，绝不上抛。
+ */
+export async function notifyEvent(
+  key: NotifyTemplateKey,
+  userIds: string[],
+  vars: Record<string, string | number>,
+): Promise<void> {
+  if (userIds.length === 0) return;
+  try {
+    const settings = await getSettings();
+    const gate = EVENT_GATE[key];
+    if (gate && settings[gate] === false) return;
+    const { title, content } = renderEvent(settings.notifyTemplates, key, vars);
+    await notifyUsers(userIds, { type: EVENT_TYPE[key], title, content });
+  } catch (err) {
+    console.warn('[notify] 事件通知失败（已降级，不影响主流程）：', err instanceof Error ? err.message : err);
   }
 }

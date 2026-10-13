@@ -29,6 +29,7 @@ import { retakesRouter } from './modules/retakes/retakes.router.js';
 import { appealsRouter } from './modules/appeals/appeals.router.js';
 import { auditRouter } from './modules/audit/audit.router.js';
 import { loginLogsRouter } from './modules/loginLogs/loginLogs.router.js';
+import { maintenanceRouter } from './modules/maintenance/maintenance.router.js';
 import { practiceRouter } from './modules/practice/practice.router.js';
 import { practiceEdgeGuard } from './middleware/practiceEdge.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
@@ -81,6 +82,7 @@ export function createApp(): Express {
     api.use('/appeals', appealsRouter);
     api.use('/audit-logs', auditRouter);
     api.use('/login-logs', loginLogsRouter);
+    api.use('/maintenance', maintenanceRouter);
   }
 
   app.use('/api', api);

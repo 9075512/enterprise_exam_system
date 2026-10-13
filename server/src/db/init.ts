@@ -201,13 +201,29 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     changes.push('departments.idx_departments_parent');
   }
 
+  // v1.7④ T5：性能优化——按「考试 + 状态」过滤（监考/报表）与按「状态 + 交卷时间」排序（待阅卷）
+  if (!(await indexExists(conn, 'exam_records', 'idx_records_exam_status'))) {
+    await conn.query(`ALTER TABLE exam_records ADD KEY idx_records_exam_status (exam_id, status)`);
+    changes.push('exam_records.idx_records_exam_status');
+  }
+  if (!(await indexExists(conn, 'exam_records', 'idx_records_status_submitted'))) {
+    await conn.query(`ALTER TABLE exam_records ADD KEY idx_records_status_submitted (status, submitted_at)`);
+    changes.push('exam_records.idx_records_status_submitted');
+  }
+  if (!(await indexExists(conn, 'login_logs', 'idx_login_logs_source_created'))) {
+    await conn.query(`ALTER TABLE login_logs ADD KEY idx_login_logs_source_created (source, created_at)`);
+    changes.push('login_logs.idx_login_logs_source_created');
+  }
+
   // v1.6：菜单权限目录新增「人工阅卷」（defaultRoles: admin/author）。
   // 若已有角色权限行（admin 曾在菜单权限页保存过），需把新菜单合并进去，否则会看不到新入口。
   // v1.7①：新增「成绩复核」（admin）。
+  // v1.7④：新增「系统维护」（admin）。
   const NEW_MENU_KEYS: Record<string, string[]> = {
     reviews: ['admin', 'author'],
     appeals: ['admin'],
     'login-logs': ['admin'],
+    maintenance: ['admin'],
   };
   const [menuRows] = await conn.query<mysql.RowDataPacket[]>(`SELECT role, menu_keys FROM menu_permissions`);
   for (const mr of menuRows) {

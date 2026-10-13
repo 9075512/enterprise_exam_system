@@ -41,10 +41,14 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'bank.migrate': '迁移试题',
   'bank.author_grant': '批量授权出题人',
   'bank.author_revoke': '批量取消出题人授权',
+  'bank.clone': '复制题库',
   'permission.update': '更新菜单权限',
   'appeal.approve': '复核通过（改分）',
   'appeal.reject': '复核驳回',
   'exam.exception_update': '设置特殊安排',
+  'exam.extend_time': '监考加时',
+  'record.force_submit': '监考强制交卷',
+  'system.archive': '历史成绩归档',
   'audit.export': '导出审计日志',
   'audit.cleanup': '清理过期审计日志',
 };
@@ -57,6 +61,8 @@ export const AUDIT_TARGET_TYPE_LABELS: Record<AuditTargetType, string> = {
   permission: '菜单权限',
   appeal: '成绩复核',
   audit: '审计日志',
+  record: '考试记录',
+  system: '系统维护',
 };
 
 /** 动作 key → 中文文案（未收录 key 原样返回，兼容历史数据）。 */

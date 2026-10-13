@@ -7,6 +7,7 @@
  * 每位考生的 max(attempt_no) 实现去重（summary / bands / departments / wrongRate 共用同一数据源）。
  */
 import { query } from '../../db/pool.js';
+import { RECORD_SOURCE } from '../../db/recordSource.js';
 import type { RowDataPacket } from 'mysql2/promise';
 import type { ExamRecordDetailRow, ExamRecordRow } from '../records/records.mapper.js';
 
@@ -25,10 +26,10 @@ const RECORD_COLUMNS =
 export async function listLatestSubmittedByExam(examId: string): Promise<ExamRecordRow[]> {
   return query<ExamRecordRow[]>(
     `SELECT ${RECORD_COLUMNS}
-       FROM exam_records r
+       FROM ${RECORD_SOURCE}
        JOIN (
          SELECT user_id, MAX(attempt_no) AS max_attempt
-           FROM exam_records
+           FROM ${RECORD_SOURCE}
           WHERE exam_id = ? AND status = 'submitted'
           GROUP BY user_id
        ) m ON m.user_id = r.user_id AND m.max_attempt = r.attempt_no
@@ -56,9 +57,9 @@ export async function listLatestSubmittedWithUser(examId: string): Promise<Score
             e.name AS exam_name, e.pass_score AS pass_score, p.name AS paper_name,
             u.name AS user_name, u.username AS username,
             COALESCE(d.name, du.name, '') AS department_name
-       FROM exam_records r
+       FROM ${RECORD_SOURCE}
        JOIN ( SELECT user_id, MAX(attempt_no) AS max_attempt
-                FROM exam_records WHERE exam_id = ? AND status = 'submitted' GROUP BY user_id ) m
+                FROM ${RECORD_SOURCE} WHERE exam_id = ? AND status = 'submitted' GROUP BY user_id ) m
          ON m.user_id = r.user_id AND m.max_attempt = r.attempt_no
        LEFT JOIN exams e ON e.id = r.exam_id
        LEFT JOIN papers p ON p.id = e.paper_id
@@ -126,9 +127,9 @@ export async function listExamTrend(filter: DashboardWhere = {}): Promise<ExamTr
             COALESCE(AVG(r.score), 0) AS avg_score,
             COALESCE(SUM(r.score >= e.pass_score), 0) AS pass_count
        FROM exams e
-       JOIN exam_records r ON r.exam_id = e.id AND r.status = 'submitted'
+       JOIN ${RECORD_SOURCE} ON r.exam_id = e.id AND r.status = 'submitted'
        JOIN ( SELECT exam_id, user_id, MAX(attempt_no) AS max_attempt
-                FROM exam_records WHERE status = 'submitted' GROUP BY exam_id, user_id ) m
+                FROM ${RECORD_SOURCE} WHERE status = 'submitted' GROUP BY exam_id, user_id ) m
          ON m.exam_id = r.exam_id AND m.user_id = r.user_id AND m.max_attempt = r.attempt_no
       WHERE 1 = 1 ${cond}
       GROUP BY e.id, e.name, e.start_time
@@ -152,10 +153,10 @@ export async function listLatestSubmittedAll(filter: DashboardWhere = {}): Promi
   const { cond, params } = buildDashboardCond(filter, { exam: 'e', record: 'r' });
   return query<LatestRecordRow[]>(
     `SELECT r.exam_id, r.paper_snapshot, r.answers
-       FROM exam_records r
+       FROM ${RECORD_SOURCE}
        JOIN exams e ON e.id = r.exam_id
        JOIN ( SELECT exam_id, user_id, MAX(attempt_no) AS max_attempt
-                FROM exam_records WHERE status = 'submitted' GROUP BY exam_id, user_id ) m
+                FROM ${RECORD_SOURCE} WHERE status = 'submitted' GROUP BY exam_id, user_id ) m
          ON m.exam_id = r.exam_id AND m.user_id = r.user_id AND m.max_attempt = r.attempt_no
       WHERE r.status = 'submitted' ${cond}`,
     params,

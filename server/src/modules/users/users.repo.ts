@@ -218,3 +218,27 @@ export async function findIdsByDepartments(departmentIds: string[], role?: Role)
   );
   return rows.map((r) => String(r.id));
 }
+
+/**
+ * 按科室集合 + 角色列出账号（含姓名/账号/科室名）——监考花名册用（v1.7④ T3）。
+ * 空科室集合返回空数组。
+ */
+export async function listByDepartmentsAndRole(
+  departmentIds: string[],
+  role: Role,
+): Promise<Array<{ id: string; username: string; name: string; departmentName: string }>> {
+  if (departmentIds.length === 0) return [];
+  const placeholders = departmentIds.map(() => '?').join(',');
+  const rows = await query<UserRow[]>(
+    `SELECT ${USER_COLUMNS} ${USER_FROM}
+      WHERE u.department_id IN (${placeholders}) AND u.role = ?
+      ORDER BY u.name ASC`,
+    [...departmentIds, role],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    username: r.username,
+    name: r.name,
+    departmentName: r.department_name ?? '',
+  }));
+}

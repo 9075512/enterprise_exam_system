@@ -4,6 +4,8 @@
  */
 import * as repo from './exams.repo.js';
 import * as exceptionsRepo from './examExceptions.repo.js';
+import * as monitorRepo from './examMonitor.repo.js';
+import type { MonitorRecordRow } from './examMonitor.repo.js';
 import { mapExamRow } from './exams.mapper.js';
 import * as papersRepo from '../papers/papers.repo.js';
 import * as recordsRepo from '../records/records.repo.js';
@@ -13,10 +15,22 @@ import * as departmentsService from '../departments/departments.service.js';
 import { badRequest, conflict, notFound } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
 import { nowDb, toDbDate, fromDbDateSafe } from '../../utils/datetime.js';
+import { parseJsonColumn } from '../../utils/json.js';
 import { getSettings } from '../settings/settings.service.js';
-import { notifyUsers } from '../../utils/notify.js';
+import { notifyEvent } from '../../utils/notify.js';
 import * as auditService from '../audit/audit.service.js';
-import type { ExamDto, ExamExceptionDto, ExamMyDto, RecordStatus, RetakeStatus } from '../../types/domain.js';
+import type {
+  CheatEvent,
+  ExamDto,
+  ExamExceptionDto,
+  ExamMonitorDto,
+  ExamMonitorRowDto,
+  ExamMonitorSummaryDto,
+  ExamMyDto,
+  MonitorStatus,
+  RecordStatus,
+  RetakeStatus,
+} from '../../types/domain.js';
 
 /** 校验并归一化考试入参（照搬 v1.0 examService.save 规则）。 */
 async function validateExamInput(input: {
@@ -183,18 +197,11 @@ export async function create(input: Parameters<typeof validateExamInput>[0], ope
   const created = await repo.findById(id);
   const dto = mapExamRow(created!);
 
-  // 考试发布通知（fail-open，不影响创建）
+  // 考试发布通知（fail-open，不影响创建；文案走可配置模板 v1.7④ S3）
   // 多级科室树：通知需覆盖所选科室的整棵子树
-  const settings = await getSettings();
-  if (settings.notifyOnPublish) {
-    const expandedDepartmentIds = await departmentsService.expandDepartmentIds(dto.departmentIds);
-    const examineeIds = await usersRepo.findIdsByDepartments(expandedDepartmentIds, 'examinee');
-    await notifyUsers(examineeIds, {
-      type: 'publish',
-      title: `新考试发布：${dto.name}`,
-      content: `你有一个新的考试「${dto.name}」，请留意考试时间并准时参加。`,
-    });
-  }
+  const expandedDepartmentIds = await departmentsService.expandDepartmentIds(dto.departmentIds);
+  const examineeIds = await usersRepo.findIdsByDepartments(expandedDepartmentIds, 'examinee');
+  await notifyEvent('examPublish', examineeIds, { examName: dto.name });
 
   await auditService.record({
     actorId: operatorId,
@@ -347,4 +354,192 @@ export async function removeException(examId: string, userId: string, operatorId
     targetName: exam.name,
     detail: { userId, userName: existing.user_name, removed: true },
   });
+}
+
+/* ============================ 实时考试监控（v1.7④ T3，admin） ============================ */
+
+interface RosterUser {
+  id: string;
+  username: string;
+  name: string;
+  departmentName: string;
+}
+
+/** 由考生信息 + 最新作答行构造监考明细行。 */
+function buildMonitorRow(
+  user: RosterUser,
+  record: MonitorRecordRow | undefined,
+  exam: ExamDto,
+  nowMs: number,
+): ExamMonitorRowDto {
+  const extraMinutes = record ? Number(record.extra_minutes ?? 0) : 0;
+  const cheatEvents = parseJsonColumn<CheatEvent[]>(record?.cheat_events, []);
+  const cheatSeconds = cheatEvents.reduce((s, e) => s + (Number(e.awaySeconds) || 0), 0);
+
+  const status: MonitorStatus = record ? record.status : 'not_started';
+  let remainingSeconds = 0;
+  if (record && status === 'in_progress') {
+    const startedMs = new Date(fromDbDateSafe(record.started_at)).getTime();
+    const endMs = new Date(exam.endTime).getTime();
+    // 交卷截止 = min(开考 + 时长 + 加时, 考试结束时间)
+    const deadline = Math.min(startedMs + (exam.durationMinutes + extraMinutes) * 60_000, endMs);
+    remainingSeconds = Math.max(0, Math.round((deadline - nowMs) / 1000));
+  }
+
+  return {
+    userId: user.id,
+    username: user.username,
+    userName: user.name,
+    departmentName: user.departmentName,
+    status,
+    attemptNo: record ? Number(record.attempt_no) : 0,
+    startedAt: record ? fromDbDateSafe(record.started_at) : '',
+    submittedAt: record && record.submitted_at ? fromDbDateSafe(record.submitted_at) : '',
+    remainingSeconds,
+    extraMinutes,
+    cheatCount: cheatEvents.length,
+    cheatSeconds,
+    score: record ? Number(record.score) : 0,
+    autoSubmitted: Boolean(record && Number(record.auto_submitted)),
+    recordId: record?.id ?? '',
+  };
+}
+
+/** 该行是否命中切屏异常阈值（与前端「切屏审查」口径一致）。 */
+function isCheatWarned(
+  row: ExamMonitorRowDto,
+  settings: { cheatCountThreshold: number; cheatSecondsThreshold: number },
+): boolean {
+  return row.cheatCount >= settings.cheatCountThreshold || row.cheatSeconds >= settings.cheatSecondsThreshold;
+}
+
+/**
+ * 监考大屏数据（并集口径）：
+ *  - 花名册 = 考试所选科室（含子树）的 examinee 账号全员；
+ *  - 叠加「有作答记录但已不在花名册」的考生（如调动科室），保证不漏监考。
+ * 剩余时间由服务端按 `min(开考 + 时长 + 加时, 考试结束)` 计算，前端仅展示。
+ */
+export async function getMonitor(examId: string): Promise<ExamMonitorDto> {
+  const examRow = await repo.findById(examId);
+  if (!examRow) throw notFound('考试不存在或已被删除');
+  const exam = mapExamRow(examRow);
+  const settings = await getSettings();
+
+  const expanded = await departmentsService.expandDepartmentIds(exam.departmentIds);
+  const [roster, recordRows] = await Promise.all([
+    usersRepo.listByDepartmentsAndRole(expanded, 'examinee'),
+    monitorRepo.listLatestByExam(examId),
+  ]);
+
+  const recordMap = new Map<string, MonitorRecordRow>();
+  for (const r of recordRows) recordMap.set(r.user_id, r);
+
+  const nowMs = Date.now();
+  const rows: ExamMonitorRowDto[] = [];
+  const seen = new Set<string>();
+  for (const u of roster) {
+    seen.add(u.id);
+    rows.push(buildMonitorRow(u, recordMap.get(u.id), exam, nowMs));
+  }
+  for (const r of recordRows) {
+    if (seen.has(r.user_id)) continue;
+    rows.push(
+      buildMonitorRow(
+        {
+          id: r.user_id,
+          username: r.username ?? '',
+          name: r.user_name ?? '',
+          departmentName: r.department_name ?? '',
+        },
+        r,
+        exam,
+        nowMs,
+      ),
+    );
+  }
+
+  // 排序：进行中（剩余少的在前）→ 未开始 → 待阅卷 → 已交卷
+  const order: Record<MonitorStatus, number> = {
+    in_progress: 0,
+    not_started: 1,
+    pending_review: 2,
+    submitted: 3,
+  };
+  rows.sort((a, b) => {
+    if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
+    if (a.status === 'in_progress') return a.remainingSeconds - b.remainingSeconds;
+    return a.userName.localeCompare(b.userName, 'zh-CN');
+  });
+
+  const summary: ExamMonitorSummaryDto = {
+    total: rows.length,
+    notStarted: rows.filter((r) => r.status === 'not_started').length,
+    inProgress: rows.filter((r) => r.status === 'in_progress').length,
+    submitted: rows.filter((r) => r.status === 'submitted').length,
+    pendingReview: rows.filter((r) => r.status === 'pending_review').length,
+    cheatWarned: rows.filter((r) => isCheatWarned(r, settings)).length,
+    averageScore: 0,
+  };
+  const scored = rows.filter((r) => r.status === 'submitted');
+  if (scored.length > 0) {
+    const sum = scored.reduce((s, r) => s + r.score, 0);
+    summary.averageScore = Math.round((sum / scored.length) * 10) / 10;
+  }
+
+  return { exam, summary, rows, generatedAt: new Date().toISOString() };
+}
+
+/**
+ * 监考加时（admin）：在既有特殊安排上累加分钟数（沿用 exam_exceptions.extra_minutes）。
+ * 加时上限 600 分钟；无安排则新建一条。
+ */
+export async function extendTime(
+  examId: string,
+  userId: string,
+  minutes: number,
+  operatorId: string,
+): Promise<ExamExceptionDto> {
+  const exam = await repo.findById(examId);
+  if (!exam) throw notFound('考试不存在或已被删除');
+  const user = await usersRepo.findById(userId);
+  if (!user) throw notFound('考生不存在或已被删除');
+  if (!Number.isInteger(minutes) || minutes < 1 || minutes > 600) {
+    throw badRequest('加时分钟数必须在 1~600 之间');
+  }
+
+  const existing = await exceptionsRepo.findByExamAndUser(examId, userId);
+  const prevExtra = existing ? Number(existing.extra_minutes) : 0;
+  const nextExtra = prevExtra + minutes;
+  if (nextExtra > 600) throw badRequest('累计加时不能超过 600 分钟');
+
+  const payload = {
+    extraMinutes: nextExtra,
+    extraAttempts: existing ? Number(existing.extra_attempts) : 0,
+    exempt: existing ? Boolean(Number(existing.exempt)) : false,
+    note: existing?.note ?? '',
+  };
+  if (existing) {
+    await exceptionsRepo.updateByExamAndUser(examId, userId, payload);
+  } else {
+    await exceptionsRepo.insert({
+      id: genId('exc-'),
+      examId,
+      userId,
+      ...payload,
+      createdBy: operatorId,
+      createdAt: nowDb(),
+    });
+  }
+  const saved = await exceptionsRepo.findByExamAndUser(examId, userId);
+
+  await auditService.record({
+    actorId: operatorId,
+    action: 'exam.extend_time',
+    targetType: 'exam',
+    targetId: examId,
+    targetName: exam.name,
+    detail: { userId, userName: user.name, addedMinutes: minutes, totalExtraMinutes: nextExtra },
+  });
+
+  return mapException(saved!);
 }

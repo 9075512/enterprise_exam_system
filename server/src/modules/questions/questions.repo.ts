@@ -98,6 +98,15 @@ export async function findByIds(ids: string[]): Promise<QuestionRow[]> {
   );
 }
 
+/** 某题库全部试题（不分页，按创建时间升序）——题库复制用（v1.7④ S4）。 */
+export async function listAllByBank(bankId: string, exec?: SqlExecutor): Promise<QuestionRow[]> {
+  return runQuery<QuestionRow[]>(
+    exec,
+    `SELECT ${COLUMNS} FROM questions WHERE bank_id = ? ORDER BY created_at ASC`,
+    [bankId],
+  );
+}
+
 /** 统计指定题库集合内某题型的题数（抽题充足性判断）。 */
 export async function countByType(bankIds: string[], type: QuestionType): Promise<number> {
   const { where, params } = buildWhere({ bankIds, type });

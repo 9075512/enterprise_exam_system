@@ -600,17 +600,35 @@ export type AuditAction =
   | 'bank.author_grant'
   /** 批量取消出题人授权（v1.7③ S2） */
   | 'bank.author_revoke'
+  /** 复制题库（v1.7④ S4） */
+  | 'bank.clone'
   | 'permission.update'
   | 'appeal.approve'
   | 'appeal.reject'
   | 'exam.exception_update'
+  /** 延长某考生作答时间（v1.7④ T3） */
+  | 'exam.extend_time'
+  /** 监考强制交卷（v1.7④ T3） */
+  | 'record.force_submit'
+  /** 历史成绩归档（v1.7④ T5） */
+  | 'system.archive'
   /** 导出审计日志（v1.7②） */
   | 'audit.export'
   /** 清理过期审计日志（v1.7②） */
   | 'audit.cleanup';
 
 /** 审计目标类型 */
-export type AuditTargetType = 'user' | 'exam' | 'bank' | 'permission' | 'appeal' | 'audit';
+export type AuditTargetType =
+  | 'user'
+  | 'exam'
+  | 'bank'
+  | 'permission'
+  | 'appeal'
+  | 'audit'
+  /** 考试记录（监考强制交卷，v1.7④ T3） */
+  | 'record'
+  /** 系统维护（数据归档，v1.7④ T5） */
+  | 'system';
 
 /** 操作审计日志 */
 export interface AuditLog {
@@ -689,6 +707,92 @@ export interface ScoreAppeal {
   reviewedBy: string | null;
   reviewedAt: string | null;
 }
+
+/* ============================ v1.7④ T3：实时考试监控 ============================ */
+
+/** 监考行状态（含「未开始」，用于花名册全员展示） */
+export type MonitorStatus = 'not_started' | 'in_progress' | 'pending_review' | 'submitted';
+
+/** 监考明细行（每人一行，取最新一次作答） */
+export interface ExamMonitorRow {
+  userId: string;
+  username: string;
+  userName: string;
+  departmentName: string;
+  status: MonitorStatus;
+  attemptNo: number;
+  startedAt: string;
+  submittedAt: string;
+  /** 剩余秒数（仅进行中有意义） */
+  remainingSeconds: number;
+  /** 该考生被授予的加时分钟数 */
+  extraMinutes: number;
+  cheatCount: number;
+  cheatSeconds: number;
+  score: number;
+  autoSubmitted: boolean;
+  /** 监控记录 id；未开始为空串 */
+  recordId: string;
+}
+
+/** 监考汇总 */
+export interface ExamMonitorSummary {
+  total: number;
+  notStarted: number;
+  inProgress: number;
+  submitted: number;
+  pendingReview: number;
+  cheatWarned: number;
+  averageScore: number;
+}
+
+/** 监考大屏数据 */
+export interface ExamMonitor {
+  exam: Exam;
+  summary: ExamMonitorSummary;
+  rows: ExamMonitorRow[];
+  generatedAt: string;
+}
+
+/* ============================ v1.7④ T5：归档与维护 ============================ */
+
+/** 归档结果 */
+export interface ArchiveResult {
+  archived: number;
+  skipped: number;
+  cutoff: string;
+  archiveTotal: number;
+}
+
+/** 维护统计 */
+export interface MaintenanceStats {
+  tables: Array<{ name: string; label: string; rows: number }>;
+  archiveTotal: number;
+  retentionDays: number;
+  generatedAt: string;
+}
+
+/* ============================ v1.7④ S3：通知模板 ============================ */
+
+/** 通知事件 key（可配置模板的 8 个事件） */
+export type NotifyTemplateKey =
+  | 'examPublish'
+  | 'resultPending'
+  | 'resultPublished'
+  | 'reviewDone'
+  | 'retakeApproved'
+  | 'retakeRejected'
+  | 'appealApproved'
+  | 'appealRejected';
+
+/** 单个通知模板（正文支持 `{变量}` 占位） */
+export interface NotifyTemplate {
+  title: string;
+  content: string;
+}
+
+/** 全部通知模板 */
+export type NotifyTemplates = Record<NotifyTemplateKey, NotifyTemplate>;
 
 /** 特殊考试安排（考试 × 考生） */
 export interface ExamException {
@@ -792,6 +896,8 @@ export interface SystemSettings {
   notifyOnResult: boolean;
   /** 补考审批结果通知开关 */
   notifyOnRetake: boolean;
+  /** 历史成绩归档保留天数（0 = 未启用自动归档，v1.7④ T5） */
+  archiveRetentionDays: number;
   /** SMTP 服务器地址（空 = 未配置） */
   smtpHost: string;
   /** SMTP 端口 */
@@ -804,6 +910,8 @@ export interface SystemSettings {
   smtpPass: string;
   /** 发件人地址 */
   smtpFrom: string;
+  /** 可配置通知模板（站内信/邮件文案，v1.7④ S3） */
+  notifyTemplates: NotifyTemplates;
 }
 
 /** 公开设置：无需登录即可读取，仅含登录页品牌展示所需字段 */

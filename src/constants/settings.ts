@@ -13,6 +13,7 @@ import {
   DEFAULT_PASSWORD,
   IMPORT_MAX_FILE_MB,
   IMPORT_MAX_ROWS,
+  NOTIFY_TEMPLATES_DEFAULT,
   PAGE_SIZE_DEFAULT,
 } from './index';
 
@@ -57,12 +58,14 @@ export const SETTINGS_DEFAULTS: SystemSettings = {
   notifyOnPublish: true,
   notifyOnResult: true,
   notifyOnRetake: true,
+  archiveRetentionDays: 0,
   smtpHost: '',
   smtpPort: 465,
   smtpSecure: true,
   smtpUser: '',
   smtpPass: '',
   smtpFrom: '',
+  notifyTemplates: NOTIFY_TEMPLATES_DEFAULT,
 };
 
 /** 公开设置的默认值 */

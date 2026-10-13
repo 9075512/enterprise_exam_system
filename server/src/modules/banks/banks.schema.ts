@@ -69,4 +69,18 @@ export const bankAuthorsBatchSchema = z
 
 export type BankAuthorBatchInput = z.infer<typeof bankAuthorsBatchSchema>;
 
+/**
+ * 题库复制入参（v1.7④ S4）。
+ * - `name`：新题库名称（省略 → 「原名（副本）」）
+ * - `copyQuestions`：是否连同试题一起复制（默认是）
+ * - `authorIds`：新题库授权出题人（仅 admin 生效；省略 → 继承源题库作者）
+ */
+export const bankCloneSchema = z.object({
+  name: z.string().max(100, '题库名称不能超过 100 个字符').optional().default(''),
+  copyQuestions: z.boolean({ invalid_type_error: '复制试题开关必须为布尔值' }).optional().default(true),
+  authorIds: z.array(z.string()).optional(),
+});
+
+export type BankCloneInput = z.infer<typeof bankCloneSchema>;
+
 export type BankInput = z.infer<typeof bankSchema>;

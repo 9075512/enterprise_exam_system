@@ -108,3 +108,18 @@ export function revokeAuthors(
 ): Promise<BankAuthorBatchResult> {
   return post<BankAuthorBatchResult>(`/banks/${bankId}/authors/revoke`, payload);
 }
+
+/** 题库复制入参（v1.7④ S4） */
+export interface BankClonePayload {
+  /** 新题库名称（省略 → 「原名（副本）」） */
+  name?: string;
+  /** 是否连同试题一起复制（默认 true） */
+  copyQuestions?: boolean;
+  /** 新题库授权出题人（仅 admin 生效；省略 → 继承源题库作者） */
+  authorIds?: string[];
+}
+
+/** 复制题库（可选连同试题；返回新题库，v1.7④ S4） */
+export function clone(bankId: string, payload: BankClonePayload = {}): Promise<QuestionBank> {
+  return post<QuestionBank>(`/banks/${bankId}/clone`, payload);
+}

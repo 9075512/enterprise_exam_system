@@ -3,20 +3,18 @@
  */
 import type { RowDataPacket } from 'mysql2/promise';
 import { query, runQuery, type SqlExecutor } from '../../db/pool.js';
+import { RECORD_FULL_COLUMNS, RECORD_FULL_COLUMNS_R, RECORD_SOURCE } from '../../db/recordSource.js';
 import type { ExamRecordDetailRow, ExamRecordRow } from './records.mapper.js';
 
 export type { ExamRecordRow } from './records.mapper.js';
 
-const COLUMNS =
-  'id, exam_id, user_id, attempt_no, department_id, paper_snapshot, status, answers, started_at, submitted_at, auto_submitted, score, subjective_scores, cheat_events';
+const COLUMNS = RECORD_FULL_COLUMNS;
 
 /**
  * 关联 `exams`（用于按考试名称筛选）时的记录列，全部显式加 `r.` 前缀，
  * 避免与 exams.id / exams.name 等同名列歧义。
  */
-const RECORD_COLUMNS_R =
-  'r.id, r.exam_id, r.user_id, r.attempt_no, r.department_id, r.paper_snapshot, r.status, r.answers, ' +
-  'r.started_at, r.submitted_at, r.auto_submitted, r.score, r.subjective_scores, r.cheat_events';
+const RECORD_COLUMNS_R = RECORD_FULL_COLUMNS_R;
 
 /**
  * 转义 LIKE 模式中的特殊字符：先转义反斜杠，再转义 `%` 与 `_`，
@@ -28,7 +26,7 @@ function escapeLike(raw: string): string {
 
 /** 按 id 查询记录。 */
 export async function findById(id: string, exec?: SqlExecutor): Promise<ExamRecordRow | null> {
-  const rows = await runQuery<ExamRecordRow[]>(exec, `SELECT ${COLUMNS} FROM exam_records WHERE id = ? LIMIT 1`, [id]);
+  const rows = await runQuery<ExamRecordRow[]>(exec, `SELECT ${COLUMNS} FROM ${RECORD_SOURCE} WHERE id = ? LIMIT 1`, [id]);
   return rows[0] ?? null;
 }
 
@@ -43,7 +41,7 @@ export async function findDetailById(id: string, exec?: SqlExecutor): Promise<Ex
             r.started_at, r.submitted_at, r.auto_submitted, r.score, r.subjective_scores, r.cheat_events,
             e.name AS exam_name, e.pass_score AS pass_score,
             u.name AS user_name, COALESCE(d.name, du.name, '') AS department_name
-       FROM exam_records r
+       FROM ${RECORD_SOURCE}
        LEFT JOIN exams e ON e.id = r.exam_id
        LEFT JOIN users u ON u.id = r.user_id
        LEFT JOIN departments d ON d.id = r.department_id
@@ -62,7 +60,7 @@ export async function findLatestByExamAndUser(
 ): Promise<ExamRecordRow | null> {
   const rows = await runQuery<ExamRecordRow[]>(
     exec,
-    `SELECT ${COLUMNS} FROM exam_records WHERE exam_id = ? AND user_id = ? ORDER BY attempt_no DESC LIMIT 1`,
+    `SELECT ${COLUMNS} FROM ${RECORD_SOURCE} WHERE exam_id = ? AND user_id = ? ORDER BY attempt_no DESC LIMIT 1`,
     [examId, userId],
   );
   return rows[0] ?? null;
@@ -77,7 +75,7 @@ export async function findByExamUserAttempt(
 ): Promise<ExamRecordRow | null> {
   const rows = await runQuery<ExamRecordRow[]>(
     exec,
-    `SELECT ${COLUMNS} FROM exam_records WHERE exam_id = ? AND user_id = ? AND attempt_no = ? LIMIT 1`,
+    `SELECT ${COLUMNS} FROM ${RECORD_SOURCE} WHERE exam_id = ? AND user_id = ? AND attempt_no = ? LIMIT 1`,
     [examId, userId, attemptNo],
   );
   return rows[0] ?? null;
@@ -91,7 +89,7 @@ export async function findInProgressByExamAndUser(
 ): Promise<ExamRecordRow | null> {
   const rows = await runQuery<ExamRecordRow[]>(
     exec,
-    `SELECT ${COLUMNS} FROM exam_records
+    `SELECT ${COLUMNS} FROM ${RECORD_SOURCE}
        WHERE exam_id = ? AND user_id = ? AND status = 'in_progress'
        ORDER BY attempt_no DESC LIMIT 1`,
     [examId, userId],
@@ -110,7 +108,7 @@ export async function countSubmittedByExamAndUser(
 ): Promise<number> {
   const rows = await runQuery<RowDataPacket[]>(
     exec,
-    `SELECT COUNT(*) AS c FROM exam_records
+    `SELECT COUNT(*) AS c FROM ${RECORD_SOURCE}
        WHERE exam_id = ? AND user_id = ? AND status IN ('submitted', 'pending_review')`,
     [examId, userId],
   );
@@ -121,7 +119,7 @@ export async function countSubmittedByExamAndUser(
 export async function listByUser(userId: string, exec?: SqlExecutor): Promise<ExamRecordRow[]> {
   return runQuery<ExamRecordRow[]>(
     exec,
-    `SELECT ${COLUMNS} FROM exam_records WHERE user_id = ?`,
+    `SELECT ${COLUMNS} FROM ${RECORD_SOURCE} WHERE user_id = ?`,
     [userId],
   );
 }
@@ -141,7 +139,7 @@ export async function listMySubmitted(
     : [userId, paging.pageSize, paging.offset];
   return query<ExamRecordRow[]>(
     `SELECT ${RECORD_COLUMNS_R}
-       FROM exam_records r
+       FROM ${RECORD_SOURCE}
        LEFT JOIN exams e ON e.id = r.exam_id
       WHERE r.user_id = ? AND r.status = 'submitted'${keywordCond}
       ORDER BY r.submitted_at DESC
@@ -156,7 +154,7 @@ export async function countMySubmitted(userId: string, keyword?: string): Promis
   const params = keyword ? [userId, `%${escapeLike(keyword)}%`] : [userId];
   const rows = await query<RowDataPacket[]>(
     `SELECT COUNT(*) AS c
-       FROM exam_records r
+       FROM ${RECORD_SOURCE}
        LEFT JOIN exams e ON e.id = r.exam_id
       WHERE r.user_id = ? AND r.status = 'submitted'${keywordCond}`,
     params,
@@ -170,14 +168,14 @@ export async function listByExam(
   paging: { pageSize: number; offset: number },
 ): Promise<ExamRecordRow[]> {
   return query<ExamRecordRow[]>(
-    `SELECT ${COLUMNS} FROM exam_records WHERE exam_id = ? ORDER BY started_at DESC LIMIT ? OFFSET ?`,
+    `SELECT ${COLUMNS} FROM ${RECORD_SOURCE} WHERE exam_id = ? ORDER BY started_at DESC LIMIT ? OFFSET ?`,
     [examId, paging.pageSize, paging.offset],
   );
 }
 
 /** 某场考试记录总数。 */
 export async function countByExam(examId: string): Promise<number> {
-  const rows = await query<RowDataPacket[]>(`SELECT COUNT(*) AS c FROM exam_records WHERE exam_id = ?`, [examId]);
+  const rows = await query<RowDataPacket[]>(`SELECT COUNT(*) AS c FROM ${RECORD_SOURCE} WHERE exam_id = ?`, [examId]);
   return Number(rows[0]?.c ?? 0);
 }
 
@@ -191,7 +189,7 @@ export async function listCheatByExam(examId: string): Promise<ExamRecordDetailR
             r.started_at, r.submitted_at, r.auto_submitted, r.score, r.subjective_scores, r.cheat_events,
             e.name AS exam_name, e.pass_score AS pass_score,
             u.name AS user_name, COALESCE(d.name, du.name, '') AS department_name
-       FROM exam_records r
+       FROM ${RECORD_SOURCE}
        LEFT JOIN exams e ON e.id = r.exam_id
        LEFT JOIN users u ON u.id = r.user_id
        LEFT JOIN departments d ON d.id = r.department_id
@@ -267,7 +265,7 @@ export async function listPending(paging: { pageSize: number; offset: number }):
             r.started_at, r.submitted_at, r.auto_submitted, r.score, r.subjective_scores, r.cheat_events,
             e.name AS exam_name, e.pass_score AS pass_score,
             u.name AS user_name, COALESCE(d.name, du.name, '') AS department_name
-       FROM exam_records r
+       FROM ${RECORD_SOURCE}
        LEFT JOIN exams e ON e.id = r.exam_id
        LEFT JOIN users u ON u.id = r.user_id
        LEFT JOIN departments d ON d.id = r.department_id
@@ -281,7 +279,7 @@ export async function listPending(paging: { pageSize: number; offset: number }):
 
 /** 待阅卷记录数。 */
 export async function countPending(): Promise<number> {
-  const rows = await query<RowDataPacket[]>(`SELECT COUNT(*) AS c FROM exam_records WHERE status = 'pending_review'`);
+  const rows = await query<RowDataPacket[]>(`SELECT COUNT(*) AS c FROM ${RECORD_SOURCE} WHERE status = 'pending_review'`);
   return Number(rows[0]?.c ?? 0);
 }
 

@@ -21,7 +21,7 @@
 | ① | 考试运营闭环（O1 试卷 PDF / O2 成绩复核 / O3 特殊安排） | ✅ 已完成 |
 | ② | 题库与数据运营深化（Q1–Q4） | ✅ 已完成 |
 | ③ | 安全与合规加固（T1 / T2 / S1 / S2） | ✅ 已完成（③-a：T1+T2；③-b：S1+S2） |
-| ④ | 工程化与稳定性（T3 / T5 / S3 / S4，不含 T4） | ⏳ 待开始 |
+| ④ | 工程化与稳定性（T3 / T5 / S3 / S4，不含 T4） | ✅ 已完成（④-a：T3+S4+T5+S3） |
 
 ---
 
@@ -309,3 +309,58 @@
 - 前端：新增 `src/views/author/BankAuthorBatchDialog.vue`（科室树选择 + 含子科室开关 + 角色过滤 + 手选出题人；**客户端即时预演**命中人数/将授权人数/已授权跳过数）；`QuestionBankDetailPage.vue` 题库信息卡新增管理员可见的「批量授权」入口，完成后刷新题库详情。
 
 **③-b 验证**：后端 typecheck 0 错；新增 `server/src/test/v17d.test.ts`（20 用例）全通过，全量 **300/300**（20 文件）；前端 typecheck 0 错、vitest 28/28、`vite build` 成功；`db:init` 幂等（29 表，结构升级 `questions.rubric`）。
+
+---
+
+## 10. ④ 工程化与稳定性（已交付）
+
+> 交付批次：**④-a**（T3 实时监控 + S4 题库复制 + T5 归档与索引 + S3 通知模板）；**T4（Docker/CI/Playwright）按决策剔除**。
+> 本期不新增数据库表以外的破坏性变更，归档采用「搬移 + 读路径 union」，对历史报表/成绩透明。
+
+### 10.1 T3 实时考试监控（轮询大屏）
+
+- **花名册口径**：考试所辖科室（含子树）内的 `examinee` 账号 ∪ 「已有答卷但已不在花名册」（如考生调岗后仍有记录），保证不漏人。
+- **行状态** `MonitorStatus`：`not_started` / `in_progress` / `pending_review` / `submitted`；取每人**最新一次作答**（`MAX(attempt_no)`）。
+- **剩余秒数**（仅进行中有意义）：服务端按 `min(开考 + (时长 + 加时) × 60s, 考试结束时间)` 计算；前端本地每秒递减、每轮轮询后按服务端值重置，避免时钟漂移。
+- **监考加时**：复用 `exam_exceptions.extra_minutes`（**累加**，单次 1~600 分钟），与 v1.7① 特殊安排同一数据源。
+- **强制交卷**：复用 `records.service.submit(recordId, userId, auto=true)`，保持判分/幂等语义一致；写审计 `record.force_submit`。
+- **接口**（均 `requireRole('admin')`）：
+  - `GET /api/exams/:id/monitor` —— `ExamMonitorDto { exam, summary, rows, generatedAt }`；
+  - `POST /api/exams/:id/monitor/:userId/force-submit`；
+  - `POST /api/exams/:id/monitor/:userId/extend`（`{ minutes }` 1~600）。
+- **前端**：`src/views/admin/ExamMonitorPage.vue`（7 张汇总卡 + 明细表 + 自动刷新开关注 / 15s 轮询 + 剩余时长/切屏高亮 + 加时/强制交卷操作）；`ExamManagePage.vue` 操作列新增「监控」入口。
+
+### 10.2 S4 题库复制
+
+- `POST /api/banks/:id/clone`（admin/author）：`{ name?, copyQuestions?=true, authorIds? }`。
+  - 名称缺省为「原名（副本）」，`≤100` 字。
+  - 复制试题时**新 id 全量复制**（题型/选项/答案/分值/解析/科目/标签/rubric），事务内完成。
+  - 授权出题人：admin 可显式指定 `authorIds`（校验合法性）；否则继承源库作者（author 复制时自动含自己）。
+- 审计 `bank.clone`（detail 记录源库、copyQuestions、copied 数、authorIds）。
+- 前端：`src/views/author/BankCloneDialog.vue` + `QuestionBankListPage.vue` 卡片操作区「复制」入口（admin 可见作者选择）。
+
+### 10.3 T5 数据归档与性能
+
+- **新增表 `exam_records_archive`**（表 30；14 业务列 + `archived_at`；**无外键**，可长期独立保留）；3 索引 `idx_archive_exam` / `idx_archive_user` / `idx_archive_archived_at`。
+- **归档语义 = 搬移**：`INSERT ... SELECT` 入归档表 → `DELETE` 业务表，两表无重复行。
+- **安全边界**：仅 `status='submitted'`（已出成绩）+ `exams.end_time < cutoff` + **无 `score_appeals` 申请**（有复核申请的必须留在业务表，因外键约束）；`pending_review` 不参与归档。返回 `ArchiveResultDto { archived, skipped, cutoff, archiveTotal }`。
+- **读路径 union**：`server/src/db/recordSource.ts` 提供 `RECORD_SOURCE`（`(exam_records UNION ALL exam_records_archive) r`，派生表自带别名）；`records.repo`（13 处）与 `reports.repo`（4 处）的历史读查询统一改走 `FROM ${RECORD_SOURCE}`，**写操作仍只针对业务表**。归档后历史报表、「我的成绩」查询结果不变。
+- **性能索引**（幂等迁移）：`exam_records.idx_records_exam_status (exam_id, status)`、`exam_records.idx_records_status_submitted (status, submitted_at)`、`login_logs.idx_login_logs_source_created (source, created_at)`。
+- **接口**（admin）：`GET /api/maintenance/stats`、`POST /api/maintenance/archive`（`{ days 1~3650?, limit 1~5000? }`，天数缺省 365、上限缺省 2000）；审计 `system.archive`。
+- **设置**：新增 `archiveRetentionDays`（0 = 未启用自动归档，0~3650）。
+- 前端：`src/views/admin/SystemMaintenancePage.vue`（统计卡 + 归档表单 + 说明 + 上次结果 + 核心表行数）；菜单新增「系统维护」；`SettingsPage.vue`「列表与导入」Tab 增归档保留天数。
+
+### 10.4 S3 通知文案模板化
+
+- 新增 `server/src/utils/notifyTemplate.ts`：8 个事件默认文案（`examPublish` / `resultPending` / `resultPublished` / `reviewDone` / `retakeApproved` / `retakeRejected` / `appealApproved` / `appealRejected`）+ `{变量}` 渲染（`renderTemplate` / `renderEvent` / `pickTemplate`），标题 ≤120、正文 ≤500。
+- `server/src/utils/notify.ts` 新增 `notifyEvent(key, userIds, vars)`：内含**事件开关门控**（`notifyOnPublish` / `notifyOnResult` / `notifyOnRetake`）与 `EVENT_TYPE` 映射（站内信 type 保持 `publish`/`result`/`retake`/`appeal` 不变）。
+- 模板存于 `system_settings.notifyTemplates`；读取时**逐键合并默认值**（空串不覆盖），旧数据缺字段自动回退，行为与「模板功能引入前」一致。
+- 全部 8 处业务通知改走 `notifyEvent`（发布/待阅卷/出成绩/阅卷完成/补考通过/驳回/复核通过/驳回）。
+- 前端：`SettingsPage.vue`「消息通知」Tab 增「通知文案模板」区（事件下拉 + 可用变量提示 + 标题/正文 + 恢复默认），编辑期深拷贝避免污染全局设置。
+
+### 10.5 验证结论
+
+- 后端 typecheck **0 错**；新增 `server/src/test/v17e.test.ts`（18 用例：S3 纯函数 3 + T3 5 + S4 3 + T5 5 + S3 集成 2）全通过，全量 **318/318（21 文件）**。
+- 前端 typecheck **0 错**、vitest **28/28**、`vite build` **成功**；练题端 typecheck **0 错**。
+- `db:init` 幂等复跑：**表数量 30**、「结构升级：无需变更（已是最新）」。
+- 归档透明性已由测试验证：归档后进行中考试的报表 `summary.total` 与「我的成绩」列表仍完整可查。

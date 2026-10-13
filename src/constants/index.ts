@@ -2,7 +2,16 @@
  * 全局常量：角色/题型/状态文案、业务阈值、分页与导入上限、Token key、题库/导入文案。
  * 说明：已移除旧版 localStorage 存储 key（数据改由后端 API 承载）。
  */
-import type { AppealStatus, AuditAction, AuditTargetType, ExamStatus, QuestionType, Role } from '@/types';
+import type {
+  AppealStatus,
+  AuditAction,
+  AuditTargetType,
+  ExamStatus,
+  NotifyTemplateKey,
+  NotifyTemplates,
+  QuestionType,
+  Role,
+} from '@/types';
 
 /** 登录令牌存储 key（仅存 Token，其余会话信息由 /api/auth/me 恢复） */
 export const TOKEN_KEY = 'exam_sys.token';
@@ -143,10 +152,14 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'bank.migrate': '迁移试题',
   'bank.author_grant': '批量授权出题人',
   'bank.author_revoke': '批量取消出题人授权',
+  'bank.clone': '复制题库',
   'permission.update': '更新菜单权限',
   'appeal.approve': '复核通过（改分）',
   'appeal.reject': '复核驳回',
   'exam.exception_update': '设置特殊安排',
+  'exam.extend_time': '监考加时',
+  'record.force_submit': '监考强制交卷',
+  'system.archive': '历史成绩归档',
   'audit.export': '导出审计日志',
   'audit.cleanup': '清理过期审计日志',
 };
@@ -164,6 +177,8 @@ export const AUDIT_TARGET_TYPE_LABELS: Record<AuditTargetType, string> = {
   permission: '菜单权限',
   appeal: '成绩复核',
   audit: '审计日志',
+  record: '考试记录',
+  system: '系统维护',
 };
 
 /** 审计目标类型下拉选项 */
@@ -174,6 +189,8 @@ export const AUDIT_TARGET_TYPE_OPTIONS: ReadonlyArray<{ value: AuditTargetType; 
   { value: 'permission', label: '菜单权限' },
   { value: 'appeal', label: '成绩复核' },
   { value: 'audit', label: '审计日志' },
+  { value: 'record', label: '考试记录' },
+  { value: 'system', label: '系统维护' },
 ];
 
 /** 审计日志导出列（与后端 modules/audit/audit.columns.ts 白名单一致，v1.7②） */
@@ -215,3 +232,64 @@ export const APPEAL_STATUS_TAG_TYPES: Record<AppealStatus, 'warning' | 'success'
 export const APPEAL_STATUS_OPTIONS: ReadonlyArray<{ value: AppealStatus; label: string }> = (
   Object.entries(APPEAL_STATUS_LABELS) as Array<[AppealStatus, string]>
 ).map(([value, label]) => ({ value, label }));
+
+/* ============================ 通知模板（v1.7④ S3） ============================ */
+
+/**
+ * 通知模板默认值（与后端 `server/src/utils/notifyTemplate.ts` 的
+ * NOTIFY_TEMPLATES_DEFAULT 逐字一致；正文支持 `{变量}` 占位）。
+ */
+export const NOTIFY_TEMPLATES_DEFAULT: NotifyTemplates = {
+  examPublish: {
+    title: '新考试发布：{examName}',
+    content: '你有一个新的考试「{examName}」，请留意考试时间并准时参加。',
+  },
+  resultPending: {
+    title: '答卷已提交，待阅卷：{examName}',
+    content: '你已提交「{examName}」的答卷，含主观题，待人工阅卷后公布最终成绩。',
+  },
+  resultPublished: {
+    title: '考试成绩已发布：{examName}',
+    content: '你的考试成绩为 {score} 分，{passedText}。',
+  },
+  reviewDone: {
+    title: '阅卷完成：{examName}',
+    content: '你「{examName}」的答卷已完成阅卷，最终成绩 {score} 分，{passedText}。',
+  },
+  retakeApproved: {
+    title: '补考申请已通过',
+    content: '你申请的「{examName}」补考已通过，请重新进入考试完成补考。',
+  },
+  retakeRejected: {
+    title: '补考申请被驳回',
+    content: '你申请的「{examName}」补考被驳回，原因：{reason}',
+  },
+  appealApproved: {
+    title: '成绩复核已通过：{examName}',
+    content: '你的成绩复核已通过，成绩由 {originalScore} 分调整为 {newScore} 分，{passedText}。{comment}',
+  },
+  appealRejected: {
+    title: '成绩复核未通过：{examName}',
+    content: '你的成绩复核申请未通过，原成绩保持不变。复核意见：{comment}',
+  },
+};
+
+/** 模板键 → 展示名与可用变量（与后端 NOTIFY_TEMPLATE_META 一致）。 */
+export const NOTIFY_TEMPLATE_META: ReadonlyArray<{
+  key: NotifyTemplateKey;
+  label: string;
+  vars: string[];
+}> = [
+  { key: 'examPublish', label: '考试发布通知', vars: ['examName'] },
+  { key: 'resultPending', label: '交卷待阅卷通知', vars: ['examName'] },
+  { key: 'resultPublished', label: '成绩发布通知', vars: ['examName', 'score', 'passedText'] },
+  { key: 'reviewDone', label: '阅卷完成通知', vars: ['examName', 'score', 'passedText'] },
+  { key: 'retakeApproved', label: '补考通过通知', vars: ['examName'] },
+  { key: 'retakeRejected', label: '补考驳回通知', vars: ['examName', 'reason'] },
+  {
+    key: 'appealApproved',
+    label: '复核通过通知',
+    vars: ['examName', 'originalScore', 'newScore', 'passedText', 'comment'],
+  },
+  { key: 'appealRejected', label: '复核驳回通知', vars: ['examName', 'comment'] },
+];

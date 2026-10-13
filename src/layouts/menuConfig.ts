@@ -21,6 +21,7 @@ import {
   TrendCharts,
   User,
   Tickets,
+  Tools,
 } from '@element-plus/icons-vue';
 import type { Role } from '@/types';
 
@@ -51,6 +52,7 @@ const ALL_MENUS: MenuItem[] = [
   { key: 'permissions', text: '菜单权限', path: '/admin/permissions', icon: Lock, roles: ['admin'] },
   { key: 'audit', text: '审计日志', path: '/admin/audit', icon: Tickets, roles: ['admin'] },
   { key: 'login-logs', text: '登录日志', path: '/admin/login-logs', icon: Lock, roles: ['admin'] },
+  { key: 'maintenance', text: '系统维护', path: '/admin/maintenance', icon: Tools, roles: ['admin'] },
   { key: 'my-exams', text: '我的考试', path: '/exam/my', icon: AlarmClock, roles: ['examinee'] },
   { key: 'my-scores', text: '我的成绩', path: '/exam/scores', icon: TrendCharts, roles: ['examinee'] },
 ];

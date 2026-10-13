@@ -18,7 +18,7 @@ import { badRequest, conflict, forbidden, notFound } from '../../utils/errors.js
 import { genId } from '../../utils/id.js';
 import { nowDb, fromDbDate, fromDbDateSafe } from '../../utils/datetime.js';
 import { normalizePaging, buildPage } from '../../utils/pagination.js';
-import { notifyUsers } from '../../utils/notify.js';
+import { notifyEvent } from '../../utils/notify.js';
 import * as auditService from '../audit/audit.service.js';
 import type { AppealStatus, Page, ScoreAppealDto } from '../../types/domain.js';
 
@@ -129,12 +129,12 @@ export async function approve(
 
   const examRow = await examsRepo.findById(row.exam_id);
   const passScore = examRow ? Number(examRow.pass_score) : 0;
-  await notifyUsers([row.user_id], {
-    type: 'appeal',
-    title: `成绩复核已通过：${updated!.exam_name}`,
-    content: `你的成绩复核已通过，成绩由 ${Number(row.original_score)} 分调整为 ${newScore} 分，${
-      newScore >= passScore ? '已及格' : '未及格'
-    }。${comment ? `复核意见：${comment}` : ''}`,
+  await notifyEvent('appealApproved', [row.user_id], {
+    examName: updated!.exam_name,
+    originalScore: Number(row.original_score),
+    newScore,
+    passedText: newScore >= passScore ? '已及格' : '未及格',
+    comment: comment ? `复核意见：${comment}` : '',
   });
 
   return mapRow(updated!);
@@ -160,10 +160,9 @@ export async function reject(id: string, adminId: string, comment: string): Prom
     detail: { recordId: row.record_id, userName: row.user_name, comment: trimmed },
   });
 
-  await notifyUsers([row.user_id], {
-    type: 'appeal',
-    title: `成绩复核未通过：${updated!.exam_name}`,
-    content: `你的成绩复核申请未通过，原成绩保持不变。复核意见：${trimmed}`,
+  await notifyEvent('appealRejected', [row.user_id], {
+    examName: updated!.exam_name,
+    comment: trimmed,
   });
 
   return mapRow(updated!);

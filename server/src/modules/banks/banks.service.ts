@@ -8,15 +8,18 @@ import * as bankAuthorsRepo from './bankAuthors.repo.js';
 import * as bankAuth from './bankAuth.js';
 import type { Operator } from './bankAuth.js';
 import * as usersRepo from '../users/users.repo.js';
+import * as questionRepo from '../questions/questions.repo.js';
 import * as departmentsService from '../departments/departments.service.js';
 import type { BankRowWithCount } from './banks.repo.js';
 import type { BankAuthorRow } from './bankAuthors.repo.js';
+import type { BankCloneInput } from './banks.schema.js';
 import { withTransaction } from '../../db/pool.js';
 import { badRequest, conflict, forbidden, notFound } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
 import { nowDb, fromDbDateSafe } from '../../utils/datetime.js';
+import { parseJsonColumn } from '../../utils/json.js';
 import * as auditService from '../audit/audit.service.js';
-import type { BankAuthorBatchResult, BankDetailDto, BankDto, Role } from '../../types/domain.js';
+import type { BankAuthorBatchResult, BankDetailDto, BankDto, Role, RubricBand } from '../../types/domain.js';
 
 /** 行 → 基础 DTO（authorIds/authorNames 由 attachAuthors 补充）。 */
 function mapRow(row: BankRowWithCount): Omit<BankDto, 'authorIds' | 'authorNames'> {
@@ -401,4 +404,99 @@ export async function batchRevokeAuthors(
     },
   });
   return result;
+}
+
+/* ============================ 题库复制（v1.7④ S4） ============================ */
+
+/**
+ * 复制题库（可选连同试题）。
+ *
+ * - 需对源题库有访问权限（admin 无限制；author 需被授权）；
+ * - 新题库归属当前操作者，名称默认「原名（副本）」；
+ * - `copyQuestions` 默认 true：题目以**新 id** 复制（不影响源题与其试卷引用），
+ *   保留题型/选项/答案/分值/解析/科目/知识点标签/评分细则；
+ * - 授权出题人：admin 可显式指定 `authorIds`，否则继承源题库作者；
+ *   author 复制时在继承基础上自动加入自己（保证可见）。
+ */
+export async function cloneBank(
+  id: string,
+  input: BankCloneInput,
+  operator: Operator,
+): Promise<BankDto> {
+  const source = await repo.findById(id);
+  if (!source) throw notFound('题库不存在或已被删除');
+  await bankAuth.assertBankAccess(id, operator);
+
+  const trimmed = (input.name ?? '').trim();
+  const newName = (trimmed || `${source.name}（副本）`).slice(0, 100);
+  const newId = genId('bank-');
+  const copyQuestions = input.copyQuestions !== false;
+
+  // 授权出题人集合（事务外先解析，含角色校验）
+  const sourceAuthors = await bankAuthorsRepo.listAuthorIdsByBank(id);
+  let authorIds: string[];
+  if (bankAuth.isAdmin(operator) && input.authorIds && input.authorIds.length > 0) {
+    authorIds = await assertAuthorsValid(input.authorIds);
+  } else {
+    const set = new Set(sourceAuthors);
+    if (!bankAuth.isAdmin(operator)) set.add(operator.id);
+    authorIds = [...set];
+  }
+
+  let copied = 0;
+  await withTransaction(async (conn) => {
+    await repo.insert(
+      {
+        id: newId,
+        name: newName,
+        description: source.description,
+        category: source.category,
+        allowPractice: Boolean(Number(source.allow_practice)),
+        createdBy: operator.id,
+        createdAt: nowDb(),
+      },
+      conn,
+    );
+
+    if (copyQuestions) {
+      const rows = await questionRepo.listAllByBank(id, conn);
+      for (const r of rows) {
+        await questionRepo.insert(
+          {
+            id: genId('q-'),
+            bankId: newId,
+            type: r.type,
+            stem: r.stem,
+            options: parseJsonColumn<string[]>(r.options, []),
+            answer: parseJsonColumn<number[] | string[]>(r.answer, []),
+            defaultScore: Number(r.default_score),
+            analysis: r.analysis ?? '',
+            subject: r.subject,
+            tags: parseJsonColumn<string[]>(r.tags, []),
+            rubric: parseJsonColumn<RubricBand[]>(r.rubric, []),
+            createdBy: r.created_by,
+            createdAt: nowDb(),
+          },
+          conn,
+        );
+        copied += 1;
+      }
+    }
+
+    if (authorIds.length > 0) await bankAuthorsRepo.setAuthors(newId, authorIds, conn);
+  });
+
+  const created = await repo.findById(newId);
+  const authorMap = await bankAuthorsRepo.listAuthorsByBanks([newId]);
+  const [dto] = attachAuthors([mapRow(created!)], authorMap);
+
+  await auditService.record({
+    actorId: operator.id,
+    action: 'bank.clone',
+    targetType: 'bank',
+    targetId: newId,
+    targetName: dto.name,
+    detail: { sourceBankId: id, sourceBankName: source.name, copyQuestions, copied, authorIds },
+  });
+  return dto;
 }

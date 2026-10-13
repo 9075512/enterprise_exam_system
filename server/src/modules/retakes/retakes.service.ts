@@ -17,7 +17,7 @@ import { badRequest, conflict, notFound } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
 import { nowDb, fromDbDateSafe } from '../../utils/datetime.js';
 import { normalizePaging, buildPage } from '../../utils/pagination.js';
-import { notifyUsers } from '../../utils/notify.js';
+import { notifyEvent } from '../../utils/notify.js';
 import type { Page, RetakeDto, RetakeStatus } from '../../types/domain.js';
 
 function mapRow(row: RetakeRow): RetakeDto {
@@ -93,12 +93,8 @@ export async function approve(id: string, adminId: string): Promise<RetakeDto> {
   await repo.updateStatus(id, 'approved', adminId, nowDb(), '');
   const updated = await repo.findById(id);
 
-  // 通知考生（补考审批结果）
-  await notifyUsers([updated!.user_id], {
-    type: 'retake',
-    title: '补考申请已通过',
-    content: `你申请的「${updated!.exam_name}」补考已通过，请重新进入考试完成补考。`,
-  });
+  // 通知考生（补考审批结果；文案走可配置模板 v1.7④ S3）
+  await notifyEvent('retakeApproved', [updated!.user_id], { examName: updated!.exam_name });
 
   return mapRow(updated!);
 }
@@ -113,10 +109,9 @@ export async function reject(id: string, adminId: string, reason: string): Promi
   await repo.updateStatus(id, 'rejected', adminId, nowDb(), trimmed);
   const updated = await repo.findById(id);
 
-  await notifyUsers([updated!.user_id], {
-    type: 'retake',
-    title: '补考申请被驳回',
-    content: `你申请的「${updated!.exam_name}」补考被驳回，原因：${trimmed}`,
+  await notifyEvent('retakeRejected', [updated!.user_id], {
+    examName: updated!.exam_name,
+    reason: trimmed,
   });
 
   return mapRow(updated!);

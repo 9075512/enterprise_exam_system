@@ -4,8 +4,9 @@
  * 关键字/状态筛选（客户端）+ 列表 + 新建/编辑弹窗 + 删除（有成绩记录 → 后端 1005）。
  */
 import { computed, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Plus, Search, Refresh } from '@element-plus/icons-vue';
+import { Plus, Search, Refresh, Monitor } from '@element-plus/icons-vue';
 import * as departmentsApi from '@/api/departments';
 import * as examsApi from '@/api/exams';
 import * as papersApi from '@/api/papers';
@@ -23,6 +24,7 @@ import ExamExceptionDialog from './ExamExceptionDialog.vue';
 import type { Exam, ExamStatus } from '@/types';
 
 const { confirm } = useConfirm();
+const router = useRouter();
 
 const { data: exams, loading, refresh } = useRequest(() => examsApi.list());
 const { data: papers } = useRequest(() => papersApi.list());
@@ -75,6 +77,11 @@ const exceptionExam = ref<Exam | null>(null);
 function openExceptions(exam: Exam): void {
   exceptionExam.value = exam;
   exceptionVisible.value = true;
+}
+
+/** 进入监考监控（v1.7④ T3）。 */
+function openMonitor(exam: Exam): void {
+  void router.push(`/admin/exams/${exam.id}/monitor`);
 }
 
 const deleting = ref(false);
@@ -170,9 +177,10 @@ async function handleDelete(exam: Exam): Promise<void> {
             <StatusTag :status="getExamStatus(row as Exam)" />
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="210" fixed="right">
+        <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="openEdit(row as Exam)">编辑</el-button>
+            <el-button type="primary" link :icon="Monitor" @click="openMonitor(row as Exam)">监控</el-button>
+            <el-button link @click="openEdit(row as Exam)">编辑</el-button>
             <el-button link @click="openExceptions(row as Exam)">特殊安排</el-button>
             <el-button type="danger" link @click="handleDelete(row as Exam)">删除</el-button>
           </template>

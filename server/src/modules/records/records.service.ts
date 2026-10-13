@@ -21,7 +21,8 @@ import { isAnswerCorrect } from '../../utils/grading.js';
 import { sanitizeRichText, isRichTextEmpty } from '../../utils/richText.js';
 import { getSettings } from '../settings/settings.service.js';
 import { shuffleSnapshot } from '../../utils/shuffle.js';
-import { notifyUsers } from '../../utils/notify.js';
+import { notifyEvent } from '../../utils/notify.js';
+import * as auditService from '../audit/audit.service.js';
 import crypto from 'node:crypto';
 import type {
   AppealStatus,
@@ -195,17 +196,13 @@ export async function submit(recordId: string, userId: string, auto: boolean): P
   const exam = await examsRepo.findById(record.examId);
   if (exam) {
     if (hasSubjective) {
-      await notifyUsers([record.userId], {
-        type: 'result',
-        title: `答卷已提交，待阅卷：${exam.name}`,
-        content: `你已提交「${exam.name}」的答卷，含主观题，待人工阅卷后公布最终成绩。`,
-      });
+      await notifyEvent('resultPending', [record.userId], { examName: exam.name });
     } else {
       const passed = score >= Number(exam.pass_score);
-      await notifyUsers([record.userId], {
-        type: 'result',
-        title: `考试成绩已发布：${exam.name}`,
-        content: `你的考试成绩为 ${score} 分，${passed ? '已及格' : '未及格'}。`,
+      await notifyEvent('resultPublished', [record.userId], {
+        examName: exam.name,
+        score,
+        passedText: passed ? '已及格' : '未及格',
       });
     }
   }
@@ -309,12 +306,38 @@ export async function review(
   const exam = await examsRepo.findById(record.examId);
   if (exam) {
     const passed = finalScore >= Number(exam.pass_score);
-    await notifyUsers([record.userId], {
-      type: 'result',
-      title: `阅卷完成：${exam.name}`,
-      content: `你「${exam.name}」的答卷已完成阅卷，最终成绩 ${finalScore} 分，${passed ? '已及格' : '未及格'}。`,
+    await notifyEvent('reviewDone', [record.userId], {
+      examName: exam.name,
+      score: finalScore,
+      passedText: passed ? '已及格' : '未及格',
     });
   }
 
+  return dto;
+}
+
+/**
+ * 监考强制交卷（admin，v1.7④ T3）：把某考生「进行中」的答卷按自动交卷结算。
+ * 复用 `submit()`（含判分与成绩通知）；无进行中记录 → 1004。
+ */
+export async function forceSubmit(examId: string, userId: string, operatorId: string): Promise<ExamRecordDto> {
+  const row = await repo.findInProgressByExamAndUser(examId, userId);
+  if (!row) throw notFound('该考生当前没有进行中的答卷');
+  const dto = await submit(row.id, row.user_id, true);
+  const exam = await examsRepo.findById(examId);
+  await auditService.record({
+    actorId: operatorId,
+    action: 'record.force_submit',
+    targetType: 'record',
+    targetId: row.id,
+    targetName: exam?.name ?? '',
+    detail: {
+      examId,
+      examName: exam?.name ?? '',
+      userId,
+      attemptNo: Number(row.attempt_no),
+      score: dto.score,
+    },
+  });
   return dto;
 }

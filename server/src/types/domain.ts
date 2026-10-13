@@ -460,6 +460,102 @@ export interface ReportDto {
   wrongRate: WrongItem[];
 }
 
+// ============================================================
+// v1.7④ 域类型：通知模板（S3）/ 实时监控（T3）/ 归档与维护（T5）
+// ============================================================
+
+/** 通知事件 key（可配置模板的 8 个事件，v1.7④ S3） */
+export type NotifyTemplateKey =
+  | 'examPublish'
+  | 'resultPending'
+  | 'resultPublished'
+  | 'reviewDone'
+  | 'retakeApproved'
+  | 'retakeRejected'
+  | 'appealApproved'
+  | 'appealRejected';
+
+/** 单个通知模板（标题 + 正文，正文支持 `{变量}` 占位） */
+export interface NotifyTemplate {
+  title: string;
+  content: string;
+}
+
+/** 全部通知模板（按事件 key 索引） */
+export type NotifyTemplates = Record<NotifyTemplateKey, NotifyTemplate>;
+
+/** 监考行状态（含「未开始」，用于花名册全员展示） */
+export type MonitorStatus = 'not_started' | 'in_progress' | 'pending_review' | 'submitted';
+
+/** 监考明细行（v1.7④ T3；每个应考考生一行，取最新一次作答） */
+export interface ExamMonitorRowDto {
+  userId: string;
+  username: string;
+  userName: string;
+  departmentName: string;
+  status: MonitorStatus;
+  /** 已作答次数（未开始为 0） */
+  attemptNo: number;
+  /** ISO 8601；未开始为空串 */
+  startedAt: string;
+  /** ISO 8601；未交卷为空串 */
+  submittedAt: string;
+  /** 剩余秒数（仅 in_progress 有意义；未开始/已交卷为 0） */
+  remainingSeconds: number;
+  /** 该考生被授予的加时分钟数（v1.7① 特殊安排） */
+  extraMinutes: number;
+  cheatCount: number;
+  cheatSeconds: number;
+  score: number;
+  autoSubmitted: boolean;
+  /** 监控记录 id；未开始为空串 */
+  recordId: string;
+}
+
+/** 监考汇总（v1.7④ T3） */
+export interface ExamMonitorSummaryDto {
+  /** 应考人数（花名册） */
+  total: number;
+  notStarted: number;
+  inProgress: number;
+  submitted: number;
+  pendingReview: number;
+  /** 切屏异常人数（次数或累计秒数达阈值） */
+  cheatWarned: number;
+  /** 已出成绩考生的平均分（无成绩为 0） */
+  averageScore: number;
+}
+
+/** 监考大屏数据（v1.7④ T3） */
+export interface ExamMonitorDto {
+  exam: ExamDto;
+  summary: ExamMonitorSummaryDto;
+  rows: ExamMonitorRowDto[];
+  /** 服务端生成时间（ISO 8601），供前端判断数据新鲜度 */
+  generatedAt: string;
+}
+
+/** 归档结果（v1.7④ T5） */
+export interface ArchiveResultDto {
+  /** 本次归档（搬入归档表并自业务表移除）的记录数 */
+  archived: number;
+  /** 因存在成绩复核申请而跳过的记录数 */
+  skipped: number;
+  /** 归档截止时间（该时间之前结束的考试才参与归档） */
+  cutoff: string;
+  /** 归档表当前总记录数 */
+  archiveTotal: number;
+}
+
+/** 维护统计（v1.7④ T5） */
+export interface MaintenanceStatsDto {
+  tables: Array<{ name: string; label: string; rows: number }>;
+  archiveTotal: number;
+  /** 归档保留天数设置（0 = 未启用自动归档） */
+  retentionDays: number;
+  generatedAt: string;
+}
+
 /**
  * 系统设置（全局单例，仅 admin 可改，所有角色可读）。
  * 字段名与前端 `src/types/index.ts` 的 `SystemSettings` 完全一致。
@@ -534,6 +630,8 @@ export interface SystemSettings {
   appealWindowDays: number;
   /** 审计日志保留天数（0 = 永久保留；超出可手动清理，v1.7②） */
   auditRetentionDays: number;
+  /** 历史成绩归档保留天数（0 = 未启用自动归档；手动归档可覆盖，v1.7④ T5） */
+  archiveRetentionDays: number;
   /** 站内信通知总开关 */
   notifySiteEnabled: boolean;
   /** 邮件通知总开关 */
@@ -556,6 +654,8 @@ export interface SystemSettings {
   smtpPass: string;
   /** 发件人地址 */
   smtpFrom: string;
+  /** 可配置通知模板（站内信/邮件文案；正文支持 `{变量}` 占位，v1.7④ S3） */
+  notifyTemplates: NotifyTemplates;
 }
 
 /** 公开设置：无需登录即可读取，仅含登录页品牌展示所需字段。 */
@@ -913,17 +1013,35 @@ export type AuditAction =
   | 'bank.author_grant'
   /** 批量取消出题人授权（v1.7③ S2） */
   | 'bank.author_revoke'
+  /** 复制题库（v1.7④ S4） */
+  | 'bank.clone'
   | 'permission.update'
   | 'appeal.approve'
   | 'appeal.reject'
   | 'exam.exception_update'
+  /** 延长某考生作答时间（v1.7④ T3） */
+  | 'exam.extend_time'
+  /** 监考强制交卷（v1.7④ T3） */
+  | 'record.force_submit'
+  /** 历史成绩归档（v1.7④ T5） */
+  | 'system.archive'
   /** 导出审计日志（v1.7②） */
   | 'audit.export'
   /** 清理过期审计日志（v1.7②） */
   | 'audit.cleanup';
 
 /** 审计目标类型 */
-export type AuditTargetType = 'user' | 'exam' | 'bank' | 'permission' | 'appeal' | 'audit';
+export type AuditTargetType =
+  | 'user'
+  | 'exam'
+  | 'bank'
+  | 'permission'
+  | 'appeal'
+  | 'audit'
+  /** 考试记录（监考强制交卷，v1.7④ T3） */
+  | 'record'
+  /** 系统维护（数据归档，v1.7④ T5） */
+  | 'system';
 
 /** 操作审计日志 DTO（自包含，actor 删除后仍可读） */
 export interface AuditLogDto {
