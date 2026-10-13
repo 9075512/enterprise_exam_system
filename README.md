@@ -80,7 +80,7 @@ Vue 3 (Vite, Element Plus, Pinia, Vue Router)  ──REST/JSON──▶  Express
    npm run db:init
    ```
 
-   > 该脚本 = `server` 的 `db:init`（`tsx src/db/init.ts`），会创建 `enterprise_exam_system` 库的 **25 张表**、按需执行幂等结构升级（补列 / 扩 ENUM），并幂等写入种子数据。
+   > 该脚本 = `server` 的 `db:init`（`tsx src/db/init.ts`），会创建 `enterprise_exam_system` 库的 **32 张表**、按需执行幂等结构升级（补列 / 扩 ENUM），并幂等写入种子数据。
    > 需要**清空重建**时执行：`npm --prefix server run db:reset`（仅作用于 `enterprise_exam_system`）。
 
 ## 开发
