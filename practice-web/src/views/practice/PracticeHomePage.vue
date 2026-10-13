@@ -8,6 +8,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
 import PracticeOptionModal from './components/PracticeOptionModal.vue';
+import PracticeNoticeCard from './components/PracticeNoticeCard.vue';
 import { usePracticeAuthStore } from '@/stores/practiceAuth';
 import { usePracticeConfigStore } from '@/stores/practiceConfig';
 import * as practiceApi from '@/api/practice';
@@ -128,6 +129,9 @@ onMounted(load);
         <p class="home__hello">你好，{{ userName || '同学' }}</p>
         <p class="home__sub">请从下方选择题库开始练习</p>
       </div>
+
+      <!-- 公告与轮播（v1.9⑥；仅当后台发布了面向练题端且在生效期内的内容时显示） -->
+      <PracticeNoticeCard />
 
       <div v-if="loading" class="home__skeleton">
         <el-skeleton :rows="3" animated />

@@ -81,6 +81,11 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: ['admin'], menuKey: 'practice-settings', title: '练题端设置' },
       },
       {
+        path: 'admin/content',
+        component: () => import('@/views/admin/ContentViewPage.vue'),
+        meta: { roles: ['admin'], menuKey: 'content', title: '公告与轮播' },
+      },
+      {
         path: 'admin/settings',
         component: () => import('@/views/admin/SettingsPage.vue'),
         meta: { roles: ['admin'], menuKey: 'settings', title: '系统设置' },

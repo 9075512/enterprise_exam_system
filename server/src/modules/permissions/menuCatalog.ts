@@ -28,6 +28,7 @@ export const MENU_CATALOG: readonly MenuDef[] = [
   { key: 'retakes', name: '补考管理', defaultRoles: ['admin'], adminRequired: false },
   { key: 'appeals', name: '成绩复核', defaultRoles: ['admin'], adminRequired: false },
   { key: 'practice-settings', name: '练题端设置', defaultRoles: ['admin'], adminRequired: false },
+  { key: 'content', name: '公告与轮播', defaultRoles: ['admin'], adminRequired: false },
   { key: 'settings', name: '系统设置', defaultRoles: ['admin'], adminRequired: true },
   { key: 'permissions', name: '菜单权限', defaultRoles: ['admin'], adminRequired: true },
   { key: 'audit', name: '审计日志', defaultRoles: ['admin'], adminRequired: false },

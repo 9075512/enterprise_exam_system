@@ -520,3 +520,47 @@ CREATE TABLE IF NOT EXISTS attachments (
   KEY idx_attachments_owner (owner_id),
   KEY idx_attachments_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 内容运营域（v1.9⑥ · 公告 + 轮播图，考试端与练题端共用同一批内容）
+--   target：exam=仅考试端 / practice=仅练题端 / both=两端
+--   练题实例（PRACTICE_ONLY）仅授 SELECT，只读展示。
+-- ============================================================
+
+-- 33. 公告
+CREATE TABLE IF NOT EXISTS announcements (
+  id         VARCHAR(64)  NOT NULL,
+  title      VARCHAR(120) NOT NULL,
+  content    TEXT         NOT NULL,
+  target     ENUM('exam','practice','both') NOT NULL DEFAULT 'both',
+  level      ENUM('normal','important')     NOT NULL DEFAULT 'normal',
+  pinned     TINYINT(1)   NOT NULL DEFAULT 0,
+  enabled    TINYINT(1)   NOT NULL DEFAULT 1,
+  start_at   DATETIME(3)  NULL,
+  end_at     DATETIME(3)  NULL,
+  created_by VARCHAR(64)  NOT NULL,
+  created_at DATETIME(3)  NOT NULL,
+  updated_at DATETIME(3)  NOT NULL,
+  PRIMARY KEY (id),
+  KEY idx_ann_target_enabled (target, enabled),
+  KEY idx_ann_pinned_created (pinned, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 34. 轮播图
+CREATE TABLE IF NOT EXISTS banners (
+  id         VARCHAR(64)  NOT NULL,
+  title      VARCHAR(120) NOT NULL,
+  image_url  VARCHAR(500) NOT NULL,
+  link_url   VARCHAR(500) NOT NULL DEFAULT '',
+  target     ENUM('exam','practice','both') NOT NULL DEFAULT 'both',
+  sort_order INT          NOT NULL DEFAULT 0,
+  enabled    TINYINT(1)   NOT NULL DEFAULT 1,
+  start_at   DATETIME(3)  NULL,
+  end_at     DATETIME(3)  NULL,
+  created_by VARCHAR(64)  NOT NULL,
+  created_at DATETIME(3)  NOT NULL,
+  updated_at DATETIME(3)  NOT NULL,
+  PRIMARY KEY (id),
+  KEY idx_banner_target_enabled (target, enabled),
+  KEY idx_banner_sort (sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

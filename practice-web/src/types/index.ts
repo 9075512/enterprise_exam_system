@@ -703,3 +703,57 @@ export interface PracticeConfig {
   /** 每日一练是否开启 */
   dailyEnabled: boolean;
 }
+
+/* ============================================================
+ * 内容运营（v1.9⑥ · 公告 + 轮播图，公网练题端展示）
+ * 字段与后端 server/src/types/domain.ts 的 DTO 一致；
+ * 数据来自 `GET /api/practice/feed`（仅返回 target ∈ {practice, both} 且在生效时间窗内的内容）。
+ * ============================================================ */
+
+/** 内容发布范围（练题端只会拿到 practice / both） */
+export type ContentTarget = 'exam' | 'practice' | 'both';
+
+/** 公告级别（important 以醒目样式呈现） */
+export type AnnouncementLevel = 'normal' | 'important';
+
+/** 公告 */
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  target: ContentTarget;
+  level: AnnouncementLevel;
+  pinned: boolean;
+  enabled: boolean;
+  startAt: string | null;
+  endAt: string | null;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+  active: boolean;
+}
+
+/** 轮播图 */
+export interface Banner {
+  id: string;
+  title: string;
+  imageUrl: string;
+  linkUrl: string;
+  target: ContentTarget;
+  sortOrder: number;
+  enabled: boolean;
+  startAt: string | null;
+  endAt: string | null;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+  active: boolean;
+}
+
+/** 练题端内容聚合 */
+export interface ContentFeed {
+  announcements: Announcement[];
+  banners: Banner[];
+}

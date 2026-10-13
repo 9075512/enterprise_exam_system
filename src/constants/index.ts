@@ -164,6 +164,9 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'system.archive': '历史成绩归档',
   'audit.export': '导出审计日志',
   'audit.cleanup': '清理过期审计日志',
+  'content.create': '新建内容',
+  'content.update': '编辑内容',
+  'content.delete': '删除内容',
 };
 
 /** 审计动作下拉选项 */
@@ -181,6 +184,8 @@ export const AUDIT_TARGET_TYPE_LABELS: Record<AuditTargetType, string> = {
   audit: '审计日志',
   record: '考试记录',
   system: '系统维护',
+  announcement: '公告',
+  banner: '轮播图',
 };
 
 /** 审计目标类型下拉选项 */

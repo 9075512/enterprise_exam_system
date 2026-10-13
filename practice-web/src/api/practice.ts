@@ -9,6 +9,7 @@
  */
 import { del, get, post, put, type AppRequestConfig } from './http';
 import type {
+  ContentFeed,
   Page,
   PracticeBank,
   PracticeBankStat,
@@ -125,6 +126,14 @@ export function createSession(payload: PracticeSessionPayload): Promise<Practice
 /** 练题端公开配置（默认模式 / 题量范围 / 答案可见性 / 页面入口开关，v1.9⑤） */
 export function getConfig(): Promise<PracticeConfig> {
   return get<PracticeConfig>('/practice/config', {}, AUTHED);
+}
+
+/**
+ * 练题端当前生效的公告 + 轮播图（v1.9⑥）。
+ * 仅返回发布范围为 practice / both 且在生效时间窗内的内容；无内容时返回空数组。
+ */
+export function feed(): Promise<ContentFeed> {
+  return get<ContentFeed>('/practice/feed', undefined, AUTHED);
 }
 
 /** 提交单题作答 → 即时判分 */

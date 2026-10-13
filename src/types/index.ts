@@ -647,7 +647,13 @@ export type AuditAction =
   /** 导出审计日志（v1.7②） */
   | 'audit.export'
   /** 清理过期审计日志（v1.7②） */
-  | 'audit.cleanup';
+  | 'audit.cleanup'
+  /** 新建内容（公告 / 轮播图，v1.9⑥） */
+  | 'content.create'
+  /** 编辑内容（公告 / 轮播图，v1.9⑥） */
+  | 'content.update'
+  /** 删除内容（公告 / 轮播图，v1.9⑥） */
+  | 'content.delete';
 
 /** 审计目标类型 */
 export type AuditTargetType =
@@ -660,7 +666,11 @@ export type AuditTargetType =
   /** 考试记录（监考强制交卷，v1.7④ T3） */
   | 'record'
   /** 系统维护（数据归档，v1.7④ T5） */
-  | 'system';
+  | 'system'
+  /** 公告（v1.9⑥） */
+  | 'announcement'
+  /** 轮播图（v1.9⑥） */
+  | 'banner';
 
 /** 操作审计日志 */
 export interface AuditLog {
@@ -1155,4 +1165,86 @@ export interface UserImportBatch {
   errors: RowIssue[];
   operatorId: string;
   createdAt: string;
+}
+
+/* ============================================================
+ * 内容运营（v1.9⑥ · 公告 + 轮播图）
+ * 字段以后端 server/src/types/domain.ts 的 DTO 为准。
+ * ============================================================ */
+
+/** 内容发布范围：exam=仅考试端 / practice=仅练题端 / both=两端 */
+export type ContentTarget = 'exam' | 'practice' | 'both';
+
+/** 公告级别（important 在两端以醒目样式呈现） */
+export type AnnouncementLevel = 'normal' | 'important';
+
+/** 公告 */
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  target: ContentTarget;
+  level: AnnouncementLevel;
+  /** 置顶（列表优先展示） */
+  pinned: boolean;
+  /** 启停开关（关闭后两端均不可见） */
+  enabled: boolean;
+  /** 生效开始（ISO 8601 UTC；null = 不限制） */
+  startAt: string | null;
+  /** 生效结束（ISO 8601 UTC；null = 不限制） */
+  endAt: string | null;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+  /** 服务端判定的「正在生效」（enabled 且在时间窗内） */
+  active: boolean;
+}
+
+/** 轮播图 */
+export interface Banner {
+  id: string;
+  title: string;
+  imageUrl: string;
+  linkUrl: string;
+  target: ContentTarget;
+  sortOrder: number;
+  enabled: boolean;
+  startAt: string | null;
+  endAt: string | null;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+  active: boolean;
+}
+
+/** 考生侧内容聚合（考试端与练题端共用结构） */
+export interface ContentFeed {
+  announcements: Announcement[];
+  banners: Banner[];
+}
+
+/** 公告新建 / 编辑入参 */
+export interface AnnouncementInput {
+  title: string;
+  content: string;
+  target: ContentTarget;
+  level: AnnouncementLevel;
+  pinned: boolean;
+  enabled: boolean;
+  startAt?: string | null;
+  endAt?: string | null;
+}
+
+/** 轮播图新建 / 编辑入参 */
+export interface BannerInput {
+  title: string;
+  imageUrl: string;
+  linkUrl: string;
+  target: ContentTarget;
+  sortOrder: number;
+  enabled: boolean;
+  startAt?: string | null;
+  endAt?: string | null;
 }

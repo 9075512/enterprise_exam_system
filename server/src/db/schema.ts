@@ -521,6 +521,52 @@ export const DDL_STATEMENTS: readonly string[] = [
     KEY idx_attachments_owner (owner_id),
     KEY idx_attachments_created (created_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  // ============================================================
+  // 内容运营域（v1.9⑥ · 公告 + 轮播图，考试端与练题端**共用**同一批内容）
+  //   target：examinee 侧可见范围 —— exam=仅考试端 / practice=仅练题端 / both=两端
+  //   enabled + start_at/end_at 组成「生效开关 + 生效时间窗」，NULL 表示不限该侧
+  //   隔离约定：内容表不引用任何考试域/练题域业务表，练题实例（PRACTICE_ONLY）
+  //             仅授 SELECT（见 deploy/db-grants-practice.sql），只读展示。
+  // ============================================================
+
+  // 33. 公告
+  `CREATE TABLE IF NOT EXISTS announcements (
+    id         VARCHAR(64)  NOT NULL,
+    title      VARCHAR(120) NOT NULL,
+    content    TEXT         NOT NULL,
+    target     ENUM('exam','practice','both') NOT NULL DEFAULT 'both',
+    level      ENUM('normal','important')     NOT NULL DEFAULT 'normal',
+    pinned     TINYINT(1)   NOT NULL DEFAULT 0,
+    enabled    TINYINT(1)   NOT NULL DEFAULT 1,
+    start_at   DATETIME(3)  NULL,
+    end_at     DATETIME(3)  NULL,
+    created_by VARCHAR(64)  NOT NULL,
+    created_at DATETIME(3)  NOT NULL,
+    updated_at DATETIME(3)  NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_ann_target_enabled (target, enabled),
+    KEY idx_ann_pinned_created (pinned, created_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  // 34. 轮播图
+  `CREATE TABLE IF NOT EXISTS banners (
+    id         VARCHAR(64)  NOT NULL,
+    title      VARCHAR(120) NOT NULL,
+    image_url  VARCHAR(500) NOT NULL,
+    link_url   VARCHAR(500) NOT NULL DEFAULT '',
+    target     ENUM('exam','practice','both') NOT NULL DEFAULT 'both',
+    sort_order INT          NOT NULL DEFAULT 0,
+    enabled    TINYINT(1)   NOT NULL DEFAULT 1,
+    start_at   DATETIME(3)  NULL,
+    end_at     DATETIME(3)  NULL,
+    created_by VARCHAR(64)  NOT NULL,
+    created_at DATETIME(3)  NOT NULL,
+    updated_at DATETIME(3)  NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_banner_target_enabled (target, enabled),
+    KEY idx_banner_sort (sort_order)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 ];
 
 /** 建表完成后用于统计的核心表名列表（含练题域 6 张表）。 */
@@ -557,4 +603,6 @@ export const TABLE_NAMES: readonly string[] = [
   'exam_records_archive',
   'user_recovery_codes',
   'attachments',
+  'announcements',
+  'banners',
 ];

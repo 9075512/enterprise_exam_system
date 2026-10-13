@@ -51,6 +51,12 @@ GRANT SELECT ON `enterprise_exam_system`.`practice_settings` TO 'practice_app'@'
 --     仅此一张运行态表可写，不破坏业务表只读隔离；业务表（questions 等）仍只读。
 GRANT SELECT, INSERT, UPDATE, DELETE ON `enterprise_exam_system`.`rate_limit_buckets` TO 'practice_app'@'%';
 
+-- 5.4 v1.9⑥ 新增：公告 / 轮播图（**只读**）
+--     内容由内网实例（管理端「公告与轮播」）维护；练题实例只读展示（GET /api/practice/feed）。
+--     注：展示查询会 JOIN users 取创建人姓名，users 的列级 SELECT 已包含 name（见第 3 段）。
+GRANT SELECT ON `enterprise_exam_system`.`announcements` TO 'practice_app'@'%';
+GRANT SELECT ON `enterprise_exam_system`.`banners`       TO 'practice_app'@'%';
+
 -- 6. 说明：以下考试域表**不授予任何权限**（物理隔离）：
 --    papers / paper_questions / paper_bank_refs /
 --    exams / exam_records / import_batches / system_settings

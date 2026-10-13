@@ -1183,7 +1183,13 @@ export type AuditAction =
   /** 导出审计日志（v1.7②） */
   | 'audit.export'
   /** 清理过期审计日志（v1.7②） */
-  | 'audit.cleanup';
+  | 'audit.cleanup'
+  /** 新建内容（公告 / 轮播图，v1.9⑥） */
+  | 'content.create'
+  /** 编辑内容（公告 / 轮播图，v1.9⑥） */
+  | 'content.update'
+  /** 删除内容（公告 / 轮播图，v1.9⑥） */
+  | 'content.delete';
 
 /** 审计目标类型 */
 export type AuditTargetType =
@@ -1196,7 +1202,11 @@ export type AuditTargetType =
   /** 考试记录（监考强制交卷，v1.7④ T3） */
   | 'record'
   /** 系统维护（数据归档，v1.7④ T5） */
-  | 'system';
+  | 'system'
+  /** 公告（v1.9⑥） */
+  | 'announcement'
+  /** 轮播图（v1.9⑥） */
+  | 'banner';
 
 /** 操作审计日志 DTO（自包含，actor 删除后仍可读） */
 export interface AuditLogDto {
@@ -1315,4 +1325,64 @@ export interface ExamExceptionDto {
 export interface PaperPdfOptions {
   /** 是否输出答案版（含参考答案与解析） */
   withAnswer: boolean;
+}
+
+/* ============================================================
+ * 内容运营域（v1.9⑥ · 公告 + 轮播图）
+ * ============================================================ */
+
+/** 内容发布范围：exam=仅考试端 / practice=仅练题端 / both=两端同时发布 */
+export type ContentTarget = 'exam' | 'practice' | 'both';
+
+/** 公告级别（important 在两端以醒目样式呈现） */
+export type AnnouncementLevel = 'normal' | 'important';
+
+/** 公告 DTO */
+export interface AnnouncementDto {
+  id: string;
+  title: string;
+  content: string;
+  target: ContentTarget;
+  level: AnnouncementLevel;
+  /** 置顶（列表优先展示） */
+  pinned: boolean;
+  /** 启停开关（关闭后两端均不可见，即使仍在时间窗内） */
+  enabled: boolean;
+  /** 生效开始时刻（ISO 8601 UTC；null = 不限制） */
+  startAt: string | null;
+  /** 生效结束时刻（ISO 8601 UTC；null = 不限制） */
+  endAt: string | null;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+  /** 服务端按当前时刻判定的「正在生效」（enabled 且落在时间窗内） */
+  active: boolean;
+}
+
+/** 轮播图 DTO */
+export interface BannerDto {
+  id: string;
+  title: string;
+  /** 图片地址（站内附件签名 URL 或外链） */
+  imageUrl: string;
+  /** 点击跳转地址（空 = 不可点击） */
+  linkUrl: string;
+  target: ContentTarget;
+  /** 展示顺序（升序） */
+  sortOrder: number;
+  enabled: boolean;
+  startAt: string | null;
+  endAt: string | null;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+  active: boolean;
+}
+
+/** 考生侧内容聚合（考试端与练题端首页共用结构） */
+export interface ContentFeedDto {
+  announcements: AnnouncementDto[];
+  banners: BannerDto[];
 }

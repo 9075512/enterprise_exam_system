@@ -17,6 +17,7 @@
 import type { Component } from 'vue';
 import {
   AlarmClock,
+  Bell,
   Collection,
   DataBoard,
   Document,
@@ -87,6 +88,7 @@ const ALL_MENUS: MenuItem[] = [
   { key: 'appeals', text: '成绩复核', path: '/admin/appeals', icon: EditPen, roles: ['admin'], group: 'exam-ops' },
   { key: 'reviews', text: '人工阅卷', path: '/admin/reviews', icon: EditPen, roles: ['admin', 'author'], group: 'exam-ops' },
   { key: 'scores', text: '成绩报表', path: '/admin/scores', icon: TrendCharts, roles: ['admin'], group: 'exam-ops' },
+  { key: 'content', text: '公告与轮播', path: '/admin/content', icon: Bell, roles: ['admin'], group: 'exam-ops' },
   { key: 'practice-settings', text: '练题端设置', path: '/admin/practice-settings', icon: Notebook, roles: ['admin'], group: 'practice-ops' },
   { key: 'departments', text: '科室管理', path: '/admin/departments', icon: OfficeBuilding, roles: ['admin'], group: 'system' },
   { key: 'users', text: '用户管理', path: '/admin/users', icon: User, roles: ['admin'], group: 'system' },

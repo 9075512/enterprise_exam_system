@@ -44,6 +44,7 @@ import {
 } from './practice.schema.js';
 import * as service from './practice.service.js';
 import * as practiceSettingsService from './practiceSettings.service.js';
+import * as contentService from '../content/content.service.js';
 import type {
   PracticeCheckInput,
   PracticeProgressPutInput,
@@ -144,6 +145,19 @@ practiceRouter.get(
   practiceAuthRequired,
   practiceRateLimit('banks'),
   asyncHandler(async (_req, res) => ok(res, await service.listBanks())),
+);
+
+/**
+ * GET /api/practice/feed —— 练题端当前生效的公告 + 轮播图（v1.9⑥）。
+ *
+ * 与考试端 `GET /api/content/feed?scope=exam` 共用 content 模块的同一实现，
+ * 仅按 `target ∈ {practice, both}` + 启停 + 生效时间窗过滤；
+ * 练题实例（PRACTICE_ONLY）对 announcements / banners 两表仅授 SELECT（只读展示）。
+ */
+practiceRouter.get(
+  '/feed',
+  practiceAuthRequired,
+  asyncHandler(async (_req, res) => ok(res, await contentService.getFeed('practice'))),
 );
 
 /** GET /api/practice/banks/:id/questions —— 题库题目（**不含**答案/解析）。 */

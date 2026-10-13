@@ -227,11 +227,13 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
   // 若已有角色权限行（admin 曾在菜单权限页保存过），需把新菜单合并进去，否则会看不到新入口。
   // v1.7①：新增「成绩复核」（admin）。
   // v1.7④：新增「系统维护」（admin）。
+  // v1.9⑥：新增「公告与轮播」（admin）。
   const NEW_MENU_KEYS: Record<string, string[]> = {
     reviews: ['admin', 'author'],
     appeals: ['admin'],
     'login-logs': ['admin'],
     maintenance: ['admin'],
+    content: ['admin'],
   };
   const [menuRows] = await conn.query<mysql.RowDataPacket[]>(`SELECT role, menu_keys FROM menu_permissions`);
   for (const mr of menuRows) {

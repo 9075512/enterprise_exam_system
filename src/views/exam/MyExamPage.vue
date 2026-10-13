@@ -17,6 +17,7 @@ import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import StatusTag from '@/components/common/StatusTag.vue';
+import ContentBoard from '@/components/common/ContentBoard.vue';
 import type { ExamMy, ExamStatus, RetakeStatus } from '@/types';
 
 const router = useRouter();
@@ -157,6 +158,9 @@ function actionState(row: ExamMy): ActionState {
         <el-button @click="goMyRetakes">我的补考</el-button>
       </template>
     </PageHeader>
+
+    <!-- 公告与轮播（v1.9⑥；无生效内容时组件自身不渲染） -->
+    <ContentBoard scope="exam" />
 
     <LoadingSkeleton v-if="loading && !exams" :rows="5" />
 

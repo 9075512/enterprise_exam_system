@@ -30,10 +30,10 @@ describe('getMenuGroups · 默认（未下发菜单权限）', () => {
     expect(groups.some((g) => g.key === 'other')).toBe(false);
   });
 
-  it('组内菜单数与归属正确（教学资源 2 / 考试运营 5 / 组织与系统 7）', () => {
+  it('组内菜单数与归属正确（教学资源 2 / 考试运营 6 / 组织与系统 7）', () => {
     const map = Object.fromEntries(getMenuGroups('admin').map((g) => [g.key, g.items.map((i) => i.key)]));
     expect(map.resources).toEqual(['banks', 'papers']);
-    expect(map['exam-ops']).toEqual(['exams', 'retakes', 'appeals', 'reviews', 'scores']);
+    expect(map['exam-ops']).toEqual(['exams', 'retakes', 'appeals', 'reviews', 'scores', 'content']);
     expect(map['practice-ops']).toEqual(['practice-settings']);
     expect(map.system).toEqual([
       'departments',
