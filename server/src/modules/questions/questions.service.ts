@@ -11,6 +11,7 @@ import { badRequest, notFound } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
 import { nowDb } from '../../utils/datetime.js';
 import { normalizePaging, buildPage } from '../../utils/pagination.js';
+import { parseJsonColumn } from '../../utils/json.js';
 import type { Page, QuestionDto, QuestionType } from '../../types/domain.js';
 
 /** 选项数量上下限（判断题固定 2 项，不受上限约束）。 */
@@ -29,6 +30,24 @@ export interface NormalizedQuestion {
   defaultScore: number;
   analysis: string;
   subject: string;
+  tags: string[];
+}
+
+/** 知识点标签上限与单个标签长度上限（v1.7②）。 */
+const MAX_TAGS = 10;
+const MAX_TAG_LEN = 32;
+
+/** 标签归一化：trim → 去空 → 去重 → 截断长度 → 限个数。 */
+function normalizeTags(raw?: string[]): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const item of raw) {
+    const t = String(item ?? '').trim().slice(0, MAX_TAG_LEN);
+    if (!t) continue;
+    if (!out.includes(t)) out.push(t);
+    if (out.length >= MAX_TAGS) break;
+  }
+  return out;
 }
 
 /** 分值归一（> 0 且 ≤ MAX_SCORE）。 */
@@ -51,11 +70,13 @@ export function normalizeQuestion(input: {
   defaultScore?: number;
   analysis?: string;
   subject?: string;
+  tags?: string[];
 }): NormalizedQuestion {
   const stem = String(input.stem ?? '').trim();
   if (!stem) throw badRequest('题干不能为空');
 
   const type = input.type;
+  const tags = normalizeTags(input.tags);
 
   // 填空 / 简答：无选项，答案为文本数组
   if (type === 'fill' || type === 'short') {
@@ -67,7 +88,16 @@ export function normalizeQuestion(input: {
     }
     const analysis = String(input.analysis ?? '').trim();
     const subject = String(input.subject ?? '').trim() || '未分类';
-    return { type, stem, options: [], answer, defaultScore: normalizeScore(input.defaultScore), analysis, subject };
+    return {
+      type,
+      stem,
+      options: [],
+      answer,
+      defaultScore: normalizeScore(input.defaultScore),
+      analysis,
+      subject,
+      tags,
+    };
   }
 
   // 客观题（single / multiple / judge）
@@ -99,13 +129,29 @@ export function normalizeQuestion(input: {
   const analysis = String(input.analysis ?? '').trim();
   const subject = String(input.subject ?? '').trim() || '未分类';
 
-  return { type, stem, options, answer, defaultScore: normalizeScore(input.defaultScore), analysis, subject };
+  return {
+    type,
+    stem,
+    options,
+    answer,
+    defaultScore: normalizeScore(input.defaultScore),
+    analysis,
+    subject,
+    tags,
+  };
 }
 
 /** 题库内试题列表（筛选 + 分页；author 需授权）。 */
 export async function listByBank(
   bankId: string,
-  filter: { type?: QuestionType; subject?: string; keyword?: string; page?: number; pageSize?: number },
+  filter: {
+    type?: QuestionType;
+    subject?: string;
+    tag?: string;
+    keyword?: string;
+    page?: number;
+    pageSize?: number;
+  },
   operator: Operator,
 ): Promise<Page<QuestionDto>> {
   const bank = await banksRepo.findById(bankId);
@@ -116,6 +162,7 @@ export async function listByBank(
     bankId,
     type: filter.type,
     subject: filter.subject,
+    tag: filter.tag,
     keyword: filter.keyword,
   };
   const [rows, total] = await Promise.all([
@@ -131,6 +178,7 @@ export async function listGlobal(
     bankIds?: string[];
     type?: QuestionType;
     subject?: string;
+    tag?: string;
     keyword?: string;
     page?: number;
     pageSize?: number;
@@ -143,6 +191,7 @@ export async function listGlobal(
     bankIds,
     type: filter.type,
     subject: filter.subject,
+    tag: filter.tag,
     keyword: filter.keyword,
   };
   const [rows, total] = await Promise.all([
@@ -156,6 +205,12 @@ export async function listGlobal(
 export async function listSubjects(bankIds?: string[], operator?: Operator): Promise<string[]> {
   const accessible = operator ? await resolveAccessibleBankIds(bankIds, operator) : bankIds;
   return repo.listSubjects(accessible && accessible.length > 0 ? accessible : undefined);
+}
+
+/** 全部知识点标签（去重排序，可限定题库集合；author 限定到被授权题库，v1.7②）。 */
+export async function listTags(bankIds?: string[], operator?: Operator): Promise<string[]> {
+  const accessible = operator ? await resolveAccessibleBankIds(bankIds, operator) : bankIds;
+  return repo.listTags(accessible && accessible.length > 0 ? accessible : undefined);
 }
 
 /**
@@ -183,6 +238,7 @@ export async function create(
     defaultScore?: number;
     analysis?: string;
     subject?: string;
+    tags?: string[];
   },
   operator: Operator,
 ): Promise<QuestionDto> {
@@ -211,6 +267,7 @@ export async function update(
     defaultScore?: number;
     analysis?: string;
     subject?: string;
+    tags?: string[];
   },
   operator: Operator,
 ): Promise<QuestionDto> {
@@ -238,4 +295,79 @@ export async function remove(id: string, operator: Operator): Promise<void> {
   if (!current) throw notFound('试题不存在或已被删除');
   await bankAuth.assertBankAccess(current.bank_id, operator);
   await repo.remove(id);
+}
+
+/* ============================ 批量编辑（v1.7②） ============================ */
+
+/** 单次批量编辑的题目数上限。 */
+const MAX_BATCH = 500;
+
+/** 批量编辑入参：仅修改显式提供的字段。 */
+export interface BatchEditInput {
+  ids: string[];
+  /** 目标科目（省略 = 不改） */
+  subject?: string;
+  /** 知识点标签（省略 = 不改；tagsMode=append 时与现有标签合并去重） */
+  tags?: string[];
+  /** 标签写入模式：append（追加，默认）/ replace（覆盖） */
+  tagsMode?: 'append' | 'replace';
+  /** 目标默认分值（省略 = 不改；校验 > 0） */
+  defaultScore?: number;
+}
+
+/**
+ * 批量编辑试题（科目 / 知识点标签 / 默认分值）。
+ * - 仅修改显式传入的字段，未传字段保持原值（题干、选项、答案等一律不动）；
+ * - author 需对其归属题库授权（逐题校验，任一无权即整体失败）；
+ * - 标签追加模式按题读取现有标签后再合并去重（保序）。
+ * @returns 实际更新条数
+ */
+export async function batchEdit(
+  input: BatchEditInput,
+  operator: Operator,
+): Promise<{ updated: number }> {
+  const ids = [...new Set((input.ids ?? []).map((s) => String(s ?? '').trim()).filter(Boolean))];
+  if (ids.length === 0) throw badRequest('请至少选择一道试题');
+  if (ids.length > MAX_BATCH) throw badRequest(`单次最多批量编辑 ${MAX_BATCH} 道试题`);
+
+  const rows = await repo.findByIds(ids);
+  if (rows.length !== ids.length) throw notFound('部分试题不存在或已被删除');
+  for (const row of rows) {
+    await bankAuth.assertBankAccess(row.bank_id, operator);
+  }
+
+  const hasSubject = input.subject !== undefined;
+  const hasTags = input.tags !== undefined;
+  const hasScore = input.defaultScore !== undefined;
+  if (!hasSubject && !hasTags && !hasScore) {
+    throw badRequest('请至少选择一个要修改的字段');
+  }
+
+  const nextSubject = hasSubject ? String(input.subject ?? '').trim() || '未分类' : undefined;
+  const nextScore = hasScore ? normalizeScore(input.defaultScore) : undefined;
+  const nextTags = hasTags ? normalizeTags(input.tags) : undefined;
+  const mode: 'append' | 'replace' = input.tagsMode === 'replace' ? 'replace' : 'append';
+
+  for (const row of rows) {
+    const currentTags = parseJsonColumn<string[]>(row.tags, []);
+    const mergedTags =
+      nextTags === undefined
+        ? currentTags
+        : mode === 'append'
+          ? normalizeTags([...currentTags, ...nextTags])
+          : nextTags;
+    await repo.update(row.id, {
+      bankId: row.bank_id,
+      type: row.type,
+      stem: row.stem,
+      options: parseJsonColumn<string[]>(row.options, []),
+      answer: parseJsonColumn<number[] | string[]>(row.answer, []),
+      defaultScore: nextScore ?? Number(row.default_score),
+      analysis: row.analysis ?? '',
+      subject: nextSubject ?? row.subject,
+      tags: mergedTags,
+    });
+  }
+
+  return { updated: rows.length };
 }

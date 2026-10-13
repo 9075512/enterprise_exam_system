@@ -141,6 +141,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'appeal.approve': '复核通过（改分）',
   'appeal.reject': '复核驳回',
   'exam.exception_update': '设置特殊安排',
+  'audit.export': '导出审计日志',
+  'audit.cleanup': '清理过期审计日志',
 };
 
 /** 审计动作下拉选项 */
@@ -155,6 +157,7 @@ export const AUDIT_TARGET_TYPE_LABELS: Record<AuditTargetType, string> = {
   bank: '题库',
   permission: '菜单权限',
   appeal: '成绩复核',
+  audit: '审计日志',
 };
 
 /** 审计目标类型下拉选项 */
@@ -164,6 +167,28 @@ export const AUDIT_TARGET_TYPE_OPTIONS: ReadonlyArray<{ value: AuditTargetType; 
   { value: 'bank', label: '题库' },
   { value: 'permission', label: '菜单权限' },
   { value: 'appeal', label: '成绩复核' },
+  { value: 'audit', label: '审计日志' },
+];
+
+/** 审计日志导出列（与后端 modules/audit/audit.columns.ts 白名单一致，v1.7②） */
+export const AUDIT_EXPORT_COLUMNS: ReadonlyArray<{ key: string; label: string }> = [
+  { key: 'createdAt', label: '操作时间' },
+  { key: 'actorName', label: '操作者' },
+  { key: 'action', label: '操作类型' },
+  { key: 'targetType', label: '对象类型' },
+  { key: 'targetName', label: '对象名称' },
+  { key: 'targetId', label: '对象 ID' },
+  { key: 'detail', label: '明细' },
+];
+
+/** 审计日志默认导出列 */
+export const DEFAULT_AUDIT_EXPORT_KEYS: readonly string[] = [
+  'createdAt',
+  'actorName',
+  'action',
+  'targetType',
+  'targetName',
+  'detail',
 ];
 
 /** 成绩复核状态文案（v1.7①） */

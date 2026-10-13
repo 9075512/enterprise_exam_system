@@ -80,8 +80,9 @@ banksRouter.get(
   validate(bankQuestionsQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
     const q = req.query as unknown as {
-      type?: 'single' | 'multiple' | 'judge';
+      type?: 'single' | 'multiple' | 'judge' | 'fill' | 'short';
       subject: string;
+      tag: string;
       keyword: string;
       page: number;
       pageSize: number;
@@ -90,6 +91,7 @@ banksRouter.get(
     const result = await questionsService.listByBank(req.params.id, {
       type: q.type,
       subject: q.subject,
+      tag: q.tag,
       keyword: q.keyword,
       page: paging.page,
       pageSize: paging.pageSize,

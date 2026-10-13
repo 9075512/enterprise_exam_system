@@ -9,7 +9,7 @@ import { badRequest, notFound } from '../../utils/errors.js';
 import { buildExportBuffer } from '../../utils/excelExport.js';
 import type { ExportColumn } from '../../utils/excelExport.js';
 import { buildPdfBuffer } from '../../utils/pdfExport.js';
-import { fromDbDateSafe } from '../../utils/datetime.js';
+import { fromDbDateSafe, toDbDate } from '../../utils/datetime.js';
 import { parseJsonColumn } from '../../utils/json.js';
 import {
   DEFAULT_SCORE_EXPORT_KEYS,
@@ -20,6 +20,7 @@ import type { ScoreExportRow } from './reports.columns.js';
 import type { ScoreExportRawRow } from './reports.repo.js';
 import type {
   BandItem,
+  DashboardFilter,
   DashboardReportDto,
   DeptItem,
   ExamRecordDto,
@@ -135,15 +136,81 @@ export async function getReport(examId: string): Promise<ReportDto> {
 const EMPTY_SNAPSHOT: PaperSnapshot = { paperId: '', paperName: '', totalScore: 0, questions: [] };
 
 /**
- * 数据看板聚合：
- * - examTrend：每场考试（有已交卷记录）的及格率/平均分趋势，按开始时间升序；
- * - subjectWrong：跨全部考试的科目（知识点）错题归因，按错题率降序。
- * 口径与单场报表一致：每人取最新一次已交卷；简答题不纳入错题归因。
+ * 归一化日期输入（与审计模块同口径）：
+ * - 纯日期 'YYYY-MM-DD' → 起始补 'T00:00:00.000Z'、截止补 'T23:59:59.999Z'（覆盖整天）；
+ * - 其余原样返回（由 toDbDate 处理）。
  */
-export async function getDashboard(): Promise<DashboardReportDto> {
+function normalizeDateInput(value: string, isStart: boolean): string {
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return isStart ? `${trimmed}T00:00:00.000Z` : `${trimmed}T23:59:59.999Z`;
+  }
+  return trimmed;
+}
+
+/**
+ * 解析科室下钻范围：给定科室 id 时返回「自身 + 全部子孙科室」id 集合。
+ * 未知科室 → 返回原集合（不额外扩大），由上层决定是否报错。
+ */
+async function resolveDepartmentScope(departmentId: string): Promise<string[]> {
+  const all = await repo.listDepartments();
+  const childrenOf = new Map<string, string[]>();
+  for (const d of all) {
+    if (!d.parent_id) continue;
+    const arr = childrenOf.get(d.parent_id) ?? [];
+    arr.push(d.id);
+    childrenOf.set(d.parent_id, arr);
+  }
+  const result: string[] = [];
+  const queue = [departmentId];
+  const seen = new Set<string>();
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    result.push(id);
+    for (const child of childrenOf.get(id) ?? []) queue.push(child);
+  }
+  return result;
+}
+
+/** 按「错误计数 / 作答计数」聚合表排序输出（错题率降序、同率按错误数降序）。 */
+function toWrongItems(map: Map<string, { wrong: number; total: number }>): Array<{
+  subject: string;
+  wrongCount: number;
+  totalAnswered: number;
+  wrongRate: number;
+}> {
+  return [...map.entries()]
+    .map(([subject, s]) => ({
+      subject,
+      wrongCount: s.wrong,
+      totalAnswered: s.total,
+      wrongRate: s.total > 0 ? round1(s.wrong / s.total) : 0,
+    }))
+    .sort((a, b) => b.wrongRate - a.wrongRate || b.wrongCount - a.wrongCount);
+}
+
+/**
+ * 数据看板聚合（v1.7② 支持科室下钻 + 时间范围筛选）：
+ * - examTrend：每场考试（有已交卷记录）的及格率/平均分趋势，按开始时间升序；
+ * - subjectWrong：跨全部考试的科目错题归因，按错题率降序；
+ * - tagWrong：跨全部考试的知识点（标签）错题归因（未打标签的题目不计入）。
+ * 口径与单场报表一致：每人取最新一次已交卷；简答题不纳入错题归因。
+ * @param filter departmentId（下钻含子树）/ from / to（按考试开始时间，ISO）
+ */
+export async function getDashboard(filter: DashboardFilter = {}): Promise<DashboardReportDto> {
+  const scope: repo.DashboardWhere = {};
+  const departmentId = filter.departmentId?.trim();
+  if (departmentId) {
+    scope.departmentIds = await resolveDepartmentScope(departmentId);
+  }
+  if (filter.from) scope.from = toDbDate(normalizeDateInput(filter.from, true));
+  if (filter.to) scope.to = toDbDate(normalizeDateInput(filter.to, false));
+
   const [trendRows, latestRows] = await Promise.all([
-    repo.listExamTrend(),
-    repo.listLatestSubmittedAll(),
+    repo.listExamTrend(scope),
+    repo.listLatestSubmittedAll(scope),
   ]);
 
   const examTrend = trendRows.map((r) => {
@@ -160,29 +227,32 @@ export async function getDashboard(): Promise<DashboardReportDto> {
   });
 
   const subjectStats = new Map<string, { wrong: number; total: number }>();
+  const tagStats = new Map<string, { wrong: number; total: number }>();
   for (const row of latestRows) {
     const snapshot = parseJsonColumn<PaperSnapshot>(row.paper_snapshot, EMPTY_SNAPSHOT);
     const answers = parseJsonColumn<Record<string, number[] | string[]>>(row.answers, {});
     for (const sq of snapshot.questions) {
       if (sq.question.type === 'short') continue; // 简答人工阅卷，不纳入错题归因
+      const wrong = !isAnswerCorrect(sq.question, answers[sq.questionId]);
       const subject = (sq.question.subject ?? '').trim() || '未分类';
       const stat = subjectStats.get(subject) ?? { wrong: 0, total: 0 };
       stat.total += 1;
-      if (!isAnswerCorrect(sq.question, answers[sq.questionId])) stat.wrong += 1;
+      if (wrong) stat.wrong += 1;
       subjectStats.set(subject, stat);
+
+      // 知识点归因：一题多标签则每个标签各计一次（未打标签的题目跳过）
+      for (const raw of sq.question.tags ?? []) {
+        const tag = String(raw ?? '').trim();
+        if (!tag) continue;
+        const ts = tagStats.get(tag) ?? { wrong: 0, total: 0 };
+        ts.total += 1;
+        if (wrong) ts.wrong += 1;
+        tagStats.set(tag, ts);
+      }
     }
   }
 
-  const subjectWrong = [...subjectStats.entries()]
-    .map(([subject, s]) => ({
-      subject,
-      wrongCount: s.wrong,
-      totalAnswered: s.total,
-      wrongRate: s.total > 0 ? round1(s.wrong / s.total) : 0,
-    }))
-    .sort((a, b) => b.wrongRate - a.wrongRate || b.wrongCount - a.wrongCount);
-
-  return { examTrend, subjectWrong };
+  return { examTrend, subjectWrong: toWrongItems(subjectStats), tagWrong: toWrongItems(tagStats) };
 }
 
 /* ============================ 成绩明细导出 ============================ */

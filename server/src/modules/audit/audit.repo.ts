@@ -2,7 +2,7 @@
  * 操作审计日志 —— 数据访问层。
  * audit_logs 表自包含（actor 弱关联无外键），被审计对象/操作者删除后日志仍可读。
  */
-import type { RowDataPacket } from 'mysql2/promise';
+import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { query } from '../../db/pool.js';
 import { toJsonColumn } from '../../utils/json.js';
 import type { AuditAction, AuditTargetType } from '../../types/domain.js';
@@ -114,4 +114,22 @@ export async function count(filter: AuditListFilter): Promise<number> {
   const { where, params } = buildWhere(filter);
   const rows = await query<RowDataPacket[]>(`SELECT COUNT(*) AS c FROM audit_logs ${where}`, params);
   return Number(rows[0]?.c ?? 0);
+}
+
+/**
+ * 导出用：按过滤条件取全部匹配日志（按时间倒序），最多 `limit` 条（防内存爆掉）。
+ * 与 `list` 共用同一套 WHERE，保证「列表所见 = 导出所得」。
+ */
+export async function listForExport(filter: AuditListFilter, limit: number): Promise<AuditLogRow[]> {
+  const { where, params } = buildWhere(filter);
+  return query<AuditLogRow[]>(
+    `SELECT ${COLUMNS} FROM audit_logs ${where} ORDER BY created_at DESC, id DESC LIMIT ?`,
+    [...params, limit],
+  );
+}
+
+/** 删除 `created_at < before`（DB 可写格式）的日志，返回删除条数。 */
+export async function deleteBefore(before: string): Promise<number> {
+  const result = await query<ResultSetHeader>(`DELETE FROM audit_logs WHERE created_at < ?`, [before]);
+  return result.affectedRows ?? 0;
 }

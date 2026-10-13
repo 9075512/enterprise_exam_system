@@ -19,6 +19,7 @@ import type {
   DrawQuestionItem,
   DrawResult,
   DrawShortage,
+  DrawTagShortage,
   PaperDetailDto,
   PaperDetailQuestionDto,
   PaperDto,
@@ -246,46 +247,109 @@ export async function remove(id: string): Promise<void> {
 }
 
 /**
- * 按题型随机抽题（§4.5 draw-questions 契约）。
- * 题量不足 → 不生成任何题目，返回 shortages（HTTP 200）。
+ * 随机抽题（§4.5 draw-questions 契约，v1.7② 扩展按知识点配比）。
+ * - 题型规则（single/multiple/judge）与标签规则（tagRules）可同时使用，先统一预检再抽取；
+ * - 任一规则存量不足 → 不生成任何题目，返回 shortages / tagShortages（HTTP 200）；
+ * - 多规则之间通过排除已抽中题目自动去重。
  */
 export async function drawQuestions(
   input: {
     bankIds: string[];
     /** 抽题规则（仅客观题 single/multiple/judge 可随机抽；填空/简答需手动勾选） */
     rules: Partial<Record<QuestionType, { count: number; score: number }>>;
+    /** 按知识点（标签）抽题规则（v1.7②） */
+    tagRules?: Array<{ tag: string; count: number; score: number }>;
   },
   operator: Operator,
 ): Promise<DrawResult> {
   // author 仅能在被授权题库内抽题
   await bankAuth.assertBanksAccess(input.bankIds, operator);
-  const types: QuestionType[] = ['single', 'multiple', 'judge'];
-  const shortages: DrawShortage[] = [];
-  const plan: Array<{ type: QuestionType; count: number; score: number }> = [];
 
+  /** 归一化后的抽题计划项：题型规则与标签规则统一表示。 */
+  interface PlanItem {
+    kind: 'type' | 'tag';
+    type?: QuestionType;
+    tag?: string;
+    count: number;
+    score: number;
+  }
+
+  const types: QuestionType[] = ['single', 'multiple', 'judge'];
+  const plan: PlanItem[] = [];
   for (const type of types) {
     const rule = input.rules[type];
     if (!rule || rule.count <= 0) continue;
-    const available = await questionRepo.countByType(input.bankIds, type);
-    if (available < rule.count) {
-      shortages.push({ type, required: rule.count, available });
-    } else {
-      plan.push({ type, count: rule.count, score: rule.score });
+    plan.push({ kind: 'type', type, count: rule.count, score: rule.score });
+  }
+  for (const rule of input.tagRules ?? []) {
+    const tag = String(rule.tag ?? '').trim();
+    if (!tag || rule.count <= 0) continue;
+    plan.push({ kind: 'tag', tag, count: rule.count, score: rule.score });
+  }
+
+  // 阶段一：预检存量（不足则不抽任何题）
+  const shortages: DrawShortage[] = [];
+  const tagShortages: DrawTagShortage[] = [];
+  for (const p of plan) {
+    const available =
+      p.kind === 'type'
+        ? await questionRepo.countByType(input.bankIds, p.type!)
+        : await questionRepo.countByTag(input.bankIds, p.tag!);
+    if (available < p.count) {
+      if (p.kind === 'type') shortages.push({ type: p.type!, required: p.count, available });
+      else tagShortages.push({ tag: p.tag!, required: p.count, available });
     }
   }
-
-  if (shortages.length > 0) {
-    return { questions: [], shortages };
+  if (shortages.length > 0 || tagShortages.length > 0) {
+    return { questions: [], shortages, tagShortages };
   }
 
+  // 阶段二：逐规则抽取（排除已抽中题目，防跨规则重复）
   const questions: DrawQuestionItem[] = [];
+  const drawnIds: string[] = [];
   for (const p of plan) {
-    const rows = await questionRepo.drawByType(input.bankIds, p.type, p.count);
+    const rows =
+      p.kind === 'type'
+        ? await questionRepo.drawByType(input.bankIds, p.type!, p.count, drawnIds)
+        : await questionRepo.drawByTag(input.bankIds, p.tag!, p.count, drawnIds);
+    // 兜底：极端情况下（多规则重叠）抽取数不足，按契约整体作废
+    if (rows.length < p.count) {
+      if (p.kind === 'type') {
+        shortages.push({ type: p.type!, required: p.count, available: rows.length });
+      } else {
+        tagShortages.push({ tag: p.tag!, required: p.count, available: rows.length });
+      }
+      return { questions: [], shortages, tagShortages };
+    }
     for (const r of rows) {
+      drawnIds.push(r.id);
       questions.push({ questionId: r.id, score: p.score, type: r.type, stem: r.stem });
     }
   }
-  return { questions, shortages };
+  return { questions, shortages, tagShortages };
+}
+
+/* ============================ 试卷克隆（v1.7②） ============================ */
+
+/**
+ * 克隆试卷（复制题目、分值、来源题库；新卷归属当前操作者）。
+ * author 需对来源题库全部有授权（沿用 create 的授权口径）。
+ * @param id   源试卷 id
+ * @param name 新试卷名称（省略 → 「原名（副本）」）
+ */
+export async function clonePaper(id: string, name: string | undefined, operator: Operator): Promise<PaperDto> {
+  const detail = await getById(id, operator); // 内含存在性 + 授权校验
+  const trimmed = (name ?? '').trim();
+  const newName = (trimmed || `${detail.name}（副本）`).slice(0, 100);
+  return create(
+    {
+      name: newName,
+      description: detail.description,
+      bankIds: [...detail.bankIds],
+      questions: detail.questions.map((q) => ({ questionId: q.questionId, score: q.score })),
+    },
+    operator,
+  );
 }
 
 /** 供外部复用的行类型导出（如测试）。 */

@@ -19,7 +19,7 @@
 | 期 | 主题 | 状态 |
 | --- | --- | --- |
 | ① | 考试运营闭环（O1 试卷 PDF / O2 成绩复核 / O3 特殊安排） | ✅ 已完成 |
-| ② | 题库与数据运营深化（Q1–Q4） | ⏳ 待开始 |
+| ② | 题库与数据运营深化（Q1–Q4） | ✅ 已完成 |
 | ③ | 安全与合规加固（T1 / T2 / S1 / S2） | ⏳ 待开始 |
 | ④ | 工程化与稳定性（T3 / T5 / S3 / S4，不含 T4） | ⏳ 待开始 |
 
@@ -179,3 +179,48 @@
 - 前端：考试管理新增「特殊安排」入口 + `admin/ExamExceptionDialog.vue`。
 
 **① 验证**：后端 typecheck 0 错；新增 `server/src/test/v17a.test.ts`（15 用例）全通过，全量 **241/241**（17 文件）；前端 typecheck 0 错、vitest 28/28、`vite build` 成功；`db:init` 幂等（27 表，新增 `score_appeals` / `exam_exceptions`，补 `exams.allow_appeal`）。
+
+---
+
+## 8. ② 题库与数据运营深化（已交付）
+
+### 8.1 Q1 知识点（标签）体系
+
+- 存储：`questions.tags JSON NULL`（DDL + `db/init.ts` 幂等迁移）；`QuestionDto.tags: string[]`（空数组 = 未打标签）。
+- 归一化：`questions.service.normalizeTags()` —— trim → 去空 → 去重（保序）→ 单标签截断 32 字 → 最多 `MAX_TAGS = 10` 个；zod 层同步 `.max(10)` 中文提示。
+- 过滤：`questions.repo.buildWhere` 支持 `tag` → `JSON_CONTAINS(tags, JSON_QUOTE(?))`。**题库内列表**（`GET /api/banks/:id/questions?tag=`）与**全局试题池**（`GET /api/questions?tag=`）均支持；题库内列表题型过滤同时放开为全部 5 种题型。
+- 标签选项：新增 `GET /api/questions/tags?bankIds=`（跨题库展开 JSON 数组、去重、按中文排序；author 限定被授权题库）。
+- **组卷按知识点配比**：`POST /api/papers/draw-questions` 新增 `tagRules: Array<{tag, count, score}>`，与题型 `rules` 可同时使用。
+  - 两阶段执行：先对全部规则做**存量预检**，任一不足即整体作废并返回 `tagShortages`（HTTP 200，不生成任何题目）；预检通过后逐规则抽取，规则间通过 `id NOT IN (...)` 排除已抽中题目**自动去重**。
+  - 返回结构 `DrawResult` 增 `tagShortages: DrawTagShortage[]`。
+- **看板知识点归因**：`DashboardReportDto.tagWrong`（一题多标签则每个标签各计一次；未打标签题目不计入；简答不纳入）。
+- 前端：`QuestionFormDialog` 增「知识点标签」多选（支持回车创建，候选来自同题库已有标签）；`QuestionBankDetailPage` 增标签列 + 「全部知识点」筛选；`PaperComposerPage` 抽题模式增「按知识点配比」规则行（可增删、去重校验）与题池标签筛选。
+
+### 8.2 Q2 试卷克隆 + 题目批量编辑
+
+- **试卷克隆**：`POST /api/papers/:id/clone`（body `{ name? }`；省略 → 「原名（副本）」，截断 100 字）。复用 `papers.create` 完成整卷重写（题目/分值/来源题库原样复制，生成独立新卷），权限沿用 `getById`（author 需被授权来源题库）。前端「试卷管理」操作列增「克隆」。
+- **题目批量编辑**：`POST /api/questions/batch-edit`
+  - 入参 `{ ids[], subject?, tags?, tagsMode?: 'append'|'replace', defaultScore? }`，**仅提交的字段被修改**，题干/选项/答案等一律不动；至少选一个字段（否则 1001）。
+  - 上限 500 题/次；逐题做 author 题库授权校验（任一无权即整体失败 1003）；标签追加模式按题读取现有标签后合并去重（保序）。
+  - 前端新增 `author/QuestionBatchEditDialog.vue`；题库详情表格支持多选（`reserve-selection` 跨页保留勾选）与「批量编辑（N）」入口。
+
+### 8.3 Q3 看板下钻与筛选
+
+- `GET /api/reports/dashboard` 增 `departmentId` / `from` / `to`：
+  - `departmentId` 按**科室树下钻**（自身 + 全部子孙科室，`reports.service.resolveDepartmentScope` 遍历 `departments.parent_id`），过滤口径为记录的 `department_id`；
+  - `from` / `to` 按**考试开始时间**筛选；纯日期按 `T00:00:00.000Z` ~ `T23:59:59.999Z` 覆盖整天（与审计模块同口径）；
+  - 缺省时口径与 v1.6 完全一致（不传即全量）。
+- 前端「数据总览」增筛选条（科室下拉带层级缩进 + 考试开始时间日期范围）与「知识点错题归因」图表；聚合图表改为科目/知识点共用的 `wrongRateOption` 工厂。
+
+### 8.4 Q4 审计日志导出与保留归档
+
+- 新增 `utils/csvExport.ts`（零依赖；RFC 4180 转义、CRLF、UTF-8 BOM 保证 Excel 打开不乱码）。
+- 新增 `modules/audit/audit.columns.ts`（7 列白名单：操作时间/操作者/操作类型/对象类型/对象名称/对象 ID/明细；默认列集 6 列）。
+- 导出：`GET /api/audit-logs/export?format=xlsx|csv&columns=&tzOffset=&<同列表过滤条件>`，`repo.listForExport` 单次上限 **20000 条**；`detail` 序列化为「键=值；…」可读文本；时间按 `tzOffset` 格式化为本地时间。导出动作自身留痕（`audit.export`，含 format / rowCount / 过滤条件摘要）。
+- 保留策略：设置项 `auditRetentionDays`（默认 180 天，0 = 永久保留）。
+  - `GET /api/audit-logs/retention` 返回当前生效天数；
+  - `POST /api/audit-logs/cleanup`（可选 `retentionDays` 覆盖）→ `repo.deleteBefore(cutoff)` 删除超期日志，**清理动作自身留痕**（`audit.cleanup`），返回 `{ retentionDays, deletedCount, cutoff, remainingCount }`；0/负数视为永久保留不删除。
+- 审计枚举联动扩展：`AuditAction` 增 `audit.export` / `audit.cleanup`，`AuditTargetType` 增 `audit`（后端 `domain.ts` + `audit.service.ts` 文案 ↔ 前端 `src/types` + `src/constants` 双份同步）。
+- 前端「审计日志」页头增：保留策略文案、「导出字段」勾选弹窗、导出下拉（Excel / CSV）、「清理过期日志」按钮（永久保留时仅提示不执行）。
+
+**② 验证**：后端 typecheck 0 错；新增 `server/src/test/v17b.test.ts`（23 用例）全通过，全量 **264/264**（18 文件）；前端 typecheck 0 错、vitest 28/28、`vite build` 成功；`db:init` 幂等（`questions.tags` 列已就位）。

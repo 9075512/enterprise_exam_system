@@ -115,6 +115,8 @@ export interface Question {
   defaultScore: number;
   analysis: string;
   subject: string;
+  /** 知识点标签（多标签，v1.7②；空数组 = 未打标签） */
+  tags: string[];
   createdBy: string;
   /** ISO 8601 */
   createdAt: string;
@@ -351,10 +353,26 @@ export interface DrawShortage {
   available: number;
 }
 
+/** 按知识点（标签）抽题规则（v1.7②） */
+export interface DrawTagRule {
+  tag: string;
+  count: number;
+  score: number;
+}
+
+/** 按知识点（标签）抽题的缺口项（v1.7②） */
+export interface DrawTagShortage {
+  tag: string;
+  required: number;
+  available: number;
+}
+
 /** 抽题结果 */
 export interface DrawResult {
   questions: DrawQuestionItem[];
   shortages: DrawShortage[];
+  /** 按标签抽题的缺口（未配置 tagRules 时为空数组） */
+  tagShortages: DrawTagShortage[];
 }
 
 /** 题库筛选条件 */
@@ -362,7 +380,19 @@ export interface QuestionFilter {
   /** '' 表示不限 */
   type: QuestionType | '';
   subject: string;
+  /** 知识点标签（'' 表示不限，v1.7②） */
+  tag: string;
   keyword: string;
+}
+
+/** 试题批量编辑输入（v1.7②；仅提交需要修改的字段） */
+export interface QuestionBatchEditInput {
+  ids: string[];
+  subject?: string;
+  tags?: string[];
+  /** append（追加，默认）/ replace（覆盖） */
+  tagsMode?: 'append' | 'replace';
+  defaultScore?: number;
 }
 
 /** 用户保存输入（新建/编辑共用） */
@@ -391,6 +421,8 @@ export interface QuestionSaveInput {
   defaultScore: number;
   analysis?: string;
   subject?: string;
+  /** 知识点标签（v1.7②；最多 10 个，单个 ≤32 字） */
+  tags?: string[];
 }
 
 /** 试卷保存输入（新建/编辑共用） */
@@ -487,10 +519,14 @@ export type AuditAction =
   | 'permission.update'
   | 'appeal.approve'
   | 'appeal.reject'
-  | 'exam.exception_update';
+  | 'exam.exception_update'
+  /** 导出审计日志（v1.7②） */
+  | 'audit.export'
+  /** 清理过期审计日志（v1.7②） */
+  | 'audit.cleanup';
 
 /** 审计目标类型 */
-export type AuditTargetType = 'user' | 'exam' | 'bank' | 'permission' | 'appeal';
+export type AuditTargetType = 'user' | 'exam' | 'bank' | 'permission' | 'appeal' | 'audit';
 
 /** 操作审计日志 */
 export interface AuditLog {
@@ -529,6 +565,18 @@ export interface SubjectWrongItem {
 export interface DashboardReport {
   examTrend: ExamTrendPoint[];
   subjectWrong: SubjectWrongItem[];
+  /** 按知识点（标签）归因（v1.7②；简答排除，未打标签的题目不计入） */
+  tagWrong: SubjectWrongItem[];
+}
+
+/** 数据看板筛选条件（v1.7②：科室下钻 + 时间范围） */
+export interface DashboardFilter {
+  /** 按科室下钻（含子树） */
+  departmentId?: string;
+  /** 起始日期/时刻（按考试开始时间，含） */
+  from?: string;
+  /** 截止日期/时刻（含） */
+  to?: string;
 }
 
 // ============================================================

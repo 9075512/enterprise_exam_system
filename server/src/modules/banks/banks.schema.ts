@@ -25,9 +25,13 @@ export const bankListQuerySchema = z.object({
 export const bankQuestionsQuerySchema = z.object({
   type: z.preprocess(
     (v) => (v === '' ? undefined : v),
-    z.enum(['single', 'multiple', 'judge'], { errorMap: () => ({ message: '题型不合法' }) }).optional(),
+    z
+      .enum(['single', 'multiple', 'judge', 'fill', 'short'], { errorMap: () => ({ message: '题型不合法' }) })
+      .optional(),
   ),
   subject: z.string().optional().default(''),
+  /** 知识点标签过滤（v1.7②） */
+  tag: z.string().optional().default(''),
   keyword: z.string().optional().default(''),
   ...paginationQuery,
 });

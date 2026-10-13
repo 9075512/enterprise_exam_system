@@ -52,6 +52,7 @@ function goEdit(paper: Paper): void {
 
 const deleting = ref(false);
 const exportingId = ref('');
+const cloningId = ref('');
 
 /** 文件名清洗 */
 function sanitize(name: string): string {
@@ -77,6 +78,26 @@ async function handleExportPdf(paper: Paper, withAnswer: boolean): Promise<void>
     // 错误提示已由 http.ts 响应拦截器统一弹出
   } finally {
     exportingId.value = '';
+  }
+}
+
+/** 克隆试卷（v1.7②；后端自动命名为「原名（副本）」） */
+async function handleClone(paper: Paper): Promise<void> {
+  const ok = await confirm(`确定克隆试卷「${paper.name}」吗？将生成一份题目与分值完全相同的副本。`, {
+    title: '克隆试卷',
+    confirmButtonText: '确认克隆',
+  });
+  if (!ok) return;
+
+  cloningId.value = paper.id;
+  try {
+    const created = await papersApi.clone(paper.id);
+    ElMessage.success(`已克隆为「${created.name}」`);
+    void refresh();
+  } catch {
+    // 错误提示已由 http.ts 响应拦截器统一弹出
+  } finally {
+    cloningId.value = '';
   }
 }
 
@@ -166,10 +187,18 @@ async function handleDelete(paper: Paper): Promise<void> {
         <el-table-column label="创建时间" width="170">
           <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="270" fixed="right">
+        <el-table-column label="操作" width="330" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="goPreview(row as Paper)">预览</el-button>
             <el-button link @click="goEdit(row as Paper)">编辑</el-button>
+            <el-button
+              link
+              type="primary"
+              :loading="cloningId === (row as Paper).id"
+              @click="handleClone(row as Paper)"
+            >
+              克隆
+            </el-button>
             <el-dropdown
               trigger="click"
               :disabled="exportingId === (row as Paper).id"

@@ -17,6 +17,7 @@ export interface QuestionRow extends RowDataPacket {
   default_score: number | string;
   analysis: string | null;
   subject: string;
+  tags: unknown;
   created_by: string;
   created_at: string;
 }
@@ -33,6 +34,7 @@ export function mapQuestionRow(row: QuestionRow): QuestionDto {
     defaultScore: Number(row.default_score),
     analysis: row.analysis ?? '',
     subject: row.subject,
+    tags: parseJsonColumn<string[]>(row.tags, []),
     createdBy: row.created_by,
     createdAt: fromDbDateSafe(row.created_at),
   };

@@ -1,6 +1,13 @@
 /** 试卷 / 组卷 API（§4.5 试卷 / 组卷） */
 import { del, get, post, put } from './http';
-import type { DrawResult, DrawRules, PaperDetail, Paper, PaperSaveInput } from '@/types';
+import type {
+  DrawResult,
+  DrawRules,
+  DrawTagRule,
+  PaperDetail,
+  Paper,
+  PaperSaveInput,
+} from '@/types';
 
 /** 试卷保存入参（不含 id） */
 export type PaperPayload = Omit<PaperSaveInput, 'id'>;
@@ -25,15 +32,21 @@ export function update(id: string, payload: PaperPayload): Promise<Paper> {
   return put<Paper>(`/papers/${id}`, payload);
 }
 
+/** 克隆试卷（v1.7②；name 省略 → 后端自动「原名（副本）」） */
+export function clone(id: string, name?: string): Promise<Paper> {
+  return post<Paper>(`/papers/${id}/clone`, { name });
+}
+
 /** 删除试卷（被考试引用 1005） */
 export function remove(id: string): Promise<null> {
   return del<null>(`/papers/${id}`);
 }
 
-/** 按题型随机抽题 */
+/** 随机抽题（按题型 / 按知识点标签，v1.7②） */
 export function drawQuestions(payload: {
   bankIds: string[];
   rules: DrawRules;
+  tagRules?: DrawTagRule[];
 }): Promise<DrawResult> {
   return post<DrawResult>('/papers/draw-questions', payload);
 }

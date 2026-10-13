@@ -7,17 +7,28 @@ import { validate } from '../../middleware/validate.js';
 import { authRequired } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/role.js';
 import { ok } from '../../utils/response.js';
-import { reportExportQuerySchema } from './reports.schema.js';
+import { reportExportQuerySchema, dashboardQuerySchema } from './reports.schema.js';
 import * as reportsService from './reports.service.js';
 
 export const reportsRouter = Router();
 
 reportsRouter.use(authRequired, requireRole('admin'));
 
-/** GET /api/reports/dashboard —— 数据看板（及格率趋势 + 科目错题归因）。 */
+/** GET /api/reports/dashboard —— 数据看板（及格率趋势 + 科目/知识点错题归因；可按科室下钻 + 时间范围）。 */
 reportsRouter.get(
   '/dashboard',
-  asyncHandler(async (_req, res) => ok(res, await reportsService.getDashboard())),
+  validate(dashboardQuerySchema, 'query'),
+  asyncHandler(async (req, res) => {
+    const q = req.query as unknown as { departmentId: string; from: string; to: string };
+    return ok(
+      res,
+      await reportsService.getDashboard({
+        departmentId: q.departmentId || undefined,
+        from: q.from || undefined,
+        to: q.to || undefined,
+      }),
+    );
+  }),
 );
 
 /** GET /api/reports/exams/:id —— 报表聚合（summary + bands + departments + wrongRate）。 */

@@ -25,6 +25,8 @@ import PageHeader from '@/components/common/PageHeader.vue';
 import type {
   DrawRules,
   DrawShortage,
+  DrawTagRule,
+  DrawTagShortage,
   Question,
   QuestionType,
 } from '@/types';
@@ -67,9 +69,37 @@ const drawRules = reactive<Record<QuestionType, { count: number; score: number }
   short: { count: 0, score: 5 },
 });
 const shortages = ref<DrawShortage[]>([]);
+const tagShortages = ref<DrawTagShortage[]>([]);
 const drawing = ref(false);
 
-/** 生成试卷草稿（按题型随机抽题） */
+/* ------------------------ 按知识点配比抽题（v1.7②） ------------------------ */
+/** 标签抽题规则行（可增删） */
+const drawTagRules = ref<DrawTagRule[]>([]);
+/** 可选题库内的已有标签 */
+const drawTagOptions = ref<string[]>([]);
+
+function addTagRule(): void {
+  drawTagRules.value.push({ tag: '', count: 1, score: 2 });
+}
+
+function removeTagRule(index: number): void {
+  drawTagRules.value.splice(index, 1);
+}
+
+/** 拉取当前题库集合下的标签候选（失败静默降级为纯手输） */
+async function loadDrawTags(): Promise<void> {
+  if (selectedBankIds.value.length === 0) {
+    drawTagOptions.value = [];
+    return;
+  }
+  try {
+    drawTagOptions.value = await questionsApi.tags([...selectedBankIds.value]);
+  } catch {
+    drawTagOptions.value = [];
+  }
+}
+
+/** 生成试卷草稿（按题型 / 知识点随机抽题） */
 async function generateDraft(): Promise<void> {
   if (!hasBanks.value) {
     ElMessage.warning('请先选择至少一个题库');
@@ -80,20 +110,36 @@ async function generateDraft(): Promise<void> {
     const rule = drawRules[opt.value];
     if (rule.count > 0) rules[opt.value] = { count: rule.count, score: rule.score };
   }
-  if (Object.keys(rules).length === 0) {
-    ElMessage.warning('请至少配置一种题型的抽题数量');
+  const tagRules: DrawTagRule[] = [];
+  for (const rule of drawTagRules.value) {
+    const tag = rule.tag.trim();
+    if (!tag || rule.count <= 0) continue;
+    if (tagRules.some((r) => r.tag === tag)) {
+      ElMessage.warning(`知识点「${tag}」配置重复，请合并后再抽题`);
+      return;
+    }
+    tagRules.push({ tag, count: rule.count, score: rule.score });
+  }
+  if (Object.keys(rules).length === 0 && tagRules.length === 0) {
+    ElMessage.warning('请至少配置一种题型或一个知识点的抽题数量');
     return;
   }
 
   drawing.value = true;
   try {
-    const result = await papersApi.drawQuestions({ bankIds: [...selectedBankIds.value], rules });
-    if (result.shortages.length > 0) {
+    const result = await papersApi.drawQuestions({
+      bankIds: [...selectedBankIds.value],
+      rules,
+      tagRules,
+    });
+    if (result.shortages.length > 0 || result.tagShortages.length > 0) {
       // 题量不足：不生成任何题目，保留原有已选清单
       shortages.value = result.shortages;
+      tagShortages.value = result.tagShortages;
       return;
     }
     shortages.value = [];
+    tagShortages.value = [];
     const existing = new Set(selected.value.map((q) => q.questionId));
     let added = 0;
     for (const item of result.questions) {
@@ -119,8 +165,10 @@ async function generateDraft(): Promise<void> {
 /* ------------------------------ 手动题池 ------------------------------ */
 const poolType = ref<QuestionType | ''>('');
 const poolSubject = ref('');
+const poolTag = ref('');
 const poolKeyword = ref('');
 const subjects = ref<string[]>([]);
+const poolTags = ref<string[]>([]);
 
 const {
   list: poolList,
@@ -138,6 +186,7 @@ const {
       bankIds: selectedBankIds.value,
       type: poolType.value,
       subject: poolSubject.value,
+      tag: poolTag.value,
       keyword: poolKeyword.value.trim(),
       page: p,
       pageSize: ps,
@@ -154,6 +203,18 @@ async function loadPoolSubjects(): Promise<void> {
     subjects.value = await questionsApi.subjects([...selectedBankIds.value]);
   } catch {
     subjects.value = [];
+  }
+}
+
+async function loadPoolTags(): Promise<void> {
+  if (selectedBankIds.value.length === 0) {
+    poolTags.value = [];
+    return;
+  }
+  try {
+    poolTags.value = await questionsApi.tags([...selectedBankIds.value]);
+  } catch {
+    poolTags.value = [];
   }
 }
 
@@ -174,6 +235,7 @@ function onPoolSearch(): void {
 function onPoolResetFilters(): void {
   poolType.value = '';
   poolSubject.value = '';
+  poolTag.value = '';
   poolKeyword.value = '';
   resetPool();
 }
@@ -232,9 +294,12 @@ function goBack(): void {
 
 function onBanksChanged(): void {
   shortages.value = [];
-  // 来源题库变化会影响题池与科目选项；已选清单保留（用户可手动微调）
+  tagShortages.value = [];
+  void loadDrawTags();
+  // 来源题库变化会影响题池与科目/标签选项；已选清单保留（用户可手动微调）
   if (mode.value === 'manual') {
     void loadPoolSubjects();
+    void loadPoolTags();
     refreshPool();
   }
 }
@@ -243,6 +308,7 @@ function onBanksChanged(): void {
 watch(mode, (value) => {
   if (value === 'manual') {
     void loadPoolSubjects();
+    void loadPoolTags();
     refreshPool();
   }
 });
@@ -314,6 +380,8 @@ onMounted(async () => {
     }));
     sortSelected();
     await loadPoolSubjects();
+    await loadPoolTags();
+    await loadDrawTags();
     refreshPool();
   } catch {
     // 错误提示已由拦截器统一弹出
@@ -408,9 +476,59 @@ onMounted(async () => {
               </template>
             </el-table-column>
           </el-table>
+          <p class="composer__rule-hint">
+            随机抽题仅支持单选 / 多选 / 判断题；填空题与简答题请在「手动勾选」中按题选取。
+          </p>
+
+          <!-- 按知识点配比抽题（v1.7②） -->
+          <div class="composer__tag-rules">
+            <div class="composer__tag-rules-head">
+              <span class="composer__tag-rules-title">按知识点配比（可选）</span>
+              <el-button
+                size="small"
+                :icon="Plus"
+                :disabled="!hasBanks || drawTagRules.length >= 20"
+                @click="addTagRule"
+              >
+                添加知识点
+              </el-button>
+            </div>
+            <p v-if="drawTagRules.length === 0" class="composer__tag-rules-empty">
+              未配置知识点规则；与上方题型规则可同时使用，抽到的题目会自动去重。
+            </p>
+            <div v-for="(rule, index) in drawTagRules" :key="index" class="composer__tag-rule-row">
+              <el-select
+                v-model="rule.tag"
+                class="composer__tag-rule-tag"
+                placeholder="选择或输入知识点"
+                filterable
+                allow-create
+                default-first-option
+                :disabled="!hasBanks"
+              >
+                <el-option v-for="t in drawTagOptions" :key="t" :label="t" :value="t" />
+              </el-select>
+              <el-input-number
+                v-model="rule.count"
+                :min="1"
+                :max="200"
+                :disabled="!hasBanks"
+                controls-position="right"
+              />
+              <el-input-number
+                v-model="rule.score"
+                :min="0.5"
+                :max="100"
+                :step="0.5"
+                :disabled="!hasBanks"
+                controls-position="right"
+              />
+              <el-button type="danger" link :icon="Delete" @click="removeTagRule(index)" />
+            </div>
+          </div>
 
           <el-alert
-            v-if="shortages.length > 0"
+            v-if="shortages.length > 0 || tagShortages.length > 0"
             class="composer__shortage"
             type="error"
             :closable="false"
@@ -419,6 +537,9 @@ onMounted(async () => {
             <ul class="composer__shortage-list">
               <li v-for="s in shortages" :key="s.type">
                 {{ QUESTION_TYPE_LABELS[s.type] }}题量不足：需要 {{ s.required }} 题，实际 {{ s.available }} 题
+              </li>
+              <li v-for="s in tagShortages" :key="`tag-${s.tag}`">
+                知识点「{{ s.tag }}」题量不足：需要 {{ s.required }} 题，实际 {{ s.available }} 题
               </li>
             </ul>
           </el-alert>
@@ -449,6 +570,16 @@ onMounted(async () => {
             <el-select v-model="poolSubject" class="composer__filter-item" placeholder="全部科目" clearable>
               <el-option label="全部科目" value="" />
               <el-option v-for="s in subjects" :key="s" :label="s" :value="s" />
+            </el-select>
+            <el-select
+              v-model="poolTag"
+              class="composer__filter-item"
+              placeholder="全部知识点"
+              clearable
+              filterable
+            >
+              <el-option label="全部知识点" value="" />
+              <el-option v-for="t in poolTags" :key="t" :label="t" :value="t" />
             </el-select>
             <el-input
               v-model="poolKeyword"
@@ -622,7 +753,51 @@ onMounted(async () => {
   }
 
   &__rule-table {
+    margin-bottom: 8px;
+  }
+
+  &__rule-hint {
+    margin: 0 0 16px;
+    font-size: 12px;
+    color: $text-secondary;
+  }
+
+  &__tag-rules {
     margin-bottom: 16px;
+    padding: 12px;
+    border: 1px solid $border-color;
+    border-radius: $radius-sm;
+  }
+
+  &__tag-rules-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  &__tag-rules-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &__tag-rules-empty {
+    margin: 0;
+    font-size: 12px;
+    color: $text-secondary;
+  }
+
+  &__tag-rule-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  &__tag-rule-tag {
+    flex: 1;
+    min-width: 0;
   }
 
   &__shortage {

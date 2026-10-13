@@ -7,7 +7,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Edit, Delete, Plus, Upload, Search, Refresh, ArrowLeft } from '@element-plus/icons-vue';
+import { Edit, EditPen, Delete, Plus, Upload, Search, Refresh, ArrowLeft } from '@element-plus/icons-vue';
 import * as banksApi from '@/api/banks';
 import * as questionsApi from '@/api/questions';
 import { useRequest } from '@/composables/useRequest';
@@ -28,6 +28,7 @@ import PageHeader from '@/components/common/PageHeader.vue';
 import QuestionFormDialog from './QuestionFormDialog.vue';
 import QuestionBankFormDialog from './QuestionBankFormDialog.vue';
 import QuestionImportDialog from './QuestionImportDialog.vue';
+import QuestionBatchEditDialog from './QuestionBatchEditDialog.vue';
 import type { Question, QuestionType } from '@/types';
 
 const route = useRoute();
@@ -45,15 +46,25 @@ const { data: bank, loading: bankLoading, refresh: refreshBank } = useRequest(()
 /* ------------------------------ 试题筛选 ------------------------------ */
 const filterType = ref<QuestionType | ''>('');
 const filterSubject = ref('');
+const filterTag = ref('');
 const filterKeyword = ref('');
 
 const subjects = ref<string[]>([]);
+const tags = ref<string[]>([]);
 
 async function loadSubjects(): Promise<void> {
   try {
     subjects.value = await questionsApi.subjects([bankId.value]);
   } catch {
     subjects.value = [];
+  }
+}
+
+async function loadTags(): Promise<void> {
+  try {
+    tags.value = await questionsApi.tags([bankId.value]);
+  } catch {
+    tags.value = [];
   }
 }
 
@@ -73,6 +84,7 @@ const {
     banksApi.questions(bankId.value, {
       type: filterType.value,
       subject: filterSubject.value,
+      tag: filterTag.value,
       keyword: filterKeyword.value.trim(),
       page: p,
       pageSize: ps,
@@ -87,6 +99,7 @@ function onSearch(): void {
 function onResetFilters(): void {
   filterType.value = '';
   filterSubject.value = '';
+  filterTag.value = '';
   filterKeyword.value = '';
   reset();
 }
@@ -96,6 +109,33 @@ function reloadAll(): void {
   void refreshBank();
   void load();
   void loadSubjects();
+  void loadTags();
+}
+
+/* ------------------------------ 批量编辑（v1.7②） ------------------------------ */
+/** el-table 实例（仅用于清空勾选） */
+const tableRef = ref<{ clearSelection: () => void } | null>(null);
+const selectedRows = ref<Question[]>([]);
+const batchVisible = ref(false);
+
+/** 跨页保留勾选（row-key 已设置，用 reserve-selection 保证翻页不丢选） */
+function onSelectionChange(rows: Question[]): void {
+  selectedRows.value = rows;
+}
+
+function openBatchEdit(): void {
+  if (selectedRows.value.length === 0) {
+    ElMessage.warning('请先勾选需要批量编辑的试题');
+    return;
+  }
+  batchVisible.value = true;
+}
+
+/** 批量编辑完成后清空勾选并刷新 */
+function onBatchSaved(): void {
+  tableRef.value?.clearSelection();
+  selectedRows.value = [];
+  reloadAll();
 }
 
 /* ------------------------------ 试题弹窗 ------------------------------ */
@@ -172,12 +212,14 @@ function goBack(): void {
 watch(bankId, () => {
   void refreshBank();
   loadSubjects();
+  loadTags();
   reset();
 });
 
 onMounted(() => {
   void settingsStore.load();
   loadSubjects();
+  loadTags();
   void load();
 });
 </script>
@@ -236,6 +278,9 @@ onMounted(() => {
           <div class="table-card__toolbar">
             <h3 class="bank-detail__title">试题（{{ total }}）</h3>
             <div class="bank-detail__toolbar-actions">
+              <el-button :icon="EditPen" :disabled="selectedRows.length === 0" @click="openBatchEdit">
+                批量编辑{{ selectedRows.length > 0 ? `（${selectedRows.length}）` : '' }}
+              </el-button>
               <el-button type="primary" :icon="Plus" @click="openCreate">手动新增</el-button>
               <el-button :icon="Upload" @click="openImport">批量导入 Excel</el-button>
             </div>
@@ -260,6 +305,16 @@ onMounted(() => {
               <el-option label="全部科目" value="" />
               <el-option v-for="s in subjects" :key="s" :label="s" :value="s" />
             </el-select>
+            <el-select
+              v-model="filterTag"
+              class="bank-detail__filter-item"
+              placeholder="全部知识点"
+              clearable
+              filterable
+            >
+              <el-option label="全部知识点" value="" />
+              <el-option v-for="t in tags" :key="t" :label="t" :value="t" />
+            </el-select>
             <el-input
               v-model="filterKeyword"
               class="bank-detail__filter-keyword"
@@ -272,29 +327,54 @@ onMounted(() => {
             <el-button :icon="Refresh" @click="onResetFilters">重置</el-button>
           </div>
 
-          <el-table v-loading="loading" :data="questions" row-key="id" stripe>
-            <el-table-column label="题干" min-width="260">
+          <el-table
+            ref="tableRef"
+            v-loading="loading"
+            :data="questions"
+            row-key="id"
+            stripe
+            @selection-change="onSelectionChange"
+          >
+            <el-table-column type="selection" width="46" reserve-selection />
+            <el-table-column label="题干" min-width="240">
               <template #default="{ row }">
                 <el-tooltip :content="row.stem" placement="top" :show-after="300">
                   <span class="cell-stem">{{ row.stem }}</span>
                 </el-tooltip>
               </template>
             </el-table-column>
-            <el-table-column label="题型" width="100">
+            <el-table-column label="题型" width="90">
               <template #default="{ row }">
                 <el-tag size="small" effect="plain" :type="row.type === 'judge' ? 'warning' : 'primary'">
                   {{ QUESTION_TYPE_LABELS[row.type as QuestionType] }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="subject" label="科目" width="120" show-overflow-tooltip />
-            <el-table-column label="默认分值" width="100" align="center">
+            <el-table-column prop="subject" label="科目" width="110" show-overflow-tooltip />
+            <el-table-column label="知识点" min-width="150">
+              <template #default="{ row }">
+                <template v-if="row.tags?.length">
+                  <el-tag
+                    v-for="tag in row.tags"
+                    :key="tag"
+                    size="small"
+                    effect="plain"
+                    type="info"
+                    class="cell-tag"
+                  >
+                    {{ tag }}
+                  </el-tag>
+                </template>
+                <span v-else class="cell-tag--empty">—</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="默认分值" width="90" align="center">
               <template #default="{ row }">{{ formatScore(row.defaultScore) }}</template>
             </el-table-column>
-            <el-table-column label="创建时间" width="170">
+            <el-table-column label="创建时间" width="160">
               <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="140" fixed="right">
+            <el-table-column label="操作" width="120" fixed="right">
               <template #default="{ row }">
                 <el-button type="primary" link @click="openEditQuestion(row as Question)">编辑</el-button>
                 <el-button type="danger" link @click="handleDeleteQuestion(row as Question)">删除</el-button>
@@ -331,6 +411,12 @@ onMounted(() => {
       :bank-id="bankId"
       :bank-name="bank?.name ?? ''"
       @imported="reloadAll"
+    />
+    <QuestionBatchEditDialog
+      v-model:visible="batchVisible"
+      :question-ids="selectedRows.map((q) => q.id)"
+      :bank-id="bankId"
+      @saved="onBatchSaved"
     />
   </div>
 </template>
@@ -442,6 +528,14 @@ onMounted(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: bottom;
+}
+
+.cell-tag {
+  margin: 0 4px 2px 0;
+
+  &--empty {
+    color: $text-secondary;
+  }
 }
 
 // 分页由 .table-card__pagination 统一控制间距，消除封装组件自带 margin 的双重叠加

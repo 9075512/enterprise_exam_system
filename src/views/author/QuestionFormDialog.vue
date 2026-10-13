@@ -59,9 +59,25 @@ const form = reactive({
   defaultScore: 10,
   analysis: '',
   subject: '',
+  /** 知识点标签（v1.7②；最多 10 个） */
+  tags: [] as string[],
 });
 
+/** 知识点标签上限（与后端 MAX_TAGS 一致） */
+const MAX_TAGS = 10;
+
 const submitting = ref(false);
+
+/** 已有知识点标签候选（用于快选；失败时静默降级为纯手输） */
+const tagOptions = ref<string[]>([]);
+
+async function loadTagOptions(): Promise<void> {
+  try {
+    tagOptions.value = await questionsApi.tags(props.bankId ? [props.bankId] : undefined);
+  } catch {
+    tagOptions.value = [];
+  }
+}
 
 /** 客观题（有选项、自动判分） */
 const isObjective = computed<boolean>(
@@ -102,6 +118,7 @@ function resetForm(): void {
     form.defaultScore = q.defaultScore;
     form.analysis = q.analysis;
     form.subject = q.subject;
+    form.tags = [...(q.tags ?? [])];
   } else {
     form.type = 'single';
     form.stem = '';
@@ -112,13 +129,17 @@ function resetForm(): void {
     form.defaultScore = 10;
     form.analysis = '';
     form.subject = props.defaultSubject ?? '';
+    form.tags = [];
   }
 }
 
 watch(
   () => props.visible,
   (visible) => {
-    if (visible) resetForm();
+    if (visible) {
+      resetForm();
+      void loadTagOptions();
+    }
   },
 );
 
@@ -183,6 +204,7 @@ function validateLocal(): string | null {
     if (form.type === 'multiple' && form.answer.length < 2) return '多选题至少设置两个正确答案';
   }
   if (!(form.defaultScore > 0)) return '分值必须为正数';
+  if (form.tags.length > MAX_TAGS) return `知识点标签最多 ${MAX_TAGS} 个`;
   return null;
 }
 
@@ -220,6 +242,7 @@ async function handleSubmit(): Promise<void> {
       defaultScore: form.defaultScore,
       analysis: form.analysis.trim(),
       subject: form.subject.trim() || props.defaultSubject || '',
+      tags: form.tags.map((t) => t.trim()).filter(Boolean).slice(0, MAX_TAGS),
     };
 
     if (isEdit.value && props.question) {
@@ -361,6 +384,21 @@ function handleCancel(): void {
         <el-input v-model="form.subject" placeholder="默认继承题库分类，可修改" />
       </el-form-item>
 
+      <el-form-item label="知识点标签">
+        <el-select
+          v-model="form.tags"
+          multiple
+          filterable
+          allow-create
+          default-first-option
+          :multiple-limit="MAX_TAGS"
+          placeholder="选择或输入知识点标签（回车创建，最多 10 个）"
+          class="tag-select"
+        >
+          <el-option v-for="tag in tagOptions" :key="tag" :label="tag" :value="tag" />
+        </el-select>
+      </el-form-item>
+
       <el-form-item label="解析">
         <el-input
           v-model="form.analysis"
@@ -428,5 +466,9 @@ function handleCancel(): void {
     font-weight: 600;
     color: $text-secondary;
   }
+}
+
+.tag-select {
+  width: 100%;
 }
 </style>

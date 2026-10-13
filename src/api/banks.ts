@@ -17,6 +17,8 @@ export interface BankPayload {
 export interface BankQuestionsQuery {
   type?: QuestionType | '';
   subject?: string;
+  /** 知识点标签（v1.7②） */
+  tag?: string;
   keyword?: string;
   page?: number;
   pageSize?: number;
@@ -52,6 +54,7 @@ export function questions(bankId: string, query: BankQuestionsQuery = {}): Promi
   return get<Page<Question>>(`/banks/${bankId}/questions`, {
     type: query.type || undefined,
     subject: query.subject || undefined,
+    tag: query.tag || undefined,
     keyword: query.keyword || undefined,
     page: query.page,
     pageSize: query.pageSize,

@@ -70,6 +70,7 @@ export const DDL_STATEMENTS: readonly string[] = [
     default_score DECIMAL(6,1) NOT NULL DEFAULT 10.0,
     analysis      TEXT         NULL,
     subject       VARCHAR(64)  NOT NULL DEFAULT '未分类',
+    tags          JSON         NULL,
     created_by    VARCHAR(64)  NOT NULL,
     created_at    DATETIME(3)  NOT NULL,
     PRIMARY KEY (id),

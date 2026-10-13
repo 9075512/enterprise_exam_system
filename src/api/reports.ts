@@ -1,15 +1,19 @@
 /** 报表 API（§4.5 考试 / 记录 / 报表） */
 import { get } from './http';
-import type { DashboardReport, Report } from '@/types';
+import type { DashboardFilter, DashboardReport, Report } from '@/types';
 
 /** 单场考试报表聚合（summary + bands + departments + wrongRate） */
 export function examReport(examId: string): Promise<Report> {
   return get<Report>(`/reports/exams/${examId}`);
 }
 
-/** 数据看板（及格率趋势 + 科目错题归因） */
-export function dashboard(): Promise<DashboardReport> {
-  return get<DashboardReport>('/reports/dashboard');
+/** 数据看板（及格率趋势 + 科目/知识点错题归因；可按科室下钻 + 时间范围，v1.7②） */
+export function dashboard(filter: DashboardFilter = {}): Promise<DashboardReport> {
+  return get<DashboardReport>('/reports/dashboard', {
+    departmentId: filter.departmentId || undefined,
+    from: filter.from || undefined,
+    to: filter.to || undefined,
+  });
 }
 
 /**

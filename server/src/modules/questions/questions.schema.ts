@@ -34,6 +34,8 @@ export const questionSchema = z.object({
   defaultScore: z.coerce.number().optional().default(10),
   analysis: z.string().optional().default(''),
   subject: z.string().optional().default(''),
+  // 知识点标签（v1.7②；最多 10 个，单个 ≤32 字，service 层再归一化）
+  tags: z.array(z.string()).max(10, '知识点标签最多 10 个').optional().default([]),
 });
 
 /** 全局试题池列表入参（组卷用）。 */
@@ -41,6 +43,7 @@ export const questionListQuerySchema = z.object({
   bankIds: bankIdsQuery,
   type: typeQuery,
   subject: z.string().optional().default(''),
+  tag: z.string().optional().default(''),
   keyword: z.string().optional().default(''),
   ...paginationQuery,
 });
@@ -49,5 +52,18 @@ export const questionListQuerySchema = z.object({
 export const subjectsQuerySchema = z.object({
   bankIds: bankIdsQuery,
 });
+
+/** 批量编辑试题入参（v1.7②：科目 / 知识点标签 / 默认分值）。 */
+export const batchEditSchema = z
+  .object({
+    ids: z.array(z.string().min(1, '试题 ID 不能为空')).min(1, '请至少选择一道试题').max(500, '单次最多批量编辑 500 道试题'),
+    subject: z.string().optional(),
+    tags: z.array(z.string()).max(10, '知识点标签最多 10 个').optional(),
+    tagsMode: z.enum(['append', 'replace'], { errorMap: () => ({ message: '标签写入模式不合法' }) }).optional(),
+    defaultScore: z.coerce.number().positive('分值必须为正数').optional(),
+  })
+  .refine((v) => v.subject !== undefined || v.tags !== undefined || v.defaultScore !== undefined, {
+    message: '请至少选择一个要修改的字段',
+  });
 
 export type QuestionInput = z.infer<typeof questionSchema>;

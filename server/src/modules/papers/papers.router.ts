@@ -7,9 +7,9 @@ import { validate } from '../../middleware/validate.js';
 import { authRequired } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/role.js';
 import { ok } from '../../utils/response.js';
-import { paperSchema, drawSchema } from './papers.schema.js';
+import { paperSchema, drawSchema, cloneSchema } from './papers.schema.js';
 import * as papersService from './papers.service.js';
-import type { DrawInput, PaperInput } from './papers.schema.js';
+import type { DrawInput, PaperInput, CloneInput } from './papers.schema.js';
 
 export const papersRouter = Router();
 
@@ -55,6 +55,16 @@ papersRouter.get(
     res.setHeader('Content-Length', String(buffer.length));
     res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
     res.send(buffer);
+  }),
+);
+
+/** POST /api/papers/:id/clone —— 克隆试卷（v1.7②）。 */
+papersRouter.post(
+  '/:id/clone',
+  validate(cloneSchema, 'body'),
+  asyncHandler(async (req, res) => {
+    const body = req.body as CloneInput;
+    return ok(res, await papersService.clonePaper(req.params.id, body.name, req.user!));
   }),
 );
 

@@ -103,6 +103,8 @@ export interface QuestionDto {
   defaultScore: number;
   analysis: string;
   subject: string;
+  /** 知识点标签（多标签，v1.7②；空数组 = 未打标签） */
+  tags: string[];
   createdBy: string;
   createdAt: string;
 }
@@ -214,10 +216,19 @@ export interface DrawShortage {
   available: number;
 }
 
+/** 按知识点（标签）抽题的缺口项（v1.7②） */
+export interface DrawTagShortage {
+  tag: string;
+  required: number;
+  available: number;
+}
+
 /** 抽题结果 */
 export interface DrawResult {
   questions: DrawQuestionItem[];
   shortages: DrawShortage[];
+  /** 按标签抽题的缺口（tagRules 未配置时为空数组） */
+  tagShortages: DrawTagShortage[];
 }
 
 /** 考试状态（由时间窗实时推导，不落库） */
@@ -435,6 +446,8 @@ export interface SystemSettings {
   appealEnabled: boolean;
   /** 成绩复核申请时限（天；自交卷起算，0 = 不限时限） */
   appealWindowDays: number;
+  /** 审计日志保留天数（0 = 永久保留；超出可手动清理，v1.7②） */
+  auditRetentionDays: number;
   /** 站内信通知总开关 */
   notifySiteEnabled: boolean;
   /** 邮件通知总开关 */
@@ -809,10 +822,14 @@ export type AuditAction =
   | 'permission.update'
   | 'appeal.approve'
   | 'appeal.reject'
-  | 'exam.exception_update';
+  | 'exam.exception_update'
+  /** 导出审计日志（v1.7②） */
+  | 'audit.export'
+  /** 清理过期审计日志（v1.7②） */
+  | 'audit.cleanup';
 
 /** 审计目标类型 */
-export type AuditTargetType = 'user' | 'exam' | 'bank' | 'permission' | 'appeal';
+export type AuditTargetType = 'user' | 'exam' | 'bank' | 'permission' | 'appeal' | 'audit';
 
 /** 操作审计日志 DTO（自包含，actor 删除后仍可读） */
 export interface AuditLogDto {
@@ -852,10 +869,22 @@ export interface SubjectWrongItemDto {
   wrongRate: number;
 }
 
-/** 数据看板聚合（及格率趋势 + 科目错题归因） */
+/** 数据看板聚合（及格率趋势 + 科目/知识点错题归因） */
 export interface DashboardReportDto {
   examTrend: ExamTrendPointDto[];
   subjectWrong: SubjectWrongItemDto[];
+  /** 按知识点（标签）归因（v1.7②；简答排除） */
+  tagWrong: SubjectWrongItemDto[];
+}
+
+/** 数据看板筛选条件（v1.7②：科室下钻 + 时间范围） */
+export interface DashboardFilter {
+  /** 按科室下钻（含子树） */
+  departmentId?: string;
+  /** 起始时刻（ISO；含） */
+  from?: string;
+  /** 截止时刻（ISO；含） */
+  to?: string;
 }
 
 // ============================================================

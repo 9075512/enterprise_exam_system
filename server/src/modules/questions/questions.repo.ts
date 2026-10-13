@@ -9,7 +9,7 @@ import type { QuestionType } from '../../types/domain.js';
 export type { QuestionRow } from './question.mapper.js';
 
 const COLUMNS =
-  'id, bank_id, type, stem, options, answer, default_score, analysis, subject, created_by, created_at';
+  'id, bank_id, type, stem, options, answer, default_score, analysis, subject, tags, created_by, created_at';
 
 /** 试题筛选条件。 */
 export interface QuestionFilter {
@@ -19,6 +19,8 @@ export interface QuestionFilter {
   bankIds?: string[];
   type?: QuestionType;
   subject?: string;
+  /** 按知识点标签过滤（v1.7②） */
+  tag?: string;
   keyword?: string;
 }
 
@@ -40,6 +42,10 @@ function buildWhere(f: QuestionFilter): { where: string; params: string[] } {
   if (f.subject && f.subject.trim() !== '') {
     conds.push('subject = ?');
     params.push(f.subject.trim());
+  }
+  if (f.tag && f.tag.trim() !== '') {
+    conds.push('JSON_CONTAINS(tags, JSON_QUOTE(?))');
+    params.push(f.tag.trim());
   }
   if (f.keyword && f.keyword.trim() !== '') {
     conds.push('stem LIKE ?');
@@ -99,13 +105,68 @@ export async function countByType(bankIds: string[], type: QuestionType): Promis
   return Number(rows[0]?.c ?? 0);
 }
 
+/** 追加「排除已抽中题目」条件（组卷多规则混抽时防重复，v1.7②）。 */
+function withExcludes(
+  where: string,
+  params: string[],
+  excludeIds?: string[],
+): { where: string; params: string[] } {
+  if (!excludeIds || excludeIds.length === 0) return { where, params };
+  const clause = `id NOT IN (${excludeIds.map(() => '?').join(', ')})`;
+  const nextWhere = where ? `${where} AND ${clause}` : `WHERE ${clause}`;
+  return { where: nextWhere, params: [...params, ...excludeIds] };
+}
+
 /** 从题库集合内随机抽取指定题型的 count 条（ORDER BY RAND()）。 */
-export async function drawByType(bankIds: string[], type: QuestionType, count: number): Promise<QuestionRow[]> {
-  const { where, params } = buildWhere({ bankIds, type });
+export async function drawByType(
+  bankIds: string[],
+  type: QuestionType,
+  count: number,
+  excludeIds?: string[],
+): Promise<QuestionRow[]> {
+  const base = buildWhere({ bankIds, type });
+  const { where, params } = withExcludes(base.where, base.params, excludeIds);
   return query<QuestionRow[]>(
     `SELECT ${COLUMNS} FROM questions ${where} ORDER BY RAND() LIMIT ?`,
     [...params, count],
   );
+}
+
+/** 统计指定题库集合内某知识点标签的题数（v1.7②）。 */
+export async function countByTag(bankIds: string[], tag: string): Promise<number> {
+  const { where, params } = buildWhere({ bankIds, tag });
+  const rows = await query<RowDataPacket[]>(`SELECT COUNT(*) AS c FROM questions ${where}`, params);
+  return Number(rows[0]?.c ?? 0);
+}
+
+/** 从题库集合内按知识点标签随机抽题（v1.7②）。 */
+export async function drawByTag(
+  bankIds: string[],
+  tag: string,
+  count: number,
+  excludeIds?: string[],
+): Promise<QuestionRow[]> {
+  const base = buildWhere({ bankIds, tag });
+  const { where, params } = withExcludes(base.where, base.params, excludeIds);
+  return query<QuestionRow[]>(
+    `SELECT ${COLUMNS} FROM questions ${where} ORDER BY RAND() LIMIT ?`,
+    [...params, count],
+  );
+}
+
+/** 全部知识点标签（跨题库去重；应用层展开 JSON 数组并排序）。 */
+export async function listTags(bankIds?: string[]): Promise<string[]> {
+  const { where, params } = buildWhere({ bankIds });
+  const rows = await query<RowDataPacket[]>(`SELECT tags FROM questions ${where}`, params);
+  const set = new Set<string>();
+  for (const row of rows) {
+    const tags = Array.isArray(row.tags) ? row.tags : [];
+    for (const t of tags) {
+      const s = String(t).trim();
+      if (s) set.add(s);
+    }
+  }
+  return [...set].sort((a, b) => a.localeCompare(b, 'zh-CN'));
 }
 
 /** 新增试题。 */
@@ -120,6 +181,7 @@ export async function insert(
     defaultScore: number;
     analysis: string;
     subject: string;
+    tags: string[];
     createdBy: string;
     createdAt: string;
   },
@@ -128,8 +190,8 @@ export async function insert(
   await runQuery(
     exec,
     `INSERT INTO questions
-       (id, bank_id, type, stem, options, answer, default_score, analysis, subject, created_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, bank_id, type, stem, options, answer, default_score, analysis, subject, tags, created_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       row.id,
       row.bankId,
@@ -140,6 +202,7 @@ export async function insert(
       row.defaultScore,
       row.analysis,
       row.subject,
+      JSON.stringify(row.tags),
       row.createdBy,
       row.createdAt,
     ],
@@ -158,13 +221,14 @@ export async function update(
     defaultScore: number;
     analysis: string;
     subject: string;
+    tags: string[];
   },
   exec?: SqlExecutor,
 ): Promise<void> {
   await runQuery(
     exec,
     `UPDATE questions
-       SET bank_id = ?, type = ?, stem = ?, options = ?, answer = ?, default_score = ?, analysis = ?, subject = ?
+       SET bank_id = ?, type = ?, stem = ?, options = ?, answer = ?, default_score = ?, analysis = ?, subject = ?, tags = ?
      WHERE id = ?`,
     [
       row.bankId,
@@ -175,6 +239,7 @@ export async function update(
       row.defaultScore,
       row.analysis,
       row.subject,
+      JSON.stringify(row.tags),
       id,
     ],
   );

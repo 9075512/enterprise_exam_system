@@ -35,6 +35,7 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   retakeDefaultEnabled: false,
   appealEnabled: true,
   appealWindowDays: 7,
+  auditRetentionDays: 180,
   notifySiteEnabled: true,
   notifyEmailEnabled: false,
   notifyOnPublish: true,

@@ -12,6 +12,7 @@ import type { ExamRecordDetailRow, ExamRecordRow } from '../records/records.mapp
 
 export { findById as findExam } from '../exams/exams.repo.js';
 export { findById as findDepartment } from '../departments/departments.repo.js';
+export { list as listDepartments } from '../departments/departments.repo.js';
 
 /** exam_records 全列（带表别名 r）。 */
 const RECORD_COLUMNS =
@@ -80,11 +81,45 @@ export interface ExamTrendRow extends RowDataPacket {
   pass_count: number | string;
 }
 
+/** 看板筛选条件（已由 service 层归一化：科室 id 集合 / 考试开始时间范围）。 */
+export interface DashboardWhere {
+  /** 科室范围（含子科室）；空数组 = 不过滤 */
+  departmentIds?: string[];
+  /** 起始时刻（含，DB 可写格式） */
+  from?: string;
+  /** 截止时刻（含，DB 可写格式） */
+  to?: string;
+}
+
+/** 构造看板筛选 SQL 片段（考试开始时间范围 + 记录科室范围）。 */
+function buildDashboardCond(
+  f: DashboardWhere,
+  alias: { exam: string; record: string },
+): { cond: string; params: Array<string> } {
+  const conds: string[] = [];
+  const params: string[] = [];
+  if (f.departmentIds && f.departmentIds.length > 0) {
+    conds.push(`${alias.record}.department_id IN (${f.departmentIds.map(() => '?').join(', ')})`);
+    params.push(...f.departmentIds);
+  }
+  if (f.from) {
+    conds.push(`${alias.exam}.start_time >= ?`);
+    params.push(f.from);
+  }
+  if (f.to) {
+    conds.push(`${alias.exam}.start_time <= ?`);
+    params.push(f.to);
+  }
+  return { cond: conds.length > 0 ? `AND ${conds.join(' AND ')}` : '', params };
+}
+
 /**
  * 全部考试的及格率趋势：每人取最新一次已交卷，按考试聚合人数/平均分/及格人数。
  * MySQL 布尔比较 `r.score >= e.pass_score` 返回 1/0，SUM 即及格人数。
+ * v1.7② 支持按科室（含子树）与考试开始时间范围筛选。
  */
-export async function listExamTrend(): Promise<ExamTrendRow[]> {
+export async function listExamTrend(filter: DashboardWhere = {}): Promise<ExamTrendRow[]> {
+  const { cond, params } = buildDashboardCond(filter, { exam: 'e', record: 'r' });
   return query<ExamTrendRow[]>(
     `SELECT e.id AS exam_id, e.name AS exam_name, e.start_time,
             COUNT(m.user_id) AS total,
@@ -95,8 +130,10 @@ export async function listExamTrend(): Promise<ExamTrendRow[]> {
        JOIN ( SELECT exam_id, user_id, MAX(attempt_no) AS max_attempt
                 FROM exam_records WHERE status = 'submitted' GROUP BY exam_id, user_id ) m
          ON m.exam_id = r.exam_id AND m.user_id = r.user_id AND m.max_attempt = r.attempt_no
+      WHERE 1 = 1 ${cond}
       GROUP BY e.id, e.name, e.start_time
       ORDER BY e.start_time ASC`,
+    params,
   );
 }
 
@@ -107,14 +144,20 @@ export interface LatestRecordRow extends RowDataPacket {
   answers: unknown;
 }
 
-/** 全部考试「每位考生最近一次已交卷」的记录（跨考试科目错题归因数据源）。 */
-export async function listLatestSubmittedAll(): Promise<LatestRecordRow[]> {
+/**
+ * 全部考试「每位考生最近一次已交卷」的记录（跨考试科目/知识点错题归因数据源）。
+ * v1.7② 支持按科室（含子树）与考试开始时间范围筛选。
+ */
+export async function listLatestSubmittedAll(filter: DashboardWhere = {}): Promise<LatestRecordRow[]> {
+  const { cond, params } = buildDashboardCond(filter, { exam: 'e', record: 'r' });
   return query<LatestRecordRow[]>(
     `SELECT r.exam_id, r.paper_snapshot, r.answers
        FROM exam_records r
+       JOIN exams e ON e.id = r.exam_id
        JOIN ( SELECT exam_id, user_id, MAX(attempt_no) AS max_attempt
                 FROM exam_records WHERE status = 'submitted' GROUP BY exam_id, user_id ) m
          ON m.exam_id = r.exam_id AND m.user_id = r.user_id AND m.max_attempt = r.attempt_no
-      WHERE r.status = 'submitted'`,
+      WHERE r.status = 'submitted' ${cond}`,
+    params,
   );
 }

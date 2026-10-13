@@ -9,6 +9,17 @@ import { genId } from '../../utils/id.js';
 import { nowDb, fromDbDate, toDbDate } from '../../utils/datetime.js';
 import { parseJsonColumn } from '../../utils/json.js';
 import { normalizePaging, buildPage } from '../../utils/pagination.js';
+import { buildExportBuffer } from '../../utils/excelExport.js';
+import { buildCsvBuffer } from '../../utils/csvExport.js';
+import type { ExportColumn } from '../../utils/excelExport.js';
+import { badRequest } from '../../utils/errors.js';
+import { getSettings } from '../settings/settings.service.js';
+import {
+  AUDIT_EXPORT_COLUMNS,
+  AUDIT_EXPORT_KEYS,
+  DEFAULT_AUDIT_EXPORT_KEYS,
+} from './audit.columns.js';
+import type { AuditExportRow } from './audit.columns.js';
 import type { AuditAction, AuditLogDto, AuditTargetType, Page } from '../../types/domain.js';
 
 /** 审计动作 → 中文文案（前端展示层另有一份镜像，见 src/constants）。 */
@@ -28,6 +39,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'appeal.approve': '复核通过（改分）',
   'appeal.reject': '复核驳回',
   'exam.exception_update': '设置特殊安排',
+  'audit.export': '导出审计日志',
+  'audit.cleanup': '清理过期审计日志',
 };
 
 /** 审计目标类型 → 中文文案。 */
@@ -37,7 +50,18 @@ export const AUDIT_TARGET_TYPE_LABELS: Record<AuditTargetType, string> = {
   bank: '题库',
   permission: '菜单权限',
   appeal: '成绩复核',
+  audit: '审计日志',
 };
+
+/** 动作 key → 中文文案（未收录 key 原样返回，兼容历史数据）。 */
+export function labelOfAction(action: string): string {
+  return AUDIT_ACTION_LABELS[action as AuditAction] ?? action;
+}
+
+/** 目标类型 key → 中文文案（未收录 key 原样返回）。 */
+export function labelOfTargetType(targetType: string): string {
+  return AUDIT_TARGET_TYPE_LABELS[targetType as AuditTargetType] ?? targetType;
+}
 
 /** 全部审计动作 key（查询过滤白名单）。 */
 export const ALL_AUDIT_ACTIONS: readonly string[] = Object.keys(AUDIT_ACTION_LABELS);
@@ -79,31 +103,37 @@ export async function record(entry: AuditEntry): Promise<void> {
   }
 }
 
+/** 查询过滤入参（列表 / 导出共用）。 */
+export interface AuditFilterInput {
+  action?: string;
+  targetType?: string;
+  keyword?: string;
+  from?: string;
+  to?: string;
+}
+
+/** 把对外过滤入参转成 repo 层过滤条件（日期补全整天边界）。 */
+function toRepoFilter(filter: AuditFilterInput): repo.AuditListFilter {
+  return {
+    action: filter.action,
+    targetType: filter.targetType,
+    keyword: filter.keyword,
+    from: filter.from ? toDbDate(normalizeDateInput(filter.from, true)) : undefined,
+    to: filter.to ? toDbDate(normalizeDateInput(filter.to, false)) : undefined,
+  };
+}
+
 /** 审计日志列表（admin，分页 + 过滤）。 */
 export async function list(
-  filter: { action?: string; targetType?: string; keyword?: string; from?: string; to?: string },
+  filter: AuditFilterInput,
   page?: number,
   pageSize?: number,
 ): Promise<Page<AuditLogDto>> {
   const paging = normalizePaging(page, pageSize);
+  const repoFilter = toRepoFilter(filter);
   const [rows, total] = await Promise.all([
-    repo.list(
-      {
-        action: filter.action,
-        targetType: filter.targetType,
-        keyword: filter.keyword,
-        from: filter.from ? toDbDate(normalizeDateInput(filter.from, true)) : undefined,
-        to: filter.to ? toDbDate(normalizeDateInput(filter.to, false)) : undefined,
-      },
-      paging,
-    ),
-    repo.count({
-      action: filter.action,
-      targetType: filter.targetType,
-      keyword: filter.keyword,
-      from: filter.from ? toDbDate(normalizeDateInput(filter.from, true)) : undefined,
-      to: filter.to ? toDbDate(normalizeDateInput(filter.to, false)) : undefined,
-    }),
+    repo.list(repoFilter, paging),
+    repo.count(repoFilter),
   ]);
   return buildPage(rows.map(mapRow), total, paging.page, paging.pageSize);
 }
@@ -133,5 +163,171 @@ function mapRow(row: repo.AuditLogRow): AuditLogDto {
     targetName: row.target_name,
     detail: parseJsonColumn<Record<string, unknown>>(row.detail, {}),
     createdAt: fromDbDate(row.created_at) ?? '',
+  };
+}
+
+/* ============================ 导出 / 保留归档（v1.7②） ============================ */
+
+/** 单次导出条数上限（防内存与响应体过大）。 */
+export const MAX_AUDIT_EXPORT_ROWS = 20000;
+
+/** 默认时区偏移（东八区，分钟）；前端每次都会显式传 tzOffset，仅作兜底。 */
+const DEFAULT_TZ_OFFSET = 480;
+
+const pad2 = (n: number): string => String(n).padStart(2, '0');
+
+/**
+ * 把 ISO(UTC) 时间按给定时区偏移格式化为 'YYYY-MM-DD HH:mm'（与成绩导出口径一致）。
+ * 空值/非法值返回 ''。
+ */
+function formatLocal(iso: string | null, tzOffsetMinutes: number): string {
+  if (!iso) return '';
+  const ms = new Date(iso).getTime();
+  if (Number.isNaN(ms)) return '';
+  const d = new Date(ms + tzOffsetMinutes * 60000);
+  return (
+    `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}` +
+    ` ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`
+  );
+}
+
+/** 文件名安全化：替换 Windows / URL 非法字符。 */
+function sanitizeFilename(name: string): string {
+  return name.replace(/[\\/:*?"<>|]/g, '_');
+}
+
+/** detail 对象 → 可读摘要（'键=值' 以 '；' 连接；空对象返回 ''）。 */
+export function stringifyDetail(detail: Record<string, unknown>): string {
+  const parts: string[] = [];
+  for (const [key, value] of Object.entries(detail ?? {})) {
+    if (value === null || value === undefined) continue;
+    const text = typeof value === 'object' ? JSON.stringify(value) : String(value);
+    if (text === '') continue;
+    parts.push(`${key}=${text}`);
+  }
+  return parts.join('；');
+}
+
+/** 解析导出列（省略 → 默认列集；非法 key → 1001；输出顺序恒为定义顺序）。 */
+function resolveExportColumns(raw?: string): Array<ExportColumn<AuditExportRow>> {
+  if (raw === undefined || raw.trim() === '') {
+    const defaults = new Set(DEFAULT_AUDIT_EXPORT_KEYS);
+    return AUDIT_EXPORT_COLUMNS.filter((c) => defaults.has(c.key));
+  }
+  const picked = new Set<string>();
+  for (const part of raw.split(',')) {
+    const key = part.trim();
+    if (key) picked.add(key);
+  }
+  if (picked.size === 0) throw badRequest('请至少选择一个导出字段');
+  const unknown = [...picked].filter((k) => !AUDIT_EXPORT_KEYS.has(k));
+  if (unknown.length > 0) throw badRequest(`导出字段不合法：${unknown.join('、')}`);
+  return AUDIT_EXPORT_COLUMNS.filter((c) => picked.has(c.key));
+}
+
+/** 审计日志导出结果。 */
+export interface AuditExportResult {
+  buffer: Buffer;
+  filename: string;
+  rowCount: number;
+}
+
+/**
+ * 导出审计日志（.xlsx / .csv）。
+ * @param filter   过滤条件（与列表接口完全一致）
+ * @param format   'xlsx'（默认）| 'csv'
+ * @param columns  逗号分隔的勾选列 key（省略 → 默认列集）
+ * @param tzOffset 客户端时区偏移（分钟，东八区 = 480）
+ */
+export async function exportLogs(
+  filter: AuditFilterInput,
+  format: 'xlsx' | 'csv',
+  columns?: string,
+  tzOffset?: number,
+): Promise<AuditExportResult> {
+  const tz = tzOffset ?? DEFAULT_TZ_OFFSET;
+  const picked = resolveExportColumns(columns);
+  const rows = await repo.listForExport(toRepoFilter(filter), MAX_AUDIT_EXPORT_ROWS);
+
+  const exportRows: AuditExportRow[] = rows.map((row) => ({
+    createdAt: formatLocal(fromDbDate(row.created_at), tz),
+    actorName: row.actor_name,
+    actionLabel: labelOfAction(row.action),
+    targetTypeLabel: labelOfTargetType(row.target_type),
+    targetName: row.target_name,
+    targetId: row.target_id,
+    detail: stringifyDetail(parseJsonColumn<Record<string, unknown>>(row.detail, {})),
+  }));
+
+  const stamp = formatLocal(new Date().toISOString(), tz).replace(/[-: ]/g, '');
+  const base = `审计日志-${stamp}`;
+
+  if (format === 'csv') {
+    const buffer = buildCsvBuffer(
+      picked.map((c) => c.header),
+      exportRows.map((r) => picked.map((c) => c.value(r))),
+    );
+    return { buffer, filename: `${base}.csv`, rowCount: exportRows.length };
+  }
+
+  const buffer = await buildExportBuffer([{ name: '审计日志', columns: picked, rows: exportRows }]);
+  return { buffer, filename: `${base}.xlsx`, rowCount: exportRows.length };
+}
+
+/** 当前生效的审计保留天数（0 = 永久保留）。 */
+export async function getRetentionDays(): Promise<number> {
+  const settings = await getSettings();
+  return Number(settings.auditRetentionDays ?? 0);
+}
+
+/** 清理结果。 */
+export interface AuditCleanupResult {
+  /** 保留天数（0 = 未执行清理） */
+  retentionDays: number;
+  /** 实际删除条数 */
+  deletedCount: number;
+  /** 清理阈值时刻（ISO；未清理为 null） */
+  cutoff: string | null;
+  /** 清理前日志总条数 */
+  remainingCount: number;
+}
+
+/**
+ * 按保留策略清理过期审计日志（仅 admin）。
+ * - 默认取系统设置 `auditRetentionDays`；显式传 `retentionDays` 可覆盖；
+ * - 0 或负数 → 视为「永久保留」，不删除任何日志；
+ * - 清理动作本身也会写入一条审计日志（留痕），故 `remainingCount` 已含该条。
+ * @param operatorId 操作者 id（用于留痕）
+ * @param retentionDays 覆盖保留天数（省略 = 取系统设置）
+ */
+export async function cleanup(
+  operatorId: string,
+  retentionDays?: number,
+): Promise<AuditCleanupResult> {
+  const days = retentionDays ?? (await getRetentionDays());
+  if (!Number.isFinite(days) || days <= 0) {
+    const remaining = await repo.count({});
+    return { retentionDays: 0, deletedCount: 0, cutoff: null, remainingCount: remaining };
+  }
+  const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const cutoffDb = toDbDate(cutoffDate);
+  const before = await repo.count({});
+  const deletedCount = await repo.deleteBefore(cutoffDb);
+
+  await record({
+    actorId: operatorId,
+    action: 'audit.cleanup',
+    targetType: 'audit',
+    targetId: 'audit_logs',
+    targetName: '审计日志',
+    detail: { retentionDays: days, deletedCount },
+  });
+
+  // 清理动作自身会新增 1 条日志（留痕）
+  return {
+    retentionDays: days,
+    deletedCount,
+    cutoff: cutoffDate.toISOString(),
+    remainingCount: before - deletedCount + 1,
   };
 }

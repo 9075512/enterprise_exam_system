@@ -129,6 +129,12 @@ export const settingsSchema = z.object({
     .min(0, '成绩复核时限必须为 0~365 天')
     .max(365, '成绩复核时限必须为 0~365 天'),
 
+  auditRetentionDays: z
+    .number({ invalid_type_error: '审计日志保留天数必须为 0~3650 天' })
+    .int('审计日志保留天数必须为 0~3650 天')
+    .min(0, '审计日志保留天数必须为 0~3650 天')
+    .max(3650, '审计日志保留天数必须为 0~3650 天'),
+
   notifySiteEnabled: z.boolean({ invalid_type_error: '站内信通知开关必须为布尔值' }),
   notifyEmailEnabled: z.boolean({ invalid_type_error: '邮件通知开关必须为布尔值' }),
   notifyOnPublish: z.boolean({ invalid_type_error: '考试发布通知开关必须为布尔值' }),

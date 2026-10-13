@@ -103,6 +103,12 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     changes.push('exams.allow_appeal');
   }
 
+  // v1.7②：题目标签（知识点，JSON 数组；NULL = 无标签）
+  if (!(await columnExists(conn, 'questions', 'tags'))) {
+    await conn.query(`ALTER TABLE questions ADD COLUMN tags JSON NULL AFTER subject`);
+    changes.push('questions.tags');
+  }
+
   // v1.5：用户邮箱（邮件通知接收地址，可空）
   if (!(await columnExists(conn, 'users', 'email'))) {
     await conn.query(`ALTER TABLE users ADD COLUMN email VARCHAR(120) NULL AFTER department_id`);

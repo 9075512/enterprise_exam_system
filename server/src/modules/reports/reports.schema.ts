@@ -18,3 +18,13 @@ export const reportExportQuerySchema = z.object({
     .max(1440, '时区偏移超出范围')
     .optional(),
 });
+
+/** 数据看板查询参数（v1.7②：科室下钻 + 时间范围）。 */
+export const dashboardQuerySchema = z.object({
+  /** 科室 id（下钻，含子科室） */
+  departmentId: z.string().trim().optional().default(''),
+  /** 起始日期/时刻（按考试开始时间，含） */
+  from: z.string().trim().optional().default(''),
+  /** 截止日期/时刻（含） */
+  to: z.string().trim().optional().default(''),
+});

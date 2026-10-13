@@ -8,8 +8,14 @@ import { validate } from '../../middleware/validate.js';
 import { authRequired } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/role.js';
 import { ok } from '../../utils/response.js';
-import { questionSchema, questionListQuerySchema, subjectsQuerySchema } from './questions.schema.js';
+import {
+  questionSchema,
+  questionListQuerySchema,
+  subjectsQuerySchema,
+  batchEditSchema,
+} from './questions.schema.js';
 import * as questionsService from './questions.service.js';
+import type { BatchEditInput } from './questions.service.js';
 import type { QuestionType } from '../../types/domain.js';
 
 export const questionsRouter = Router();
@@ -25,6 +31,7 @@ questionsRouter.get(
       bankIds?: string[];
       type?: QuestionType;
       subject: string;
+      tag: string;
       keyword: string;
       page: number;
       pageSize: number;
@@ -43,6 +50,26 @@ questionsRouter.get(
   }),
 );
 
+/** GET /api/questions/tags —— 全部知识点标签（去重排序，v1.7②）。 */
+questionsRouter.get(
+  '/tags',
+  validate(subjectsQuerySchema, 'query'),
+  asyncHandler(async (req, res) => {
+    const { bankIds } = req.query as unknown as { bankIds?: string[] };
+    return ok(res, await questionsService.listTags(bankIds, req.user!));
+  }),
+);
+
+/** POST /api/questions/batch-edit —— 批量编辑（科目 / 知识点标签 / 默认分值，v1.7②）。 */
+questionsRouter.post(
+  '/batch-edit',
+  validate(batchEditSchema, 'body'),
+  asyncHandler(async (req, res) => {
+    const body = req.body as BatchEditInput;
+    return ok(res, await questionsService.batchEdit(body, req.user!));
+  }),
+);
+
 /** POST /api/questions —— 新增试题。 */
 questionsRouter.post(
   '/',
@@ -57,6 +84,7 @@ questionsRouter.post(
       defaultScore: number;
       analysis: string;
       subject: string;
+      tags: string[];
     };
     return ok(res, await questionsService.create(body, req.user!));
   }),
@@ -76,6 +104,7 @@ questionsRouter.put(
       defaultScore: number;
       analysis: string;
       subject: string;
+      tags: string[];
     };
     return ok(res, await questionsService.update(req.params.id, body, req.user!));
   }),

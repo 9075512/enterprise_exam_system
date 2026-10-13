@@ -23,19 +23,37 @@ const ruleItem = z.object({
   score: z.coerce.number().positive('每题分值必须为正数'),
 });
 
+/** 按知识点（标签）抽题规则（v1.7②）。 */
+const tagRuleItem = z.object({
+  tag: z.string().min(1, '知识点标签不能为空'),
+  count: z.coerce.number().int().positive('抽题数量必须为正整数'),
+  score: z.coerce.number().positive('每题分值必须为正数'),
+});
+
 /** 抽题入参。 */
-export const drawSchema = z.object({
-  bankIds: z.array(z.string()).min(1, '请至少选择一个题库'),
-  rules: z
-    .object({
-      single: ruleItem.optional(),
-      multiple: ruleItem.optional(),
-      judge: ruleItem.optional(),
-    })
-    .refine((r) => Boolean(r.single || r.multiple || r.judge), {
-      message: '请至少配置一种题型的抽题数量',
-    }),
+export const drawSchema = z
+  .object({
+    bankIds: z.array(z.string()).min(1, '请至少选择一个题库'),
+    rules: z
+      .object({
+        single: ruleItem.optional(),
+        multiple: ruleItem.optional(),
+        judge: ruleItem.optional(),
+      })
+      .optional()
+      .default({}),
+    /** 按知识点标签配比抽题（v1.7②；与题型规则可同时使用，结果自动去重） */
+    tagRules: z.array(tagRuleItem).optional().default([]),
+  })
+  .refine((v) => Boolean(v.rules.single || v.rules.multiple || v.rules.judge) || v.tagRules.length > 0, {
+    message: '请至少配置一种题型或一个知识点标签的抽题数量',
+  });
+
+/** 试卷克隆入参（v1.7②；name 省略 → 自动「原名（副本）」）。 */
+export const cloneSchema = z.object({
+  name: z.string().optional(),
 });
 
 export type PaperInput = z.infer<typeof paperSchema>;
 export type DrawInput = z.infer<typeof drawSchema>;
+export type CloneInput = z.infer<typeof cloneSchema>;
