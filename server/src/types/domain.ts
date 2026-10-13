@@ -772,3 +772,69 @@ export interface UserBatchDto {
   operatorId: string;
   createdAt: string;
 }
+
+// ============================================================
+// v1.6④ 增量 DTO：操作审计日志 / 数据看板（趋势 + 归因）
+// ============================================================
+
+/** 审计动作（机器可读稳定 key，前端映射中文文案） */
+export type AuditAction =
+  | 'user.create'
+  | 'user.update'
+  | 'user.delete'
+  | 'user.reset_password'
+  | 'exam.create'
+  | 'exam.update'
+  | 'exam.delete'
+  | 'bank.create'
+  | 'bank.update'
+  | 'bank.delete'
+  | 'bank.migrate'
+  | 'permission.update';
+
+/** 审计目标类型 */
+export type AuditTargetType = 'user' | 'exam' | 'bank' | 'permission';
+
+/** 操作审计日志 DTO（自包含，actor 删除后仍可读） */
+export interface AuditLogDto {
+  id: string;
+  actorId: string;
+  actorName: string;
+  /** 审计动作 key（如 'user.create'） */
+  action: AuditAction;
+  targetType: AuditTargetType;
+  targetId: string;
+  targetName: string;
+  /** 附加明细（JSON 对象，如被改字段摘要） */
+  detail: Record<string, unknown>;
+  /** ISO 8601（UTC） */
+  createdAt: string;
+}
+
+/** 及格率时间趋势点（一场考试一个点，按开始时间升序） */
+export interface ExamTrendPointDto {
+  examId: string;
+  examName: string;
+  /** 考试开始时刻 ISO 8601（UTC） */
+  startTime: string;
+  /** 参考人数（每人取最新一次已交卷） */
+  total: number;
+  avgScore: number;
+  /** 及格率 0~1 小数 */
+  passRate: number;
+}
+
+/** 按科目（知识点）的错题归因项 */
+export interface SubjectWrongItemDto {
+  subject: string;
+  wrongCount: number;
+  totalAnswered: number;
+  /** 错题率 0~1 小数 */
+  wrongRate: number;
+}
+
+/** 数据看板聚合（及格率趋势 + 科目错题归因） */
+export interface DashboardReportDto {
+  examTrend: ExamTrendPointDto[];
+  subjectWrong: SubjectWrongItemDto[];
+}

@@ -8,6 +8,9 @@ import { isAnswerCorrect } from '../records/records.service.js';
 import { badRequest, notFound } from '../../utils/errors.js';
 import { buildExportBuffer } from '../../utils/excelExport.js';
 import type { ExportColumn } from '../../utils/excelExport.js';
+import { buildPdfBuffer } from '../../utils/pdfExport.js';
+import { fromDbDateSafe } from '../../utils/datetime.js';
+import { parseJsonColumn } from '../../utils/json.js';
 import {
   DEFAULT_SCORE_EXPORT_KEYS,
   SCORE_EXPORT_COLUMNS,
@@ -15,7 +18,16 @@ import {
 } from './reports.columns.js';
 import type { ScoreExportRow } from './reports.columns.js';
 import type { ScoreExportRawRow } from './reports.repo.js';
-import type { BandItem, DeptItem, ExamRecordDto, ExamSummary, ReportDto, WrongItem } from '../../types/domain.js';
+import type {
+  BandItem,
+  DashboardReportDto,
+  DeptItem,
+  ExamRecordDto,
+  ExamSummary,
+  PaperSnapshot,
+  ReportDto,
+  WrongItem,
+} from '../../types/domain.js';
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
 
@@ -115,6 +127,62 @@ export async function getReport(examId: string): Promise<ReportDto> {
   const wrongRate = buildWrongRate(records);
 
   return { summary, bands, departments, wrongRate };
+}
+
+/* ============================ 数据看板（趋势 + 归因） ============================ */
+
+/** 空快照回退（理论不会用到，保证类型安全）。 */
+const EMPTY_SNAPSHOT: PaperSnapshot = { paperId: '', paperName: '', totalScore: 0, questions: [] };
+
+/**
+ * 数据看板聚合：
+ * - examTrend：每场考试（有已交卷记录）的及格率/平均分趋势，按开始时间升序；
+ * - subjectWrong：跨全部考试的科目（知识点）错题归因，按错题率降序。
+ * 口径与单场报表一致：每人取最新一次已交卷；简答题不纳入错题归因。
+ */
+export async function getDashboard(): Promise<DashboardReportDto> {
+  const [trendRows, latestRows] = await Promise.all([
+    repo.listExamTrend(),
+    repo.listLatestSubmittedAll(),
+  ]);
+
+  const examTrend = trendRows.map((r) => {
+    const total = Number(r.total);
+    const passCount = Number(r.pass_count);
+    return {
+      examId: r.exam_id,
+      examName: r.exam_name,
+      startTime: fromDbDateSafe(r.start_time),
+      total,
+      avgScore: round1(Number(r.avg_score)),
+      passRate: total > 0 ? round1(passCount / total) : 0,
+    };
+  });
+
+  const subjectStats = new Map<string, { wrong: number; total: number }>();
+  for (const row of latestRows) {
+    const snapshot = parseJsonColumn<PaperSnapshot>(row.paper_snapshot, EMPTY_SNAPSHOT);
+    const answers = parseJsonColumn<Record<string, number[] | string[]>>(row.answers, {});
+    for (const sq of snapshot.questions) {
+      if (sq.question.type === 'short') continue; // 简答人工阅卷，不纳入错题归因
+      const subject = (sq.question.subject ?? '').trim() || '未分类';
+      const stat = subjectStats.get(subject) ?? { wrong: 0, total: 0 };
+      stat.total += 1;
+      if (!isAnswerCorrect(sq.question, answers[sq.questionId])) stat.wrong += 1;
+      subjectStats.set(subject, stat);
+    }
+  }
+
+  const subjectWrong = [...subjectStats.entries()]
+    .map(([subject, s]) => ({
+      subject,
+      wrongCount: s.wrong,
+      totalAnswered: s.total,
+      wrongRate: s.total > 0 ? round1(s.wrong / s.total) : 0,
+    }))
+    .sort((a, b) => b.wrongRate - a.wrongRate || b.wrongCount - a.wrongCount);
+
+  return { examTrend, subjectWrong };
 }
 
 /* ============================ 成绩明细导出 ============================ */
@@ -233,5 +301,32 @@ export async function exportScores(
   const buffer = await buildExportBuffer([{ name: '成绩明细', columns: picked, rows }]);
   const stamp = formatLocal(new Date().toISOString(), tz).replace(/[-: ]/g, '');
   const filename = `${sanitizeFilename(examRow.name)}-成绩-${stamp}.xlsx`;
+  return { buffer, filename, rowCount: rows.length };
+}
+
+/**
+ * 导出某场考试的成绩明细为 PDF（复用同一套列白名单 + 数据源）。
+ * 文档结构：标题（考试名）+ 摘要行（人数/平均分/最高/最低/及格率）+ 数据表。
+ */
+export async function exportScoresPdf(
+  examId: string,
+  columns?: string,
+  tzOffset?: number,
+): Promise<ScoreExportResult> {
+  const tz = tzOffset ?? DEFAULT_TZ_OFFSET;
+  const examRow = await repo.findExam(examId);
+  if (!examRow) throw notFound('考试不存在或已被删除');
+
+  const picked = resolveExportColumns(columns);
+  const raws = await repo.listLatestSubmittedWithUser(examId);
+  const rows = buildExportRows(raws, tz);
+  const summary = buildSummary(examId, raws.map(mapRecordRow), Number(examRow.pass_score));
+  const subtitle =
+    `参考人数 ${summary.total} 人 · 平均分 ${summary.avgScore} · 最高 ${summary.maxScore} · ` +
+    `最低 ${summary.minScore} · 及格率 ${(summary.passRate * 100).toFixed(1)}%`;
+
+  const buffer = await buildPdfBuffer({ title: examRow.name, subtitle, columns: picked, rows });
+  const stamp = formatLocal(new Date().toISOString(), tz).replace(/[-: ]/g, '');
+  const filename = `${sanitizeFilename(examRow.name)}-成绩-${stamp}.pdf`;
   return { buffer, filename, rowCount: rows.length };
 }

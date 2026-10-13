@@ -29,6 +29,7 @@ export const MENU_CATALOG: readonly MenuDef[] = [
   { key: 'practice-settings', name: '练题端设置', defaultRoles: ['admin'], adminRequired: false },
   { key: 'settings', name: '系统设置', defaultRoles: ['admin'], adminRequired: true },
   { key: 'permissions', name: '菜单权限', defaultRoles: ['admin'], adminRequired: true },
+  { key: 'audit', name: '审计日志', defaultRoles: ['admin'], adminRequired: false },
   { key: 'my-exams', name: '我的考试', defaultRoles: ['examinee'], adminRequired: false },
   { key: 'my-scores', name: '我的成绩', defaultRoles: ['examinee'], adminRequired: false },
 ];

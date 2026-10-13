@@ -14,6 +14,7 @@ import { withTransaction } from '../../db/pool.js';
 import { badRequest, conflict, notFound } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
 import { nowDb, fromDbDateSafe } from '../../utils/datetime.js';
+import * as auditService from '../audit/audit.service.js';
 import type { BankDetailDto, BankDto } from '../../types/domain.js';
 
 /** 行 → 基础 DTO（authorIds/authorNames 由 attachAuthors 补充）。 */
@@ -107,6 +108,14 @@ export async function create(
   const created = await repo.findById(id);
   const authorMap = await bankAuthorsRepo.listAuthorsByBanks([id]);
   const [dto] = attachAuthors([mapRow(created!)], authorMap);
+  await auditService.record({
+    actorId: operator.id,
+    action: 'bank.create',
+    targetType: 'bank',
+    targetId: dto.id,
+    targetName: dto.name,
+    detail: { category: dto.category },
+  });
   return dto;
 }
 
@@ -136,6 +145,14 @@ export async function update(
   const updated = await repo.findById(id);
   const authorMap = await bankAuthorsRepo.listAuthorsByBanks([id]);
   const [dto] = attachAuthors([mapRow(updated!)], authorMap);
+  await auditService.record({
+    actorId: operator.id,
+    action: 'bank.update',
+    targetType: 'bank',
+    targetId: dto.id,
+    targetName: dto.name,
+    detail: { category: dto.category },
+  });
   return dto;
 }
 
@@ -154,6 +171,13 @@ export async function remove(id: string, cascade: boolean, operator: Operator): 
       await bankAuthorsRepo.removeByBank(id, conn);
       await repo.remove(id, conn);
     });
+    await auditService.record({
+      actorId: operator.id,
+      action: 'bank.delete',
+      targetType: 'bank',
+      targetId: id,
+      targetName: current.name,
+    });
     return;
   }
 
@@ -169,6 +193,14 @@ export async function remove(id: string, cascade: boolean, operator: Operator): 
     await repo.deleteQuestionsByBank(id, conn);
     await bankAuthorsRepo.removeByBank(id, conn);
     await repo.remove(id, conn);
+  });
+  await auditService.record({
+    actorId: operator.id,
+    action: 'bank.delete',
+    targetType: 'bank',
+    targetId: id,
+    targetName: current.name,
+    detail: { cascade: true, questionCount },
   });
 }
 
@@ -200,5 +232,13 @@ export async function migrateQuestions(
   if (moved < ids.length) {
     throw badRequest(`仅迁移 ${moved}/${ids.length} 道试题，部分题目不属于该题库或不存在`);
   }
+  await auditService.record({
+    actorId: operator.id,
+    action: 'bank.migrate',
+    targetType: 'bank',
+    targetId: sourceBankId,
+    targetName: source.name,
+    detail: { targetBankId: input.targetBankId, targetBankName: target.name, moved },
+  });
   return { moved };
 }

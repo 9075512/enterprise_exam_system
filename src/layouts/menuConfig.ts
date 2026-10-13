@@ -20,6 +20,7 @@ import {
   Setting,
   TrendCharts,
   User,
+  Tickets,
 } from '@element-plus/icons-vue';
 import type { Role } from '@/types';
 
@@ -47,6 +48,7 @@ const ALL_MENUS: MenuItem[] = [
   { key: 'practice-settings', text: '练题端设置', path: '/admin/practice-settings', icon: Notebook, roles: ['admin'] },
   { key: 'settings', text: '系统设置', path: '/admin/settings', icon: Setting, roles: ['admin'] },
   { key: 'permissions', text: '菜单权限', path: '/admin/permissions', icon: Lock, roles: ['admin'] },
+  { key: 'audit', text: '审计日志', path: '/admin/audit', icon: Tickets, roles: ['admin'] },
   { key: 'my-exams', text: '我的考试', path: '/exam/my', icon: AlarmClock, roles: ['examinee'] },
   { key: 'my-scores', text: '我的成绩', path: '/exam/scores', icon: TrendCharts, roles: ['examinee'] },
 ];

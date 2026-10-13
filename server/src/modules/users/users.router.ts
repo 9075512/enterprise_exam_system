@@ -41,7 +41,7 @@ usersRouter.post(
       status?: UserStatus;
       password?: string;
     };
-    const user = await usersService.create(body);
+    const user = await usersService.create(body, req.user!.id);
     return ok(res, user);
   }),
 );
@@ -60,7 +60,7 @@ usersRouter.put(
       status?: UserStatus;
       password?: string;
     };
-    const user = await usersService.update(req.params.id, body);
+    const user = await usersService.update(req.params.id, body, req.user!.id);
     return ok(res, user);
   }),
 );
@@ -78,7 +78,7 @@ usersRouter.delete(
 usersRouter.post(
   '/:id/reset-password',
   asyncHandler(async (req, res) => {
-    await usersService.resetPassword(req.params.id);
+    await usersService.resetPassword(req.params.id, req.user!.id);
     return ok(res, null);
   }),
 );

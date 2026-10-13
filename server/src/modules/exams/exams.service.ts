@@ -14,6 +14,7 @@ import { genId } from '../../utils/id.js';
 import { nowDb, toDbDate } from '../../utils/datetime.js';
 import { getSettings } from '../settings/settings.service.js';
 import { notifyUsers } from '../../utils/notify.js';
+import * as auditService from '../audit/audit.service.js';
 import type { ExamDto, ExamMyDto, RecordStatus, RetakeStatus } from '../../types/domain.js';
 
 /** 校验并归一化考试入参（照搬 v1.0 examService.save 规则）。 */
@@ -178,21 +179,43 @@ export async function create(input: Parameters<typeof validateExamInput>[0], ope
     });
   }
 
+  await auditService.record({
+    actorId: operatorId,
+    action: 'exam.create',
+    targetType: 'exam',
+    targetId: dto.id,
+    targetName: dto.name,
+    detail: { passScore: dto.passScore, maxAttempts: dto.maxAttempts, departmentCount: dto.departmentIds.length },
+  });
+
   return dto;
 }
 
 /** 编辑考试。 */
-export async function update(id: string, input: Parameters<typeof validateExamInput>[0]): Promise<ExamDto> {
+export async function update(
+  id: string,
+  input: Parameters<typeof validateExamInput>[0],
+  operatorId: string,
+): Promise<ExamDto> {
   const current = await repo.findById(id);
   if (!current) throw notFound('考试不存在或已被删除');
   const data = await validateExamInput(input);
   await repo.update(id, data);
   const updated = await repo.findById(id);
-  return mapExamRow(updated!);
+  const dto = mapExamRow(updated!);
+  await auditService.record({
+    actorId: operatorId,
+    action: 'exam.update',
+    targetType: 'exam',
+    targetId: dto.id,
+    targetName: dto.name,
+    detail: { passScore: dto.passScore, maxAttempts: dto.maxAttempts, departmentCount: dto.departmentIds.length },
+  });
+  return dto;
 }
 
 /** 删除考试（已有成绩记录 → 1005）。 */
-export async function remove(id: string): Promise<void> {
+export async function remove(id: string, operatorId: string): Promise<void> {
   const current = await repo.findById(id);
   if (!current) throw notFound('考试不存在或已被删除');
   const recordCount = await repo.countRecords(id);
@@ -200,4 +223,11 @@ export async function remove(id: string): Promise<void> {
     throw conflict('该考试已存在成绩记录，无法删除');
   }
   await repo.remove(id);
+  await auditService.record({
+    actorId: operatorId,
+    action: 'exam.delete',
+    targetType: 'exam',
+    targetId: id,
+    targetName: current.name,
+  });
 }

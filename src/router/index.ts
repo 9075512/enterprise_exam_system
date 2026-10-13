@@ -80,6 +80,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/admin/MenuPermissionPage.vue'),
         meta: { roles: ['admin'], menuKey: 'permissions', title: '菜单权限' },
       },
+      {
+        path: 'admin/audit',
+        component: () => import('@/views/admin/AuditLogPage.vue'),
+        meta: { roles: ['admin'], menuKey: 'audit', title: '审计日志' },
+      },
       // 出题人 + 管理员（题库/试卷域同权）
       {
         path: 'author/banks',

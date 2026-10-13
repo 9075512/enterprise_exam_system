@@ -10,6 +10,7 @@ import { badRequest, conflict, notFound } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
 import { nowDb } from '../../utils/datetime.js';
 import { getSettings } from '../settings/settings.service.js';
+import * as auditService from '../audit/audit.service.js';
 import type { Role, UserDto, UserStatus } from '../../types/domain.js';
 
 const BCRYPT_COST = 10;
@@ -43,15 +44,18 @@ export async function list(filter: { role?: Role; keyword?: string }): Promise<U
 }
 
 /** 新建用户。 */
-export async function create(input: {
-  username: string;
-  name: string;
-  role: Role;
-  departmentId?: string;
-  email?: string;
-  status?: UserStatus;
-  password?: string;
-}): Promise<UserDto> {
+export async function create(
+  input: {
+    username: string;
+    name: string;
+    role: Role;
+    departmentId?: string;
+    email?: string;
+    status?: UserStatus;
+    password?: string;
+  },
+  operatorId: string,
+): Promise<UserDto> {
   const username = input.username.trim();
   const name = input.name.trim();
   if (!username) throw badRequest('登录账号不能为空');
@@ -87,7 +91,16 @@ export async function create(input: {
     createdAt: nowDb(),
   });
   const created = await repo.findById(id);
-  return mapUserRow(created!);
+  const dto = mapUserRow(created!);
+  await auditService.record({
+    actorId: operatorId,
+    action: 'user.create',
+    targetType: 'user',
+    targetId: id,
+    targetName: dto.name,
+    detail: { username: dto.username, role: dto.role },
+  });
+  return dto;
 }
 
 /** 编辑用户（可改密码/状态）。 */
@@ -102,6 +115,7 @@ export async function update(
     status?: UserStatus;
     password?: string;
   },
+  operatorId: string,
 ): Promise<UserDto> {
   const username = input.username.trim();
   const name = input.name.trim();
@@ -136,7 +150,16 @@ export async function update(
     await repo.updatePasswordHash(id, await bcrypt.hash(input.password, BCRYPT_COST));
   }
   const updated = await repo.findById(id);
-  return mapUserRow(updated!);
+  const dto = mapUserRow(updated!);
+  await auditService.record({
+    actorId: operatorId,
+    action: 'user.update',
+    targetType: 'user',
+    targetId: id,
+    targetName: dto.name,
+    detail: { username: dto.username, role: dto.role },
+  });
+  return dto;
 }
 
 /** 删除用户（有考试记录 → 1005；不允许删除自己 → 1005）。 */
@@ -150,12 +173,28 @@ export async function remove(id: string, operatorId: string): Promise<void> {
     throw conflict('该用户存在考试记录，无法删除，可改为停用账号');
   }
   await repo.remove(id);
+  await auditService.record({
+    actorId: operatorId,
+    action: 'user.delete',
+    targetType: 'user',
+    targetId: id,
+    targetName: current.name,
+    detail: { username: current.username },
+  });
 }
 
 /** 重置密码为默认密码。 */
-export async function resetPassword(id: string): Promise<void> {
+export async function resetPassword(id: string, operatorId: string): Promise<void> {
   const current = await repo.findById(id);
   if (!current) throw notFound('用户不存在或已被删除');
   const settings = await getSettings();
   await repo.updatePasswordHash(id, await bcrypt.hash(settings.defaultPassword, BCRYPT_COST));
+  await auditService.record({
+    actorId: operatorId,
+    action: 'user.reset_password',
+    targetType: 'user',
+    targetId: id,
+    targetName: current.name,
+    detail: { username: current.username },
+  });
 }

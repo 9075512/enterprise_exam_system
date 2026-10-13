@@ -12,6 +12,7 @@ import {
 import { parseJsonColumn } from '../../utils/json.js';
 import { badRequest } from '../../utils/errors.js';
 import { withTransaction } from '../../db/pool.js';
+import * as auditService from '../audit/audit.service.js';
 import type { MenuGrantsDto, MenuPermissionDto, MyMenusDto, Role } from '../../types/domain.js';
 
 const ROLES: Role[] = ['admin', 'author', 'examinee'];
@@ -78,6 +79,18 @@ export async function updateMenuPermissions(
     for (const r of ROLES) {
       await repo.upsert(r, next[r], operatorId, conn);
     }
+  });
+
+  await auditService.record({
+    actorId: operatorId,
+    action: 'permission.update',
+    targetType: 'permission',
+    targetName: '菜单权限',
+    detail: {
+      admin: next.admin.length,
+      author: next.author.length,
+      examinee: next.examinee.length,
+    },
   });
 
   return { catalog: catalogDto(), grants: next };

@@ -457,6 +457,63 @@ export interface Report {
   wrongRate: WrongItem[];
 }
 
+/** 审计动作（与后端 domain.ts AuditAction 一致） */
+export type AuditAction =
+  | 'user.create'
+  | 'user.update'
+  | 'user.delete'
+  | 'user.reset_password'
+  | 'exam.create'
+  | 'exam.update'
+  | 'exam.delete'
+  | 'bank.create'
+  | 'bank.update'
+  | 'bank.delete'
+  | 'bank.migrate'
+  | 'permission.update';
+
+/** 审计目标类型 */
+export type AuditTargetType = 'user' | 'exam' | 'bank' | 'permission';
+
+/** 操作审计日志 */
+export interface AuditLog {
+  id: string;
+  actorId: string;
+  actorName: string;
+  action: AuditAction;
+  targetType: AuditTargetType;
+  targetId: string;
+  targetName: string;
+  detail: Record<string, unknown>;
+  createdAt: string;
+}
+
+/** 及格率时间趋势点 */
+export interface ExamTrendPoint {
+  examId: string;
+  examName: string;
+  startTime: string;
+  total: number;
+  avgScore: number;
+  /** 及格率 0~1 */
+  passRate: number;
+}
+
+/** 科目（知识点）错题归因项 */
+export interface SubjectWrongItem {
+  subject: string;
+  wrongCount: number;
+  totalAnswered: number;
+  /** 错题率 0~1 */
+  wrongRate: number;
+}
+
+/** 数据看板聚合 */
+export interface DashboardReport {
+  examTrend: ExamTrendPoint[];
+  subjectWrong: SubjectWrongItem[];
+}
+
 /**
  * 系统设置（全局单例，仅 admin 可改，所有角色可读）。
  * 后端缺失字段时一律回退到 `src/constants/settings.ts` 的 SETTINGS_DEFAULTS，

@@ -12,7 +12,7 @@
 | ① 防作弊与公平性 | 答题页浮水印 + 复制/粘贴限制 + 切屏审查页 | 后台可配置；切屏审查独立视图 | ✅ 已完成 |
 | ② 题型扩展与人工阅卷 | 填空/简答 + 主观题阅卷流 | 全链路题型扩展，`pending_review` 状态 | ✅ 已完成 |
 | ③ 组织与权限精细化 | 多级科室树 + 出题人题库授权 | 父子科室、题库负责人映射 | ✅ 已完成 |
-| ④ 数据运营与审计 | 操作审计日志 + PDF 导出 + 趋势归因 | 审计表、PDF、看板趋势 | 待做 |
+| ④ 数据运营与审计 | 操作审计日志 + PDF 导出 + 趋势归因 | 审计表、PDF、看板趋势 | ✅ 已完成 |
 
 ---
 
@@ -60,11 +60,13 @@
 
 ---
 
-## 5. ④ 数据运营与审计（待做）
+## 5. ④ 数据运营与审计（已完成）
 
-- **操作审计日志**：`audit_logs` 表（actor/action/target/before/after/at）；关键操作（用户/考试/题库/权限）落日志。
-- **PDF 导出**：成绩/报表一键 PDF（沿用 CSV 导出字段白名单，引入 PDF 生成）。
-- **看板趋势与归因**：及格率时间趋势、按科目/知识点的错题归因（ECharts）。
+- **操作审计日志**：`audit_logs` 表（actor_id/actor_name/action/target_type/target_id/target_name/detail/created_at，自包含、无外键）。
+  - 关键操作落日志：用户（建/改/删/重置密码）、考试（建/改/删）、题库（建/改/删/迁移试题）、菜单权限（更新）。
+  - 统一入口 `audit.service.record()`，fail-open（审计失败不阻断主业务）；`GET /api/audit-logs`（admin）按动作/目标类型/关键字/时间范围过滤 + 分页。
+- **PDF 导出**：`GET /api/reports/exams/:id/export-pdf`，复用成绩导出的列白名单；`utils/pdfExport.ts`（pdfkit + 中文字体解析 + 表格自动分页）；前端导出弹窗支持 Excel / PDF 格式切换。
+- **看板趋势与归因**：`GET /api/reports/dashboard`（及格率时间趋势 + 按科目错题归因）；前端数据总览页 ECharts 双轴折线（及格率/平均分）+ 科目错题率柱状图。
 
 ---
 
@@ -76,7 +78,7 @@
 
 **③（已落地）**：`departments` 增 `parent_id`（自引用）；新增 `bank_authors`。
 
-**④**：新增 `audit_logs`。
+**④（已落地）**：新增 `audit_logs`。
 
 ---
 

@@ -7,6 +7,7 @@
  * 每位考生的 max(attempt_no) 实现去重（summary / bands / departments / wrongRate 共用同一数据源）。
  */
 import { query } from '../../db/pool.js';
+import type { RowDataPacket } from 'mysql2/promise';
 import type { ExamRecordDetailRow, ExamRecordRow } from '../records/records.mapper.js';
 
 export { findById as findExam } from '../exams/exams.repo.js';
@@ -66,5 +67,54 @@ export async function listLatestSubmittedWithUser(examId: string): Promise<Score
       WHERE r.exam_id = ? AND r.status = 'submitted'
       ORDER BY r.score DESC, u.name ASC`,
     [examId, examId],
+  );
+}
+
+/** 及格率趋势行（每场考试一行，聚合已交卷的最新一次作答）。 */
+export interface ExamTrendRow extends RowDataPacket {
+  exam_id: string;
+  exam_name: string;
+  start_time: string;
+  total: number | string;
+  avg_score: number | string;
+  pass_count: number | string;
+}
+
+/**
+ * 全部考试的及格率趋势：每人取最新一次已交卷，按考试聚合人数/平均分/及格人数。
+ * MySQL 布尔比较 `r.score >= e.pass_score` 返回 1/0，SUM 即及格人数。
+ */
+export async function listExamTrend(): Promise<ExamTrendRow[]> {
+  return query<ExamTrendRow[]>(
+    `SELECT e.id AS exam_id, e.name AS exam_name, e.start_time,
+            COUNT(m.user_id) AS total,
+            COALESCE(AVG(r.score), 0) AS avg_score,
+            COALESCE(SUM(r.score >= e.pass_score), 0) AS pass_count
+       FROM exams e
+       JOIN exam_records r ON r.exam_id = e.id AND r.status = 'submitted'
+       JOIN ( SELECT exam_id, user_id, MAX(attempt_no) AS max_attempt
+                FROM exam_records WHERE status = 'submitted' GROUP BY exam_id, user_id ) m
+         ON m.exam_id = r.exam_id AND m.user_id = r.user_id AND m.max_attempt = r.attempt_no
+      GROUP BY e.id, e.name, e.start_time
+      ORDER BY e.start_time ASC`,
+  );
+}
+
+/** 错题归因数据源行（仅需快照与答案，用于按科目统计错题）。 */
+export interface LatestRecordRow extends RowDataPacket {
+  exam_id: string;
+  paper_snapshot: unknown;
+  answers: unknown;
+}
+
+/** 全部考试「每位考生最近一次已交卷」的记录（跨考试科目错题归因数据源）。 */
+export async function listLatestSubmittedAll(): Promise<LatestRecordRow[]> {
+  return query<LatestRecordRow[]>(
+    `SELECT r.exam_id, r.paper_snapshot, r.answers
+       FROM exam_records r
+       JOIN ( SELECT exam_id, user_id, MAX(attempt_no) AS max_attempt
+                FROM exam_records WHERE status = 'submitted' GROUP BY exam_id, user_id ) m
+         ON m.exam_id = r.exam_id AND m.user_id = r.user_id AND m.max_attempt = r.attempt_no
+      WHERE r.status = 'submitted'`,
   );
 }

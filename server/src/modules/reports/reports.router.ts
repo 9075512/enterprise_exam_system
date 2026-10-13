@@ -14,6 +14,12 @@ export const reportsRouter = Router();
 
 reportsRouter.use(authRequired, requireRole('admin'));
 
+/** GET /api/reports/dashboard —— 数据看板（及格率趋势 + 科目错题归因）。 */
+reportsRouter.get(
+  '/dashboard',
+  asyncHandler(async (_req, res) => ok(res, await reportsService.getDashboard())),
+);
+
 /** GET /api/reports/exams/:id —— 报表聚合（summary + bands + departments + wrongRate）。 */
 reportsRouter.get(
   '/exams/:id',
@@ -35,6 +41,24 @@ reportsRouter.get(
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="scores-${Date.now()}.xlsx"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+    );
+    res.setHeader('Content-Length', String(buffer.length));
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+    res.send(buffer);
+  }),
+);
+
+/** GET /api/reports/exams/:id/export-pdf —— 导出成绩明细 .pdf（可勾选列，同一套白名单）。 */
+reportsRouter.get(
+  '/exams/:id/export-pdf',
+  validate(reportExportQuerySchema, 'query'),
+  asyncHandler(async (req, res) => {
+    const q = req.query as unknown as { columns?: string; tzOffset?: number };
+    const { buffer, filename } = await reportsService.exportScoresPdf(req.params.id, q.columns, q.tzOffset);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="scores-${Date.now()}.pdf"; filename*=UTF-8''${encodeURIComponent(filename)}`,
     );
     res.setHeader('Content-Length', String(buffer.length));
     res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');

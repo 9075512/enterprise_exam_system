@@ -367,3 +367,21 @@ CREATE TABLE IF NOT EXISTS bank_authors (
     REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 25. 操作审计日志（v1.6④；actor 弱关联无外键——被审计对象/操作者可能已删除，日志须自包含）
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id          VARCHAR(64)  NOT NULL,
+  actor_id    VARCHAR(64)  NOT NULL,
+  actor_name  VARCHAR(64)  NOT NULL DEFAULT '',
+  action      VARCHAR(64)  NOT NULL,
+  target_type VARCHAR(32)  NOT NULL,
+  target_id   VARCHAR(64)  NOT NULL DEFAULT '',
+  target_name VARCHAR(255) NOT NULL DEFAULT '',
+  detail      JSON         NOT NULL,
+  created_at  DATETIME(3)  NOT NULL,
+  PRIMARY KEY (id),
+  KEY idx_audit_actor (actor_id),
+  KEY idx_audit_action (action),
+  KEY idx_audit_target (target_type, target_id),
+  KEY idx_audit_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

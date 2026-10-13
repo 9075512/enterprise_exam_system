@@ -2,7 +2,7 @@
  * 全局常量：角色/题型/状态文案、业务阈值、分页与导入上限、Token key、题库/导入文案。
  * 说明：已移除旧版 localStorage 存储 key（数据改由后端 API 承载）。
  */
-import type { ExamStatus, QuestionType, Role } from '@/types';
+import type { AuditAction, AuditTargetType, ExamStatus, QuestionType, Role } from '@/types';
 
 /** 登录令牌存储 key（仅存 Token，其余会话信息由 /api/auth/me 恢复） */
 export const TOKEN_KEY = 'exam_sys.token';
@@ -122,4 +122,41 @@ export const SCORE_EXPORT_FIELDS: ReadonlyArray<{ key: string; label: string }> 
 /** 默认勾选的导出字段（与「成绩列表」页签展示的列一致） */
 export const DEFAULT_SCORE_EXPORT_FIELDS: readonly string[] = [
   'name', 'department', 'attemptNo', 'submittedAt', 'score', 'passed', 'cheatCount', 'cheatSeconds',
+];
+
+/** 审计动作文案（与后端 audit.service AUDIT_ACTION_LABELS 一致） */
+export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
+  'user.create': '新建用户',
+  'user.update': '编辑用户',
+  'user.delete': '删除用户',
+  'user.reset_password': '重置密码',
+  'exam.create': '新建考试',
+  'exam.update': '编辑考试',
+  'exam.delete': '删除考试',
+  'bank.create': '新建题库',
+  'bank.update': '编辑题库',
+  'bank.delete': '删除题库',
+  'bank.migrate': '迁移试题',
+  'permission.update': '更新菜单权限',
+};
+
+/** 审计动作下拉选项 */
+export const AUDIT_ACTION_OPTIONS: ReadonlyArray<{ value: AuditAction; label: string }> = (
+  Object.entries(AUDIT_ACTION_LABELS) as Array<[AuditAction, string]>
+).map(([value, label]) => ({ value, label }));
+
+/** 审计目标类型文案 */
+export const AUDIT_TARGET_TYPE_LABELS: Record<AuditTargetType, string> = {
+  user: '用户',
+  exam: '考试',
+  bank: '题库',
+  permission: '菜单权限',
+};
+
+/** 审计目标类型下拉选项 */
+export const AUDIT_TARGET_TYPE_OPTIONS: ReadonlyArray<{ value: AuditTargetType; label: string }> = [
+  { value: 'user', label: '用户' },
+  { value: 'exam', label: '考试' },
+  { value: 'bank', label: '题库' },
+  { value: 'permission', label: '菜单权限' },
 ];

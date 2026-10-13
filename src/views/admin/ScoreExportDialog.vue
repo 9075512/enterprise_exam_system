@@ -16,6 +16,7 @@ const emit = defineEmits<{ (e: 'update:modelValue', v: boolean): void }>();
 
 const selected = ref<string[]>([...DEFAULT_SCORE_EXPORT_FIELDS]);
 const exporting = ref(false);
+const format = ref<'xlsx' | 'pdf'>('xlsx');
 
 const visible = computed({
   get: () => props.modelValue,
@@ -57,11 +58,15 @@ async function handleExport(): Promise<void> {
   }
   exporting.value = true;
   try {
-    const blob = await reportsApi.exportExamScores(props.examId, selected.value);
+    const isPdf = format.value === 'pdf';
+    const blob = isPdf
+      ? await reportsApi.exportExamScoresPdf(props.examId, selected.value)
+      : await reportsApi.exportExamScores(props.examId, selected.value);
+    const ext = isPdf ? 'pdf' : 'xlsx';
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${sanitize(props.examName)}-成绩-${stamp()}.xlsx`;
+    a.download = `${sanitize(props.examName)}-成绩-${stamp()}.${ext}`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -84,8 +89,16 @@ async function handleExport(): Promise<void> {
       :closable="false"
       show-icon
       title="按「每位考生最新一次作答」导出"
-      description="同一考生多次作答只导出最新一次；导出为 Excel（.xlsx）文件。"
+      description="同一考生多次作答只导出最新一次；支持 Excel（.xlsx）与 PDF（.pdf）两种格式。"
     />
+
+    <div class="score-export__header">
+      <span class="score-export__title">导出格式</span>
+      <el-radio-group v-model="format">
+        <el-radio-button value="xlsx">Excel（.xlsx）</el-radio-button>
+        <el-radio-button value="pdf">PDF（.pdf）</el-radio-button>
+      </el-radio-group>
+    </div>
 
     <div class="score-export__header">
       <span class="score-export__title">导出字段</span>

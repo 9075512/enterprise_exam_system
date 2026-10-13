@@ -74,7 +74,7 @@ export async function commit(
         departmentId,
         email: vr.email,
         password: vr.password,
-      });
+      }, operatorId);
       successCount += 1;
     } catch (err) {
       failCount += 1;

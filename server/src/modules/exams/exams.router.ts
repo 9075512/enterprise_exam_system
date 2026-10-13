@@ -58,7 +58,7 @@ examsRouter.put(
   validate(examSchema, 'body'),
   asyncHandler(async (req, res) => {
     const body = req.body as ExamInput;
-    return ok(res, await examsService.update(req.params.id, body));
+    return ok(res, await examsService.update(req.params.id, body, req.user!.id));
   }),
 );
 
@@ -67,7 +67,7 @@ examsRouter.delete(
   '/:id',
   requireRole('admin'),
   asyncHandler(async (req, res) => {
-    await examsService.remove(req.params.id);
+    await examsService.remove(req.params.id, req.user!.id);
     return ok(res, null);
   }),
 );
