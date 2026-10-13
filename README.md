@@ -102,7 +102,7 @@ npm run preview          # 预览构建产物
 
 # 后端
 npm --prefix server run typecheck   # tsc --noEmit
-npm --prefix server run test        # vitest + supertest（226 用例）
+npm --prefix server run test        # vitest + supertest（318 用例）
 npm --prefix server run build       # 编译到 server/dist
 npm --prefix server run start       # 运行编译产物
 ```
@@ -133,8 +133,12 @@ npm --prefix server run start       # 运行编译产物
 - **题型扩展与人工阅卷（v1.6②）**：填空（多空逐空自动判分：`trim` + 忽略大小写）+ 简答（人工阅卷，记录状态 `pending_review`）；新增「人工阅卷」页（待阅卷列表 + 逐题给分）。
 - **组织与权限精细化（v1.6③）**：多级科室树（考试按**祖先链**级联授权，选父科室覆盖整棵子树）；出题人题库授权（`bank_authors`，`author` 仅能管理被授权题库）。
 - **数据运营与审计（v1.6④）**：操作审计日志（用户/考试/题库/菜单权限写操作留痕，`fail-open`）+ 审计日志查询页；数据看板「及格率趋势 + 科目错题归因」。
+- **考试运营闭环（v1.7①）**：试卷 PDF 导出（含答案版/考生版）；成绩复核申请与审批流（`score_appeals`，可配开关与时限，通过可改分）；特殊考试安排（`exam_exceptions`：加时 / 额外次数 / 免考）。
+- **题库与数据运营深化（v1.7②）**：知识点（标签）体系与筛选；试卷克隆 + 题目批量编辑；看板下钻与筛选；审计日志导出与保留归档。
+- **安全与合规加固（v1.7③）**：图形验证码（替换自研算术题，`utils/captcha.ts`）；登录审计（`login_logs`）+ 密码策略（复杂度/有效期可配）+ 登录会话与设备管理（`user_sessions`，可远程下线）+ 两步验证（零依赖 TOTP，`utils/totp.ts`）；简答富文本/图片作答（服务端白名单净化 XSS）与评分细则（rubric 分档给分）；题库授权批量维护（按科室/角色圈选）。
+- **工程化与稳定性（v1.7④）**：实时考试监控大屏（轮询：花名册 + 进度 + 剩余时长 + 监考加时 + 强制交卷）；题库复制（含试题与授权）；数据归档与读路径 union（`exam_records_archive`，历史报表/成绩透明）+ 复合索引优化；通知文案模板化（8 事件可配文案）。
 
-## 数据表（25 张，一句话说明）
+## 数据表（30 张，一句话说明）
 
 | 表 | 说明 |
 | --- | --- |
@@ -163,8 +167,13 @@ npm --prefix server run start       # 运行编译产物
 | `menu_permissions` | 菜单权限（按角色一行，`menu_keys` JSON） |
 | `bank_authors` | 题库-出题人授权映射（v1.6③） |
 | `audit_logs` | 操作审计日志（v1.6④，自包含无外键） |
+| `score_appeals` | 成绩复核申请（v1.7①，`record_id` 唯一，状态 pending/approved/rejected） |
+| `exam_exceptions` | 特殊考试安排（v1.7①，按 考试×考生：加时 / 额外次数 / 免考） |
+| `login_logs` | 登录审计日志（v1.7③，自包含无外键，区分管理端/练题端来源） |
+| `user_sessions` | 登录会话与设备（v1.7③，支持远程下线与强制登出） |
+| `exam_records_archive` | 考试记录归档表（v1.7④，无外键可长期保留；历史读路径 union 合并） |
 
 ## ⚠️ 红线说明
 
-- 本系统只使用数据库 **`enterprise_exam_system`**（25 张表）。
+- 本系统只使用数据库 **`enterprise_exam_system`**（30 张表）。
 - 同名/同实例下的 **`exam_system`** 库属于**其他项目**（17 张表），**严禁对其执行任何 DDL/DML 操作**。所有脚本、测试与初始化均仅针对 `enterprise_exam_system`（及测试库 `enterprise_exam_system_test`）。
