@@ -26,6 +26,7 @@ import { signToken } from '../middleware/auth.js';
 import { isAnswerCorrect } from '../utils/grading.js';
 import { grade } from '../modules/records/records.service.js';
 import { env } from '../config/env.js';
+import { __peekCaptchaAnswer } from '../utils/captcha.js';
 import { nowDb } from '../utils/datetime.js';
 import type { ExamRecordDto, QuestionType } from '../types/domain.js';
 
@@ -78,19 +79,18 @@ async function loginToken(username: string, password: string, ip: string): Promi
   return res.body.data.token as string;
 }
 
-/** 下发并解出算术验证码。 */
+/** 下发并解出图形验证码（v1.7③ T1：答案不再随响应返回，测试经进程内钩子读取）。 */
 async function newCaptcha(ip = '198.51.100.9', fp = 'cap'): Promise<{ captchaId: string; captcha: string }> {
   const res = await request(app)
     .get('/api/practice/auth/captcha')
     .set('X-Forwarded-For', ip)
     .set('X-Device-Fp', fp);
   expect(res.body.code).toBe(0);
-  const { captchaId, question } = res.body.data as { captchaId: string; question: string };
-  const m = /(\d+)\s*([+\-])\s*(\d+)/.exec(question);
-  if (!m) throw new Error(`无法解析验证码题干：${question}`);
-  const a = Number(m[1]);
-  const b = Number(m[3]);
-  return { captchaId, captcha: String(m[2] === '+' ? a + b : a - b) };
+  const { captchaId, image } = res.body.data as { captchaId: string; image: string };
+  expect(image.startsWith('data:image/svg+xml;base64,')).toBe(true);
+  const captcha = __peekCaptchaAnswer(captchaId);
+  if (!captcha) throw new Error(`无法读取验证码答案：${captchaId}`);
+  return { captchaId, captcha };
 }
 
 /** 建会话并取全量题目 id。 */

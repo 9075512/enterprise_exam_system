@@ -30,7 +30,7 @@ export interface UserListFilter {
 }
 
 const USER_COLUMNS =
-  'u.id, u.username, u.password_hash, u.name, u.role, u.department_id, d.name AS department_name, u.email, u.status, u.created_at';
+  'u.id, u.username, u.password_hash, u.name, u.role, u.department_id, d.name AS department_name, u.email, u.status, u.password_changed_at, u.two_factor_enabled, u.created_at';
 const USER_FROM = 'FROM users u LEFT JOIN departments d ON d.id = u.department_id';
 
 /** 按 id 查询。 */
@@ -93,9 +93,20 @@ export async function insert(row: {
   createdAt: string;
 }): Promise<void> {
   await query<RowDataPacket[]>(
-    `INSERT INTO users (id, username, password_hash, name, role, department_id, email, status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [row.id, row.username, row.passwordHash, row.name, row.role, row.departmentId, row.email, row.status, row.createdAt],
+    `INSERT INTO users (id, username, password_hash, name, role, department_id, email, status, password_changed_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      row.id,
+      row.username,
+      row.passwordHash,
+      row.name,
+      row.role,
+      row.departmentId,
+      row.email,
+      row.status,
+      row.createdAt,
+      row.createdAt,
+    ],
   );
 }
 
@@ -115,9 +126,55 @@ export async function remove(id: string): Promise<void> {
   await query<RowDataPacket[]>(`DELETE FROM users WHERE id = ?`, [id]);
 }
 
-/** 更新口令哈希（改密 / 重置密码共用）。 */
+/** 更新口令哈希（改密 / 重置密码共用）；同时刷新密码最后修改时间（密码有效期策略用）。 */
 export async function updatePasswordHash(id: string, passwordHash: string): Promise<void> {
-  await query<RowDataPacket[]>(`UPDATE users SET password_hash = ? WHERE id = ?`, [passwordHash, id]);
+  await query<RowDataPacket[]>(
+    `UPDATE users SET password_hash = ?, password_changed_at = NOW(3) WHERE id = ?`,
+    [passwordHash, id],
+  );
+}
+
+/** 鉴权用行（含 2FA 密钥，**仅供登录流程内部使用**，绝不输出到接口）。 */
+export interface AuthUserRow extends RowDataPacket {
+  id: string;
+  username: string;
+  password_hash: string;
+  name: string;
+  role: Role;
+  department_id: string | null;
+  status: UserStatus;
+  password_changed_at: string | null;
+  two_factor_secret: string | null;
+  two_factor_enabled: number;
+  created_at: string;
+}
+
+/** 按 id 取鉴权用行（含 2FA 密钥）。 */
+export async function findAuthById(id: string): Promise<AuthUserRow | null> {
+  const rows = await query<AuthUserRow[]>(
+    `SELECT id, username, password_hash, name, role, department_id, status, password_changed_at,
+            two_factor_secret, two_factor_enabled, created_at
+       FROM users WHERE id = ? LIMIT 1`,
+    [id],
+  );
+  return rows[0] ?? null;
+}
+
+/** 写入 / 清除 2FA 密钥（开启流程先写密钥，验证通过后再置 enabled）。 */
+export async function setTwoFactorSecret(id: string, secret: string | null): Promise<void> {
+  await query<RowDataPacket[]>(`UPDATE users SET two_factor_secret = ? WHERE id = ?`, [secret, id]);
+}
+
+/** 设置 2FA 开关（关闭时一并清除密钥）。 */
+export async function setTwoFactorEnabled(id: string, enabled: boolean): Promise<void> {
+  if (enabled) {
+    await query<RowDataPacket[]>(`UPDATE users SET two_factor_enabled = 1 WHERE id = ?`, [id]);
+  } else {
+    await query<RowDataPacket[]>(
+      `UPDATE users SET two_factor_enabled = 0, two_factor_secret = NULL WHERE id = ?`,
+      [id],
+    );
+  }
 }
 
 /** 统计某科室下的用户数（删除科室前校验）。 */

@@ -39,6 +39,10 @@ export interface UserDto {
   /** 邮箱（邮件通知接收地址；可为空串） */
   email: string;
   status: UserStatus;
+  /** 是否已开启两步验证（v1.7③；密钥本身不外泄） */
+  twoFactorEnabled: boolean;
+  /** 密码最后修改时间（ISO 8601，UTC；无记录为空串） */
+  passwordChangedAt: string;
   /** ISO 8601（UTC） */
   createdAt: string;
 }
@@ -47,6 +51,46 @@ export interface UserDto {
 export interface LoginResult {
   token: string;
   user: UserDto;
+  /** 密码已超过有效期（v1.7③；仅提示，不阻断登录） */
+  passwordExpired?: boolean;
+}
+
+/** 登录第二步：需要两步验证（v1.7③） */
+export interface TwoFactorChallenge {
+  /** 需要继续校验两步验证码 */
+  twoFactorRequired: true;
+  /** 一次性挑战令牌（5 分钟；仅可用于 /auth/2fa/verify） */
+  challengeToken: string;
+}
+
+/** 登录接口返回：直接登录成功，或要求继续两步验证（v1.7③） */
+export type LoginOutcome = LoginResult | TwoFactorChallenge;
+
+/** 登录会话 / 设备（v1.7③） */
+export interface SessionDto {
+  id: string;
+  ip: string;
+  userAgent: string;
+  createdAt: string;
+  lastSeenAt: string;
+  /** 是否为当前请求所用会话 */
+  current: boolean;
+}
+
+/** 登录日志（v1.7③） */
+export interface LoginLogDto {
+  id: string;
+  username: string;
+  userId: string;
+  role: string;
+  ip: string;
+  userAgent: string;
+  success: boolean;
+  /** 失败原因（成功时为空串） */
+  reason: string;
+  /** 来源：admin（考试端）/ practice（练题端） */
+  source: string;
+  createdAt: string;
 }
 
 /** 分页响应（§4.4） */
@@ -420,12 +464,26 @@ export interface SystemSettings {
   loginMaxFails: number;
   /** 登录失败锁定时长（分钟） */
   loginLockMinutes: number;
+  /** 同一账号连续登录失败达到该次数后，登录需填写图形验证码（v1.7③ T1） */
+  loginCaptchaAfterFails: number;
   /** 倒计时剩余不足该分钟数时进入提醒态 */
   countdownWarningMinutes: number;
   /** 新建账号/重置密码使用的默认密码 */
   defaultPassword: string;
   /** 密码最小长度 */
   minPasswordLength: number;
+  /** 密码策略：是否要求包含大写字母（v1.7③ T2） */
+  passwordRequireUpper: boolean;
+  /** 密码策略：是否要求包含小写字母 */
+  passwordRequireLower: boolean;
+  /** 密码策略：是否要求包含数字 */
+  passwordRequireDigit: boolean;
+  /** 密码策略：是否要求包含符号 */
+  passwordRequireSymbol: boolean;
+  /** 密码有效期（天，0 = 不启用；超期登录时提示修改密码） */
+  passwordExpireDays: number;
+  /** 是否允许用户自助开启两步验证（TOTP，v1.7③ T2） */
+  twoFactorAvailable: boolean;
   /** 列表默认每页条数 */
   defaultPageSize: number;
   /** Excel 单次导入最大数据行数 */
@@ -812,6 +870,10 @@ export type AuditAction =
   | 'user.update'
   | 'user.delete'
   | 'user.reset_password'
+  | 'user.change_password'
+  | 'user.two_factor_enable'
+  | 'user.two_factor_disable'
+  | 'user.force_logout'
   | 'exam.create'
   | 'exam.update'
   | 'exam.delete'

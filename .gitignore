@@ -38,6 +38,7 @@ coverage
 
 # 临时构建目录
 dist-check
+.build-verify
 
 # 临时与本地产物
 .vitest-tmp

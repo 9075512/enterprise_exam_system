@@ -5,13 +5,14 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
-import { ArrowDown, Bell, Expand, Fold, Key, SwitchButton } from '@element-plus/icons-vue';
+import { ArrowDown, Bell, Expand, Fold, Key, Lock, SwitchButton } from '@element-plus/icons-vue';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
 import { useSettingsStore } from '@/stores/settings';
 import { usePermissionsStore } from '@/stores/permissions';
 import { getUnreadCount } from '@/api/notifications';
 import { ROLE_LABELS } from '@/constants';
+import AccountSecurityDialog from '@/components/account/AccountSecurityDialog.vue';
 import { getMenuItems } from './menuConfig';
 
 const route = useRoute();
@@ -66,8 +67,13 @@ async function handleCommand(command: unknown): Promise<void> {
     await router.replace('/login');
   } else if (command === 'password') {
     pwdVisible.value = true;
+  } else if (command === 'security') {
+    securityVisible.value = true;
   }
 }
+
+/** 账号安全（v1.7③：两步验证 + 登录设备 + 密码策略） */
+const securityVisible = ref(false);
 
 // 修改密码对话框
 const pwdVisible = ref(false);
@@ -166,6 +172,9 @@ async function submitPassword(): Promise<void> {
               <el-dropdown-item command="password">
                 <el-icon><Key /></el-icon> 修改密码
               </el-dropdown-item>
+              <el-dropdown-item command="security">
+                <el-icon><Lock /></el-icon> 账号安全
+              </el-dropdown-item>
               <el-dropdown-item command="logout" divided>
                 <el-icon><SwitchButton /></el-icon> 退出登录
               </el-dropdown-item>
@@ -196,6 +205,8 @@ async function submitPassword(): Promise<void> {
         <el-button type="primary" :loading="pwdLoading" @click="submitPassword">确定</el-button>
       </template>
     </el-dialog>
+
+    <AccountSecurityDialog v-model="securityVisible" />
   </div>
 </template>
 

@@ -23,6 +23,8 @@ export interface AuthUser {
   role: Role;
   /** 归属科室 id（无科室为 ''） */
   departmentId: string;
+  /** 当前登录会话 id（JWT 的 jti；旧令牌为 ''，v1.7③） */
+  sessionId?: string;
 }
 
 /** 练题登录用户上下文（由练题专属 JWT 解析得到；仅含练题所需最小信息）。 */

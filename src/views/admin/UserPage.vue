@@ -195,8 +195,26 @@ async function handleResetPassword(user: User): Promise<void> {
   }
 }
 
-async function handleToggleStatus(user: User): Promise<void> {
-  const next = user.status === 'active' ? 'disabled' : 'active';
+/** 强制下线该用户的全部登录设备（v1.7③）。 */
+async function handleForceLogout(user: User): Promise<void> {
+  const ok = await confirm(`将强制下线「${user.name}」的全部登录设备`, {
+    title: '强制下线',
+    confirmButtonText: '确认下线',
+    type: 'warning',
+  });
+  if (!ok) return;
+  busy.value = true;
+  try {
+    const res = await usersApi.revokeSessions(user.id);
+    ElMessage.success(res.count > 0 ? `已下线 ${res.count} 台设备` : '该用户当前没有在线设备');
+  } catch {
+    // 拦截器已提示
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function handleToggleStatus(user: User): Promise<void> {  const next = user.status === 'active' ? 'disabled' : 'active';
   busy.value = true;
   try {
     await usersApi.update(user.id, {
@@ -297,10 +315,11 @@ async function handleDelete(user: User): Promise<void> {
         <el-table-column label="创建时间" width="170">
           <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="240" fixed="right">
+        <el-table-column label="操作" width="310" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="openEdit(row as User)">编辑</el-button>
             <el-button link @click="handleResetPassword(row as User)">重置密码</el-button>
+            <el-button link @click="handleForceLogout(row as User)">强制下线</el-button>
             <el-button link @click="handleToggleStatus(row as User)">
               {{ row.status === 'active' ? '停用' : '启用' }}
             </el-button>

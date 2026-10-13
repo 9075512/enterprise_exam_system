@@ -5,12 +5,13 @@
  */
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
-import type { Role, User } from '@/types';
+import type { LoginOutcome, LoginResult, Role, User } from '@/types';
 import {
   changePassword as apiChangePassword,
   fetchMe as apiFetchMe,
   login as apiLogin,
   logout as apiLogout,
+  verifyTwoFactor as apiVerifyTwoFactor,
 } from '@/api/auth';
 import { TOKEN_KEY, resetUnauthorizedGuard } from '@/api/http';
 
@@ -34,14 +35,34 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem(TOKEN_KEY);
   }
 
-  /** 登录：写 Token 到 localStorage 并设置当前用户 */
-  async function login(username: string, password: string): Promise<User> {
-    const { token: newToken, user } = await apiLogin(username, password);
-    token.value = newToken;
-    localStorage.setItem(TOKEN_KEY, newToken);
-    currentUser.value = user;
+  /**
+   * 登录（v1.7③）。
+   * 返回 `TwoFactorChallenge` 时表示账号已开启两步验证，此时**不写本地会话**，
+   * 由调用方续走 `completeTwoFactor()`。
+   */
+  async function login(
+    username: string,
+    password: string,
+    captcha?: { captchaId: string; captcha: string },
+  ): Promise<LoginOutcome> {
+    const result = await apiLogin(username, password, captcha);
+    if ('token' in result) applySession(result);
+    return result;
+  }
+
+  /** 两步验证第二步：验证通过后写入本地会话。 */
+  async function completeTwoFactor(challengeToken: string, code: string): Promise<LoginResult> {
+    const result = await apiVerifyTwoFactor(challengeToken, code);
+    applySession(result);
+    return result;
+  }
+
+  /** 写入本地会话（Token + 当前用户）。 */
+  function applySession(result: LoginResult): void {
+    token.value = result.token;
+    localStorage.setItem(TOKEN_KEY, result.token);
+    currentUser.value = result.user;
     resetUnauthorizedGuard(); // 重新武装 401 处理，保证下次会话失效仍会提示
-    return user;
   }
 
   /**
@@ -89,6 +110,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoggedIn,
     hasRole,
     login,
+    completeTwoFactor,
     logout,
     fetchMe,
     changePassword,

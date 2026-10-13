@@ -23,6 +23,7 @@ import {
   recordLoginFailure,
 } from '../../middleware/practiceLoginGuard.js';
 import { practiceRateLimit } from '../../middleware/practiceRateLimit.js';
+import { record as recordLoginLog } from '../loginLogs/loginLogs.service.js';
 import {
   practiceCheckSchema,
   practiceFavoriteBodySchema,
@@ -80,12 +81,29 @@ practiceRouter.post(
       const result = await service.login(username, password);
       clearLoginFailures(username, ip);
       recordLoginAudit({ username, ip, userAgent: ua, success: true });
+      void recordLoginLog({
+        username,
+        userId: result.user.id,
+        role: result.user.role,
+        ip,
+        userAgent: ua,
+        success: true,
+        source: 'practice',
+      });
       return ok(res, result);
     } catch (err) {
       // 仅凭据错误计入失败；其余错误（如限流）不计
       if (err instanceof AppError && err.code === ERROR_CODES.UNAUTHORIZED) {
         recordLoginFailure(username, ip);
         recordLoginAudit({ username, ip, userAgent: ua, success: false, reason: 'credentials' });
+        void recordLoginLog({
+          username,
+          ip,
+          userAgent: ua,
+          success: false,
+          reason: 'credentials',
+          source: 'practice',
+        });
       }
       throw err;
     }

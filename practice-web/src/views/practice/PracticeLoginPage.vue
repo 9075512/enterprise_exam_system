@@ -21,14 +21,14 @@ const loading = ref(false);
 /** 是否已要求验证码（后端返回 1012 时置真） */
 const needCaptcha = ref(false);
 const captchaId = ref('');
-const captchaQuestion = ref('');
+const captchaImage = ref('');
 
 /** 拉取一枚新验证码 */
 async function loadCaptcha(): Promise<void> {
   try {
     const captcha = await practiceApi.getCaptcha();
     captchaId.value = captcha.captchaId;
-    captchaQuestion.value = captcha.question;
+    captchaImage.value = captcha.image;
     form.captcha = '';
     needCaptcha.value = true;
   } catch {
@@ -111,12 +111,20 @@ async function handleSubmit(): Promise<void> {
               <el-input
                 v-model="form.captcha"
                 size="large"
-                placeholder="请输入计算结果"
-                inputmode="numeric"
+                placeholder="请输入图中字符"
+                maxlength="6"
                 class="login__captcha-input"
               />
-              <span class="login__captcha-question">{{ captchaQuestion }}</span>
-              <el-button text size="small" class="login__captcha-refresh" @click="loadCaptcha">换一个</el-button>
+              <img
+                v-if="captchaImage"
+                class="login__captcha-img"
+                :src="captchaImage"
+                alt="图形验证码"
+                @click="loadCaptcha"
+              />
+              <el-button text size="small" class="login__captcha-refresh" @click="loadCaptcha">
+                换一张
+              </el-button>
             </div>
           </el-form-item>
 
@@ -231,17 +239,14 @@ async function handleSubmit(): Promise<void> {
     min-width: 0;
   }
 
-  &__captcha-question {
+  &__captcha-img {
     flex: 0 0 auto;
-    padding: 9px 14px;
+    height: 40px;
+    width: 124px;
     border-radius: $practice-radius-sm;
-    background: $practice-soft;
+    background: #fff;
     border: 1px solid $practice-border;
-    font-size: 15px;
-    font-weight: 700;
-    color: $practice-primary;
-    letter-spacing: 1px;
-    white-space: nowrap;
+    cursor: pointer;
   }
 
   &__captcha-refresh {

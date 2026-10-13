@@ -544,8 +544,8 @@ export interface PracticeWrongQuestion extends PracticeQuestion {
 /** 验证码下发结果（自研算术验证码） */
 export interface PracticeCaptcha {
   captchaId: string;
-  /** 供用户作答的算式题干，如 '3 + 5 = ?' */
-  question: string;
+  /** 图形验证码（SVG Data URI；v1.7③ T1 由图型替换自研算术） */
+  image: string;
 }
 
 /** 练题方式 */

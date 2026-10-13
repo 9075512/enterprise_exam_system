@@ -1,21 +1,39 @@
-/** 鉴权 API（§4.5 鉴权） */
-import { get, post, put } from './http';
-import type { LoginResult, User } from '@/types';
+/** 鉴权 API（§4.5 鉴权 / v1.7③ 账号安全） */
+import { del, get, post, put } from './http';
+import type { LoginOutcome, LoginResult, LoginSession, User } from '@/types';
 
 /**
- * 登录签发 JWT。
+ * 登录签发 JWT（v1.7③：失败达阈值后需附图形验证码；开启 2FA 的账号返回挑战令牌）。
  *
  * `skipAuthRedirect`：登录失败的 401 表示「账号或密码不正确」，**不是会话失效**。
  * 若走全局 401 流程，会（1）弹错误的「登录状态已失效」文案，
  * （2）触发全局登出回调，（3）把 401 闸门锁死导致后续登录失败彻底静默无提示。
  * 跳过全局流程后，由响应拦截器统一弹出后端真实文案。
  */
-export function login(username: string, password: string): Promise<LoginResult> {
-  return post<LoginResult>('/auth/login', { username, password }, { skipAuthRedirect: true });
+export function login(
+  username: string,
+  password: string,
+  captcha?: { captchaId: string; captcha: string },
+): Promise<LoginOutcome> {
+  return post<LoginOutcome>(
+    '/auth/login',
+    { username, password, captchaId: captcha?.captchaId, captcha: captcha?.captcha },
+    { skipAuthRedirect: true },
+  );
+}
+
+/** 两步验证第二步：用挑战令牌 + 6 位验证码换取正式 Token */
+export function verifyTwoFactor(challengeToken: string, code: string): Promise<LoginResult> {
+  return post<LoginResult>('/auth/2fa/verify', { challengeToken, code }, { skipAuthRedirect: true });
+}
+
+/** 获取图形验证码（登录失败达阈值后需要） */
+export function fetchCaptcha(): Promise<{ captchaId: string; image: string }> {
+  return get<{ captchaId: string; image: string }>('/auth/captcha');
 }
 
 /**
- * 登出（无状态，后端仅校验后返回 ok）。
+ * 登出（撤销当前会话，v1.7③）。
  *
  * - 显式携带 Token：调用方此时通常已清空本地会话，不能再依赖拦截器从 localStorage 取。
  * - `skipAuthRedirect`：登出本身的 401 不应再触发「登录已失效」提示与全局登出流程，
@@ -35,7 +53,44 @@ export function fetchMe(): Promise<User> {
   return get<User>('/auth/me');
 }
 
-/** 修改本人密码 */
+/** 修改本人密码（须满足密码策略） */
 export function changePassword(oldPassword: string, newPassword: string): Promise<null> {
   return put<null>('/auth/password', { oldPassword, newPassword });
+}
+
+/* ------------------------------ 账号安全（v1.7③） ------------------------------ */
+
+/** 密码策略与两步验证可用性 */
+export function twoFactorPolicy(): Promise<{ text: string; expireDays: number }> {
+  return get<{ text: string; expireDays: number }>('/auth/2fa/policy');
+}
+
+/** 生成两步验证密钥（未启用） */
+export function setupTwoFactor(): Promise<{ secret: string; otpauthUrl: string }> {
+  return post<{ secret: string; otpauthUrl: string }>('/auth/2fa/setup');
+}
+
+/** 验证验证码后启用两步验证 */
+export function enableTwoFactor(code: string): Promise<null> {
+  return post<null>('/auth/2fa/enable', { code });
+}
+
+/** 关闭两步验证（密码 + 验证码） */
+export function disableTwoFactor(password: string, code: string): Promise<null> {
+  return post<null>('/auth/2fa/disable', { password, code });
+}
+
+/** 我的登录设备列表 */
+export function listSessions(): Promise<LoginSession[]> {
+  return get<LoginSession[]>('/auth/sessions');
+}
+
+/** 下线指定设备 */
+export function revokeSession(id: string): Promise<null> {
+  return del<null>(`/auth/sessions/${id}`);
+}
+
+/** 下线除当前设备外的全部设备 */
+export function revokeOtherSessions(): Promise<{ count: number }> {
+  return del<{ count: number }>('/auth/sessions');
 }

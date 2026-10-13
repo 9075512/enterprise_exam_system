@@ -38,6 +38,9 @@ export const DDL_STATEMENTS: readonly string[] = [
     department_id VARCHAR(64)  NULL,
     email         VARCHAR(120) NULL,
     status        ENUM('active','disabled') NOT NULL DEFAULT 'active',
+    password_changed_at DATETIME(3) NULL,
+    two_factor_secret   VARCHAR(64) NULL,
+    two_factor_enabled  TINYINT(1) NOT NULL DEFAULT 0,
     created_at    DATETIME(3)  NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_users_username (username),
@@ -431,6 +434,39 @@ export const DDL_STATEMENTS: readonly string[] = [
     CONSTRAINT fk_exceptions_exam FOREIGN KEY (exam_id)
       REFERENCES exams(id) ON DELETE CASCADE ON UPDATE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  // 28. 登录审计日志（v1.7③；自包含**无外键**，账号删除后仍可追溯；成功/失败/锁定均可查）
+  `CREATE TABLE IF NOT EXISTS login_logs (
+    id          VARCHAR(64)  NOT NULL,
+    username    VARCHAR(64)  NOT NULL,
+    user_id     VARCHAR(64)  NULL,
+    role        VARCHAR(16)  NOT NULL DEFAULT '',
+    ip          VARCHAR(64)  NOT NULL DEFAULT '',
+    user_agent  VARCHAR(255) NOT NULL DEFAULT '',
+    success     TINYINT(1)   NOT NULL DEFAULT 0,
+    reason      VARCHAR(64)  NOT NULL DEFAULT '',
+    source      VARCHAR(16)  NOT NULL DEFAULT 'admin',
+    created_at  DATETIME(3)  NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_login_logs_created (created_at),
+    KEY idx_login_logs_username (username),
+    KEY idx_login_logs_user (user_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  // 29. 登录会话 / 设备（v1.7③；id = JWT jti；支持查看我的登录设备与强制下线）
+  `CREATE TABLE IF NOT EXISTS user_sessions (
+    id           VARCHAR(64)  NOT NULL,
+    user_id      VARCHAR(64)  NOT NULL,
+    ip           VARCHAR(64)  NOT NULL DEFAULT '',
+    user_agent   VARCHAR(255) NOT NULL DEFAULT '',
+    created_at   DATETIME(3)  NOT NULL,
+    last_seen_at DATETIME(3)  NOT NULL,
+    revoked_at   DATETIME(3)  NULL,
+    expires_at   DATETIME(3)  NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_sessions_user (user_id),
+    KEY idx_sessions_expires (expires_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 ];
 
 /** 建表完成后用于统计的核心表名列表（含练题域 6 张表）。 */
@@ -462,4 +498,6 @@ export const TABLE_NAMES: readonly string[] = [
   'audit_logs',
   'score_appeals',
   'exam_exceptions',
+  'login_logs',
+  'user_sessions',
 ];

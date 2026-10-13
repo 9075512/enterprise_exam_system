@@ -139,10 +139,10 @@ export async function seed(conn: Connection): Promise<void> {
   for (const u of SEED_USERS) {
     const hash = await bcrypt.hash(u.password, BCRYPT_COST);
     await conn.query(
-      `INSERT INTO users (id, username, password_hash, name, role, department_id, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'active', ?)
+      `INSERT INTO users (id, username, password_hash, name, role, department_id, status, password_changed_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)
        ON DUPLICATE KEY UPDATE id = id`,
-      [u.id, u.username, hash, u.name, u.role, u.departmentId, now],
+      [u.id, u.username, hash, u.name, u.role, u.departmentId, now, now],
     );
   }
 

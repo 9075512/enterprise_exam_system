@@ -1,14 +1,18 @@
 <script setup lang="ts">
 /**
- * 登录页（v1.2 视觉升级）：左右分栏 —— 左侧品牌区（渐变 + 能力清单），右侧登录表单。
+ * 登录页（v1.2 视觉升级；v1.7③ 增图形验证码与两步验证）。
+ * 左右分栏 —— 左侧品牌区（渐变 + 能力清单），右侧登录表单。
  * 登录成功按 route.query.redirect 或角色首页跳转。
  */
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import { Checked, Collection, Lock, TrendCharts, User } from '@element-plus/icons-vue';
 import { useAuthStore } from '@/stores/auth';
 import { useSettingsStore } from '@/stores/settings';
+import { ApiError } from '@/api/http';
+import CaptchaImage from '@/components/common/CaptchaImage.vue';
+import type { TwoFactorChallenge, User as UserDto } from '@/types';
 
 const route = useRoute();
 const router = useRouter();
@@ -20,20 +24,35 @@ onMounted(() => {
 });
 
 const formRef = ref<FormInstance>();
-const form = reactive({ username: '', password: '' });
+const form = reactive({ username: '', password: '', captcha: '' });
 const loading = ref(false);
 /** 登录失败原因（常驻展示在表单内，避免 Toast 一闪而过） */
 const errorMsg = ref('');
+
+/* ------------------------- 图形验证码（v1.7③ T1） ------------------------- */
+/** 是否需要填写验证码（后端 1015 时置为 true） */
+const captchaRequired = ref(false);
+const captchaId = ref('');
+const captchaRef = ref<InstanceType<typeof CaptchaImage> | null>(null);
+
+/* ------------------------- 两步验证（v1.7③ T2） ------------------------- */
+/** 当前步骤：凭据 → 两步验证码 */
+const step = ref<'credentials' | 'twofa'>('credentials');
+const twoFactorCode = ref('');
+const challengeToken = ref('');
 
 /** 用户再次输入时清掉上一次的失败提示 */
 function clearError(): void {
   if (errorMsg.value) errorMsg.value = '';
 }
 
-const rules: FormRules = {
+const rules = computed<FormRules>(() => ({
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
-};
+  captcha: captchaRequired.value
+    ? [{ required: true, message: '请输入图形验证码', trigger: 'blur' }]
+    : [],
+}));
 
 /** 品牌能力清单 */
 const features = [
@@ -61,6 +80,17 @@ function homePath(role: string): string {
   return '/exam/my';
 }
 
+/** 登录成功后的跳转与提示 */
+async function goHome(user: UserDto, passwordExpired?: boolean): Promise<void> {
+  ElMessage.success('登录成功');
+  if (passwordExpired) {
+    ElMessage.warning('您的密码已超过有效期，请尽快在「账号安全」中修改');
+  }
+  const redirect = route.query.redirect as string | undefined;
+  await router.replace(redirect || homePath(user.role));
+}
+
+/** 第一步：账号密码（+ 必要时图形验证码）。 */
 async function handleSubmit(): Promise<void> {
   if (!formRef.value) return;
   const valid = await formRef.value.validate().catch(() => false);
@@ -69,16 +99,58 @@ async function handleSubmit(): Promise<void> {
   loading.value = true;
   errorMsg.value = '';
   try {
-    const user = await auth.login(form.username, form.password);
-    ElMessage.success('登录成功');
-    const redirect = route.query.redirect as string | undefined;
-    await router.replace(redirect || homePath(user.role));
+    const result = await auth.login(
+      form.username,
+      form.password,
+      captchaRequired.value ? { captchaId: captchaId.value, captcha: form.captcha } : undefined,
+    );
+    // 账号开启了两步验证 → 进入第二步
+    if ('twoFactorRequired' in result) {
+      const challenge = result as TwoFactorChallenge;
+      challengeToken.value = challenge.challengeToken;
+      step.value = 'twofa';
+      twoFactorCode.value = '';
+      return;
+    }
+    await goHome(result.user, result.passwordExpired);
   } catch (err) {
-    // 拦截器已统一弹出 Toast；此处再落一条常驻提示，避免 Toast 一闪而过后看不到原因。
-    errorMsg.value = (err as Error)?.message || '登录失败，请稍后重试';
+    const apiErr = err as ApiError;
+    if (apiErr.code === 1015) {
+      // 需要图形验证码：展示并换一张
+      captchaRequired.value = true;
+      form.captcha = '';
+      captchaRef.value?.refresh();
+    }
+    errorMsg.value = apiErr?.message || '登录失败，请稍后重试';
   } finally {
     loading.value = false;
   }
+}
+
+/** 第二步：两步验证码。 */
+async function handleTwoFactor(): Promise<void> {
+  if (!twoFactorCode.value.trim()) {
+    errorMsg.value = '请输入验证器中的 6 位验证码';
+    return;
+  }
+  loading.value = true;
+  errorMsg.value = '';
+  try {
+    const result = await auth.completeTwoFactor(challengeToken.value, twoFactorCode.value.trim());
+    await goHome(result.user, result.passwordExpired);
+  } catch (err) {
+    errorMsg.value = (err as Error)?.message || '验证失败，请稍后重试';
+  } finally {
+    loading.value = false;
+  }
+}
+
+/** 返回上一步重新输入账号。 */
+function backToCredentials(): void {
+  step.value = 'credentials';
+  twoFactorCode.value = '';
+  challengeToken.value = '';
+  errorMsg.value = '';
 }
 </script>
 
@@ -122,10 +194,13 @@ async function handleSubmit(): Promise<void> {
     <!-- 右：表单区 -->
     <section class="login__panel">
       <div class="login__form-wrap">
-        <h2 class="login__title">欢迎登录</h2>
-        <p class="login__subtitle">请使用企业账号登录系统</p>
+        <h2 class="login__title">{{ step === 'twofa' ? '两步验证' : '欢迎登录' }}</h2>
+        <p class="login__subtitle">
+          {{ step === 'twofa' ? '请输入验证器 App 中的 6 位动态验证码' : '请使用企业账号登录系统' }}
+        </p>
 
         <el-form
+          v-if="step === 'credentials'"
           ref="formRef"
           :model="form"
           :rules="rules"
@@ -156,6 +231,18 @@ async function handleSubmit(): Promise<void> {
               @keyup.enter="handleSubmit"
             />
           </el-form-item>
+          <el-form-item v-if="captchaRequired" label="图形验证码" prop="captcha">
+            <div class="login__captcha-row">
+              <el-input
+                v-model="form.captcha"
+                placeholder="请输入图中字符"
+                maxlength="6"
+                @input="clearError"
+                @keyup.enter="handleSubmit"
+              />
+              <CaptchaImage ref="captchaRef" v-model="captchaId" />
+            </div>
+          </el-form-item>
 
           <el-alert
             v-if="errorMsg"
@@ -178,7 +265,41 @@ async function handleSubmit(): Promise<void> {
           </el-button>
         </el-form>
 
-        <div class="login__demo">
+        <el-form v-else size="large" @submit.prevent="handleTwoFactor">
+          <el-form-item label="动态验证码">
+            <el-input
+              v-model="twoFactorCode"
+              placeholder="6 位数字验证码"
+              maxlength="6"
+              autocomplete="one-time-code"
+              @input="clearError"
+              @keyup.enter="handleTwoFactor"
+            />
+          </el-form-item>
+
+          <el-alert
+            v-if="errorMsg"
+            class="login__error"
+            type="error"
+            :title="errorMsg"
+            :closable="false"
+            show-icon
+            role="alert"
+          />
+
+          <el-button
+            type="primary"
+            class="login__submit"
+            :loading="loading"
+            native-type="submit"
+            @click="handleTwoFactor"
+          >
+            验 证
+          </el-button>
+          <el-button class="login__back" text @click="backToCredentials">返回重新输入账号</el-button>
+        </el-form>
+
+        <div v-if="step === 'credentials'" class="login__demo">
           <span class="login__demo-label">演示账号 · 点击自动填充</span>
           <div class="login__demo-list">
             <button
@@ -402,6 +523,24 @@ async function handleSubmit(): Promise<void> {
     font-size: 15px;
     font-weight: 600;
     letter-spacing: 0.2em;
+  }
+
+  &__back {
+    width: 100%;
+    margin: 10px 0 0;
+    font-size: 13px;
+    color: $text-secondary;
+  }
+
+  &__captcha-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+
+    :deep(.el-input) {
+      flex: 1;
+    }
   }
 
   &__demo {

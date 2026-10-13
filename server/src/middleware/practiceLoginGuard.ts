@@ -1,17 +1,17 @@
 /**
- * 练题登录守卫（登录失败锁定 + 验证码）——零依赖、进程内存储。
+ * 练题登录守卫（登录失败锁定 + 图形验证码）——零依赖、进程内存储。
  *
  * 键 = 账号 + IP（架构共享约定 §10-15）。行为：
  * ① 累计失败次数达到 `PRACTICE_LOGIN_MAX_FAILS` → 临时锁定（指数退避，封顶 24h），返回 1011/429；
- * ② 累计失败次数达到 `PRACTICE_CAPTCHA_AFTER_FAILS` → 要求并校验验证码（自研轻量算术验证码），
- *    缺失或错误返回 1012/400。
+ * ② 累计失败次数达到 `PRACTICE_CAPTCHA_AFTER_FAILS` → 要求并校验**图形验证码**（v1.7③ T1，
+ *    由 `utils/captcha` 统一提供），缺失或错误返回 1012/400。
  *
  * 说明：内存锁定在多实例下需共享存储；方案乙（单练题实例）场景足够。多实例时替换为 redis（接口不变）。
  */
-import crypto from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 import { env } from '../config/env.js';
 import { practiceCaptchaRequired, practiceLoginLocked } from '../utils/errors.js';
+import { verifyCaptcha } from '../utils/captcha.js';
 
 /** 取客户端 IP（优先反代注入的 X-Forwarded-For 首个地址，退化到 socket）。 */
 export function clientIp(req: Request): string {
@@ -71,42 +71,9 @@ export function captchaRequired(username: string, ip: string): boolean {
   return getFailState(loginKey(username, ip)).count >= env.PRACTICE_CAPTCHA_AFTER_FAILS;
 }
 
-/* ------------------------------ 自研算术验证码（零依赖） ------------------------------ */
+/* ------------------------------ 图形验证码（v1.7③ T1：替换自研算术） ------------------------------ */
 
-interface CaptchaEntry {
-  /** 正确答案 */
-  answer: number;
-  /** 过期时间戳（毫秒） */
-  expiresAt: number;
-}
-
-const captchaStore = new Map<string, CaptchaEntry>();
-/** 验证码有效期（毫秒） */
-const CAPTCHA_TTL_MS = 5 * 60 * 1000;
-
-/** 下发一枚算术验证码（一次性，5 分钟有效）。 */
-export function issueCaptcha(): { captchaId: string; question: string } {
-  const a = Math.floor(Math.random() * 9) + 1; // 1..9
-  const b = Math.floor(Math.random() * 9) + 1; // 1..9
-  const plus = Math.random() < 0.5;
-  const x = plus ? a : Math.max(a, b);
-  const y = plus ? b : Math.min(a, b);
-  const answer = plus ? x + y : x - y;
-  const op = plus ? '+' : '-';
-  const captchaId = crypto.randomBytes(12).toString('hex');
-  captchaStore.set(captchaId, { answer, expiresAt: Date.now() + CAPTCHA_TTL_MS });
-  return { captchaId, question: `${x} ${op} ${y} = ?` };
-}
-
-/** 校验验证码（一次性：校验后即作废）。 */
-export function verifyCaptcha(captchaId: string, value: string): boolean {
-  const entry = captchaStore.get(captchaId);
-  if (!entry) return false;
-  captchaStore.delete(captchaId);
-  if (entry.expiresAt < Date.now()) return false;
-  const n = Number.parseInt(String(value).trim(), 10);
-  return !Number.isNaN(n) && n === entry.answer;
-}
+export { issueCaptcha, verifyCaptcha } from '../utils/captcha.js';
 
 /**
  * 登录接口前置守卫：锁定校验 + 验证码校验。

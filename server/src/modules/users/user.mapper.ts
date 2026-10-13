@@ -20,10 +20,14 @@ export interface UserRow extends RowDataPacket {
   department_name: string | null;
   email: string | null;
   status: UserStatus;
+  /** 密码最后修改时间（v1.7③） */
+  password_changed_at: string | null;
+  /** 是否已开启两步验证（v1.7③） */
+  two_factor_enabled: number;
   created_at: string;
 }
 
-/** 映射为对外 DTO（剔除 password_hash）。 */
+/** 映射为对外 DTO（剔除 password_hash 与 2FA 密钥）。 */
 export function mapUserRow(row: UserRow): UserDto {
   return {
     id: row.id,
@@ -34,6 +38,8 @@ export function mapUserRow(row: UserRow): UserDto {
     departmentName: row.department_name ?? '',
     email: row.email ?? '',
     status: row.status,
+    twoFactorEnabled: Number(row.two_factor_enabled ?? 0) === 1,
+    passwordChangedAt: fromDbDateSafe(row.password_changed_at),
     createdAt: fromDbDateSafe(row.created_at),
   };
 }

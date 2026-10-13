@@ -82,3 +82,21 @@ usersRouter.post(
     return ok(res, null);
   }),
 );
+
+/** GET /api/users/:id/sessions —— 查看某用户的登录设备（v1.7③）。 */
+usersRouter.get(
+  '/:id/sessions',
+  asyncHandler(async (req, res) => {
+    const list = await usersService.listUserSessions(req.params.id);
+    return ok(res, list);
+  }),
+);
+
+/** DELETE /api/users/:id/sessions —— 强制下线某用户全部设备（v1.7③）。 */
+usersRouter.delete(
+  '/:id/sessions',
+  asyncHandler(async (req, res) => {
+    const count = await usersService.revokeUserSessions(req.params.id, req.user!.id);
+    return ok(res, { count });
+  }),
+);

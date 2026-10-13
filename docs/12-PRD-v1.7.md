@@ -20,7 +20,7 @@
 | --- | --- | --- |
 | ① | 考试运营闭环（O1 试卷 PDF / O2 成绩复核 / O3 特殊安排） | ✅ 已完成 |
 | ② | 题库与数据运营深化（Q1–Q4） | ✅ 已完成 |
-| ③ | 安全与合规加固（T1 / T2 / S1 / S2） | ⏳ 待开始 |
+| ③ | 安全与合规加固（T1 / T2 / S1 / S2） | 🔄 进行中（③-a：T1+T2 已交付；③-b：S1+S2 待做） |
 | ④ | 工程化与稳定性（T3 / T5 / S3 / S4，不含 T4） | ⏳ 待开始 |
 
 ---
@@ -224,3 +224,55 @@
 - 前端「审计日志」页头增：保留策略文案、「导出字段」勾选弹窗、导出下拉（Excel / CSV）、「清理过期日志」按钮（永久保留时仅提示不执行）。
 
 **② 验证**：后端 typecheck 0 错；新增 `server/src/test/v17b.test.ts`（23 用例）全通过，全量 **264/264**（18 文件）；前端 typecheck 0 错、vitest 28/28、`vite build` 成功；`db:init` 幂等（`questions.tags` 列已就位）。
+
+---
+
+## 9. ③ 安全与合规加固（进行中）
+
+> 拆两批交付：**③-a = T1 + T2**（已交付）；**③-b = S1 + S2**（待做）。
+
+### 9.1 T1 图形验证码（替换自研算术题）
+
+- 新增 `server/src/utils/captcha.ts`（**零依赖**）：`issueCaptcha()` 生成 4 位字符（字符集 `ABCDEFGHJKMNPQRSTUVWXY23456789`，剔除易混字符 0/O/1/I/L/Z），逐字随机旋转、叠加干扰线与噪点，输出 **SVG Data URI**（`data:image/svg+xml;base64,...`）与 `captchaId`。
+- 答案**不随响应返回**，服务端内存存储（`captchaId → { answer, expiresAt }`，TTL 5 分钟）；`verifyCaptcha(captchaId, value)` **一次性消费**（校验后立即作废）、大小写不敏感。
+- 登录 `/api/auth/login`、练习端登录 `/api/practice/login` 复用同一实现；`practiceLoginGuard` 删除自研算术验证码，改为 `verifyCaptcha`。
+- 触发阈值由设置项 `loginCaptchaAfterFails`（默认 3，1~20）驱动 —— 连续登录失败达阈值后才要求验证码；不足时不强制。
+- 接口：`GET /api/auth/captcha` → `{ captchaId, image }`；`POST /api/practice/captcha` 同构。
+- 错误码：新增 **1015 `CAPTCHA_REQUIRED`**（HTTP 400，默认文案「请输入图形验证码」），前端捕获后自动展示验证码控件并刷新。
+- 前端：新增 `src/components/common/CaptchaImage.vue`（`v-model` 回传 `captchaId`、`defineExpose({ refresh })`、点击图片/「换一张」刷新）；登录页与练习端登录页改为图形图片 + 「换一张」。
+- 测试钩子：`__peekCaptchaAnswer(captchaId)`（**仅供测试**从进程内读取明文）。
+
+### 9.2 T2 账号安全加固
+
+**（1）登录审计 `login_logs`**
+
+- 新表 `login_logs`（id / username / user_id / role / ip / user_agent / success / reason / source / created_at + 3 索引），**自包含无外键**、**fail-open 写入**（写日志失败仅 `console.error`，绝不影响登录）。
+- `source` 区分 `admin`（管理端）/ `practice`（练题端）；成功与失败均落库，失败原因可读。
+- 接口：`GET /api/login-logs`（`authRequired + requireRole('admin')`；过滤：`username` LIKE / `success` / `source` / `from` / `to`；日期归一化与审计模块同口径 —— 纯日期覆盖整天）。
+- 前端：新增「登录日志」菜单 + `src/views/admin/LoginLogPage.vue`（筛选条 + 表格：时间/账号/结果/说明/来源/IP/客户端 + 分页），失败原因走 `REASON_LABELS` 映射。
+
+**（2）密码策略（可配）**
+
+- 新增 `server/src/utils/passwordPolicy.ts`：`passwordPolicyErrors` / `assertPasswordPolicy`（不满足抛 **1001** 中文聚合文案）/ `describePolicy` / `isPasswordExpired`。
+- 设置项：`passwordRequireUpper` / `passwordRequireLower` / `passwordRequireDigit` / `passwordRequireSymbol`（默认 false）、`passwordExpireDays`（默认 0 = 不过期，0~3650）。
+- 用户表增 `password_changed_at DATETIME(3) NULL`（迁移补 DDL 后回填 = `created_at`）；改密/重置密码时同步刷新；登录时若超期返回 `LoginResult.passwordExpired`，前端提示改密。
+- 应用点：`auth.service.changePassword`、`users.service`（新建用户 / 重置密码）均改走 `assertPasswordPolicy`。
+
+**（3）会话 / 设备管理 `user_sessions`**
+
+- JWT 增 `jti`（= 会话 id）；新表 `user_sessions`（id / user_id / ip / user_agent / created_at / last_seen_at / revoked_at / expires_at + 2 索引）。
+- `authRequired` 改 **async**：对**带 jti** 的令牌校验会话有效性（未撤销 + 未过期），过期/撤销即 1002；**不带 jti 的旧令牌兼容放行**（不破坏既有登录态）；`touchSession` 5 分钟内不重复写库。
+- 接口：`GET /api/auth/sessions`（我的设备）、`DELETE /api/auth/sessions/:id`（下线单台）、`DELETE /api/auth/sessions`（下线其他设备）、`POST /api/auth/logout`（撤销当前会话）；管理员侧 `GET/DELETE /api/users/:id/sessions`（查看 / 强制该用户全部下线）。
+- 重置密码后自动 `sessions.revokeAll` 强制该用户全部设备下线。
+- 前端：新增 `src/components/account/AccountSecurityDialog.vue`（「账号安全」弹窗，三卡片：密码策略 / 两步验证 / 登录设备，`describeAgent` 将 UA 归一为「系统 · 浏览器」）；顶栏下拉增「账号安全」入口；`admin/UserPage.vue` 增「强制下线」按钮。
+
+**（4）两步验证（TOTP，RFC 6238）**
+
+- 新增 `server/src/utils/totp.ts`（**零依赖**）：Base32 编解码 + HMAC-SHA1 + 30s / 6 位，`verifyTotp` 采用 **±1 步长窗口**容错。
+- 用户表增 `two_factor_secret` / `two_factor_enabled`；设置项 `twoFactorAvailable`（默认 true）全局开关。
+- 登录流：启用 2FA 的用户凭证校验通过后**不直接发访问令牌**，改为返回 5 分钟 **挑战令牌**（`scope: '2fa'` 的 JWT）；`POST /api/auth/2fa/verify` 用挑战令牌 + 验证码换取正式令牌并建会话。挑战令牌**不可作访问令牌**（`authRequired` 明确拒绝）。
+- 接口：`GET /api/auth/2fa/policy`（策略与是否启用）、`POST /api/auth/2fa/setup`（生成密钥 + `otpauth://` 扫码 URL）、`POST /api/auth/2fa/enable`（验证码确认开启）、`POST /api/auth/2fa/disable`（密码 + 验证码关闭）。
+- 前端：登录页增 `step: 'credentials' | 'twofa'` 两阶段表单（含「返回重新输入账号」）；`stores/auth.login` 返回 `LoginOutcome`、新增 `completeTwoFactor`。
+- 审计：`AuditAction` 增 `user.change_password` / `user.two_factor_enable` / `user.two_factor_disable` / `user.force_logout`（后端 `audit.service.ts` ↔ 前端 `src/constants/index.ts` 双份同步）。
+
+**③-a 验证**：后端 typecheck 0 错；新增 `server/src/test/v17c.test.ts`（16 用例）全通过，全量 **280/280**（19 文件）；前端 typecheck 0 错、vitest 28/28、`vite build` 成功；practice-web typecheck 0 错；`db:init` 幂等（**29 表**，新增 `login_logs` / `user_sessions`，结构升级 `users.password_changed_at` / `users.two_factor_secret` / `users.two_factor_enabled`）。

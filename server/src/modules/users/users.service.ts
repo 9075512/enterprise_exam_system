@@ -7,22 +7,22 @@ import bcrypt from 'bcryptjs';
 import * as repo from './users.repo.js';
 import { mapUserRow } from './user.mapper.js';
 import { badRequest, conflict, notFound } from '../../utils/errors.js';
+import { assertPasswordPolicy } from '../../utils/passwordPolicy.js';
 import { genId } from '../../utils/id.js';
 import { nowDb } from '../../utils/datetime.js';
 import { getSettings } from '../settings/settings.service.js';
 import * as auditService from '../audit/audit.service.js';
-import type { Role, UserDto, UserStatus } from '../../types/domain.js';
+import * as sessions from '../auth/sessions.service.js';
+import type { Role, SessionDto, UserDto, UserStatus } from '../../types/domain.js';
 
 const BCRYPT_COST = 10;
 
 /**
- * 校验显式传入的密码长度（不足 settings.minPasswordLength → 1001 中文文案）。
+ * 校验显式传入的密码（长度 + 复杂度，统一由密码策略裁决；v1.7③ T2）。
  * 密码为空视为「未传」，由调用方回退到默认密码。
  */
-function assertPasswordLength(password: string, minLength: number): void {
-  if (password.length < minLength) {
-    throw badRequest(`密码长度不能少于 ${minLength} 位`);
-  }
+function assertPassword(password: string, settings: Awaited<ReturnType<typeof getSettings>>): void {
+  assertPasswordPolicy(password, settings);
 }
 
 /** 空字符串科室视为无科室（null）。 */
@@ -76,7 +76,7 @@ export async function create(
   const settings = await getSettings();
   const providedPassword = input.password && input.password !== '' ? input.password : '';
   if (providedPassword) {
-    assertPasswordLength(providedPassword, settings.minPasswordLength);
+    assertPassword(providedPassword, settings);
   }
   const passwordHash = await bcrypt.hash(providedPassword || settings.defaultPassword, BCRYPT_COST);
   await repo.insert({
@@ -146,7 +146,7 @@ export async function update(
   });
   if (input.password && input.password !== '') {
     const settings = await getSettings();
-    assertPasswordLength(input.password, settings.minPasswordLength);
+    assertPassword(input.password, settings);
     await repo.updatePasswordHash(id, await bcrypt.hash(input.password, BCRYPT_COST));
   }
   const updated = await repo.findById(id);
@@ -189,6 +189,8 @@ export async function resetPassword(id: string, operatorId: string): Promise<voi
   if (!current) throw notFound('用户不存在或已被删除');
   const settings = await getSettings();
   await repo.updatePasswordHash(id, await bcrypt.hash(settings.defaultPassword, BCRYPT_COST));
+  // 重置密码后强制该用户下线（v1.7③：避免旧会话继续持有访问权）
+  await sessions.revokeAll(id);
   await auditService.record({
     actorId: operatorId,
     action: 'user.reset_password',
@@ -197,4 +199,27 @@ export async function resetPassword(id: string, operatorId: string): Promise<voi
     targetName: current.name,
     detail: { username: current.username },
   });
+}
+
+/** 查看某用户的登录设备（admin，v1.7③）。 */
+export async function listUserSessions(id: string): Promise<SessionDto[]> {
+  const current = await repo.findById(id);
+  if (!current) throw notFound('用户不存在或已被删除');
+  return sessions.listMySessions(id, '');
+}
+
+/** 强制下线某用户全部设备（admin，v1.7③）。 */
+export async function revokeUserSessions(id: string, operatorId: string): Promise<number> {
+  const current = await repo.findById(id);
+  if (!current) throw notFound('用户不存在或已被删除');
+  const count = await sessions.revokeAll(id);
+  await auditService.record({
+    actorId: operatorId,
+    action: 'user.force_logout',
+    targetType: 'user',
+    targetId: id,
+    targetName: current.name,
+    detail: { username: current.username, count },
+  });
+  return count;
 }

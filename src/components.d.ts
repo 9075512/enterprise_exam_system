@@ -7,6 +7,8 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AccountSecurityDialog: typeof import('./components/account/AccountSecurityDialog.vue')['default']
+    CaptchaImage: typeof import('./components/common/CaptchaImage.vue')['default']
     CardGrid: typeof import('./components/common/CardGrid.vue')['default']
     ConfirmDialog: typeof import('./components/common/ConfirmDialog.vue')['default']
     DataTablePagination: typeof import('./components/common/DataTablePagination.vue')['default']

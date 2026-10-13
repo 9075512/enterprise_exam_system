@@ -59,6 +59,13 @@ const FIELD_TAB: Record<string, SettingsTab> = {
   loginLockEnabled: 'account',
   loginMaxFails: 'account',
   loginLockMinutes: 'account',
+  loginCaptchaAfterFails: 'account',
+  passwordRequireUpper: 'account',
+  passwordRequireLower: 'account',
+  passwordRequireDigit: 'account',
+  passwordRequireSymbol: 'account',
+  passwordExpireDays: 'account',
+  twoFactorAvailable: 'account',
   defaultPageSize: 'list',
   importMaxRows: 'list',
   importMaxFileMb: 'list',
@@ -146,6 +153,8 @@ const rules: FormRules = {
   minPasswordLength: numRules('密码最小长度', 6, 32, { unit: ' 位' }),
   loginMaxFails: numRules('登录失败锁定阈值', 1, 20, { unit: ' 次' }),
   loginLockMinutes: numRules('登录锁定时长', 1, 1440, { unit: ' 分钟' }),
+  loginCaptchaAfterFails: numRules('验证码触发次数', 1, 20, { unit: ' 次' }),
+  passwordExpireDays: numRules('密码有效期', 0, 3650, { unit: ' 天' }),
   // 列表与导入
   defaultPageSize: numRules('列表默认每页条数', 1, 100, { unit: ' 条' }),
   importMaxRows: numRules('Excel 单次导入最大行数', 1, 50000, { unit: ' 行' }),
@@ -527,6 +536,65 @@ async function handleReset(): Promise<void> {
                   </div>
                 </el-form-item>
               </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="验证码触发次数" prop="loginCaptchaAfterFails">
+                  <div class="settings-page__control">
+                    <el-input-number
+                      v-model="form.loginCaptchaAfterFails"
+                      :min="1"
+                      :max="20"
+                      :step="1"
+                      class="settings-page__num"
+                    />
+                    <p class="settings-page__hint">
+                      同一账号连续登录失败达到该次数后，登录需填写图形验证码。
+                    </p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="24">
+                <el-form-item label="密码复杂度要求">
+                  <div class="settings-page__control">
+                    <div class="settings-page__switch-row">
+                      <el-checkbox v-model="form.passwordRequireUpper">大写字母</el-checkbox>
+                      <el-checkbox v-model="form.passwordRequireLower">小写字母</el-checkbox>
+                      <el-checkbox v-model="form.passwordRequireDigit">数字</el-checkbox>
+                      <el-checkbox v-model="form.passwordRequireSymbol">符号</el-checkbox>
+                    </div>
+                    <p class="settings-page__hint">
+                      勾选项为用户自助改密时的强制要求（管理员重置为默认密码不受限）。
+                    </p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="密码有效期（天）" prop="passwordExpireDays">
+                  <div class="settings-page__control">
+                    <el-input-number
+                      v-model="form.passwordExpireDays"
+                      :min="0"
+                      :max="3650"
+                      :step="30"
+                      class="settings-page__num"
+                    />
+                    <p class="settings-page__hint">0 = 不启用；超期用户登录时会收到修改密码提示。</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="两步验证">
+                  <div class="settings-page__control">
+                    <el-switch
+                      v-model="form.twoFactorAvailable"
+                      active-text="允许开启"
+                      inactive-text="关闭"
+                    />
+                    <p class="settings-page__hint">
+                      开启后用户可在「账号安全」中绑定 TOTP 验证器，登录需二次校验验证码。
+                    </p>
+                  </div>
+                </el-form-item>
+              </el-col>
             </el-row>
           </el-tab-pane>
 
@@ -810,6 +878,13 @@ async function handleReset(): Promise<void> {
 
   &__num {
     width: 200px;
+  }
+
+  &__switch-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
   }
 
   &__input {

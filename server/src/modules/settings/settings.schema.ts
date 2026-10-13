@@ -66,6 +66,12 @@ export const settingsSchema = z.object({
     .min(1, '登录锁定时长必须为 1~1440 分钟')
     .max(1440, '登录锁定时长必须为 1~1440 分钟'),
 
+  loginCaptchaAfterFails: z
+    .number({ invalid_type_error: '登录失败触发验证码次数必须为 1~20' })
+    .int('登录失败触发验证码次数必须为 1~20')
+    .min(1, '登录失败触发验证码次数必须为 1~20')
+    .max(20, '登录失败触发验证码次数必须为 1~20'),
+
   countdownWarningMinutes: z
     .number({ invalid_type_error: '倒计时提醒分钟数必须为 1~60' })
     .int('倒计时提醒分钟数必须为 1~60')
@@ -82,6 +88,19 @@ export const settingsSchema = z.object({
     .int('密码最小长度必须为 6~32')
     .min(6, '密码最小长度必须为 6~32')
     .max(32, '密码最小长度必须为 6~32'),
+
+  passwordRequireUpper: z.boolean({ invalid_type_error: '密码大写字母要求必须为布尔值' }),
+  passwordRequireLower: z.boolean({ invalid_type_error: '密码小写字母要求必须为布尔值' }),
+  passwordRequireDigit: z.boolean({ invalid_type_error: '密码数字要求必须为布尔值' }),
+  passwordRequireSymbol: z.boolean({ invalid_type_error: '密码符号要求必须为布尔值' }),
+
+  passwordExpireDays: z
+    .number({ invalid_type_error: '密码有效期必须为 0~3650 天' })
+    .int('密码有效期必须为 0~3650 天')
+    .min(0, '密码有效期必须为 0~3650 天')
+    .max(3650, '密码有效期必须为 0~3650 天'),
+
+  twoFactorAvailable: z.boolean({ invalid_type_error: '两步验证开关必须为布尔值' }),
 
   defaultPageSize: z
     .number({ invalid_type_error: '默认每页条数必须为 1~100' })

@@ -115,6 +115,25 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     changes.push('users.email');
   }
 
+  // v1.7③：账号安全 —— 密码最后修改时间（密码有效期策略用）
+  if (!(await columnExists(conn, 'users', 'password_changed_at'))) {
+    await conn.query(`ALTER TABLE users ADD COLUMN password_changed_at DATETIME(3) NULL AFTER status`);
+    // 存量用户以创建时间兜底，避免「从未修改过」被误判为永不过期
+    await conn.query(`UPDATE users SET password_changed_at = created_at WHERE password_changed_at IS NULL`);
+    changes.push('users.password_changed_at');
+  }
+  // v1.7③：账号安全 —— 两步验证（TOTP）密钥与开关
+  if (!(await columnExists(conn, 'users', 'two_factor_secret'))) {
+    await conn.query(`ALTER TABLE users ADD COLUMN two_factor_secret VARCHAR(64) NULL AFTER password_changed_at`);
+    changes.push('users.two_factor_secret');
+  }
+  if (!(await columnExists(conn, 'users', 'two_factor_enabled'))) {
+    await conn.query(
+      `ALTER TABLE users ADD COLUMN two_factor_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER two_factor_secret`,
+    );
+    changes.push('users.two_factor_enabled');
+  }
+
   if (!(await columnExists(conn, 'exam_records', 'attempt_no'))) {
     await conn.query(`ALTER TABLE exam_records ADD COLUMN attempt_no INT NOT NULL DEFAULT 1 AFTER user_id`);
     changes.push('exam_records.attempt_no');
@@ -179,7 +198,11 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
   // v1.6：菜单权限目录新增「人工阅卷」（defaultRoles: admin/author）。
   // 若已有角色权限行（admin 曾在菜单权限页保存过），需把新菜单合并进去，否则会看不到新入口。
   // v1.7①：新增「成绩复核」（admin）。
-  const NEW_MENU_KEYS: Record<string, string[]> = { reviews: ['admin', 'author'], appeals: ['admin'] };
+  const NEW_MENU_KEYS: Record<string, string[]> = {
+    reviews: ['admin', 'author'],
+    appeals: ['admin'],
+    'login-logs': ['admin'],
+  };
   const [menuRows] = await conn.query<mysql.RowDataPacket[]>(`SELECT role, menu_keys FROM menu_permissions`);
   for (const mr of menuRows) {
     const role = String(mr.role);

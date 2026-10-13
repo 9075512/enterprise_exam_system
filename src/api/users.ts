@@ -1,6 +1,6 @@
 /** 用户 API（§4.5 组织） */
 import { del, get, post, put } from './http';
-import type { Role, User, UserSaveInput, UserStatus } from '@/types';
+import type { LoginSession, Role, User, UserSaveInput, UserStatus } from '@/types';
 
 /** 用户保存入参（新建/编辑共用） */
 export interface UserPayload {
@@ -33,7 +33,17 @@ export function remove(id: string): Promise<null> {
   return del<null>(`/users/${id}`);
 }
 
-/** 重置为默认密码 */
+/** 重置为默认密码（同时强制该用户全部设备下线，v1.7③） */
 export function resetPassword(id: string): Promise<null> {
   return post<null>(`/users/${id}/reset-password`);
+}
+
+/** 查看某用户的登录设备（v1.7③） */
+export function listSessions(id: string): Promise<LoginSession[]> {
+  return get<LoginSession[]>(`/users/${id}/sessions`);
+}
+
+/** 强制下线某用户全部设备（v1.7③） */
+export function revokeSessions(id: string): Promise<{ count: number }> {
+  return del<{ count: number }>(`/users/${id}/sessions`);
 }

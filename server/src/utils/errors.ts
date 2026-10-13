@@ -23,6 +23,8 @@ export const ERROR_CODES = {
   // —— 练题增量 · 二期（收藏夹 / 每日一练）——
   PRACTICE_FAVORITE_LIMIT: 1013, // 收藏夹已达上限（409）
   PRACTICE_DAILY_DISABLED: 1014, // 每日一练未开放（404）
+  // —— v1.7③ 账号安全加固 ——
+  CAPTCHA_REQUIRED: 1015, // 需要/校验图形验证码（400）
   INTERNAL: 5000, // 服务器内部错误
 } as const;
 
@@ -45,6 +47,7 @@ export const ERROR_HTTP_STATUS: Record<number, number> = {
   [ERROR_CODES.PRACTICE_CAPTCHA_REQUIRED]: 400,
   [ERROR_CODES.PRACTICE_FAVORITE_LIMIT]: 409,
   [ERROR_CODES.PRACTICE_DAILY_DISABLED]: 404,
+  [ERROR_CODES.CAPTCHA_REQUIRED]: 400,
   [ERROR_CODES.INTERNAL]: 500,
 };
 
@@ -136,4 +139,9 @@ export function practiceFavoriteLimit(message = '收藏已达上限，请先清�
 /** 便捷构造：每日一练未开放 1014/404（后台关闭时）。 */
 export function practiceDailyDisabled(message = '每日一练暂未开放'): AppError {
   return new AppError(ERROR_CODES.PRACTICE_DAILY_DISABLED, message, 404);
+}
+
+/** 便捷构造：需要/校验图形验证码 1015/400（v1.7③）。 */
+export function captchaRequired(message = '请输入图形验证码'): AppError {
+  return new AppError(ERROR_CODES.CAPTCHA_REQUIRED, message, 400);
 }

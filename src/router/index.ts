@@ -90,6 +90,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/admin/AuditLogPage.vue'),
         meta: { roles: ['admin'], menuKey: 'audit', title: '审计日志' },
       },
+      {
+        path: 'admin/login-logs',
+        component: () => import('@/views/admin/LoginLogPage.vue'),
+        meta: { roles: ['admin'], menuKey: 'login-logs', title: '登录日志' },
+      },
       // 出题人 + 管理员（题库/试卷域同权）
       {
         path: 'author/banks',

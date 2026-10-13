@@ -6,6 +6,9 @@ export {
   findByUsername,
   findForLogin,
   findById,
+  findAuthById,
   updatePasswordHash,
+  setTwoFactorSecret,
+  setTwoFactorEnabled,
 } from '../users/users.repo.js';
-export type { LoginUserRow } from '../users/users.repo.js';
+export type { LoginUserRow, AuthUserRow } from '../users/users.repo.js';
