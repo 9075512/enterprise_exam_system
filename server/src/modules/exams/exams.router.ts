@@ -8,8 +8,8 @@ import { validate } from '../../middleware/validate.js';
 import { authRequired } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/role.js';
 import { ok } from '../../utils/response.js';
-import { examSchema } from './exams.schema.js';
-import type { ExamInput } from './exams.schema.js';
+import { examSchema, examExceptionSchema } from './exams.schema.js';
+import type { ExamInput, ExamExceptionInput } from './exams.schema.js';
 import * as examsService from './exams.service.js';
 import * as recordsService from '../records/records.service.js';
 
@@ -82,5 +82,35 @@ examsRouter.post(
       departmentId: req.user!.departmentId,
     });
     return ok(res, record);
+  }),
+);
+
+/* ============================ 特殊考试安排（v1.7①，admin） ============================ */
+
+/** GET /api/exams/:id/exceptions —— 某场考试的全部特殊安排。 */
+examsRouter.get(
+  '/:id/exceptions',
+  requireRole('admin'),
+  asyncHandler(async (req, res) => ok(res, await examsService.listExceptions(req.params.id))),
+);
+
+/** PUT /api/exams/:id/exceptions/:userId —— 新增/更新某考生的特殊安排。 */
+examsRouter.put(
+  '/:id/exceptions/:userId',
+  requireRole('admin'),
+  validate(examExceptionSchema, 'body'),
+  asyncHandler(async (req, res) => {
+    const body = req.body as ExamExceptionInput;
+    return ok(res, await examsService.upsertException(req.params.id, req.params.userId, body, req.user!.id));
+  }),
+);
+
+/** DELETE /api/exams/:id/exceptions/:userId —— 删除某考生的特殊安排。 */
+examsRouter.delete(
+  '/:id/exceptions/:userId',
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    await examsService.removeException(req.params.id, req.params.userId, req.user!.id);
+    return ok(res, null);
   }),
 );

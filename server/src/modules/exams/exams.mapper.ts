@@ -20,6 +20,7 @@ export interface ExamRow extends RowDataPacket {
   shuffle_enabled: number | boolean | null;
   shuffle_options: number | boolean | null;
   allow_retake: number | boolean | null;
+  allow_appeal: number | boolean | null;
   created_by: string;
   created_at: string;
 }
@@ -45,6 +46,7 @@ export function mapExamRow(row: ExamRow): ExamDto {
     shuffleEnabled: nullableBool(row.shuffle_enabled),
     shuffleOptions: nullableBool(row.shuffle_options),
     allowRetake: nullableBool(row.allow_retake),
+    allowAppeal: nullableBool(row.allow_appeal),
     createdBy: row.created_by,
     createdAt: fromDbDateSafe(row.created_at),
   };

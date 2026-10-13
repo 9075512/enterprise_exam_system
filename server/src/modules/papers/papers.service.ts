@@ -13,6 +13,8 @@ import { withTransaction } from '../../db/pool.js';
 import { badRequest, conflict, notFound, forbidden } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
 import { nowDb, fromDbDateSafe } from '../../utils/datetime.js';
+import { buildPaperPdfBuffer } from '../../utils/pdfExport.js';
+import type { PaperPdfQuestion } from '../../utils/pdfExport.js';
 import type {
   DrawQuestionItem,
   DrawResult,
@@ -287,9 +289,7 @@ export async function drawQuestions(
 }
 
 /** 供外部复用的行类型导出（如测试）。 */
-export type { PaperRow, PaperQuestionRow };
-
-/**
+export type { PaperRow, PaperQuestionRow };/**
  * 生成试卷快照（冻结题目内容副本，供开考落库与判分使用）。
  * `options`/`answer` 做深拷贝，避免快照与被引用的题目对象共享。
  */
@@ -322,4 +322,71 @@ export async function getSnapshot(paperId: string): Promise<PaperSnapshot> {
     totalScore: Number(p.total_score),
     questions,
   };
+}
+
+/* ============================ 试卷 PDF 导出（v1.7①） ============================ */
+
+/** 题型中文名（试卷排版用）。 */
+const TYPE_LABELS: Record<QuestionType, string> = {
+  single: '单选',
+  multiple: '多选',
+  judge: '判断',
+  fill: '填空',
+  short: '简答',
+};
+
+/** 文件名安全化。 */
+function sanitizeFilename(name: string): string {
+  return name.replace(/[\\/:*?"<>|]/g, '_');
+}
+
+/** 题目答案文本化：客观题转选项文本；填空按空拼接；简答取参考文本。 */
+function answerTextOf(q: PaperDetailQuestionDto['question']): string {
+  if (q.type === 'short') return (q.answer as string[])[0] ?? '';
+  if (q.type === 'fill') return (q.answer as string[]).join(' / ');
+  const indexes = q.answer as number[];
+  return indexes.map((i) => q.options[i] ?? String(i + 1)).join('、');
+}
+
+/** 试卷 PDF 导出结果。 */
+export interface PaperPdfResult {
+  buffer: Buffer;
+  filename: string;
+  questionCount: number;
+}
+
+/**
+ * 导出试卷为 PDF（考生版 / 答案版）。
+ * 版面：标题 + 摘要（总分/题量/来源题库）+ 逐题（题干、选项、答案版附参考答案与解析）。
+ * 权限沿用 getById（author 需被授权该试卷来源题库）。
+ */
+export async function exportPaperPdf(
+  paperId: string,
+  withAnswer: boolean,
+  operator: Operator,
+): Promise<PaperPdfResult> {
+  const detail = await getById(paperId, operator);
+  const questions: PaperPdfQuestion[] = detail.questions.map((item, i) => ({
+    index: i + 1,
+    typeLabel: TYPE_LABELS[item.question.type] ?? '未知',
+    stem: item.question.stem,
+    options: item.question.options,
+    score: item.score,
+    answerText: answerTextOf(item.question),
+    analysis: item.question.analysis ?? '',
+  }));
+
+  const bankNames = detail.bankNames.filter(Boolean).join('、');
+  const subtitle =
+    `总分 ${detail.totalScore} 分 · 共 ${questions.length} 题` + (bankNames ? ` · 来源题库：${bankNames}` : '');
+  const buffer = await buildPaperPdfBuffer({
+    title: detail.name,
+    subtitle,
+    questions,
+    withAnswer,
+    footer: `本试卷由在线考试系统生成 · ${withAnswer ? '答案版（含参考答案与解析）' : '考生版'}`,
+  });
+
+  const filename = `${sanitizeFilename(detail.name)}-试卷-${withAnswer ? '答案版' : '考生版'}.pdf`;
+  return { buffer, filename, questionCount: questions.length };
 }

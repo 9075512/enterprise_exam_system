@@ -84,8 +84,9 @@ onMounted(async () => {
 
     exam.value = await examsApi.detail(rec.examId);
 
-    // 倒计时基准：开考时刻 + 考试时长
-    const deadline = dayjs(rec.startedAt).add(exam.value.durationMinutes, 'minute').valueOf();
+    // 倒计时基准：开考时刻 + （考试时长 + 本人加时）
+    const totalMinutes = exam.value.durationMinutes + (rec.extraMinutes ?? 0);
+    const deadline = dayjs(rec.startedAt).add(totalMinutes, 'minute').valueOf();
     remaining.value = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
     startTimer();
 
@@ -264,6 +265,9 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
             <el-icon><Warning /></el-icon>
             切屏 {{ cheatCount }} 次 / {{ cheatAwayTotal }} 秒
           </span>
+          <el-tag v-if="record?.extraMinutes" class="taking__extra" type="warning" size="small" effect="plain">
+            含加时 {{ record.extraMinutes }} 分钟
+          </el-tag>
           <CountdownTimer :remaining-seconds="remaining" />
         </div>
       </header>
@@ -488,6 +492,10 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
     font-size: 12px;
     font-weight: 500;
     color: $color-error;
+  }
+
+  &__extra {
+    font-size: 12px;
   }
 
   &__body {

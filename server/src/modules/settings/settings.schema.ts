@@ -121,6 +121,14 @@ export const settingsSchema = z.object({
 
   retakeDefaultEnabled: z.boolean({ invalid_type_error: '补考申请默认开关必须为布尔值' }),
 
+  appealEnabled: z.boolean({ invalid_type_error: '成绩复核默认开关必须为布尔值' }),
+
+  appealWindowDays: z
+    .number({ invalid_type_error: '成绩复核时限必须为 0~365 天' })
+    .int('成绩复核时限必须为 0~365 天')
+    .min(0, '成绩复核时限必须为 0~365 天')
+    .max(365, '成绩复核时限必须为 0~365 天'),
+
   notifySiteEnabled: z.boolean({ invalid_type_error: '站内信通知开关必须为布尔值' }),
   notifyEmailEnabled: z.boolean({ invalid_type_error: '邮件通知开关必须为布尔值' }),
   notifyOnPublish: z.boolean({ invalid_type_error: '考试发布通知开关必须为布尔值' }),

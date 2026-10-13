@@ -42,6 +42,8 @@ export const SETTINGS_DEFAULTS: SystemSettings = {
   loginSlogan: '让考核更简单，让能力看得见。',
   copyright: '© 2026 Enterprise Exam System',
   retakeDefaultEnabled: false,
+  appealEnabled: true,
+  appealWindowDays: 7,
   notifySiteEnabled: true,
   notifyEmailEnabled: false,
   notifyOnPublish: true,

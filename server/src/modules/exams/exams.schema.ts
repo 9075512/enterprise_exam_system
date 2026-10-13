@@ -22,6 +22,17 @@ export const examSchema = z.object({
   shuffleEnabled: z.boolean({ invalid_type_error: '人手一卷开关必须为布尔值' }).nullable().optional().default(null),
   shuffleOptions: z.boolean({ invalid_type_error: '选项乱序开关必须为布尔值' }).nullable().optional().default(null),
   allowRetake: z.boolean({ invalid_type_error: '补考申请开关必须为布尔值' }).nullable().optional().default(null),
+  allowAppeal: z.boolean({ invalid_type_error: '成绩复核开关必须为布尔值' }).nullable().optional().default(null),
 });
 
 export type ExamInput = z.infer<typeof examSchema>;
+
+/** 特殊考试安排入参（v1.7①）。 */
+export const examExceptionSchema = z.object({
+  extraMinutes: z.coerce.number().int().min(0, '加时必须在 0~600 分钟之间').max(600, '加时必须在 0~600 分钟之间').optional().default(0),
+  extraAttempts: z.coerce.number().int().min(0, '额外次数必须在 0~10 之间').max(10, '额外次数必须在 0~10 之间').optional().default(0),
+  exempt: z.boolean({ invalid_type_error: '免考标记必须为布尔值' }).optional().default(false),
+  note: z.string().max(255, '备注不能超过 255 个字符').optional().default(''),
+});
+
+export type ExamExceptionInput = z.infer<typeof examExceptionSchema>;

@@ -97,6 +97,12 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     changes.push('exams.allow_retake');
   }
 
+  // v1.7①：成绩复核开关（NULL=继承全局默认）
+  if (!(await columnExists(conn, 'exams', 'allow_appeal'))) {
+    await conn.query(`ALTER TABLE exams ADD COLUMN allow_appeal TINYINT(1) NULL AFTER allow_retake`);
+    changes.push('exams.allow_appeal');
+  }
+
   // v1.5：用户邮箱（邮件通知接收地址，可空）
   if (!(await columnExists(conn, 'users', 'email'))) {
     await conn.query(`ALTER TABLE users ADD COLUMN email VARCHAR(120) NULL AFTER department_id`);
@@ -166,10 +172,11 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
 
   // v1.6：菜单权限目录新增「人工阅卷」（defaultRoles: admin/author）。
   // 若已有角色权限行（admin 曾在菜单权限页保存过），需把新菜单合并进去，否则会看不到新入口。
+  // v1.7①：新增「成绩复核」（admin）。
+  const NEW_MENU_KEYS: Record<string, string[]> = { reviews: ['admin', 'author'], appeals: ['admin'] };
   const [menuRows] = await conn.query<mysql.RowDataPacket[]>(`SELECT role, menu_keys FROM menu_permissions`);
   for (const mr of menuRows) {
     const role = String(mr.role);
-    if (role !== 'admin' && role !== 'author') continue;
     let keys: string[] = [];
     try {
       const raw = typeof mr.menu_keys === 'string' ? mr.menu_keys : JSON.stringify(mr.menu_keys ?? []);
@@ -178,10 +185,13 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     } catch {
       keys = [];
     }
-    if (!keys.includes('reviews')) {
-      keys.push('reviews');
-      await conn.query(`UPDATE menu_permissions SET menu_keys = ? WHERE role = ?`, [JSON.stringify(keys), role]);
-      changes.push(`menu_permissions.${role} +reviews`);
+    for (const [menuKey, roles] of Object.entries(NEW_MENU_KEYS)) {
+      if (!roles.includes(role)) continue;
+      if (!keys.includes(menuKey)) {
+        keys.push(menuKey);
+        await conn.query(`UPDATE menu_permissions SET menu_keys = ? WHERE role = ?`, [JSON.stringify(keys), role]);
+        changes.push(`menu_permissions.${role} +${menuKey}`);
+      }
     }
   }
 

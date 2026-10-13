@@ -19,6 +19,7 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import StatusTag from '@/components/common/StatusTag.vue';
 import ExamFormDialog from './ExamFormDialog.vue';
+import ExamExceptionDialog from './ExamExceptionDialog.vue';
 import type { Exam, ExamStatus } from '@/types';
 
 const { confirm } = useConfirm();
@@ -65,6 +66,15 @@ function openCreate(): void {
 function openEdit(exam: Exam): void {
   editingExam.value = exam;
   dialogVisible.value = true;
+}
+
+/* ------------------------------ 特殊安排弹窗 ------------------------------ */
+const exceptionVisible = ref(false);
+const exceptionExam = ref<Exam | null>(null);
+
+function openExceptions(exam: Exam): void {
+  exceptionExam.value = exam;
+  exceptionVisible.value = true;
 }
 
 const deleting = ref(false);
@@ -160,9 +170,10 @@ async function handleDelete(exam: Exam): Promise<void> {
             <StatusTag :status="getExamStatus(row as Exam)" />
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="140" fixed="right">
+        <el-table-column label="操作" width="210" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="openEdit(row as Exam)">编辑</el-button>
+            <el-button link @click="openExceptions(row as Exam)">特殊安排</el-button>
             <el-button type="danger" link @click="handleDelete(row as Exam)">删除</el-button>
           </template>
         </el-table-column>
@@ -179,6 +190,8 @@ async function handleDelete(exam: Exam): Promise<void> {
       :departments="departments || []"
       @saved="refresh"
     />
+
+    <ExamExceptionDialog v-model="exceptionVisible" :exam="exceptionExam" />
   </div>
 </template>
 

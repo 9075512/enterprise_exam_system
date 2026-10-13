@@ -1,6 +1,6 @@
 /** 考试 API（§4.5 考试 / 记录 / 报表） */
 import { del, get, post, put } from './http';
-import type { Exam, ExamMy, ExamRecord, ExamSaveInput } from '@/types';
+import type { Exam, ExamException, ExamMy, ExamRecord, ExamSaveInput } from '@/types';
 
 /** 考试保存入参（不含 id） */
 export type ExamPayload = Omit<ExamSaveInput, 'id'>;
@@ -38,4 +38,25 @@ export function remove(id: string): Promise<null> {
 /** 开始考试（生成记录 + 快照，幂等续考） */
 export function start(id: string): Promise<ExamRecord> {
   return post<ExamRecord>(`/exams/${id}/start`);
+}
+
+/* ------------------------------ 特殊考试安排（v1.7①，admin） ------------------------------ */
+
+/** 某场考试的全部特殊安排（加时/额外次数/免考） */
+export function listExceptions(examId: string): Promise<ExamException[]> {
+  return get<ExamException[]>(`/exams/${examId}/exceptions`);
+}
+
+/** 新增 / 更新某考生的特殊安排 */
+export function saveException(
+  examId: string,
+  userId: string,
+  payload: { extraMinutes?: number; extraAttempts?: number; exempt?: boolean; note?: string },
+): Promise<ExamException> {
+  return put<ExamException>(`/exams/${examId}/exceptions/${userId}`, payload);
+}
+
+/** 删除某考生的特殊安排 */
+export function removeException(examId: string, userId: string): Promise<null> {
+  return del<null>(`/exams/${examId}/exceptions/${userId}`);
 }

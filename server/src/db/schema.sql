@@ -125,6 +125,7 @@ CREATE TABLE IF NOT EXISTS exams (
   shuffle_enabled  TINYINT(1)   NULL,
   shuffle_options  TINYINT(1)   NULL,
   allow_retake     TINYINT(1)   NULL,
+  allow_appeal     TINYINT(1)   NULL,
   created_by       VARCHAR(64)  NOT NULL,
   created_at       DATETIME(3)  NOT NULL,
   PRIMARY KEY (id),
@@ -383,5 +384,46 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   KEY idx_audit_action (action),
   KEY idx_audit_target (target_type, target_id),
   KEY idx_audit_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 26. 成绩复核申请（v1.7①；按记录唯一——每条答卷至多一次复核；申请-复核改分流）
+CREATE TABLE IF NOT EXISTS score_appeals (
+  id             VARCHAR(64)  NOT NULL,
+  record_id      VARCHAR(64)  NOT NULL,
+  exam_id        VARCHAR(64)  NOT NULL,
+  user_id        VARCHAR(64)  NOT NULL,
+  status         ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  reason         VARCHAR(500) NOT NULL DEFAULT '',
+  original_score DECIMAL(7,1) NOT NULL,
+  new_score      DECIMAL(7,1) NULL,
+  review_comment VARCHAR(500) NOT NULL DEFAULT '',
+  applied_at     DATETIME(3)  NOT NULL,
+  reviewed_by    VARCHAR(64)  NULL,
+  reviewed_at    DATETIME(3)  NULL,
+  created_at     DATETIME(3)  NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_appeals_record (record_id),
+  KEY idx_appeals_status (status),
+  KEY idx_appeals_user (user_id),
+  CONSTRAINT fk_appeals_record FOREIGN KEY (record_id)
+    REFERENCES exam_records(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 27. 特殊考试安排（v1.7①；按 考试×考生 唯一：加时 / 额外次数 / 免考）
+CREATE TABLE IF NOT EXISTS exam_exceptions (
+  id             VARCHAR(64)  NOT NULL,
+  exam_id        VARCHAR(64)  NOT NULL,
+  user_id        VARCHAR(64)  NOT NULL,
+  extra_minutes  INT          NOT NULL DEFAULT 0,
+  extra_attempts INT          NOT NULL DEFAULT 0,
+  exempt         TINYINT(1)   NOT NULL DEFAULT 0,
+  note           VARCHAR(255) NOT NULL DEFAULT '',
+  created_by     VARCHAR(64)  NOT NULL,
+  created_at     DATETIME(3)  NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_exceptions_exam_user (exam_id, user_id),
+  KEY idx_exceptions_user (user_id),
+  CONSTRAINT fk_exceptions_exam FOREIGN KEY (exam_id)
+    REFERENCES exams(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

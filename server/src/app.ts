@@ -26,6 +26,7 @@ import { settingsRouter } from './modules/settings/settings.router.js';
 import { permissionsRouter } from './modules/permissions/permissions.router.js';
 import { notificationsRouter } from './modules/notifications/notifications.router.js';
 import { retakesRouter } from './modules/retakes/retakes.router.js';
+import { appealsRouter } from './modules/appeals/appeals.router.js';
 import { auditRouter } from './modules/audit/audit.router.js';
 import { practiceRouter } from './modules/practice/practice.router.js';
 import { practiceEdgeGuard } from './middleware/practiceEdge.js';
@@ -75,6 +76,7 @@ export function createApp(): Express {
     api.use('/permissions', permissionsRouter);
     api.use('/notifications', notificationsRouter);
     api.use('/retakes', retakesRouter);
+    api.use('/appeals', appealsRouter);
     api.use('/audit-logs', auditRouter);
   }
 

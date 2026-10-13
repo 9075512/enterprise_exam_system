@@ -25,6 +25,9 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'bank.delete': '删除题库',
   'bank.migrate': '迁移试题',
   'permission.update': '更新菜单权限',
+  'appeal.approve': '复核通过（改分）',
+  'appeal.reject': '复核驳回',
+  'exam.exception_update': '设置特殊安排',
 };
 
 /** 审计目标类型 → 中文文案。 */
@@ -33,6 +36,7 @@ export const AUDIT_TARGET_TYPE_LABELS: Record<AuditTargetType, string> = {
   exam: '考试',
   bank: '题库',
   permission: '菜单权限',
+  appeal: '成绩复核',
 };
 
 /** 全部审计动作 key（查询过滤白名单）。 */

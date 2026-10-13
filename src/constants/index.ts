@@ -2,7 +2,7 @@
  * 全局常量：角色/题型/状态文案、业务阈值、分页与导入上限、Token key、题库/导入文案。
  * 说明：已移除旧版 localStorage 存储 key（数据改由后端 API 承载）。
  */
-import type { AuditAction, AuditTargetType, ExamStatus, QuestionType, Role } from '@/types';
+import type { AppealStatus, AuditAction, AuditTargetType, ExamStatus, QuestionType, Role } from '@/types';
 
 /** 登录令牌存储 key（仅存 Token，其余会话信息由 /api/auth/me 恢复） */
 export const TOKEN_KEY = 'exam_sys.token';
@@ -138,6 +138,9 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'bank.delete': '删除题库',
   'bank.migrate': '迁移试题',
   'permission.update': '更新菜单权限',
+  'appeal.approve': '复核通过（改分）',
+  'appeal.reject': '复核驳回',
+  'exam.exception_update': '设置特殊安排',
 };
 
 /** 审计动作下拉选项 */
@@ -151,6 +154,7 @@ export const AUDIT_TARGET_TYPE_LABELS: Record<AuditTargetType, string> = {
   exam: '考试',
   bank: '题库',
   permission: '菜单权限',
+  appeal: '成绩复核',
 };
 
 /** 审计目标类型下拉选项 */
@@ -159,4 +163,24 @@ export const AUDIT_TARGET_TYPE_OPTIONS: ReadonlyArray<{ value: AuditTargetType; 
   { value: 'exam', label: '考试' },
   { value: 'bank', label: '题库' },
   { value: 'permission', label: '菜单权限' },
+  { value: 'appeal', label: '成绩复核' },
 ];
+
+/** 成绩复核状态文案（v1.7①） */
+export const APPEAL_STATUS_LABELS: Record<AppealStatus, string> = {
+  pending: '待复核',
+  approved: '已通过',
+  rejected: '已驳回',
+};
+
+/** 成绩复核状态标签色 */
+export const APPEAL_STATUS_TAG_TYPES: Record<AppealStatus, 'warning' | 'success' | 'danger'> = {
+  pending: 'warning',
+  approved: 'success',
+  rejected: 'danger',
+};
+
+/** 成绩复核状态下拉选项 */
+export const APPEAL_STATUS_OPTIONS: ReadonlyArray<{ value: AppealStatus; label: string }> = (
+  Object.entries(APPEAL_STATUS_LABELS) as Array<[AppealStatus, string]>
+).map(([value, label]) => ({ value, label }));

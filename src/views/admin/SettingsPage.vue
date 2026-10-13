@@ -51,6 +51,8 @@ const FIELD_TAB: Record<string, SettingsTab> = {
   shuffleDefaultEnabled: 'exam',
   shuffleOptionsDefault: 'exam',
   retakeDefaultEnabled: 'exam',
+  appealEnabled: 'exam',
+  appealWindowDays: 'exam',
   countdownWarningMinutes: 'exam',
   defaultPassword: 'account',
   minPasswordLength: 'account',
@@ -399,6 +401,36 @@ async function handleReset(): Promise<void> {
                     <p class="settings-page__hint">
                       开启后，新建考试默认开放补考申请；补考仅限答题次数为 1 次的考试，且需管理员审批。
                     </p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="成绩复核（默认）" prop="appealEnabled">
+                  <div class="settings-page__control">
+                    <el-switch
+                      v-model="form.appealEnabled"
+                      active-text="开启"
+                      inactive-text="关闭"
+                    />
+                    <p class="settings-page__hint">
+                      开启后，新建考试默认开放成绩复核；考生可在时限内对已出成绩申请复核，管理员可改分。
+                    </p>
+                  </div>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row :gutter="24">
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="成绩复核时限（天）" prop="appealWindowDays">
+                  <div class="settings-page__control">
+                    <el-input-number
+                      v-model="form.appealWindowDays"
+                      :min="0"
+                      :max="365"
+                      :step="1"
+                      class="settings-page__num"
+                    />
+                    <p class="settings-page__hint">自交卷起算；填 0 表示不限时限。</p>
                   </div>
                 </el-form-item>
               </el-col>

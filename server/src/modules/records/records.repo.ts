@@ -297,3 +297,8 @@ export async function updateReview(
     [JSON.stringify(data.subjectiveScores), data.score, id],
   );
 }
+
+/** 仅更新总分（成绩复核改分用，v1.7①）。 */
+export async function updateScore(id: string, score: number, exec?: SqlExecutor): Promise<void> {
+  await runQuery(exec, `UPDATE exam_records SET score = ? WHERE id = ?`, [score, id]);
+}

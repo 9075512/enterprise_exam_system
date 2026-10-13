@@ -245,6 +245,8 @@ export interface ExamDto {
   shuffleOptions: boolean | null;
   /** 补考申请开关；null=继承全局默认 retakeDefaultEnabled（仅 maxAttempts=1 时生效） */
   allowRetake: boolean | null;
+  /** 成绩复核开关；null=继承全局默认 appealEnabled */
+  allowAppeal: boolean | null;
   createdBy: string;
   createdAt: string;
 }
@@ -259,6 +261,12 @@ export interface ExamMyDto extends ExamDto {
   retakeStatus: RetakeStatus | null;
   /** 本人当前是否可发起补考申请 */
   canApplyRetake: boolean;
+  /** 特殊安排：本人考试加时（分钟，0 = 无加时） */
+  extraMinutes: number;
+  /** 特殊安排：本人额外答题次数（0 = 无额外次数） */
+  extraAttempts: number;
+  /** 特殊安排：本人是否免考（免考不可进入答题，不计入统计） */
+  exempt: boolean;
 }
 
 /** 切屏事件（只增不改） */
@@ -321,6 +329,10 @@ export interface ExamRecordDto {
   userName?: string;
   /** 科室名称（仅详情接口 GET /records/:id 返回） */
   departmentName?: string;
+  /** 特殊安排：本人加时分钟数（详情接口 / startExam 返回，0 或省略 = 无加时） */
+  extraMinutes?: number;
+  /** 本人成绩复核申请状态（详情接口返回；无申请为 null） */
+  appealStatus?: AppealStatus | null;
 }
 
 /** 单场考试统计摘要（passRate 为 0~1 小数） */
@@ -419,6 +431,10 @@ export interface SystemSettings {
   copyright: string;
   /** 补考申请全局默认开关（单场考试可覆盖；仅 maxAttempts=1 的考试可补考） */
   retakeDefaultEnabled: boolean;
+  /** 成绩复核全局默认开关（单场考试可覆盖） */
+  appealEnabled: boolean;
+  /** 成绩复核申请时限（天；自交卷起算，0 = 不限时限） */
+  appealWindowDays: number;
   /** 站内信通知总开关 */
   notifySiteEnabled: boolean;
   /** 邮件通知总开关 */
@@ -790,10 +806,13 @@ export type AuditAction =
   | 'bank.update'
   | 'bank.delete'
   | 'bank.migrate'
-  | 'permission.update';
+  | 'permission.update'
+  | 'appeal.approve'
+  | 'appeal.reject'
+  | 'exam.exception_update';
 
 /** 审计目标类型 */
-export type AuditTargetType = 'user' | 'exam' | 'bank' | 'permission';
+export type AuditTargetType = 'user' | 'exam' | 'bank' | 'permission' | 'appeal';
 
 /** 操作审计日志 DTO（自包含，actor 删除后仍可读） */
 export interface AuditLogDto {
@@ -837,4 +856,67 @@ export interface SubjectWrongItemDto {
 export interface DashboardReportDto {
   examTrend: ExamTrendPointDto[];
   subjectWrong: SubjectWrongItemDto[];
+}
+
+// ============================================================
+// v1.7 增量 DTO：成绩复核 / 特殊考试安排 / 试卷导出
+// ============================================================
+
+/** 成绩复核申请状态 */
+export type AppealStatus = 'pending' | 'approved' | 'rejected';
+
+/** 成绩复核申请 DTO */
+export interface ScoreAppealDto {
+  id: string;
+  recordId: string;
+  examId: string;
+  /** 考试名称（列表回显用） */
+  examName: string;
+  userId: string;
+  /** 考生姓名 */
+  userName: string;
+  /** 考生登录账号 */
+  username: string;
+  /** 科室名称 */
+  departmentName: string;
+  status: AppealStatus;
+  /** 申请说明 */
+  reason: string;
+  /** 申请时的成绩 */
+  originalScore: number;
+  /** 复核后成绩（未通过为 null） */
+  newScore: number | null;
+  /** 复核意见 */
+  reviewComment: string;
+  appliedAt: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+}
+
+/** 特殊考试安排 DTO（考试 × 考生） */
+export interface ExamExceptionDto {
+  id: string;
+  examId: string;
+  userId: string;
+  /** 考生姓名 */
+  userName: string;
+  /** 考生登录账号 */
+  username: string;
+  /** 科室名称 */
+  departmentName: string;
+  /** 加时（分钟） */
+  extraMinutes: number;
+  /** 额外答题次数 */
+  extraAttempts: number;
+  /** 是否免考 */
+  exempt: boolean;
+  /** 备注 */
+  note: string;
+  createdAt: string;
+}
+
+/** 试卷 PDF 导出选项 */
+export interface PaperPdfOptions {
+  /** 是否输出答案版（含参考答案与解析） */
+  withAnswer: boolean;
 }

@@ -6,7 +6,7 @@
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Plus, Search, Refresh } from '@element-plus/icons-vue';
+import { Plus, Search, Refresh, ArrowDown } from '@element-plus/icons-vue';
 import * as papersApi from '@/api/papers';
 import { useRequest } from '@/composables/useRequest';
 import { useConfirm } from '@/composables/useConfirm';
@@ -51,6 +51,34 @@ function goEdit(paper: Paper): void {
 }
 
 const deleting = ref(false);
+const exportingId = ref('');
+
+/** 文件名清洗 */
+function sanitize(name: string): string {
+  return name.replace(/[\\/:*?"<>|]/g, '_').trim() || '试卷';
+}
+
+/** 导出试卷 PDF（考生版 / 答案版，v1.7①） */
+async function handleExportPdf(paper: Paper, withAnswer: boolean): Promise<void> {
+  if (exportingId.value) return;
+  exportingId.value = paper.id;
+  try {
+    const blob = await papersApi.exportPaperPdf(paper.id, withAnswer);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${sanitize(paper.name)}-试卷-${withAnswer ? '答案版' : '考生版'}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    ElMessage.success('导出成功');
+  } catch {
+    // 错误提示已由 http.ts 响应拦截器统一弹出
+  } finally {
+    exportingId.value = '';
+  }
+}
 
 /** 删除试卷（被考试引用 → 后端 1005，拦截器已提示，此处不刷新） */
 async function handleDelete(paper: Paper): Promise<void> {
@@ -138,10 +166,25 @@ async function handleDelete(paper: Paper): Promise<void> {
         <el-table-column label="创建时间" width="170">
           <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="270" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="goPreview(row as Paper)">预览</el-button>
             <el-button link @click="goEdit(row as Paper)">编辑</el-button>
+            <el-dropdown
+              trigger="click"
+              :disabled="exportingId === (row as Paper).id"
+              @command="(cmd: string) => handleExportPdf(row as Paper, cmd === 'answer')"
+            >
+              <el-button link type="primary">
+                导出 PDF<el-icon class="paper-page__caret"><ArrowDown /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="student">考生版</el-dropdown-item>
+                  <el-dropdown-item command="answer">答案版（含答案与解析）</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
             <el-button type="danger" link @click="handleDelete(row as Paper)">删除</el-button>
           </template>
         </el-table-column>
@@ -158,6 +201,11 @@ async function handleDelete(paper: Paper): Promise<void> {
 
 .paper-page__bank-tag {
   margin: 0 4px 4px 0;
+}
+
+.paper-page__caret {
+  margin-left: 2px;
+  font-size: 12px;
 }
 
 .paper-page__filter-keyword {

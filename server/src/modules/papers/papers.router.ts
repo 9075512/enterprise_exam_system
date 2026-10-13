@@ -41,6 +41,23 @@ papersRouter.post(
   }),
 );
 
+/** GET /api/papers/:id/export-pdf?withAnswer=1 —— 导出试卷 PDF（考生版/答案版）。 */
+papersRouter.get(
+  '/:id/export-pdf',
+  asyncHandler(async (req, res) => {
+    const withAnswer = req.query.withAnswer === '1' || req.query.withAnswer === 'true';
+    const { buffer, filename } = await papersService.exportPaperPdf(req.params.id, withAnswer, req.user!);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="paper-${Date.now()}.pdf"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+    );
+    res.setHeader('Content-Length', String(buffer.length));
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+    res.send(buffer);
+  }),
+);
+
 /** GET /api/papers/:id —— 试卷详情（题目 + 来源题库 + 逐题来源）。 */
 papersRouter.get(
   '/:id',

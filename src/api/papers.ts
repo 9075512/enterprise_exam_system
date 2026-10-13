@@ -37,3 +37,11 @@ export function drawQuestions(payload: {
 }): Promise<DrawResult> {
   return post<DrawResult>('/papers/draw-questions', payload);
 }
+
+/**
+ * 导出试卷为 PDF（考生版 / 答案版）。
+ * 后端返回裸二进制 PDF，拦截器原样透传为 Blob。
+ */
+export function exportPaperPdf(paperId: string, withAnswer: boolean): Promise<Blob> {
+  return get<Blob>(`/papers/${paperId}/export-pdf`, { withAnswer: withAnswer ? 1 : 0 }, { responseType: 'blob' });
+}

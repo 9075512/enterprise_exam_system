@@ -5,9 +5,11 @@
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { ElMessage } from 'element-plus';
 import { Search, Refresh } from '@element-plus/icons-vue';
 import * as examsApi from '@/api/exams';
 import * as recordsApi from '@/api/records';
+import * as appealsApi from '@/api/appeals';
 import { useRequest } from '@/composables/useRequest';
 import { usePagination } from '@/composables/usePagination';
 import { useSettingsStore } from '@/stores/settings';
@@ -90,6 +92,39 @@ function passScoreOf(examId: string): number | null {
 function goDetail(record: ExamRecord): void {
   void router.push(`/score-detail/${record.id}`);
 }
+
+/* ------------------------------ 成绩复核申请（v1.7①） ------------------------------ */
+const appealVisible = ref(false);
+const appealing = ref(false);
+const appealRecord = ref<ExamRecord | null>(null);
+const appealReason = ref('');
+
+/** 该考试是否开放成绩复核（考试级三态覆盖全局默认） */
+function appealEnabledOf(examId: string): boolean {
+  const exam = examMap.value[examId];
+  return exam ? (exam.allowAppeal ?? settingsStore.settings.appealEnabled) : settingsStore.settings.appealEnabled;
+}
+
+function openAppeal(record: ExamRecord): void {
+  appealRecord.value = record;
+  appealReason.value = '';
+  appealVisible.value = true;
+}
+
+async function submitAppeal(): Promise<void> {
+  if (!appealRecord.value) return;
+  appealing.value = true;
+  try {
+    await appealsApi.apply(appealRecord.value.id, appealReason.value.trim());
+    ElMessage.success('复核申请已提交，请等待管理员处理');
+    appealVisible.value = false;
+    void load();
+  } catch {
+    // 错误已由拦截器提示（如重复申请 1005）
+  } finally {
+    appealing.value = false;
+  }
+}
 </script>
 
 <template>
@@ -142,9 +177,16 @@ function goDetail(record: ExamRecord): void {
             <span v-else>—</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="goDetail(row as ExamRecord)">查看明细</el-button>
+            <el-button
+              v-if="appealEnabledOf((row as ExamRecord).examId)"
+              link
+              @click="openAppeal(row as ExamRecord)"
+            >
+              申请复核
+            </el-button>
           </template>
         </el-table-column>
         <template #empty>
@@ -162,6 +204,34 @@ function goDetail(record: ExamRecord): void {
         />
       </div>
     </el-card>
+
+    <el-dialog v-model="appealVisible" title="申请成绩复核" width="460px">
+      <el-alert
+        v-if="appealRecord"
+        class="my-score__appeal-alert"
+        type="info"
+        :closable="false"
+        show-icon
+        :title="examName(appealRecord.examId)"
+        :description="`当前成绩：${formatScore(appealRecord.score)} 分 · 每条成绩仅可申请一次`"
+      />
+      <el-form label-width="80px">
+        <el-form-item label="申请说明">
+          <el-input
+            v-model="appealReason"
+            type="textarea"
+            :rows="3"
+            maxlength="500"
+            show-word-limit
+            placeholder="请说明你对哪道题或哪项判分有疑问（选填）"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="appealVisible = false">取消</el-button>
+        <el-button type="primary" :loading="appealing" @click="submitAppeal">提交申请</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -174,5 +244,9 @@ function goDetail(record: ExamRecord): void {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.my-score__appeal-alert {
+  margin-bottom: 16px;
 }
 </style>

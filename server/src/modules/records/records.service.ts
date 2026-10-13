@@ -6,6 +6,8 @@ import * as repo from './records.repo.js';
 import type { ExamRecordRow } from './records.repo.js';
 import { mapRecordRow, mapRecordDetailRow } from './records.mapper.js';
 import * as examsRepo from '../exams/exams.repo.js';
+import * as exceptionsRepo from '../exams/examExceptions.repo.js';
+import * as appealsRepo from '../appeals/appeals.repo.js';
 import { mapExamRow } from '../exams/exams.mapper.js';
 import * as papersService from '../papers/papers.service.js';
 import * as retakesService from '../retakes/retakes.service.js';
@@ -21,6 +23,7 @@ import { shuffleSnapshot } from '../../utils/shuffle.js';
 import { notifyUsers } from '../../utils/notify.js';
 import crypto from 'node:crypto';
 import type {
+  AppealStatus,
   CheatEvent,
   ExamRecordDto,
   Page,
@@ -64,18 +67,26 @@ export async function startExam(
   if (!examRow) throw notFound('考试不存在或已被删除');
   const exam = mapExamRow(examRow);
 
+  // 特殊安排（v1.7①）：免考拒绝；加时下发；额外次数并入上限
+  const exception = await exceptionsRepo.findByExamAndUser(examId, user.id);
+  const extraMinutes = exception ? Number(exception.extra_minutes) : 0;
+  const extraAttempts = exception ? Number(exception.extra_attempts) : 0;
+  if (exception && Boolean(Number(exception.exempt))) {
+    throw badRequest('你已被标记为免考，无需参加本次考试');
+  }
+
   const status = getExamStatus(exam);
   if (status === 'not_started') throw badRequest('考试尚未开始，请在规定时间内参加');
   if (status === 'ended') throw badRequest('考试已结束，无法进入');
 
   // 续考幂等：存在进行中记录直接返回
   const inProgress = await repo.findInProgressByExamAndUser(examId, user.id);
-  if (inProgress) return mapRecordRow(inProgress);
+  if (inProgress) return { ...mapRecordRow(inProgress), extraMinutes };
 
-  // 次数上限校验（补考：存在已通过申请时额外授予 1 次）
+  // 次数上限校验（补考：存在已通过申请时额外授予 1 次；特殊安排：额外次数）
   const used = await repo.countSubmittedByExamAndUser(examId, user.id);
   const retakeGranted = await retakesService.isRetakeGranted(examId, user.id);
-  const maxAllowed = exam.maxAttempts + (retakeGranted ? 1 : 0);
+  const maxAllowed = exam.maxAttempts + (retakeGranted ? 1 : 0) + extraAttempts;
   if (used >= maxAllowed) {
     throw attemptsExhausted(`答题次数已用完（最多 ${maxAllowed} 次）`);
   }
@@ -108,11 +119,11 @@ export async function startExam(
   } catch (err) {
     // 并发重复插入由唯一键 uk_records_exam_user_attempt 兜住 → 回读同 attempt_no 记录
     const again = await repo.findByExamUserAttempt(examId, user.id, attemptNo);
-    if (again) return mapRecordRow(again);
+    if (again) return { ...mapRecordRow(again), extraMinutes };
     throw err;
   }
   const created = await repo.findById(id);
-  return mapRecordRow(created!);
+  return { ...mapRecordRow(created!), extraMinutes };
 }
 
 /** 暂存答案：仅 in_progress 可写；按题型归一化（客观题排序去重，填空/简答 trim 文本）。 */
@@ -202,7 +213,13 @@ export async function getById(recordId: string, user: { id: string; role: Role }
   const row = await repo.findDetailById(recordId);
   if (!row) throw notFound('考试记录不存在');
   if (user.role === 'examinee' && row.user_id !== user.id) throw forbidden('无权查看他人的考试记录');
-  return mapRecordDetailRow(row);
+  const dto = mapRecordDetailRow(row);
+  // 特殊安排：加时（供答题页倒计时使用）
+  const exception = await exceptionsRepo.findByExamAndUser(row.exam_id, row.user_id);
+  const extraMinutes = exception ? Number(exception.extra_minutes) : 0;
+  // 成绩复核申请状态（考生查看本人复核进度）
+  const appeal = await appealsRepo.findByRecordId(recordId);
+  return { ...dto, extraMinutes, appealStatus: appeal ? (appeal.status as AppealStatus) : null };
 }
 
 /** 我的成绩（仅已交卷，分页；可选按考试名称关键字筛选）。 */

@@ -181,6 +181,8 @@ export interface Exam {
   shuffleOptions: boolean | null;
   /** 补考申请开关；null=继承全局默认（仅 maxAttempts=1 时生效） */
   allowRetake: boolean | null;
+  /** 成绩复核开关；null=继承全局默认 */
+  allowAppeal: boolean | null;
   createdBy: string;
   /** ISO 8601 */
   createdAt: string;
@@ -196,6 +198,12 @@ export interface ExamMy extends Exam {
   retakeStatus: RetakeStatus | null;
   /** 本人当前是否可发起补考申请 */
   canApplyRetake: boolean;
+  /** 特殊安排：本人加时（分钟，0 = 无加时） */
+  extraMinutes: number;
+  /** 特殊安排：本人额外答题次数（0 = 无） */
+  extraAttempts: number;
+  /** 特殊安排：本人是否免考 */
+  exempt: boolean;
 }
 
 /** 切屏（离开考试页面）事件，只增不改 */
@@ -251,6 +259,10 @@ export interface ExamRecord {
   passScore?: number;
   userName?: string;
   departmentName?: string;
+  /** 特殊安排：本人加时分钟数（详情接口 / 开考接口返回） */
+  extraMinutes?: number;
+  /** 本人成绩复核申请状态（详情接口返回；无申请为 null） */
+  appealStatus?: AppealStatus | null;
 }
 
 /** 导入 / 预览的逐行问题明细（错误或警告） */
@@ -409,6 +421,8 @@ export interface ExamSaveInput {
   shuffleOptions?: boolean | null;
   /** 补考申请开关；null=继承全局默认 */
   allowRetake?: boolean | null;
+  /** 成绩复核开关；null=继承全局默认 */
+  allowAppeal?: boolean | null;
 }
 
 /** 单场考试统计摘要（passRate 为 0~1 小数） */
@@ -470,10 +484,13 @@ export type AuditAction =
   | 'bank.update'
   | 'bank.delete'
   | 'bank.migrate'
-  | 'permission.update';
+  | 'permission.update'
+  | 'appeal.approve'
+  | 'appeal.reject'
+  | 'exam.exception_update';
 
 /** 审计目标类型 */
-export type AuditTargetType = 'user' | 'exam' | 'bank' | 'permission';
+export type AuditTargetType = 'user' | 'exam' | 'bank' | 'permission' | 'appeal';
 
 /** 操作审计日志 */
 export interface AuditLog {
@@ -512,6 +529,51 @@ export interface SubjectWrongItem {
 export interface DashboardReport {
   examTrend: ExamTrendPoint[];
   subjectWrong: SubjectWrongItem[];
+}
+
+// ============================================================
+// v1.7① 增量类型：成绩复核 / 特殊考试安排
+// ============================================================
+
+/** 成绩复核申请状态 */
+export type AppealStatus = 'pending' | 'approved' | 'rejected';
+
+/** 成绩复核申请 */
+export interface ScoreAppeal {
+  id: string;
+  recordId: string;
+  examId: string;
+  examName: string;
+  userId: string;
+  userName: string;
+  username: string;
+  departmentName: string;
+  status: AppealStatus;
+  reason: string;
+  originalScore: number;
+  newScore: number | null;
+  reviewComment: string;
+  appliedAt: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+}
+
+/** 特殊考试安排（考试 × 考生） */
+export interface ExamException {
+  id: string;
+  examId: string;
+  userId: string;
+  userName: string;
+  username: string;
+  departmentName: string;
+  /** 加时（分钟） */
+  extraMinutes: number;
+  /** 额外答题次数 */
+  extraAttempts: number;
+  /** 是否免考 */
+  exempt: boolean;
+  note: string;
+  createdAt: string;
 }
 
 /**
@@ -568,6 +630,10 @@ export interface SystemSettings {
   copyright: string;
   /** 补考申请全局默认开关（单场可覆盖；仅 maxAttempts=1 可补考） */
   retakeDefaultEnabled: boolean;
+  /** 成绩复核全局默认开关（单场可覆盖） */
+  appealEnabled: boolean;
+  /** 成绩复核申请时限（天；自交卷起算，0 = 不限） */
+  appealWindowDays: number;
   /** 站内信通知总开关 */
   notifySiteEnabled: boolean;
   /** 邮件通知总开关 */

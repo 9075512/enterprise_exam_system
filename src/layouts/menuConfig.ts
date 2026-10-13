@@ -43,6 +43,7 @@ const ALL_MENUS: MenuItem[] = [
   { key: 'papers', text: '试卷管理', path: '/author/papers', icon: Document, roles: ['admin', 'author'] },
   { key: 'exams', text: '考试管理', path: '/admin/exams', icon: AlarmClock, roles: ['admin'] },
   { key: 'retakes', text: '补考管理', path: '/admin/retakes', icon: Refresh, roles: ['admin'] },
+  { key: 'appeals', text: '成绩复核', path: '/admin/appeals', icon: EditPen, roles: ['admin'] },
   { key: 'scores', text: '成绩报表', path: '/admin/scores', icon: TrendCharts, roles: ['admin'] },
   { key: 'reviews', text: '人工阅卷', path: '/admin/reviews', icon: EditPen, roles: ['admin', 'author'] },
   { key: 'practice-settings', text: '练题端设置', path: '/admin/practice-settings', icon: Notebook, roles: ['admin'] },
