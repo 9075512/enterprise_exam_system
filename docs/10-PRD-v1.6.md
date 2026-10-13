@@ -10,7 +10,7 @@
 | 期 | 功能块 | 关键点 | 状态 |
 | --- | --- | --- | --- |
 | ① 防作弊与公平性 | 答题页浮水印 + 复制/粘贴限制 + 切屏审查页 | 后台可配置；切屏审查独立视图 | ✅ 已完成 |
-| ② 题型扩展与人工阅卷 | 填空/简答 + 主观题阅卷流 | 全链路题型扩展，`pending_review` 状态 | 待做 |
+| ② 题型扩展与人工阅卷 | 填空/简答 + 主观题阅卷流 | 全链路题型扩展，`pending_review` 状态 | ✅ 已完成 |
 | ③ 组织与权限精细化 | 多级科室树 + 出题人题库授权 | 父子科室、题库负责人映射 | 待做 |
 | ④ 数据运营与审计 | 操作审计日志 + PDF 导出 + 趋势归因 | 审计表、PDF、看板趋势 | 待做 |
 
@@ -38,7 +38,7 @@
 
 ---
 
-## 3. ② 题型扩展与人工阅卷（待做）
+## 3. ② 题型扩展与人工阅卷（已完成）
 
 - `questions.type` 扩 `fill`（填空，自动判分）、`short`（简答，人工阅卷）。
 - 填空 `answer` = 文本数组（逐空参考答案），自动判分：`trim` + 忽略大小写逐空匹配。
@@ -68,7 +68,7 @@
 
 **①（已落地）**：无新表（复用 `exam_records.cheat_events`）；仅 `system_settings` 增 2 个 JSON 字段。
 
-**②**：`questions.type` enum 增 `fill/short`；`exam_records.status` 增 `pending_review`；新增主观题得分列。
+**②（已落地）**：`questions.type` enum 增 `fill/short`；`exam_records.status` 增 `pending_review`；新增 `exam_records.subjective_scores` 主观题得分列。
 
 **③**：`departments` 增 `parent_id`；新增 `bank_authors`。
 
