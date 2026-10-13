@@ -1,7 +1,19 @@
 <script setup lang="ts">
 /**
  * 系统设置（管理员）。
- * 全局单例参数，按**标签页**分组：考试规则 / 账号安全 / 列表与导入 / 网站信息 / 消息通知。
+ * 全局单例参数，按**标签页**分类，每个标签页内再用分组小标题细分：
+ *   1) 考试默认值     —— 新建考试时带入的时长/及格线/答题次数
+ *   2) 作答与防作弊   —— 防作弊检测 / 作答呈现与提醒 / 监考推送与简答图片
+ *   3) 阅卷与复核     —— 补考申请、成绩复核与时限
+ *   4) 账号与安全     —— 密码策略 / 登录防护与两步验证
+ *   5) 通知与模板     —— 通知渠道与事件 / SMTP / 文案模板
+ *   6) 数据与归档     —— 列表与导入 / 数据保留与自动归档
+ *   7) 网站与品牌     —— 品牌信息
+ *
+ * 设计约定（v1.9 重排）：
+ * - 每个标签页顶部有一句话说明，避免「点进去不知道这页管什么」；
+ * - 同一标签页内超过 6 项的字段按业务子域再分组（分组小标题 + 一句话补充）；
+ * - 控件宽度、间距、提示文案统一（`settings-page__*`），不再混装。
  *
  * 采用「本地表单草稿」模式：从 store 深拷贝到 form，只有点击「保存设置」才写回全局，
  * 避免编辑过程污染其它页面已读到的设置。
@@ -25,63 +37,70 @@ const settingsStore = useSettingsStore();
 
 /* ------------------------------ 标签页 ------------------------------ */
 
-type SettingsTab = 'exam' | 'account' | 'list' | 'brand' | 'notify';
+type SettingsTab = 'exam' | 'anti' | 'grading' | 'account' | 'notify' | 'data' | 'brand';
 
 /** 当前激活标签页 */
 const activeTab = ref<SettingsTab>('exam');
 
-/** 标签页名称（提示文案用） */
+/** 标签页名称（定位错误提示用） */
 const TAB_LABEL: Record<SettingsTab, string> = {
-  exam: '考试规则',
-  account: '账号安全',
-  list: '列表与导入',
-  brand: '网站信息',
-  notify: '消息通知',
+  exam: '考试默认值',
+  anti: '作答与防作弊',
+  grading: '阅卷与复核',
+  account: '账号与安全',
+  notify: '通知与模板',
+  data: '数据与归档',
+  brand: '网站与品牌',
+};
+
+/** 标签页一句话说明（渲染在各页顶部） */
+const TAB_DESC: Record<SettingsTab, string> = {
+  exam: '新建考试时自动带入的默认时长、及格线与每人答题次数；已发布的考试不受影响。',
+  anti: '作答过程中的防作弊检测、作答呈现与监考推送；阈值会同时影响考生端提示与成绩报表的异常判定。',
+  grading: '补考申请与成绩复核的默认开放策略；补考仅限答题次数为 1 次的考试，且需管理员审批。',
+  account: '密码策略、登录防护与两步验证；默认密码仅用于新建账号与管理员重置密码。',
+  notify: '站内信与邮件的通知渠道、触发事件、SMTP 服务与文案模板；邮件发送失败会自动降级为仅站内信。',
+  data: '列表分页与 Excel 导入上限，以及审计日志清理、成绩归档的保留策略与自动执行时点。',
+  brand: '登录页与侧边栏展示的品牌信息，保存后对所有用户即时生效。',
 };
 
 /** 表单字段 → 所属标签页（保存校验失败时自动定位到出错标签） */
 const FIELD_TAB: Record<string, SettingsTab> = {
+  // 考试默认值
   examDefaultDuration: 'exam',
   examDefaultPassScore: 'exam',
   examDefaultMaxAttempts: 'exam',
-  cheatCountThreshold: 'exam',
-  cheatSecondsThreshold: 'exam',
-  cheatAutoSubmitEnabled: 'exam',
-  cheatWatermarkEnabled: 'exam',
-  cheatCopyGuardEnabled: 'exam',
-  shuffleDefaultEnabled: 'exam',
-  shuffleOptionsDefault: 'exam',
-  retakeDefaultEnabled: 'exam',
-  appealEnabled: 'exam',
-  appealWindowDays: 'exam',
-  countdownWarningMinutes: 'exam',
+  // 作答与防作弊
+  cheatCountThreshold: 'anti',
+  cheatSecondsThreshold: 'anti',
+  cheatAutoSubmitEnabled: 'anti',
+  cheatWatermarkEnabled: 'anti',
+  cheatCopyGuardEnabled: 'anti',
+  shuffleDefaultEnabled: 'anti',
+  shuffleOptionsDefault: 'anti',
+  countdownWarningMinutes: 'anti',
+  monitorPushEnabled: 'anti',
+  monitorPushIntervalSeconds: 'anti',
+  richTextImageMaxMb: 'anti',
+  richTextImageMaxCount: 'anti',
+  // 阅卷与复核
+  retakeDefaultEnabled: 'grading',
+  appealEnabled: 'grading',
+  appealWindowDays: 'grading',
+  // 账号与安全
   defaultPassword: 'account',
   minPasswordLength: 'account',
-  loginLockEnabled: 'account',
-  loginMaxFails: 'account',
-  loginLockMinutes: 'account',
-  loginCaptchaAfterFails: 'account',
   passwordRequireUpper: 'account',
   passwordRequireLower: 'account',
   passwordRequireDigit: 'account',
   passwordRequireSymbol: 'account',
   passwordExpireDays: 'account',
+  loginLockEnabled: 'account',
+  loginMaxFails: 'account',
+  loginLockMinutes: 'account',
+  loginCaptchaAfterFails: 'account',
   twoFactorAvailable: 'account',
-  defaultPageSize: 'list',
-  importMaxRows: 'list',
-  importMaxFileMb: 'list',
-  archiveRetentionDays: 'list',
-  archiveAutoEnabled: 'list',
-  archiveAutoHour: 'list',
-  monitorPushEnabled: 'exam',
-  monitorPushIntervalSeconds: 'exam',
-  richTextImageMaxMb: 'exam',
-  richTextImageMaxCount: 'exam',
-  notifyTemplates: 'notify',
-  systemName: 'brand',
-  systemShortName: 'brand',
-  loginSlogan: 'brand',
-  copyright: 'brand',
+  // 通知与模板
   notifySiteEnabled: 'notify',
   notifyEmailEnabled: 'notify',
   notifyOnPublish: 'notify',
@@ -93,6 +112,20 @@ const FIELD_TAB: Record<string, SettingsTab> = {
   smtpUser: 'notify',
   smtpPass: 'notify',
   smtpFrom: 'notify',
+  notifyTemplates: 'notify',
+  // 数据与归档
+  defaultPageSize: 'data',
+  importMaxRows: 'data',
+  importMaxFileMb: 'data',
+  auditRetentionDays: 'data',
+  archiveRetentionDays: 'data',
+  archiveAutoEnabled: 'data',
+  archiveAutoHour: 'data',
+  // 网站与品牌
+  systemName: 'brand',
+  systemShortName: 'brand',
+  loginSlogan: 'brand',
+  copyright: 'brand',
 };
 
 /* ------------------------------ 表单草稿 ------------------------------ */
@@ -161,36 +194,44 @@ function strRules(label: string, min: number, max: number): FormItemRule[] {
 }
 
 const rules: FormRules = {
-  // 考试规则与防作弊
+  // 考试默认值
   examDefaultDuration: numRules('考试默认时长', 1, 600, { unit: ' 分钟' }),
   examDefaultPassScore: numRules('考试默认及格线', 1, 1000, { integer: false }),
   examDefaultMaxAttempts: numRules('考试默认答题次数', 1, 10, { unit: ' 次' }),
+  // 作答与防作弊
   cheatCountThreshold: numRules('切屏次数阈值', 1, 99, { unit: ' 次' }),
   cheatSecondsThreshold: numRules('切屏累计离开时长阈值', 5, 3600, { unit: ' 秒' }),
   countdownWarningMinutes: numRules('倒计时提醒阈值', 1, 60, { unit: ' 分钟' }),
-  // 账号安全
+  monitorPushIntervalSeconds: numRules('监考推送间隔', 3, 60, { unit: ' 秒' }),
+  richTextImageMaxMb: numRules('作答题图片单张上限', 1, 10, { unit: ' MB' }),
+  richTextImageMaxCount: numRules('作答题图片最多张数', 1, 10, { unit: ' 张' }),
+  // 阅卷与复核
+  appealWindowDays: numRules('成绩复核时限', 0, 365, { unit: ' 天' }),
+  // 账号与安全
   defaultPassword: strRules('默认密码', 6, 64),
   minPasswordLength: numRules('密码最小长度', 6, 32, { unit: ' 位' }),
   loginMaxFails: numRules('登录失败锁定阈值', 1, 20, { unit: ' 次' }),
   loginLockMinutes: numRules('登录锁定时长', 1, 1440, { unit: ' 分钟' }),
   loginCaptchaAfterFails: numRules('验证码触发次数', 1, 20, { unit: ' 次' }),
   passwordExpireDays: numRules('密码有效期', 0, 3650, { unit: ' 天' }),
-  // 列表与导入
-  defaultPageSize: numRules('列表默认每页条数', 1, 100, { unit: ' 条' }),
-  importMaxRows: numRules('Excel 单次导入最大行数', 1, 50000, { unit: ' 行' }),
-  importMaxFileMb: numRules('导入文件大小上限', 1, 50, { unit: ' MB' }),
-  archiveRetentionDays: numRules('成绩归档保留天数', 0, 3650, { unit: ' 天' }),
-  // 系统品牌
-  systemName: strRules('系统全称', 1, 40),
-  systemShortName: strRules('系统简称', 1, 40),
-  loginSlogan: strRules('登录页标语', 0, 80),
-  copyright: strRules('版权/页脚', 0, 120),
-  // 消息通知（SMTP）
+  // 通知与模板
   smtpHost: strRules('SMTP 服务器地址', 0, 120),
   smtpPort: numRules('SMTP 端口', 1, 65535, { unit: '' }),
   smtpUser: strRules('SMTP 账号', 0, 120),
   smtpPass: strRules('SMTP 授权码', 0, 200),
   smtpFrom: strRules('发件人地址', 0, 120),
+  // 数据与归档
+  defaultPageSize: numRules('列表默认每页条数', 1, 100, { unit: ' 条' }),
+  importMaxRows: numRules('Excel 单次导入最大行数', 1, 50000, { unit: ' 行' }),
+  importMaxFileMb: numRules('导入文件大小上限', 1, 50, { unit: ' MB' }),
+  auditRetentionDays: numRules('审计日志保留天数', 0, 3650, { unit: ' 天' }),
+  archiveRetentionDays: numRules('成绩归档保留天数', 0, 3650, { unit: ' 天' }),
+  archiveAutoHour: numRules('自动归档时点', 0, 23, { unit: ' 时' }),
+  // 网站与品牌
+  systemName: strRules('系统全称', 1, 40),
+  systemShortName: strRules('系统简称', 1, 40),
+  loginSlogan: strRules('登录页标语', 0, 80),
+  copyright: strRules('版权/页脚', 0, 120),
   // 通知模板（v1.7④ S3：标题 ≤120、正文 ≤500；逐事件校验）
   ...Object.fromEntries(
     NOTIFY_TEMPLATE_META.flatMap((m) => [
@@ -246,6 +287,8 @@ async function handleSave(): Promise<void> {
     if (tab && tab !== activeTab.value) {
       activeTab.value = tab;
       ElMessage.warning(`「${TAB_LABEL[tab]}」中有待修正项，请检查后重新保存`);
+    } else {
+      ElMessage.warning('存在待修正项，请检查标红字段');
     }
     return;
   }
@@ -295,15 +338,10 @@ async function handleReset(): Promise<void> {
         class="settings-page__form"
       >
         <el-tabs v-model="activeTab" class="settings-page__tabs">
-          <!-- 1. 考试规则与防作弊 -->
-          <el-tab-pane label="考试规则" name="exam">
-            <el-alert
-              class="settings-page__alert"
-              type="info"
-              show-icon
-              :closable="false"
-              title="切屏阈值与倒计时提醒会影响考生端作答体验"
-            />
+          <!-- ===================== 1. 考试默认值 ===================== -->
+          <el-tab-pane label="考试默认值" name="exam">
+            <p class="settings-page__desc">{{ TAB_DESC.exam }}</p>
+
             <el-row :gutter="24">
               <el-col :xs="24" :sm="24" :md="12">
                 <el-form-item label="考试默认时长（分钟）" prop="examDefaultDuration">
@@ -343,10 +381,24 @@ async function handleReset(): Promise<void> {
                       :step="1"
                       class="settings-page__num"
                     />
-                    <p class="settings-page__hint">新建考试时预设的每人最多作答次数。</p>
+                    <p class="settings-page__hint">
+                      新建考试时预设的每人最多作答次数；为 1 次的考试才允许申请补考。
+                    </p>
                   </div>
                 </el-form-item>
               </el-col>
+            </el-row>
+          </el-tab-pane>
+
+          <!-- ===================== 2. 作答与防作弊 ===================== -->
+          <el-tab-pane label="作答与防作弊" name="anti">
+            <p class="settings-page__desc">{{ TAB_DESC.anti }}</p>
+
+            <div class="settings-page__section">
+              <span class="settings-page__section-title">防作弊检测</span>
+              <span class="settings-page__section-note">切屏行为判定与作答页防护</span>
+            </div>
+            <el-row :gutter="24">
               <el-col :xs="24" :sm="24" :md="12">
                 <el-form-item label="切屏异常：次数阈值（≥ 判为异常）" prop="cheatCountThreshold">
                   <div class="settings-page__control">
@@ -386,7 +438,7 @@ async function handleReset(): Promise<void> {
                       inactive-text="关闭"
                     />
                     <p class="settings-page__hint">
-                      开启后，考生切屏次数或累计离开秒数达到上方阈值时将自动强制交卷；关闭则仅记录异常。
+                      开启后，切屏次数或累计离开秒数达到上方阈值将自动强制交卷；关闭则仅记录异常。
                     </p>
                   </div>
                 </el-form-item>
@@ -419,6 +471,13 @@ async function handleReset(): Promise<void> {
                   </div>
                 </el-form-item>
               </el-col>
+            </el-row>
+
+            <div class="settings-page__section">
+              <span class="settings-page__section-title">作答呈现与提醒</span>
+              <span class="settings-page__section-note">试卷下发方式与考生端时间提醒</span>
+            </div>
+            <el-row :gutter="24">
               <el-col :xs="24" :sm="24" :md="12">
                 <el-form-item label="人手一卷（默认）" prop="shuffleDefaultEnabled">
                   <div class="settings-page__control">
@@ -449,50 +508,6 @@ async function handleReset(): Promise<void> {
                 </el-form-item>
               </el-col>
               <el-col :xs="24" :sm="24" :md="12">
-                <el-form-item label="补考申请（默认）" prop="retakeDefaultEnabled">
-                  <div class="settings-page__control">
-                    <el-switch
-                      v-model="form.retakeDefaultEnabled"
-                      active-text="开启"
-                      inactive-text="关闭"
-                    />
-                    <p class="settings-page__hint">
-                      开启后，新建考试默认开放补考申请；补考仅限答题次数为 1 次的考试，且需管理员审批。
-                    </p>
-                  </div>
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="24" :md="12">
-                <el-form-item label="成绩复核（默认）" prop="appealEnabled">
-                  <div class="settings-page__control">
-                    <el-switch
-                      v-model="form.appealEnabled"
-                      active-text="开启"
-                      inactive-text="关闭"
-                    />
-                    <p class="settings-page__hint">
-                      开启后，新建考试默认开放成绩复核；考生可在时限内对已出成绩申请复核，管理员可改分。
-                    </p>
-                  </div>
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <el-row :gutter="24">
-              <el-col :xs="24" :sm="24" :md="12">
-                <el-form-item label="成绩复核时限（天）" prop="appealWindowDays">
-                  <div class="settings-page__control">
-                    <el-input-number
-                      v-model="form.appealWindowDays"
-                      :min="0"
-                      :max="365"
-                      :step="1"
-                      class="settings-page__num"
-                    />
-                    <p class="settings-page__hint">自交卷起算；填 0 表示不限时限。</p>
-                  </div>
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="24" :md="12">
                 <el-form-item label="倒计时提醒：剩余不足该分钟数时提醒" prop="countdownWarningMinutes">
                   <div class="settings-page__control">
                     <el-input-number
@@ -506,10 +521,17 @@ async function handleReset(): Promise<void> {
                   </div>
                 </el-form-item>
               </el-col>
+            </el-row>
+
+            <div class="settings-page__section">
+              <span class="settings-page__section-title">监考推送与简答图片</span>
+              <span class="settings-page__section-note">监考大屏实时性与作答题图片上传约束</span>
+            </div>
+            <el-row :gutter="24">
               <el-col :xs="24" :sm="24" :md="12">
                 <el-form-item label="监考大屏实时推送（SSE）" prop="monitorPushEnabled">
                   <div class="settings-page__control">
-                    <el-switch v-model="form.monitorPushEnabled" />
+                    <el-switch v-model="form.monitorPushEnabled" active-text="开启" inactive-text="关闭" />
                     <p class="settings-page__hint">
                       开启后监考大屏按下方间隔接收服务端推送；关闭或推送不可用时自动回退 15 秒轮询。
                     </p>
@@ -524,6 +546,7 @@ async function handleReset(): Promise<void> {
                       :min="3"
                       :max="60"
                       :step="1"
+                      :disabled="!form.monitorPushEnabled"
                       class="settings-page__num"
                     />
                     <p class="settings-page__hint">
@@ -565,15 +588,69 @@ async function handleReset(): Promise<void> {
             </el-row>
           </el-tab-pane>
 
-          <!-- 2. 账号安全 -->
-          <el-tab-pane label="账号安全" name="account">
-            <el-alert
-              class="settings-page__alert"
-              type="info"
-              show-icon
-              :closable="false"
-              title="默认密码 / 密码长度会影响新建账号与改密校验"
-            />
+          <!-- ===================== 3. 阅卷与复核 ===================== -->
+          <el-tab-pane label="阅卷与复核" name="grading">
+            <p class="settings-page__desc">{{ TAB_DESC.grading }}</p>
+
+            <div class="settings-page__section">
+              <span class="settings-page__section-title">补考与成绩复核</span>
+              <span class="settings-page__section-note">仅作为新建考试的默认值，可在单场考试中覆盖</span>
+            </div>
+            <el-row :gutter="24">
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="补考申请（默认）" prop="retakeDefaultEnabled">
+                  <div class="settings-page__control">
+                    <el-switch
+                      v-model="form.retakeDefaultEnabled"
+                      active-text="开启"
+                      inactive-text="关闭"
+                    />
+                    <p class="settings-page__hint">
+                      开启后，新建考试默认开放补考申请；补考仅限答题次数为 1 次的考试，且需管理员审批。
+                    </p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="成绩复核（默认）" prop="appealEnabled">
+                  <div class="settings-page__control">
+                    <el-switch
+                      v-model="form.appealEnabled"
+                      active-text="开启"
+                      inactive-text="关闭"
+                    />
+                    <p class="settings-page__hint">
+                      开启后，新建考试默认开放成绩复核；考生可在时限内对已出成绩申请复核，管理员可改分。
+                    </p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="成绩复核时限（天）" prop="appealWindowDays">
+                  <div class="settings-page__control">
+                    <el-input-number
+                      v-model="form.appealWindowDays"
+                      :min="0"
+                      :max="365"
+                      :step="1"
+                      :disabled="!form.appealEnabled"
+                      class="settings-page__num"
+                    />
+                    <p class="settings-page__hint">自交卷起算；填 0 表示不限时限。</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-tab-pane>
+
+          <!-- ===================== 4. 账号与安全 ===================== -->
+          <el-tab-pane label="账号与安全" name="account">
+            <p class="settings-page__desc">{{ TAB_DESC.account }}</p>
+
+            <div class="settings-page__section">
+              <span class="settings-page__section-title">密码策略</span>
+              <span class="settings-page__section-note">新建账号与用户自助改密的校验口径</span>
+            </div>
             <el-row :gutter="24">
               <el-col :xs="24" :sm="24" :md="12">
                 <el-form-item label="新建账号默认密码" prop="defaultPassword">
@@ -585,7 +662,7 @@ async function handleReset(): Promise<void> {
                       maxlength="64"
                       class="settings-page__input"
                     />
-                    <p class="settings-page__hint">默认密码用于新建账号与重置密码。</p>
+                    <p class="settings-page__hint">默认密码用于新建账号与管理员重置密码。</p>
                   </div>
                 </el-form-item>
               </el-col>
@@ -603,6 +680,42 @@ async function handleReset(): Promise<void> {
                   </div>
                 </el-form-item>
               </el-col>
+              <el-col :xs="24" :sm="24" :md="24">
+                <el-form-item label="密码复杂度要求">
+                  <div class="settings-page__control">
+                    <div class="settings-page__switch-row">
+                      <el-checkbox v-model="form.passwordRequireUpper">大写字母</el-checkbox>
+                      <el-checkbox v-model="form.passwordRequireLower">小写字母</el-checkbox>
+                      <el-checkbox v-model="form.passwordRequireDigit">数字</el-checkbox>
+                      <el-checkbox v-model="form.passwordRequireSymbol">符号</el-checkbox>
+                    </div>
+                    <p class="settings-page__hint">
+                      勾选项为用户自助改密时的强制要求（管理员重置为默认密码不受限）。
+                    </p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="密码有效期（天）" prop="passwordExpireDays">
+                  <div class="settings-page__control">
+                    <el-input-number
+                      v-model="form.passwordExpireDays"
+                      :min="0"
+                      :max="3650"
+                      :step="30"
+                      class="settings-page__num"
+                    />
+                    <p class="settings-page__hint">0 = 不启用；超期用户登录时会收到修改密码提示。</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+            </el-row>
+
+            <div class="settings-page__section">
+              <span class="settings-page__section-title">登录防护与两步验证</span>
+              <span class="settings-page__section-note">失败锁定、图形验证码与 TOTP 二次校验</span>
+            </div>
+            <el-row :gutter="24">
               <el-col :xs="24" :sm="24" :md="12">
                 <el-form-item label="登录失败锁定" prop="loginLockEnabled">
                   <div class="settings-page__control">
@@ -657,35 +770,6 @@ async function handleReset(): Promise<void> {
                   </div>
                 </el-form-item>
               </el-col>
-              <el-col :xs="24" :sm="24" :md="24">
-                <el-form-item label="密码复杂度要求">
-                  <div class="settings-page__control">
-                    <div class="settings-page__switch-row">
-                      <el-checkbox v-model="form.passwordRequireUpper">大写字母</el-checkbox>
-                      <el-checkbox v-model="form.passwordRequireLower">小写字母</el-checkbox>
-                      <el-checkbox v-model="form.passwordRequireDigit">数字</el-checkbox>
-                      <el-checkbox v-model="form.passwordRequireSymbol">符号</el-checkbox>
-                    </div>
-                    <p class="settings-page__hint">
-                      勾选项为用户自助改密时的强制要求（管理员重置为默认密码不受限）。
-                    </p>
-                  </div>
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="24" :md="12">
-                <el-form-item label="密码有效期（天）" prop="passwordExpireDays">
-                  <div class="settings-page__control">
-                    <el-input-number
-                      v-model="form.passwordExpireDays"
-                      :min="0"
-                      :max="3650"
-                      :step="30"
-                      class="settings-page__num"
-                    />
-                    <p class="settings-page__hint">0 = 不启用；超期用户登录时会收到修改密码提示。</p>
-                  </div>
-                </el-form-item>
-              </el-col>
               <el-col :xs="24" :sm="24" :md="12">
                 <el-form-item label="两步验证">
                   <div class="settings-page__control">
@@ -695,7 +779,8 @@ async function handleReset(): Promise<void> {
                       inactive-text="关闭"
                     />
                     <p class="settings-page__hint">
-                      开启后用户可在「账号安全」中绑定 TOTP 验证器，登录需二次校验验证码。
+                      开启后用户可在「账号安全」中绑定 TOTP 验证器，登录需二次校验验证码；
+                      管理员可在用户管理中强制重置某账号的两步验证。
                     </p>
                   </div>
                 </el-form-item>
@@ -703,8 +788,180 @@ async function handleReset(): Promise<void> {
             </el-row>
           </el-tab-pane>
 
-          <!-- 3. 列表与导入 -->
-          <el-tab-pane label="列表与导入" name="list">
+          <!-- ===================== 5. 通知与模板 ===================== -->
+          <el-tab-pane label="通知与模板" name="notify">
+            <p class="settings-page__desc">{{ TAB_DESC.notify }}</p>
+
+            <div class="settings-page__section">
+              <span class="settings-page__section-title">通知渠道与触发事件</span>
+              <span class="settings-page__section-note">各事件可独立开关</span>
+            </div>
+            <el-row :gutter="24">
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="站内信通知" prop="notifySiteEnabled">
+                  <div class="settings-page__control">
+                    <el-switch v-model="form.notifySiteEnabled" active-text="开启" inactive-text="关闭" />
+                    <p class="settings-page__hint">关闭后不再写入站内信（消息中心）。</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="邮件通知" prop="notifyEmailEnabled">
+                  <div class="settings-page__control">
+                    <el-switch v-model="form.notifyEmailEnabled" active-text="开启" inactive-text="关闭" />
+                    <p class="settings-page__hint">需在下方配置 SMTP；未配置或发送失败自动降级为仅站内信。</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="考试发布通知" prop="notifyOnPublish">
+                  <div class="settings-page__control">
+                    <el-switch v-model="form.notifyOnPublish" active-text="开启" inactive-text="关闭" />
+                    <p class="settings-page__hint">新建考试时通知参与科室的考生。</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="成绩通知" prop="notifyOnResult">
+                  <div class="settings-page__control">
+                    <el-switch v-model="form.notifyOnResult" active-text="开启" inactive-text="关闭" />
+                    <p class="settings-page__hint">交卷出成绩后通知考生本人。</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="补考审批通知" prop="notifyOnRetake">
+                  <div class="settings-page__control">
+                    <el-switch v-model="form.notifyOnRetake" active-text="开启" inactive-text="关闭" />
+                    <p class="settings-page__hint">补考申请通过/驳回后通知考生本人。</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+            </el-row>
+
+            <div class="settings-page__section">
+              <span class="settings-page__section-title">SMTP 邮件服务</span>
+              <span class="settings-page__section-note">留空表示未配置邮件发送</span>
+            </div>
+            <el-row :gutter="24">
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="SMTP 服务器地址" prop="smtpHost">
+                  <div class="settings-page__control">
+                    <el-input
+                      v-model="form.smtpHost"
+                      maxlength="120"
+                      placeholder="如 smtp.exmail.qq.com"
+                      class="settings-page__input"
+                    />
+                    <p class="settings-page__hint">留空表示未配置邮件发送。</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="SMTP 端口" prop="smtpPort">
+                  <div class="settings-page__control">
+                    <el-input-number
+                      v-model="form.smtpPort"
+                      :min="1"
+                      :max="65535"
+                      :step="1"
+                      class="settings-page__num"
+                    />
+                    <p class="settings-page__hint">默认 465（SSL）。</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="SMTP 加密（SSL）" prop="smtpSecure">
+                  <div class="settings-page__control">
+                    <el-switch v-model="form.smtpSecure" active-text="开启" inactive-text="关闭" />
+                    <p class="settings-page__hint">465 端口建议开启，25 端口建议关闭。</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="SMTP 账号" prop="smtpUser">
+                  <div class="settings-page__control">
+                    <el-input v-model="form.smtpUser" maxlength="120" class="settings-page__input" />
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="SMTP 授权码 / 密码" prop="smtpPass">
+                  <div class="settings-page__control">
+                    <el-input
+                      v-model="form.smtpPass"
+                      type="password"
+                      show-password
+                      maxlength="200"
+                      class="settings-page__input"
+                    />
+                    <p class="settings-page__hint">仅管理员可见；保存后接口不回传明文，请勿重复提交空值覆盖。</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="发件人地址" prop="smtpFrom">
+                  <div class="settings-page__control">
+                    <el-input
+                      v-model="form.smtpFrom"
+                      maxlength="120"
+                      placeholder="如 noreply@example.com"
+                      class="settings-page__input"
+                    />
+                  </div>
+                </el-form-item>
+              </el-col>
+            </el-row>
+
+            <div class="settings-page__section">
+              <span class="settings-page__section-title">通知文案模板</span>
+              <span class="settings-page__section-note">
+                站内信与邮件共用同一份文案，正文支持 <code>{变量}</code> 占位
+              </span>
+            </div>
+
+            <el-row :gutter="24">
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="通知事件">
+                  <div class="settings-page__control">
+                    <el-select v-model="tplKey" class="settings-page__input">
+                      <el-option v-for="m in NOTIFY_TEMPLATE_META" :key="m.key" :label="m.label" :value="m.key" />
+                    </el-select>
+                    <p class="settings-page__hint">可用变量：{{ tplVarsText }}</p>
+                  </div>
+                </el-form-item>
+              </el-col>
+            </el-row>
+
+            <el-form-item label="通知标题" :prop="`notifyTemplates.${tplKey}.title`">
+              <el-input v-model="tpl.title" maxlength="120" show-word-limit class="settings-page__input" />
+            </el-form-item>
+
+            <el-form-item label="通知正文" :prop="`notifyTemplates.${tplKey}.content`">
+              <el-input
+                v-model="tpl.content"
+                type="textarea"
+                :rows="3"
+                maxlength="500"
+                show-word-limit
+                class="settings-page__input"
+              />
+            </el-form-item>
+
+            <el-form-item label=" ">
+              <el-button @click="resetTpl">恢复该事件默认文案</el-button>
+            </el-form-item>
+          </el-tab-pane>
+
+          <!-- ===================== 6. 数据与归档 ===================== -->
+          <el-tab-pane label="数据与归档" name="data">
+            <p class="settings-page__desc">{{ TAB_DESC.data }}</p>
+
+            <div class="settings-page__section">
+              <span class="settings-page__section-title">列表与导入</span>
+              <span class="settings-page__section-note">影响所有列表页与 Excel 批量导入</span>
+            </div>
             <el-row :gutter="24">
               <el-col :xs="24" :sm="24" :md="12">
                 <el-form-item label="列表默认每页条数" prop="defaultPageSize">
@@ -750,7 +1007,27 @@ async function handleReset(): Promise<void> {
               </el-col>
             </el-row>
 
-            <el-row :gutter="20">
+            <div class="settings-page__section">
+              <span class="settings-page__section-title">数据保留与自动归档</span>
+              <span class="settings-page__section-note">清理与归档均可在「系统维护」页手动执行</span>
+            </div>
+            <el-row :gutter="24">
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="审计日志保留天数（天）" prop="auditRetentionDays">
+                  <div class="settings-page__control">
+                    <el-input-number
+                      v-model="form.auditRetentionDays"
+                      :min="0"
+                      :max="3650"
+                      :step="30"
+                      class="settings-page__num"
+                    />
+                    <p class="settings-page__hint">
+                      0 表示不启用自动清理；系统维护页可按该天数手动清理历史审计日志。
+                    </p>
+                  </div>
+                </el-form-item>
+              </el-col>
               <el-col :xs="24" :sm="24" :md="12">
                 <el-form-item label="成绩归档保留天数（天）" prop="archiveRetentionDays">
                   <div class="settings-page__control">
@@ -767,11 +1044,48 @@ async function handleReset(): Promise<void> {
                   </div>
                 </el-form-item>
               </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="自动归档（每日定时）" prop="archiveAutoEnabled">
+                  <div class="settings-page__control">
+                    <el-switch
+                      v-model="form.archiveAutoEnabled"
+                      active-text="开启"
+                      inactive-text="关闭"
+                    />
+                    <p class="settings-page__hint">
+                      开启后服务端每日在下方时点自动执行一次历史成绩归档；需上方保留天数 &gt; 0 才会真正搬运数据。
+                    </p>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12">
+                <el-form-item label="自动归档时点（0~23 时）" prop="archiveAutoHour">
+                  <div class="settings-page__control">
+                    <el-input-number
+                      v-model="form.archiveAutoHour"
+                      :min="0"
+                      :max="23"
+                      :step="1"
+                      :disabled="!form.archiveAutoEnabled"
+                      class="settings-page__num"
+                    />
+                    <p class="settings-page__hint">
+                      按服务器本地时点（默认 3 时）；同一天已执行过则不再重复执行。执行结果见审计日志。
+                    </p>
+                  </div>
+                </el-form-item>
+              </el-col>
             </el-row>
           </el-tab-pane>
 
-          <!-- 4. 网站信息 -->
-          <el-tab-pane label="网站信息" name="brand">
+          <!-- ===================== 7. 网站与品牌 ===================== -->
+          <el-tab-pane label="网站与品牌" name="brand">
+            <p class="settings-page__desc">{{ TAB_DESC.brand }}</p>
+
+            <div class="settings-page__section">
+              <span class="settings-page__section-title">品牌信息</span>
+              <span class="settings-page__section-note">留空则不展示对应位置</span>
+            </div>
             <el-row :gutter="24">
               <el-col :xs="24" :sm="24" :md="12">
                 <el-form-item label="系统全称（登录页品牌名）" prop="systemName">
@@ -827,144 +1141,6 @@ async function handleReset(): Promise<void> {
               </el-col>
             </el-row>
           </el-tab-pane>
-
-          <!-- 5. 消息通知 -->
-          <el-tab-pane label="消息通知" name="notify">
-            <el-alert
-              class="settings-page__alert"
-              type="info"
-              show-icon
-              :closable="false"
-              title="站内信零依赖；邮件需配置 SMTP。各事件可独立开关，邮件发送失败自动降级为仅站内信"
-            />
-            <el-row :gutter="24">
-              <el-col :xs="24" :sm="24" :md="12">
-                <el-form-item label="站内信通知" prop="notifySiteEnabled">
-                  <div class="settings-page__control">
-                    <el-switch v-model="form.notifySiteEnabled" active-text="开启" inactive-text="关闭" />
-                    <p class="settings-page__hint">关闭后不再写入站内信（消息中心）。</p>
-                  </div>
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="24" :md="12">
-                <el-form-item label="邮件通知" prop="notifyEmailEnabled">
-                  <div class="settings-page__control">
-                    <el-switch v-model="form.notifyEmailEnabled" active-text="开启" inactive-text="关闭" />
-                    <p class="settings-page__hint">需在下方配置 SMTP；未配置或发送失败自动降级为仅站内信。</p>
-                  </div>
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="24" :md="12">
-                <el-form-item label="考试发布通知" prop="notifyOnPublish">
-                  <div class="settings-page__control">
-                    <el-switch v-model="form.notifyOnPublish" active-text="开启" inactive-text="关闭" />
-                    <p class="settings-page__hint">新建考试时通知参与科室的考生。</p>
-                  </div>
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="24" :md="12">
-                <el-form-item label="成绩通知" prop="notifyOnResult">
-                  <div class="settings-page__control">
-                    <el-switch v-model="form.notifyOnResult" active-text="开启" inactive-text="关闭" />
-                    <p class="settings-page__hint">交卷出成绩后通知考生本人。</p>
-                  </div>
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="24" :md="12">
-                <el-form-item label="补考审批通知" prop="notifyOnRetake">
-                  <div class="settings-page__control">
-                    <el-switch v-model="form.notifyOnRetake" active-text="开启" inactive-text="关闭" />
-                    <p class="settings-page__hint">补考申请通过/驳回后通知考生本人。</p>
-                  </div>
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="24" :md="12">
-                <el-form-item label="SMTP 服务器地址" prop="smtpHost">
-                  <div class="settings-page__control">
-                    <el-input v-model="form.smtpHost" maxlength="120" placeholder="如 smtp.exmail.qq.com" class="settings-page__input" />
-                    <p class="settings-page__hint">留空表示未配置邮件发送。</p>
-                  </div>
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="24" :md="12">
-                <el-form-item label="SMTP 端口" prop="smtpPort">
-                  <div class="settings-page__control">
-                    <el-input-number v-model="form.smtpPort" :min="1" :max="65535" :step="1" class="settings-page__num" />
-                    <p class="settings-page__hint">默认 465（SSL）。</p>
-                  </div>
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="24" :md="12">
-                <el-form-item label="SMTP 加密（SSL）" prop="smtpSecure">
-                  <div class="settings-page__control">
-                    <el-switch v-model="form.smtpSecure" active-text="开启" inactive-text="关闭" />
-                    <p class="settings-page__hint">465 端口建议开启，25 端口建议关闭。</p>
-                  </div>
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="24" :md="12">
-                <el-form-item label="SMTP 账号" prop="smtpUser">
-                  <div class="settings-page__control">
-                    <el-input v-model="form.smtpUser" maxlength="120" class="settings-page__input" />
-                  </div>
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="24" :md="12">
-                <el-form-item label="SMTP 授权码 / 密码" prop="smtpPass">
-                  <div class="settings-page__control">
-                    <el-input v-model="form.smtpPass" type="password" show-password maxlength="200" class="settings-page__input" />
-                    <p class="settings-page__hint">仅管理员可见；保存后接口不回传明文，请勿重复提交空值覆盖。</p>
-                  </div>
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="24" :md="12">
-                <el-form-item label="发件人地址" prop="smtpFrom">
-                  <div class="settings-page__control">
-                    <el-input v-model="form.smtpFrom" maxlength="120" placeholder="如 noreply@example.com" class="settings-page__input" />
-                  </div>
-                </el-form-item>
-              </el-col>
-            </el-row>
-
-            <div class="settings-page__section-title">通知文案模板</div>
-            <el-alert type="info" :closable="false" show-icon class="settings-page__hint-block">
-              站内信与邮件的标题/正文均可自定义；正文支持 <code>{变量}</code> 占位，未提供的变量将被替换为空。
-            </el-alert>
-
-            <el-row :gutter="20">
-              <el-col :xs="24" :sm="24" :md="12">
-                <el-form-item label="通知事件">
-                  <div class="settings-page__control">
-                    <el-select v-model="tplKey" class="settings-page__input">
-                      <el-option v-for="m in NOTIFY_TEMPLATE_META" :key="m.key" :label="m.label" :value="m.key" />
-                    </el-select>
-                    <p class="settings-page__hint">
-                      可用变量：{{ tplVarsText }}
-                    </p>
-                  </div>
-                </el-form-item>
-              </el-col>
-            </el-row>
-
-            <el-form-item label="通知标题" :prop="`notifyTemplates.${tplKey}.title`">
-              <el-input v-model="tpl.title" maxlength="120" show-word-limit class="settings-page__input" />
-            </el-form-item>
-
-            <el-form-item label="通知正文" :prop="`notifyTemplates.${tplKey}.content`">
-              <el-input
-                v-model="tpl.content"
-                type="textarea"
-                :rows="3"
-                maxlength="500"
-                show-word-limit
-                class="settings-page__input"
-              />
-            </el-form-item>
-
-            <el-form-item label=" ">
-              <el-button @click="resetTpl">恢复该事件默认文案</el-button>
-            </el-form-item>
-          </el-tab-pane>
         </el-tabs>
       </el-form>
     </div>
@@ -985,7 +1161,7 @@ async function handleReset(): Promise<void> {
 
   &__tabs {
     :deep(.el-tabs__header) {
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
 
     :deep(.el-tabs__item) {
@@ -998,37 +1174,50 @@ async function handleReset(): Promise<void> {
     }
   }
 
-  &__alert {
-    margin-bottom: 18px;
+  /* 每个标签页顶部的一句话说明 */
+  &__desc {
+    margin: 0 0 18px;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: $text-secondary;
+    background: $color-primary-soft;
+    border-left: 3px solid $color-primary;
+    border-radius: 0 $radius-sm $radius-sm 0;
   }
 
-  &__practice {
-    min-height: 220px;
-  }
-
-  &__item {
+  /* 页内分组小标题（同一标签页内的业务子域） */
+  &__section {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 18px;
+    align-items: baseline;
+    gap: 10px;
+    margin: 4px 0 14px;
+    padding-left: 9px;
+    border-left: 3px solid $color-primary;
+    flex-wrap: wrap;
+
+    & + .el-row {
+      margin-bottom: 4px;
+    }
   }
 
-  &__label {
-    font-size: 13px;
+  &__section-title {
+    font-size: 14px;
     font-weight: 600;
     color: $text-primary;
   }
 
-  &__select {
-    width: 100%;
-    max-width: 320px;
-  }
+  &__section-note {
+    font-size: 12.5px;
+    color: $text-secondary;
 
-  &__practice-note {
-    margin: 4px 0 0;
-    font-size: 12px;
-    line-height: 1.6;
-    color: $text-disabled;
+    code {
+      padding: 0 3px;
+      font-size: 12px;
+      color: $color-primary-dark;
+      background: $color-primary-soft;
+      border-radius: 3px;
+    }
   }
 
   &__control {
@@ -1059,28 +1248,6 @@ async function handleReset(): Promise<void> {
     font-size: 12.5px;
     line-height: 1.45;
     color: $text-secondary;
-  }
-
-  /* 通知模板区（v1.7④ S3） */
-  &__section-title {
-    margin: 18px 0 10px;
-    padding-left: 9px;
-    font-size: 14px;
-    font-weight: 600;
-    color: $text-primary;
-    border-left: 3px solid $color-primary;
-  }
-
-  &__hint-block {
-    margin-bottom: 14px;
-
-    code {
-      padding: 0 3px;
-      font-size: 12px;
-      color: $color-primary-dark;
-      background: $color-primary-soft;
-      border-radius: 3px;
-    }
   }
 
   &__form :deep(.el-form-item) {
