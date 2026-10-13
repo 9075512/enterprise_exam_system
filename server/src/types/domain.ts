@@ -1386,3 +1386,78 @@ export interface ContentFeedDto {
   announcements: AnnouncementDto[];
   banners: BannerDto[];
 }
+
+/* ============================================================
+ * v2.0② 考试端首页聚合（GET /api/home/summary）
+ * ============================================================ */
+
+/** 首页统计四项 + 及格率 / 及格线 */
+export interface HomeStatBundleDto {
+  /** 待考：正在进行中且本人尚无记录的考试数 */
+  pending: number;
+  /** 进行中：本人存在未交卷记录的考试数 */
+  ongoing: number;
+  /** 已交卷次数（含历史归档） */
+  submitted: number;
+  /** 平均分（已交卷成绩，保留一位小数） */
+  avgScore: number;
+  /** 及格率（0~100 整数） */
+  passRate: number;
+  /** 及格线（考试未单独设置时的默认值，供前端展示） */
+  passLine: number;
+}
+
+/** 首页最近成绩趋势点 */
+export interface HomeTrendPointDto {
+  recordId: string;
+  examId: string;
+  examName: string;
+  score: number;
+  passScore: number;
+  passed: boolean;
+  submittedAt: string | null;
+}
+
+/** 首页待办提醒 */
+export interface HomeTodoDto {
+  /** 待办类型：pending-exam / ongoing-exam / retake / message / announcement */
+  key: string;
+  text: string;
+  count: number;
+  /** 点击跳转的前端路由 */
+  path: string;
+}
+
+/** 考生首页个性化快捷入口（v2.0⑥ 起按科室可配置） */
+export interface HomeShortcutDto {
+  key: string;
+  text: string;
+  desc: string;
+  path: string;
+  /** Element Plus 图标名（前端映射） */
+  icon: string;
+  enabled: boolean;
+}
+
+/** 考生首页推荐练题题库 */
+export interface HomeRecommendedBankDto {
+  bankId: string;
+  bankName: string;
+  questionCount: number;
+  /** 推荐理由（如：本科室关注 / 与本专业相关） */
+  reason: string;
+}
+
+/** 考试端首页聚合数据 */
+export interface HomeSummaryDto {
+  stats: HomeStatBundleDto;
+  trend: HomeTrendPointDto[];
+  todos: HomeTodoDto[];
+  unreadCount: number;
+  /** 个性化快捷入口（未配置走全局默认） */
+  shortcuts: HomeShortcutDto[];
+  /** 推荐练题题库（未配置为空数组） */
+  recommendedBanks: HomeRecommendedBankDto[];
+  generatedAt: string;
+}
+

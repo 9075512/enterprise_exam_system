@@ -1248,3 +1248,65 @@ export interface BannerInput {
   startAt?: string | null;
   endAt?: string | null;
 }
+
+/* ============================================================
+ * v2.0② 考试端首页聚合（GET /api/home/summary）
+ * ============================================================ */
+
+/** 首页统计四项 + 及格率 / 及格线 */
+export interface HomeStatBundle {
+  pending: number;
+  ongoing: number;
+  submitted: number;
+  avgScore: number;
+  passRate: number;
+  passLine: number;
+}
+
+/** 最近成绩趋势点 */
+export interface HomeTrendPoint {
+  recordId: string;
+  examId: string;
+  examName: string;
+  score: number;
+  passScore: number;
+  passed: boolean;
+  submittedAt: string | null;
+}
+
+/** 首页待办提醒 */
+export interface HomeTodo {
+  key: string;
+  text: string;
+  count: number;
+  path: string;
+}
+
+/** 首页个性化快捷入口（v2.0⑥ 起按科室可配置） */
+export interface HomeShortcut {
+  key: string;
+  text: string;
+  desc: string;
+  path: string;
+  icon: string;
+  enabled: boolean;
+}
+
+/** 首页推荐练题题库 */
+export interface HomeRecommendedBank {
+  bankId: string;
+  bankName: string;
+  questionCount: number;
+  reason: string;
+}
+
+/** 考试端首页聚合数据 */
+export interface HomeSummary {
+  stats: HomeStatBundle;
+  trend: HomeTrendPoint[];
+  todos: HomeTodo[];
+  unreadCount: number;
+  shortcuts: HomeShortcut[];
+  recommendedBanks: HomeRecommendedBank[];
+  generatedAt: string;
+}

@@ -1,37 +1,47 @@
 <script setup lang="ts">
 /**
- * 考试端首页（v1.9⑦）—— 考生默认落地页。
+ * 考试端首页（v1.9⑦ 建立，v2.0② 数据后端化）—— 考生默认落地页。
  *
- * 聚合四块内容：
- *   1) 欢迎条：本人姓名 / 当日日期 / 未读消息数（点击进消息中心）；
- *   2) 公告与轮播：复用 ContentBoard（数据来自 /api/content/feed?scope=exam）；
- *   3) 我的考试统计：待考 / 进行中 / 已交卷 / 平均分；
- *   4) 快捷入口：我的考试、我的成绩、我的补考、消息中心。
+ * 数据来自 `GET /api/home/summary` 一次拉取：
+ *   - 统计：待考 / 进行中 / 已交卷 / 平均分 / 及格率（服务端全量口径）；
+ *   - 趋势：最近 10 次已交卷成绩；
+ *   - 待办：待考 / 未交卷 / 可申请补考 / 未读消息；
+ *   - 个性化：快捷入口与推荐练题题库（v2.0⑥ 起按科室可配置）。
  *
- * 统计口径全部由前端基于考生可见数据即时计算，不新增接口：
- *   待考 = 正在进行且本人尚无记录的考试；进行中 = 有未交卷记录；
- *   已交卷 = 已有交卷记录（含待阅卷）；平均分 = 已交卷记录的平均分（保留一位小数）。
+ * 另有：欢迎条（姓名 / 日期 / 未读数）与公告轮播（复用 ContentBoard）。
+ * 接口失败时整体降级为空态，不阻断页面。
  */
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { AlarmClock, Bell, Refresh, TrendCharts } from '@element-plus/icons-vue';
-import * as examsApi from '@/api/exams';
-import * as recordsApi from '@/api/records';
-import { getUnreadCount } from '@/api/notifications';
+import { AlarmClock, Bell, Document, Refresh, TrendCharts, Warning } from '@element-plus/icons-vue';
+import { getSummary } from '@/api/home';
 import { useAuthStore } from '@/stores/auth';
-import { getExamStatus } from '@/utils/examStatus';
+import { formatDateTime } from '@/utils/datetime';
 import ContentBoard from '@/components/common/ContentBoard.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
-import type { ExamMy, ExamRecord } from '@/types';
+import type { HomeSummary, HomeShortcut } from '@/types';
 
 const router = useRouter();
 const auth = useAuthStore();
 
+/** 后端下发的是图标名，前端映射为组件（未知回退 Bell）。 */
+const ICONS: Record<string, unknown> = {
+  AlarmClock,
+  TrendCharts,
+  Refresh,
+  Bell,
+  Document,
+  Warning,
+};
+const TODO_ICON: Record<string, unknown> = {
+  'pending-exam': AlarmClock,
+  'ongoing-exam': Warning,
+  retake: Refresh,
+  message: Bell,
+};
+
 const loading = ref(true);
-const exams = ref<ExamMy[]>([]);
-const records = ref<ExamRecord[]>([]);
-const recordTotal = ref(0);
-const unread = ref(0);
+const summary = ref<HomeSummary | null>(null);
 
 const userName = computed<string>(() => auth.currentUser?.name ?? '');
 
@@ -40,58 +50,57 @@ const todayText = computed<string>(() =>
   new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }),
 );
 
-/** 待考：正在进行中且本人尚无记录的考试 */
-const pendingCount = computed<number>(
-  () => exams.value.filter((e) => getExamStatus(e) === 'ongoing' && !e.recordStatus).length,
+const stats = computed<Array<{ key: string; label: string; value: number; unit: string; hint: string; tone: string }>>(
+  () => {
+    const s = summary.value?.stats;
+    return [
+      { key: 'pending', label: '待考', value: s?.pending ?? 0, unit: '', hint: '可立即参加', tone: 'primary' },
+      { key: 'ongoing', label: '进行中', value: s?.ongoing ?? 0, unit: '', hint: '未交卷', tone: 'warning' },
+      { key: 'submitted', label: '已交卷', value: s?.submitted ?? 0, unit: '', hint: '累计次数', tone: 'success' },
+      { key: 'avg', label: '平均分', value: s?.avgScore ?? 0, unit: '', hint: '按已出成绩计', tone: 'info' },
+      {
+        key: 'passRate',
+        label: '及格率',
+        value: s?.passRate ?? 0,
+        unit: '%',
+        hint: `及格线 ${s?.passLine ?? 60} 分`,
+        tone: 'info',
+      },
+    ];
+  },
 );
 
-/** 进行中：有未交卷记录 */
-const ongoingCount = computed<number>(() => exams.value.filter((e) => e.recordStatus === 'in_progress').length);
+const todos = computed(() => summary.value?.todos ?? []);
+const trend = computed(() => summary.value?.trend ?? []);
+const recommendedBanks = computed(() => summary.value?.recommendedBanks ?? []);
+const shortcuts = computed<HomeShortcut[]>(() => (summary.value?.shortcuts ?? []).filter((s) => s.enabled));
 
-/** 已交卷（本人，含待人工阅卷） */
-const submittedCount = computed<number>(() => recordTotal.value);
-
-/** 平均分（已交卷记录，保留一位小数；无记录为 0） */
-const avgScore = computed<number>(() => {
-  if (records.value.length === 0) return 0;
-  const sum = records.value.reduce((acc, r) => acc + (Number.isFinite(r.score) ? r.score : 0), 0);
-  return Math.round((sum / records.value.length) * 10) / 10;
-});
-
-const stats = computed<Array<{ key: string; label: string; value: number; hint: string; tone: string }>>(() => [
-  { key: 'pending', label: '待考', value: pendingCount.value, hint: '可立即参加', tone: 'primary' },
-  { key: 'ongoing', label: '进行中', value: ongoingCount.value, hint: '未交卷', tone: 'warning' },
-  { key: 'submitted', label: '已交卷', value: submittedCount.value, hint: '累计次数', tone: 'success' },
-  { key: 'avg', label: '平均分', value: avgScore.value, hint: '按已出成绩计', tone: 'info' },
-]);
+/** 趋势条宽度（相对于 100 分）。 */
+function barWidth(score: number): string {
+  return `${Math.max(2, Math.min(100, score))}%`;
+}
 
 async function load(): Promise<void> {
   loading.value = true;
   try {
-    const [examList, scorePage, unreadData] = await Promise.all([
-      examsApi.my().catch(() => [] as ExamMy[]),
-      recordsApi.my({ page: 1, pageSize: 100 }).catch(() => null),
-      getUnreadCount().catch(() => ({ unreadCount: 0 })),
-    ]);
-    exams.value = examList;
-    records.value = scorePage?.list ?? [];
-    recordTotal.value = scorePage?.total ?? 0;
-    unread.value = unreadData.unreadCount;
+    summary.value = await getSummary();
+  } catch {
+    // 首页装饰性数据，失败静默降级（不阻断页面）
   } finally {
     loading.value = false;
   }
 }
 
-/** 快捷入口 */
-const shortcuts = computed<Array<{ key: string; text: string; desc: string; path: string; icon: unknown }>>(() => [
-  { key: 'my-exams', text: '我的考试', desc: '查看并参加本科室考试', path: '/exam/my', icon: AlarmClock },
-  { key: 'my-scores', text: '我的成绩', desc: '成绩明细与作答回顾', path: '/exam/scores', icon: TrendCharts },
-  { key: 'my-retakes', text: '我的补考', desc: '补考申请与审批进度', path: '/exam/retakes', icon: Refresh },
-  { key: 'notifications', text: '消息中心', desc: '系统通知与考试提醒', path: '/notifications', icon: Bell },
-]);
-
 function go(path: string): void {
   void router.push(path);
+}
+
+function iconOf(shortcut: HomeShortcut): unknown {
+  return ICONS[shortcut.icon] ?? Bell;
+}
+
+function todoIcon(key: string): unknown {
+  return TODO_ICON[key] ?? Bell;
 }
 
 onMounted(load);
@@ -105,7 +114,12 @@ onMounted(load);
         <p class="exam-home__hello">你好，{{ userName || '同学' }}</p>
         <p class="exam-home__date">{{ todayText }}</p>
       </div>
-      <el-badge :value="unread" :hidden="unread === 0" :max="99" class="exam-home__badge">
+      <el-badge
+        :value="summary?.unreadCount ?? 0"
+        :hidden="!summary?.unreadCount"
+        :max="99"
+        class="exam-home__badge"
+      >
         <el-button @click="go('/notifications')">消息中心</el-button>
       </el-badge>
     </div>
@@ -116,26 +130,80 @@ onMounted(load);
     <LoadingSkeleton v-if="loading" :rows="4" />
 
     <template v-else>
+      <!-- 待办提醒 -->
+      <div v-if="todos.length > 0" class="exam-home__todos">
+        <div
+          v-for="todo in todos"
+          :key="todo.key"
+          class="exam-home__todo"
+          @click="go(todo.path)"
+        >
+          <el-icon class="exam-home__todo-icon"><component :is="todoIcon(todo.key)" /></el-icon>
+          <span class="exam-home__todo-text">{{ todo.text }}</span>
+          <span class="exam-home__todo-go">去处理</span>
+        </div>
+      </div>
+
       <!-- 统计 -->
       <div class="exam-home__stats">
         <div v-for="item in stats" :key="item.key" class="exam-home__stat" :class="`is-${item.tone}`">
-          <p class="exam-home__stat-value">{{ item.value }}</p>
+          <p class="exam-home__stat-value">
+            {{ item.value }}<span v-if="item.unit" class="exam-home__stat-unit">{{ item.unit }}</span>
+          </p>
           <p class="exam-home__stat-label">{{ item.label }}</p>
           <p class="exam-home__stat-hint">{{ item.hint }}</p>
         </div>
       </div>
 
-      <!-- 快捷入口 -->
-      <div class="exam-home__section-title">快捷入口</div>
-      <div class="exam-home__shortcuts">
-        <div v-for="item in shortcuts" :key="item.key" class="exam-home__shortcut" @click="go(item.path)">
-          <el-icon class="exam-home__shortcut-icon"><component :is="item.icon" /></el-icon>
-          <div class="exam-home__shortcut-body">
-            <span class="exam-home__shortcut-text">{{ item.text }}</span>
-            <span class="exam-home__shortcut-desc">{{ item.desc }}</span>
+      <!-- 最近成绩趋势 -->
+      <template v-if="trend.length > 0">
+        <div class="exam-home__section-title">最近成绩</div>
+        <div class="exam-home__trend">
+          <div v-for="point in trend" :key="point.recordId" class="exam-home__trend-row">
+            <div class="exam-home__trend-head">
+              <span class="exam-home__trend-name" :title="point.examName">{{ point.examName || '考试' }}</span>
+              <span class="exam-home__trend-score" :class="{ 'is-fail': !point.passed }">
+                {{ point.score }}<span class="exam-home__trend-line">/{{ point.passScore }}</span>
+              </span>
+            </div>
+            <div class="exam-home__trend-bar">
+              <span
+                class="exam-home__trend-fill"
+                :class="{ 'is-fail': !point.passed }"
+                :style="{ width: barWidth(point.score) }"
+              />
+            </div>
+            <span class="exam-home__trend-time">{{ formatDateTime(point.submittedAt) }}</span>
           </div>
         </div>
-      </div>
+      </template>
+
+      <!-- 快捷入口 -->
+      <template v-if="shortcuts.length > 0">
+        <div class="exam-home__section-title">快捷入口</div>
+        <div class="exam-home__shortcuts">
+          <div v-for="item in shortcuts" :key="item.key" class="exam-home__shortcut" @click="go(item.path)">
+            <el-icon class="exam-home__shortcut-icon"><component :is="iconOf(item)" /></el-icon>
+            <div class="exam-home__shortcut-body">
+              <span class="exam-home__shortcut-text">{{ item.text }}</span>
+              <span class="exam-home__shortcut-desc">{{ item.desc }}</span>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- 推荐练题题库（按科室配置，未配置则不展示） -->
+      <template v-if="recommendedBanks.length > 0">
+        <div class="exam-home__section-title">推荐练题</div>
+        <div class="exam-home__banks">
+          <div v-for="bank in recommendedBanks" :key="bank.bankId" class="exam-home__bank">
+            <div class="exam-home__bank-main">
+              <span class="exam-home__bank-name">{{ bank.bankName }}</span>
+              <span class="exam-home__bank-meta">共 {{ bank.questionCount }} 题 · {{ bank.reason }}</span>
+            </div>
+          </div>
+        </div>
+      </template>
     </template>
   </div>
 </template>
@@ -174,9 +242,53 @@ onMounted(load);
     flex: 0 0 auto;
   }
 
+  /* 待办提醒 */
+  &__todos {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  &__todo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 14px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.15s;
+
+    &:hover {
+      background: #fef3c7;
+    }
+  }
+
+  &__todo-icon {
+    flex: 0 0 auto;
+    color: #d97706;
+    font-size: 16px;
+  }
+
+  &__todo-text {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    color: $text-primary;
+  }
+
+  &__todo-go {
+    flex: 0 0 auto;
+    font-size: 12px;
+    font-weight: 600;
+    color: #b45309;
+  }
+
   &__stats {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 12px;
     margin-bottom: 18px;
   }
@@ -208,6 +320,13 @@ onMounted(load);
     line-height: 1.1;
     color: $text-primary;
     font-variant-numeric: tabular-nums;
+  }
+
+  &__stat-unit {
+    margin-left: 1px;
+    font-size: 15px;
+    font-weight: 600;
+    color: $text-secondary;
   }
 
   &__stat-label {
@@ -244,10 +363,87 @@ onMounted(load);
     }
   }
 
+  /* 最近成绩趋势 */
+  &__trend {
+    margin-bottom: 18px;
+    padding: 14px 16px;
+    background: #fff;
+    border: 1px solid $border-color;
+    border-radius: 6px;
+  }
+
+  &__trend-row {
+    & + & {
+      margin-top: 12px;
+    }
+  }
+
+  &__trend-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 5px;
+  }
+
+  &__trend-name {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 13px;
+    color: $text-primary;
+  }
+
+  &__trend-score {
+    flex: 0 0 auto;
+    font-size: 13px;
+    font-weight: 700;
+    color: #16a34a;
+    font-variant-numeric: tabular-nums;
+
+    &.is-fail {
+      color: $color-error;
+    }
+  }
+
+  &__trend-line {
+    font-size: 11px;
+    font-weight: 400;
+    color: $text-disabled;
+  }
+
+  &__trend-bar {
+    display: block;
+    height: 6px;
+    border-radius: 3px;
+    background: $color-table-head;
+    overflow: hidden;
+  }
+
+  &__trend-fill {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: #16a34a;
+
+    &.is-fail {
+      background: $color-error;
+    }
+  }
+
+  &__trend-time {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: $text-disabled;
+  }
+
   &__shortcuts {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
+    margin-bottom: 18px;
   }
 
   &__shortcut {
@@ -295,6 +491,41 @@ onMounted(load);
   }
 
   &__shortcut-desc {
+    font-size: 12px;
+    color: $text-secondary;
+  }
+
+  /* 推荐练题题库 */
+  &__banks {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  &__bank {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    background: #fff;
+    border: 1px solid $border-color;
+    border-left: 3px solid $color-primary;
+    border-radius: 6px;
+  }
+
+  &__bank-main {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  &__bank-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: $text-primary;
+  }
+
+  &__bank-meta {
     font-size: 12px;
     color: $text-secondary;
   }

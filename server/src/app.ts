@@ -33,6 +33,7 @@ import { maintenanceRouter } from './modules/maintenance/maintenance.router.js';
 import { attachmentsRouter } from './modules/attachments/attachments.router.js';
 import { practiceRouter } from './modules/practice/practice.router.js';
 import { contentRouter } from './modules/content/content.router.js';
+import { homeRouter } from './modules/home/home.router.js';
 import { practiceEdgeGuard } from './middleware/practiceEdge.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
@@ -88,6 +89,7 @@ export function createApp(): Express {
     // 富文本附件对象存储（v1.8④ U4）：上传需登录；读取走签名 URL（见模块注释）
     api.use('/attachments', attachmentsRouter);
     api.use('/content', contentRouter);
+    api.use('/home', homeRouter);
   }
 
   app.use('/api', api);
