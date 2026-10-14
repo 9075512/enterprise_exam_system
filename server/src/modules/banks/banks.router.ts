@@ -111,6 +111,14 @@ banksRouter.get(
   }),
 );
 
+/** GET /api/banks/:id/question-stats —— 题库题目健康度统计（v3.3，题型分布 / 平均正确率 / 待完善）。 */
+banksRouter.get(
+  '/:id/question-stats',
+  asyncHandler(async (req, res) =>
+    ok(res, await questionsService.bankQuestionStats(req.params.id, req.user!)),
+  ),
+);
+
 /** POST /api/banks/practice/batch —— 批量设置「对外开放练题」开关（v1.8+，仅 admin）。 */
 banksRouter.post(
   '/practice/batch',

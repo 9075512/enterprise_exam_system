@@ -12,7 +12,7 @@ import { genId } from '../../utils/id.js';
 import { nowDb } from '../../utils/datetime.js';
 import { normalizePaging, buildPage } from '../../utils/pagination.js';
 import { parseJsonColumn } from '../../utils/json.js';
-import type { Page, QuestionDto, QuestionType, QuestionDifficulty, RubricBand } from '../../types/domain.js';
+import type { Page, QuestionDto, QuestionType, QuestionDifficulty, RubricBand, BankQuestionStatsDto } from '../../types/domain.js';
 
 /** 选项数量上下限（判断题固定 2 项，不受上限约束）。 */
 const MAX_OPTIONS = 6;
@@ -217,7 +217,40 @@ export async function listByBank(
     repo.listFiltered(queryFilter, paging),
     repo.countFiltered(queryFilter),
   ]);
-  return buildPage(rows.map(mapQuestionRow), total, paging.page, paging.pageSize);
+  // 作答正确率：仅对当前页题目做一次批量聚合（无作答 → null）
+  const rateMap = await repo.correctRateByQuestionIds(rows.map((r) => r.id));
+  return buildPage(
+    rows.map((r) => mapQuestionRow(r, rateMap.get(r.id) ?? null)),
+    total,
+    paging.page,
+    paging.pageSize,
+  );
+}
+
+/**
+ * 题库题目健康度统计（v3.3，题库详情页顶部统计卡数据源；author 需授权）。
+ * 全部实时聚合：题型分布 / 平均正确率 / 待完善口径拆分，无缓存列。
+ */
+export async function bankQuestionStats(
+  bankId: string,
+  operator: Operator,
+): Promise<BankQuestionStatsDto> {
+  const bank = await banksRepo.findById(bankId);
+  if (!bank) throw notFound('题库不存在或已被删除');
+  await bankAuth.assertBankAccess(bankId, operator);
+  const [stats, practice] = await Promise.all([
+    repo.statsByBank(bankId),
+    repo.practiceStatsByBank(bankId),
+  ]);
+  return {
+    total: stats.total,
+    byType: stats.byType,
+    answeredCount: practice.answeredCount,
+    avgCorrectRate: practice.avg,
+    incompleteCount: stats.incomplete,
+    missingAnalysisCount: stats.missingAnalysis,
+    missingTagsCount: stats.missingTags,
+  };
 }
 
 /** 全局试题池列表（组卷用，可传 bankIds；author 限定到被授权题库）。 */

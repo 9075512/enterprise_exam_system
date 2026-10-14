@@ -212,6 +212,32 @@ export interface QuestionDto {
   rubric: RubricBand[];
   createdBy: string;
   createdAt: string;
+  /**
+   * 作答正确率百分比（0-100，保留 1 位小数，v3.3）——由 `practice_answers` 按题聚合。
+   * `null` = 从未被练题作答（数据缺口如实表达，不造数）。
+   */
+  correctRate: number | null;
+}
+
+/**
+ * 题库题目健康度统计（v3.3，题库详情页顶部统计卡数据源）。
+ * 全部由题表 + 练题作答明细实时聚合，无缓存列。
+ */
+export interface BankQuestionStatsDto {
+  /** 题库存题总数 */
+  total: number;
+  /** 按题型分布计数（五种题型恒有键，缺省 0） */
+  byType: Record<QuestionType, number>;
+  /** 有练题作答记录的题数 */
+  answeredCount: number;
+  /** 全库加权平均正确率百分比（0-100，保留 1 位小数）；无任何作答 → null */
+  avgCorrectRate: number | null;
+  /** 「待完善」题数 = 缺解析 或 未设置知识点（并集，去重） */
+  incompleteCount: number;
+  /** 缺解析题数（口径拆分） */
+  missingAnalysisCount: number;
+  /** 未设置知识点题数（口径拆分） */
+  missingTagsCount: number;
 }
 
 /** 试卷中的题目引用（题目内容 + 分值） */

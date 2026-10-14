@@ -184,6 +184,94 @@ export async function listTags(bankIds?: string[]): Promise<string[]> {
   return [...set].sort((a, b) => a.localeCompare(b, 'zh-CN'));
 }
 
+/* ============================ 题目健康度聚合（v3.3） ============================ */
+
+/**
+ * 批量查询题目作答正确率（0-100，保留 1 位小数）。
+ * 数据源 `practice_answers`（「首次作答为准」明细）；**仅返回有作答记录的题目**，
+ * 调用方对未命中题目按 `null`（从未作答）处理。
+ * 题目数受分页约束（唯一一次 IN 批量查询），不存在全表捞出后应用层过滤。
+ */
+export async function correctRateByQuestionIds(ids: string[]): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return map;
+  const rows = await query<RowDataPacket[]>(
+    `SELECT question_id, COUNT(*) AS total, SUM(is_correct) AS correct
+       FROM practice_answers
+      WHERE question_id IN (${unique.map(() => '?').join(', ')})
+      GROUP BY question_id`,
+    unique,
+  );
+  for (const r of rows) {
+    const total = Number(r.total ?? 0);
+    if (total <= 0) continue;
+    map.set(String(r.question_id), Math.round((Number(r.correct ?? 0) / total) * 1000) / 10);
+  }
+  return map;
+}
+
+/** 单题库题目结构统计（题型分布 + 待完善口径拆分），两次聚合查询合并返回。 */
+export async function statsByBank(bankId: string): Promise<{
+  total: number;
+  byType: Record<QuestionType, number>;
+  incomplete: number;
+  missingAnalysis: number;
+  missingTags: number;
+}> {
+  const [typeRows, aggRows] = await Promise.all([
+    query<RowDataPacket[]>(
+      `SELECT type, COUNT(*) AS c FROM questions WHERE bank_id = ? GROUP BY type`,
+      [bankId],
+    ),
+    query<RowDataPacket[]>(
+      `SELECT
+         COUNT(*) AS total,
+         SUM(CASE WHEN analysis IS NULL OR analysis = '' THEN 1 ELSE 0 END) AS missing_analysis,
+         SUM(CASE WHEN tags IS NULL OR JSON_LENGTH(tags) = 0 THEN 1 ELSE 0 END) AS missing_tags,
+         SUM(CASE WHEN (analysis IS NULL OR analysis = '')
+                   OR (tags IS NULL OR JSON_LENGTH(tags) = 0) THEN 1 ELSE 0 END) AS incomplete
+       FROM questions WHERE bank_id = ?`,
+      [bankId],
+    ),
+  ]);
+  const byType: Record<QuestionType, number> = { single: 0, multiple: 0, judge: 0, fill: 0, short: 0 };
+  for (const r of typeRows) {
+    const t = String(r.type) as QuestionType;
+    if (t in byType) byType[t] = Number(r.c ?? 0);
+  }
+  const agg = aggRows[0] ?? {};
+  return {
+    total: Number(agg.total ?? 0),
+    byType,
+    incomplete: Number(agg.incomplete ?? 0),
+    missingAnalysis: Number(agg.missing_analysis ?? 0),
+    missingTags: Number(agg.missing_tags ?? 0),
+  };
+}
+
+/**
+ * 单题库练题作答正确率（加权：所有作答记录中正确占比）。
+ * @returns `avg` 百分比（保留 1 位小数，无作答 → null）；`answeredCount` 有作答记录的题数。
+ */
+export async function practiceStatsByBank(
+  bankId: string,
+): Promise<{ avg: number | null; answeredCount: number }> {
+  const rows = await query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS total, SUM(pa.is_correct) AS correct, COUNT(DISTINCT pa.question_id) AS answered
+       FROM practice_answers pa
+       JOIN questions q ON q.id = pa.question_id
+      WHERE q.bank_id = ?`,
+    [bankId],
+  );
+  const row = rows[0] ?? {};
+  const total = Number(row.total ?? 0);
+  return {
+    avg: total > 0 ? Math.round((Number(row.correct ?? 0) / total) * 1000) / 10 : null,
+    answeredCount: Number(row.answered ?? 0),
+  };
+}
+
 /** 新增试题。 */
 export async function insert(
   row: {

@@ -43,8 +43,11 @@ function parseRubric(raw: unknown): RubricBand[] {
   return out;
 }
 
-/** 映射为对外 DTO（JSON 列归一、时间转 ISO）。 */
-export function mapQuestionRow(row: QuestionRow): QuestionDto {
+/**
+ * 映射为对外 DTO（JSON 列归一、时间转 ISO）。
+ * @param correctRate 作答正确率百分比（0-100）；由调用方按需聚合后传入，缺省 null（= 从未作答）
+ */
+export function mapQuestionRow(row: QuestionRow, correctRate: number | null = null): QuestionDto {
   return {
     id: row.id,
     bankId: row.bank_id,
@@ -60,5 +63,6 @@ export function mapQuestionRow(row: QuestionRow): QuestionDto {
     rubric: row.type === 'short' ? parseRubric(row.rubric) : [],
     createdBy: row.created_by,
     createdAt: fromDbDateSafe(row.created_at),
+    correctRate,
   };
 }
