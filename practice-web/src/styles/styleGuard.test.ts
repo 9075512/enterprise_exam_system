@@ -154,3 +154,38 @@ describe('练题端 · 主色唯一性护栏', () => {
     expect(runtime).toMatch(/--el-color-primary:\s*#0b5bff/i);
   });
 });
+
+// ---------------------------------------------------------------
+// 保真度审计修复（2026-10-14）—— 练题端此前只做视觉回写，未过 computed-style 审计。
+// 复核（`tools/audit-practice.mjs`，CDP 实测）发现与根应用同源的 B / A9 类缺陷：
+//   B1 同类：body 无基准字号 → EP 浮层继承浏览器默认 16px（设计 14px）；
+//   B2 同类：--el-input-border-color 写 :root，被 EP 在 .el-input 元素作用域重定义吃掉；
+//   A9 同类：token 只有三档文字，--el-text-color-regular 落 text-3（#5a6474），偏灰一档。
+// vitest 读不到 computed style —— 这里钉住「声明的作用域与值」，计算值以审计报告实测为准。
+// ---------------------------------------------------------------
+describe('练题端 · 保真度审计修复（B/A9 类）', () => {
+  const runtime = () => readFileSync(resolve(ROOT, 'styles/index.scss'), 'utf8');
+  const vars = () => readFileSync(resolve(ROOT, 'styles/variables.scss'), 'utf8');
+
+  it('B1 同类：body 基准字号 14px（= kit/m.css body），浮层不再取浏览器默认 16px', () => {
+    const src = stripComments(runtime());
+    const m = src.match(/\nbody\s*\{([^}]*)\}/);
+    expect(m, '未找到 body 规则').toBeTruthy();
+    expect(m?.[1]).toMatch(/font-size:\s*14px/);
+  });
+
+  it('A9 同类：token 层补第 4 档文字色 $text-body = #3D4657（= DESIGN-C text-2）', () => {
+    expect(vars()).toMatch(/\$text-body:\s*#3D4657/i);
+  });
+
+  it('A9 同类：--el-text-color-regular 指向 $text-body，且不再写 #5a6474', () => {
+    const src = stripComments(runtime());
+    expect(src).toMatch(/--el-text-color-regular:\s*#\{\$text-body\}/);
+    expect(src).not.toMatch(/--el-text-color-regular:\s*#5a6474/i);
+  });
+
+  it('B2 同类：--el-input-border-color 落到 EP 同作用域（双写 .el-input.el-input）', () => {
+    const src = stripComments(runtime());
+    expect(src).toMatch(/\.el-input\.el-input[\s\S]{0,200}--el-input-border-color:\s*#\{\$line-strong\}/);
+  });
+});

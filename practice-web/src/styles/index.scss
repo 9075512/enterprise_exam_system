@@ -26,10 +26,24 @@
   --el-bg-color-page: #f4f6f9;
   --el-fill-color-light: #f1f3f6;
   --el-text-color-primary: #0d1220;
-  --el-text-color-regular: #5a6474;
+  // text-2 档（#3D4657）：EP 默认正文色（按钮默认字色 / 表单 / 下拉）——
+  // 此前写 #5a6474（text-3），全站比设计稿「灰一档」（保真度审计 A9 同类）。
+  --el-text-color-regular: #{$text-body};
   --el-border-color: #e9ecf1;
-  // 表单控件用「强发丝线」：比卡片/行线更明确，但不引入阴影（DESIGN-C §2.1）
+  // 表单控件用「强发丝线」：比卡片/行线更明确，但不引入阴影（DESIGN-C §2.1）。
+  // ⚠️ 仅写在 :root 不生效（EP 在 .el-input 元素作用域重定义同名变量），见下方元素级规则；
+  //    这里保留一份仅为兜底（非 .el-input 的消费者）与可读性。
   --el-input-border-color: #{$line-strong};
+}
+
+// ⚠️ `--el-input-border-color` 必须落到 EP 的**同一作用域**才生效。
+//    EP 在元素作用域重定义它：`.el-input{--el-input-border-color:var(--el-border-color)}`，
+//    按变量作用域规则后者必胜，:root 的赋值形同虚设（实测 `.el-input` 上算出 #e9ecf1）。
+//    双写类名抬一级优先级，声明才真正落到渲染层（与根应用 B2 同一手法）。
+.el-input.el-input,
+.el-textarea.el-textarea {
+  --el-input-border-color: #{$line-strong};
+  --el-input-hover-border-color: #{$line-strong};
 }
 
 * {
@@ -46,6 +60,9 @@ body,
 
 body {
   font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  // 基准字号 14px（= kit/m.css 的 body）。EP 浮层（弹窗 / 气泡 / 下拉）teleport 到 body，
+  // 其根字号继承自 body —— 此前未设，取浏览器默认 16px，整层比设计稿大一档（审计 B1 同类）。
+  font-size: 14px;
   color: $text-primary;
   background-color: $bg-page;
   -webkit-font-smoothing: antialiased;

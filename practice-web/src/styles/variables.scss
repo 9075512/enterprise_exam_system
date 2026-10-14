@@ -52,10 +52,13 @@ $bg-paper: #FFFFFF;
 $practice-surface-2: #FAFBFC; // 次级面（表头 / 浮层头）
 $practice-surface-3: #F1F3F6; // 中性块底（= --surface-3）
 
-// 文本三档（与管理端同源）
-$text-primary: #0D1220; // 18.7:1 ✅
-$text-secondary: #5A6474; // 6.0:1 ✅
-$text-disabled: #858F9E; // 3.27:1 —— 图形档，禁止承载正文
+// 文本四档（与管理端同源；保真度审计 A9 同类：此前缺第 2 档）
+// 设计 kit `kit/m.css` 为 text-1 / text-2 / text-3 / icon 四档，工程只落了三档，
+// 凡设计稿用 text-2 处工程都落到 text-3，整体「灰一档」。补 $text-body 对齐 text-2。
+$text-primary: #0D1220; // 18.7:1 ✅ = DESIGN-C --text-1
+$text-body: #3D4657; // 9.5:1 ✅ = DESIGN-C --text-2（正文 / 选项 / 次级标签）
+$text-secondary: #5A6474; // 6.0:1 ✅ = DESIGN-C --text-3（meta / 辅助说明）
+$text-disabled: #858F9E; // 3.27:1 —— 图形档，禁止承载正文 = DESIGN-C --icon
 
 // 发丝线
 $border-color: #E9ECF1; // = --line（行分隔 / 卡片边）
