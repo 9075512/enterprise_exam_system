@@ -530,3 +530,100 @@ describe('全站样式 · v3.1 方向 C 表单控件族护栏', () => {
     expect(scss).not.toMatch(/--el-progress-bg-color/);
   });
 });
+
+/**
+ * v3.1 方向 C 考试端换肤护栏（DESIGN-C §2.1 / §2.5 / §4.4）。
+ *
+ * 考试端此前一直停在 v2.x：左缘 3px 强调条、卡片投影、语义原色当文字色、
+ * 硬编码装饰色散落各页。这批按设计稿逐页重排后，把三条最容易悄悄回退的
+ * 契约落成断言（都是「反查式」——扫源码找违规字面量，而不是断言某处写了什么）：
+ * 1) 无 3px 强调条 —— 方向 C 的行焦点语言是「左缘 2px 实心条 / inset 描边」，
+ *    v2.x 的 3px 左缘+渐变条一律不得回归（含侧栏，侧栏改用右缘主色圆点）；
+ * 2) 考试端零投影 —— 除浮层（`$shadow-lg`）与内嵌发丝线（`inset`）外，
+ *    考试端页面不得出现任何 box-shadow；
+ * 3) 统计卡（StatCard）契约 —— 左缘 2px + 26px 图标块 + 主色软底，
+ *    tone 只换左缘与图标块，文字保持文本档（防语义原色当文字色回退）。
+ * 注：扫描排除 `*.test.ts` 自身（本文件要写违规字面量做反例）。
+ */
+describe('全站样式 · v3.1 方向 C 考试端换肤护栏', () => {
+  const stripComments = (s: string) =>
+    s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+
+  function collect(dir: string, out: string[] = []): string[] {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        collect(full, out);
+      } else if (/\.(vue|scss)$/.test(entry.name) && !entry.name.endsWith('.test.ts')) {
+        out.push(full);
+      }
+    }
+    return out;
+  }
+
+  // 业务层 = 排除 styles/（styles/ 是 token 源与 EP 覆盖层：
+  // index.scss 的 `.rich-text blockquote` 就是一条「发丝色」引用条，不是强调条）
+  const businessFiles = collect(resolve(process.cwd(), 'src')).filter(
+    (f) => !/[\\/]styles[\\/]/.test(f),
+  );
+
+  it('业务层不再出现 v2.x 的 3px 左缘/顶缘强调条', () => {
+    const offenders = businessFiles.filter((f) =>
+      /border-(?:left|top)\s*:\s*3px|box-shadow\s*:\s*inset\s+3px/.test(stripComments(readFileSync(f, 'utf8'))),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it('侧栏选中项用「主色软底 + 右缘 5px 圆点」，不是左缘 3px 条', () => {
+    const layout = stripComments(readFileSync(resolve(process.cwd(), 'src/layouts/AppLayout.vue'), 'utf8'));
+    const active = /&\.is-active\s*\{([\s\S]*?)\n\s{4}\}/.exec(layout)?.[1] ?? '';
+    expect(active).not.toBe('');
+    expect(active).toMatch(/background:\s*\$sidebar-active-bg/);
+    expect(active).toMatch(/&::after\s*\{[\s\S]*?width:\s*5px/);
+    expect(active).toMatch(/border-radius:\s*50%/);
+    expect(active).not.toMatch(/&::before/);
+  });
+
+  it('考试端零投影：只允许浮层 $shadow-lg 与 inset 发丝线', () => {
+    const examFiles = collect(resolve(process.cwd(), 'src/views/exam'));
+    const offenders: string[] = [];
+    for (const f of examFiles) {
+      const src = stripComments(readFileSync(f, 'utf8'));
+      const re = /box-shadow\s*:\s*([^;]+);/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(src)) !== null) {
+        const value = (m[1] ?? '').trim();
+        if (value.includes('inset') || value === '$shadow-lg') continue;
+        offenders.push(`${f} → box-shadow: ${value}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('考试端不把语义原色当作文字色（必须走 -text 深字档）', () => {
+    const examFiles = collect(resolve(process.cwd(), 'src/views/exam'));
+    const offenders = examFiles.filter((f) =>
+      /(?<![-\w])color\s*:\s*\$color-(?:success|warning|error|info)\s*;/.test(
+        stripComments(readFileSync(f, 'utf8')),
+      ),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it('统计卡契约：左缘 2px + 26px 图标块 + 主色软底，tone 只换左缘与图标块', () => {
+    const stat = stripComments(readFileSync(resolve(process.cwd(), 'src/components/common/StatCard.vue'), 'utf8'));
+
+    expect(stat).toMatch(/&__rule\s*\{[\s\S]*?width:\s*2px/);
+    expect(stat).toMatch(/&__icon\s*\{[\s\S]*?width:\s*26px/);
+    expect(stat).toMatch(/background:\s*\$color-primary-soft/);
+
+    // tone 档位必须换「左缘条 + 图标块」，文字色不得被 tone 改写
+    for (const tone of ['success', 'warning', 'error']) {
+      const block = new RegExp(`&--${tone}\\s*\\{([\\s\\S]*?)\\n  \\}`).exec(stat)?.[1] ?? '';
+      expect(block, `StatCard 缺少 --${tone} 档`).not.toBe('');
+      expect(block).toMatch(/\.stat-card__rule\s*\{[\s\S]*?background:\s*\$color-/);
+      expect(block).toMatch(/\.stat-card__icon\s*\{[\s\S]*?background:\s*\$color-[\w-]+-bg/);
+      expect(block).not.toMatch(/(?<![-\w])color\s*:\s*\$color-(?:success|warning|error|info)\s*;/);
+    }
+  });
+});
