@@ -28,6 +28,8 @@ const page = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
 const list = ref<ScoreAppeal[]>([]);
+/** 当前聚焦的复核申请（「复核处理 · 成绩变更史」卡展示对象，默认列表首条） */
+const activeAppealId = ref('');
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -40,6 +42,10 @@ async function load(): Promise<void> {
     });
     list.value = data.list;
     total.value = data.total;
+    // 保持有效选中：列表刷新后若当前选中项已不在（换筛选/被处理），回退到首条
+    if (!list.value.some((item) => item.id === activeAppealId.value)) {
+      activeAppealId.value = list.value[0]?.id ?? '';
+    }
   } catch {
     list.value = [];
   } finally {
@@ -48,6 +54,63 @@ async function load(): Promise<void> {
 }
 
 void load();
+
+const activeAppeal = computed<ScoreAppeal | null>(
+  () => list.value.find((item) => item.id === activeAppealId.value) ?? null,
+);
+
+/** 成绩变更条目：原分 → 新分（未处理时为「待定」），全部由 ScoreAppeal 已有字段派生 */
+const scoreChange = computed<{ from: string; to: string | null; tone: string } | null>(() => {
+  const appeal = activeAppeal.value;
+  if (!appeal) return null;
+  let tone = '';
+  if (appeal.newScore !== null) {
+    if (appeal.newScore > appeal.originalScore) tone = 'is-up';
+    else if (appeal.newScore < appeal.originalScore) tone = 'is-down';
+  }
+  return {
+    from: formatScore(appeal.originalScore),
+    to: appeal.newScore !== null ? formatScore(appeal.newScore) : null,
+    tone,
+  };
+});
+
+/**
+ * 处理时间线：由申请状态 + 申请/复核时间 + 复核人 + 复核意见派生，
+ * 数据源为页面已有列表，不新增任何请求。
+ */
+const changeTimeline = computed<Array<{ title: string; detail: string; tone: string }>>(() => {
+  const appeal = activeAppeal.value;
+  if (!appeal) return [];
+  const nodes: Array<{ title: string; detail: string; tone: string }> = [
+    {
+      title: '提交复核申请',
+      detail: `${formatDateTime(appeal.appliedAt)} · 考生端${appeal.reason ? ` · ${appeal.reason}` : ''}`,
+      tone: appeal.status === 'pending' ? 'is-on' : '',
+    },
+  ];
+  if (appeal.status === 'pending') {
+    nodes.push({ title: '等待管理员复核', detail: '尚未处理', tone: 'is-on' });
+  } else {
+    nodes.push({
+      title: appeal.status === 'approved' ? '复核通过 · 已调整成绩' : '复核驳回 · 维持原分',
+      detail: `${appeal.reviewedAt ? formatDateTime(appeal.reviewedAt) : '—'} · ${appeal.reviewedBy || '管理员'}${
+        appeal.reviewComment ? ` · ${appeal.reviewComment}` : ''
+      }`,
+      tone: appeal.status === 'approved' ? 'is-done' : 'is-err',
+    });
+  }
+  return nodes;
+});
+
+/** 行点击 → 切换变更史展示对象；行焦点用 inset 2px 主色条表达 */
+function handleAppealRowClick(row: ScoreAppeal): void {
+  activeAppealId.value = row.id;
+}
+
+function appealRowClassName({ row }: { row: ScoreAppeal }): string {
+  return row.id === activeAppealId.value ? 'is-active-appeal' : '';
+}
 
 /** 考试范围变化 → 回到第 1 页重查 */
 watch(examId, () => {
@@ -144,7 +207,14 @@ async function submitReject(): Promise<void> {
         </el-radio-group>
       </div>
 
-      <el-table v-loading="loading" :data="list" row-key="id" stripe>
+      <el-table
+        v-loading="loading"
+        :data="list"
+        row-key="id"
+        stripe
+        :row-class-name="appealRowClassName"
+        @row-click="handleAppealRowClick"
+      >
         <el-table-column prop="examName" label="考试名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="userName" label="考生姓名" width="110" />
         <el-table-column prop="username" label="登录账号" width="130" show-overflow-tooltip />
@@ -193,6 +263,54 @@ async function submitReject(): Promise<void> {
         :current-page="page"
         @current-change="handlePageChange"
       />
+    </el-card>
+
+    <el-card class="appeal-manage-page__review" shadow="never">
+      <template #header>
+        <div class="appeal-manage-page__review-head">
+          <span class="appeal-manage-page__review-title">复核处理</span>
+          <span v-if="activeAppeal" class="appeal-manage-page__review-sub">
+            {{ activeAppeal.userName }} · {{ activeAppeal.examName }}
+          </span>
+          <el-tag
+            v-if="activeAppeal"
+            class="appeal-manage-page__review-tag"
+            :type="APPEAL_STATUS_TAG_TYPES[activeAppeal.status]"
+            effect="light"
+          >
+            {{ APPEAL_STATUS_LABELS[activeAppeal.status] }}
+          </el-tag>
+        </div>
+      </template>
+
+      <template v-if="activeAppeal && scoreChange">
+        <div class="appeal-manage-page__change">
+          <span class="appeal-manage-page__change-k">成绩变更</span>
+          <span class="appeal-manage-page__change-v">
+            <b class="appeal-manage-page__score">{{ scoreChange.from }}</b>
+            <span class="appeal-manage-page__arrow">→</span>
+            <b v-if="scoreChange.to !== null" class="appeal-manage-page__score" :class="scoreChange.tone">
+              {{ scoreChange.to }}
+            </b>
+            <b v-else class="appeal-manage-page__score appeal-manage-page__score--pending">待定</b>
+          </span>
+        </div>
+
+        <div class="appeal-manage-page__timeline">
+          <div
+            v-for="(node, index) in changeTimeline"
+            :key="index"
+            class="appeal-manage-page__tl"
+            :class="node.tone"
+          >
+            <div class="appeal-manage-page__tl-t">{{ node.title }}</div>
+            <div class="appeal-manage-page__tl-d">{{ node.detail }}</div>
+          </div>
+        </div>
+      </template>
+      <p v-else class="appeal-manage-page__review-empty">
+        暂无复核记录，选中上方列表中的申请即可查看成绩变更史。
+      </p>
     </el-card>
 
     <el-dialog v-model="approveVisible" title="复核通过（调整成绩）" width="460px">
@@ -246,6 +364,11 @@ async function submitReject(): Promise<void> {
 .appeal-manage-page {
   &__panel {
     border-radius: $radius-lg;
+
+    // 行级焦点：inset 2px 主色条（业务层禁用 3px 强调条与投影）
+    :deep(.is-active-appeal td.el-table__cell:first-child) {
+      box-shadow: inset 2px 0 0 $color-primary;
+    }
   }
 
   &__toolbar {
@@ -268,6 +391,151 @@ async function submitReject(): Promise<void> {
 
   &__muted {
     color: $text-disabled;
+  }
+
+  &__review {
+    margin-top: 16px;
+  }
+
+  &__review-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  &__review-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &__review-sub {
+    font-size: 11.5px;
+    color: $text-secondary;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__review-tag {
+    margin-left: auto;
+    flex: 0 0 auto;
+  }
+
+  &__change {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+    border-radius: $radius-xs;
+    background: $color-primary-soft;
+    box-shadow: inset 2px 0 0 $color-primary;
+  }
+
+  &__change-k {
+    font-size: 12px;
+    color: $text-secondary;
+  }
+
+  &__change-v {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__score {
+    font-size: 15px;
+    font-weight: 600;
+    color: $text-primary;
+    font-variant-numeric: tabular-nums;
+
+    &.is-up {
+      color: $color-success-text;
+    }
+
+    &.is-down {
+      color: $color-error-text;
+    }
+
+    &--pending {
+      font-size: 13px;
+      color: $color-warning-text;
+    }
+  }
+
+  &__arrow {
+    color: $text-secondary;
+  }
+
+  &__timeline {
+    position: relative;
+    padding-left: 20px;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 5px;
+      top: 5px;
+      bottom: 5px;
+      width: 1.5px;
+      background: $line-strong;
+    }
+  }
+
+  &__tl {
+    position: relative;
+    padding-bottom: 14px;
+
+    &:last-child {
+      padding-bottom: 0;
+    }
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: -20px;
+      top: 3px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: $bg-paper;
+      border: 2px solid $line-strong;
+    }
+
+    &.is-on::before {
+      background: $color-primary;
+      border-color: $color-primary;
+    }
+
+    &.is-done::before {
+      background: $color-success;
+      border-color: $color-success;
+    }
+
+    &.is-err::before {
+      background: $color-error;
+      border-color: $color-error;
+    }
+  }
+
+  &__tl-t {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &__tl-d {
+    margin-top: 2px;
+    font-size: 11.5px;
+    color: $text-secondary;
+  }
+
+  &__review-empty {
+    margin: 0;
+    font-size: 12.5px;
+    color: $text-secondary;
   }
 }
 </style>

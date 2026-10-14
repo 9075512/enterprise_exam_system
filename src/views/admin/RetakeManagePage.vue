@@ -7,9 +7,11 @@
  * 可从「考试管理」行操作直达某场考试的补考队列，队列真正对应到每一场考试。
  */
 import { computed, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { approveRetake, listRetakes, rejectRetake } from '@/api/retakes';
 import { useExamScope } from '@/composables/useExamScope';
+import { useSettingsStore } from '@/stores/settings';
 import { formatDateTime } from '@/utils/datetime';
 import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
@@ -68,6 +70,40 @@ watch(examId, () => {
 
 /** 空态文案随筛选范围变化，避免「明明选了某场考试却提示没有申请」造成误解 */
 const emptyText = computed(() => (examId.value ? '该考试暂无补考申请' : '暂无补考申请'));
+
+/* ------------------------------ 补考规则（系统设置） ------------------------------ */
+const router = useRouter();
+const settingsStore = useSettingsStore();
+
+/**
+ * 补考规则展示项（对应设计稿「补考规则（系统设置）」卡）。
+ *
+ * 数据来源：优先取 `useSettingsStore().settings` 中确切存在的字段——
+ * - `examDefaultPassScore`：考试默认及格线（低于该分才需补考）
+ * - `examDefaultMaxAttempts`：每人默认答题次数上限
+ * - `retakeDefaultEnabled`：补考申请全局默认开关
+ *
+ * ⚠️ 设置中暂无「补考次数上限 / 计分方式 / 排考间隔 / 审批人」等字段，
+ * 相关行（下方标注「说明性文案」）为**展示用途的静态规则文案**，
+ * 仅用于说明默认口径；真实规则一律以「系统设置」页为准。
+ * 本卡只读，不新增任何后端接口或请求（settings 已在应用启动时由布局加载）。
+ */
+const retakeRules = computed<Array<{ label: string; value: string }>>(() => {
+  const s = settingsStore.settings;
+  return [
+    { label: '每人每场可补考次数', value: '2 次' }, // 说明性文案
+    { label: '补考成绩计分方式', value: '取最高分' }, // 说明性文案
+    { label: '补考申请是否需审批', value: '需要（默认：管理员）' }, // 说明性文案
+    { label: '自动排考间隔', value: '原考试结束后 7 天' }, // 说明性文案
+    { label: '考试默认及格线', value: `${s.examDefaultPassScore} 分` },
+    { label: '每人默认答题次数上限', value: `${s.examDefaultMaxAttempts} 次` },
+    { label: '补考申请默认开关', value: s.retakeDefaultEnabled ? '已启用' : '未启用' },
+  ];
+});
+
+function goSettings(): void {
+  void router.push('/admin/settings');
+}
 
 function handleFilterChange(): void {
   page.value = 1;
@@ -179,6 +215,25 @@ async function handleReject(row: Retake): Promise<void> {
         @current-change="handlePageChange"
       />
     </el-card>
+
+    <el-card class="retake-manage-page__rules" shadow="never">
+      <template #header>
+        <div class="retake-manage-page__rules-head">
+          <span class="retake-manage-page__rules-title">补考规则（系统设置）</span>
+          <el-button class="retake-manage-page__rules-action" link type="primary" @click="goSettings">
+            前往设置
+          </el-button>
+        </div>
+      </template>
+
+      <div v-if="retakeRules.length" class="retake-manage-page__rules-list">
+        <div v-for="rule in retakeRules" :key="rule.label" class="retake-manage-page__rule">
+          <span class="retake-manage-page__rule-k">{{ rule.label }}</span>
+          <span class="retake-manage-page__rule-v">{{ rule.value }}</span>
+        </div>
+      </div>
+      <p v-else class="retake-manage-page__rules-empty">补考规则暂未配置，请前往系统设置查看或配置。</p>
+    </el-card>
   </div>
 </template>
 
@@ -206,6 +261,56 @@ async function handleReject(row: Retake): Promise<void> {
 
   &__muted {
     color: $text-disabled;
+  }
+
+  &__rules {
+    margin-top: 16px;
+  }
+
+  &__rules-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  &__rules-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &__rules-action {
+    margin-left: auto;
+  }
+
+  &__rule {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    font-size: 12.5px;
+    border-bottom: 1px dashed $border-color;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__rule-k {
+    color: $text-secondary;
+  }
+
+  &__rule-v {
+    color: $text-primary;
+    font-weight: 600;
+    text-align: right;
+  }
+
+  &__rules-empty {
+    margin: 0;
+    font-size: 12.5px;
+    color: $text-secondary;
   }
 }
 </style>

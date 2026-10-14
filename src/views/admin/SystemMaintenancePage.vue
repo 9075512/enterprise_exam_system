@@ -148,6 +148,65 @@ async function handleArchive(): Promise<void> {
 }
 
 const tableRows = computed(() => stats.value?.tables ?? []);
+
+/* ==================================================================
+ * 新增卡片（对齐设计稿 maintenance.html：数据归档策略 / 执行记录 / 危险操作）
+ * 只读展示，复用页面既有状态，不新增接口。
+ * ================================================================== */
+
+/**
+ * 「数据归档策略」卡：复用页面既有表单状态（archiveDays / archiveLimit /
+ * autoHour / autoEnabled），只读展示当前全局策略。
+ * 注：设计稿是「按数据对象逐行配置保留天数 / 单次上限 / 时点」，
+ * 本工程接口没有逐对象策略字段，故以全局策略呈现，逐对象行数见下方
+ * 「核心表行数统计」卡（不重复列表格）。
+ */
+const policyItems = computed<Array<{ key: string; value: string }>>(() => [
+  { key: '归档保留天数', value: archiveDays.value > 0 ? `${archiveDays.value} 天` : '未设置' },
+  { key: '单次处理上限', value: `${archiveLimit.value} 条` },
+  { key: '每日执行时点', value: `${String(autoHour.value).padStart(2, '0')}:00` },
+  { key: '自动归档', value: autoEnabled.value ? '已启用' : '未启用' },
+]);
+
+/** 执行记录条目（数据全部来自真实归档结果） */
+interface ArchiveRunRecord {
+  key: string;
+  title: string;
+  desc: string;
+  tone: 'done' | 'err';
+}
+
+/**
+ * 「执行记录」卡：本次会话的手动归档结果（lastResult）+ 服务端最近一次自动归档
+ * （stats.lastAutoArchive）。均为已有状态，服务端未保留历史列表。
+ */
+const runRecords = computed<ArchiveRunRecord[]>(() => {
+  const records: ArchiveRunRecord[] = [];
+
+  const manual = lastResult.value;
+  if (manual) {
+    records.push({
+      key: 'manual',
+      title: `手动归档完成 · 归档 ${manual.archived} 条`,
+      desc: `${formatDateTime(manual.cutoff)} 截止 · 跳过 ${manual.skipped} 条 · 归档表现有 ${manual.archiveTotal} 条`,
+      tone: 'done',
+    });
+  }
+
+  const auto = stats.value?.lastAutoArchive;
+  if (auto) {
+    records.push({
+      key: 'auto',
+      title: `${AUTO_REASON_LABEL[auto.reason]} · 归档 ${auto.archived} 条`,
+      desc:
+        `${formatDateTime(auto.at)} · 跳过 ${auto.skipped} 条` +
+        (auto.ok ? '' : ` · ${auto.error || '执行失败'}`),
+      tone: auto.ok ? 'done' : 'err',
+    });
+  }
+
+  return records;
+});
 </script>
 
 <template>
@@ -187,6 +246,35 @@ const tableRows = computed(() => stats.value?.tables ?? []);
           </div>
         </div>
       </div>
+
+      <!-- 数据归档策略（对齐设计稿 maintenance.html）：只读展示页面既有策略字段 -->
+      <el-card class="table-card maintenance__panel" shadow="never">
+        <template #header>
+          <div class="maintenance__panel-header">
+            <span class="maintenance__panel-title">
+              <el-icon><Timer /></el-icon>
+              数据归档策略
+            </span>
+            <span class="maintenance__hint">归档仅搬移超期记录，不触碰考试、成绩等业务主数据</span>
+          </div>
+        </template>
+
+        <div class="maintenance__policy">
+          <div v-for="item in policyItems" :key="item.key" class="maintenance__policy-item">
+            <span class="maintenance__policy-k">{{ item.key }}</span>
+            <span class="maintenance__policy-v">{{ item.value }}</span>
+          </div>
+        </div>
+
+        <!--
+          设计稿该卡为「按数据对象逐行配置保留天数 / 单次上限 / 每日时点 + 自动归档开关」。
+          本工程接口只提供全局策略字段（无逐对象策略），故此处呈现全局策略；
+          各数据对象与行数见下方「核心表行数统计」卡，避免重复列表。
+        -->
+        <p class="maintenance__policy-tip">
+          以上为全局策略，修改请使用下方「自动归档」与「历史成绩归档」表单；逐对象配置待后端接口支持。
+        </p>
+      </el-card>
 
       <el-card class="table-card maintenance__panel" shadow="never">
         <template #header>
@@ -281,6 +369,69 @@ const tableRows = computed(() => stats.value?.tables ?? []);
           <el-table-column prop="rows" label="行数" width="140" align="right" />
         </el-table>
       </el-card>
+
+      <div class="maintenance__grid">
+        <!-- 执行记录（对齐设计稿 maintenance.html）：数据来自真实归档结果 -->
+        <el-card class="table-card maintenance__panel" shadow="never">
+          <template #header>
+            <span class="maintenance__panel-title">执行记录</span>
+          </template>
+
+          <div v-if="runRecords.length > 0" class="maintenance__timeline">
+            <div
+              v-for="record in runRecords"
+              :key="record.key"
+              class="maintenance__tl"
+              :class="`maintenance__tl--${record.tone}`"
+            >
+              <div class="maintenance__tl-title">{{ record.title }}</div>
+              <div class="maintenance__tl-desc">{{ record.desc }}</div>
+            </div>
+          </div>
+          <p v-else class="maintenance__empty">尚无归档执行记录（服务端进程重启后该记录会重置）。</p>
+        </el-card>
+
+        <!-- 危险操作（对齐设计稿 maintenance.html）：首项用语义色提示 -->
+        <el-card class="table-card maintenance__panel" shadow="never">
+          <template #header>
+            <div class="maintenance__panel-header">
+              <span class="maintenance__panel-title">危险操作</span>
+              <el-tag size="small" type="danger" effect="plain">需二次确认</el-tag>
+            </div>
+          </template>
+
+          <div class="maintenance__danger maintenance__danger--severe">
+            <div>
+              <div class="maintenance__danger-title maintenance__danger-title--severe">清空全部练题作答明细</div>
+              <div class="maintenance__danger-desc maintenance__danger-desc--severe">
+                不可恢复 · 会影响练题端学习报告与错题本
+              </div>
+            </div>
+            <span class="maintenance__danger-badge maintenance__danger-badge--severe">未开放</span>
+          </div>
+
+          <!--
+            以下两项亦为设计稿预留能力。src/api/maintenance.ts 仅提供
+            stats / archive / auto-run，无对应接口且不允许新增 API 调用，
+            故按说明性文案呈现，避免放「点了没反应」的假按钮。
+          -->
+          <div class="maintenance__danger">
+            <div>
+              <div class="maintenance__danger-title">重建统计缓存</div>
+              <div class="maintenance__danger-desc">重算成绩报表与错题排行，预计耗时约 1 分钟</div>
+            </div>
+            <span class="maintenance__danger-badge">未开放</span>
+          </div>
+
+          <div class="maintenance__danger">
+            <div>
+              <div class="maintenance__danger-title">导出全量备份</div>
+              <div class="maintenance__danger-desc">生成数据库快照，文件较大，需预留磁盘空间</div>
+            </div>
+            <span class="maintenance__danger-badge">未开放</span>
+          </div>
+        </el-card>
+      </div>
     </template>
   </div>
 </template>
@@ -379,6 +530,157 @@ const tableRows = computed(() => stats.value?.tables ?? []);
     b {
       color: $text-primary;
     }
+  }
+
+  /* ---------------- 数据归档策略卡（对齐设计稿 .card__hd + 策略字段） ---------------- */
+  &__policy {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+  }
+
+  &__policy-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    background: $bg-page;
+    border: 1px solid $border-color;
+    border-radius: $radius-sm;
+  }
+
+  &__policy-k {
+    font-size: 12px;
+    color: $text-secondary;
+  }
+
+  &__policy-v {
+    font-size: 16px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &__policy-tip {
+    margin: 12px 0 0;
+    font-size: 12px;
+    line-height: 1.6;
+    color: $text-secondary;
+  }
+
+  /* ---------------- 执行记录 / 危险操作两列卡 ---------------- */
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 14px;
+
+    .maintenance__panel {
+      margin-bottom: 0;
+    }
+  }
+
+  /* 执行记录时间线：左侧实心圆点，不用阴影 */
+  &__timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  &__tl {
+    position: relative;
+    padding-left: 18px;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 4px;
+      left: 0;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: $color-success;
+    }
+
+    &--err::before {
+      background: $color-error;
+    }
+  }
+
+  &__tl-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &__tl-desc {
+    margin-top: 2px;
+    font-size: 11.5px;
+    color: $text-secondary;
+  }
+
+  &__empty {
+    margin: 0;
+    padding: 8px 0;
+    font-size: 12.5px;
+    color: $text-secondary;
+  }
+
+  /* 危险操作项：首项走语义色（底 $color-error-bg + 文字 $color-error-text） */
+  &__danger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid $border-color;
+    border-radius: $radius-sm;
+
+    & + & {
+      margin-top: 12px;
+    }
+
+    &--severe {
+      background: $color-error-bg;
+      border-color: $color-error-border;
+    }
+  }
+
+  &__danger-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: $text-primary;
+
+    &--severe {
+      color: $color-error-text;
+    }
+  }
+
+  &__danger-desc {
+    margin-top: 3px;
+    font-size: 11px;
+    color: $text-secondary;
+
+    &--severe {
+      color: $color-error-text;
+    }
+  }
+
+  &__danger-badge {
+    flex: 0 0 auto;
+    font-size: 11px;
+    font-weight: 600;
+    color: $text-secondary;
+
+    &--severe {
+      color: $color-error-text;
+    }
+  }
+}
+
+/* 窄屏：执行记录 / 危险操作回到单列 */
+@media (max-width: 1200px) {
+  .maintenance__grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

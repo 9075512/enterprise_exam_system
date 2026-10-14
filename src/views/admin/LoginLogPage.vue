@@ -4,7 +4,7 @@
  * 登录成功/失败/锁定均可查：账号 / 结果 / 来源 / 时间范围过滤 + 分页。
  */
 import { computed, onMounted, reactive } from 'vue';
-import { Refresh, Search } from '@element-plus/icons-vue';
+import { Refresh, Search, Warning } from '@element-plus/icons-vue';
 import * as loginLogsApi from '@/api/loginLogs';
 import { usePagination } from '@/composables/usePagination';
 import { formatDateTime } from '@/utils/datetime';
@@ -69,6 +69,38 @@ function reasonText(row: LoginLog): string {
   if (row.success) return REASON_LABELS[row.reason] ?? '成功';
   return REASON_LABELS[row.reason] ?? (row.reason || '登录失败');
 }
+
+/* ------------------------------ 异常登录提示（对齐设计稿 login-logs.html） ------------------------------ */
+/**
+ * 说明：本工程没有「异常登录分析」接口，故统计口径为**当前筛选结果的当前页**
+ * （数据来源：usePagination 返回的 `logs`），不是全量 7 日聚合。
+ * 设计稿里的「异地登录」需要 IP 归属地，接口未返回，渲染为说明性文案（见模板）。
+ */
+const failedLogs = computed<LoginLog[]>(() => logs.value.filter((row) => !row.success));
+
+/** 当前页失败次数最多的账号（用于提示条文案） */
+const topFailedAccount = computed<{ username: string; count: number } | null>(() => {
+  const counter = new Map<string, number>();
+  for (const row of failedLogs.value) {
+    counter.set(row.username, (counter.get(row.username) ?? 0) + 1);
+  }
+  let top: { username: string; count: number } | null = null;
+  for (const [username, count] of counter) {
+    if (!top || count > top.count) top = { username, count };
+  }
+  return top;
+});
+
+/** 当前页失败率（当前页失败条数 / 当前页总条数） */
+const pageFailRate = computed<string>(() => {
+  if (logs.value.length === 0) return '—';
+  return `${((failedLogs.value.length / logs.value.length) * 100).toFixed(1)}%`;
+});
+
+/** 触发锁定的账号数（按账号去重） */
+const lockedAccountCount = computed<number>(
+  () => new Set(logs.value.filter((row) => row.reason === 'locked').map((row) => row.username)).size,
+);
 
 onMounted(load);
 </script>
@@ -154,6 +186,47 @@ onMounted(load);
         @update:page-size="onSizeChange"
       />
     </el-card>
+
+    <!-- 异常登录提示（对齐设计稿 login-logs.html）：基于当前页日志即时分析，只读展示 -->
+    <el-card class="login-log__card login-log__anomaly" shadow="never">
+      <template #header>
+        <div class="login-log__anomaly-head">
+          <span class="login-log__anomaly-title">异常登录提示</span>
+          <el-tag size="small" type="warning" effect="plain">需关注</el-tag>
+        </div>
+      </template>
+
+      <template v-if="logs.length > 0">
+        <div class="login-log__tip">
+          <el-icon class="login-log__tip-icon"><Warning /></el-icon>
+          <span v-if="topFailedAccount">
+            账号 <b>{{ topFailedAccount.username }}</b> 在当前筛选结果中失败
+            <b>{{ topFailedAccount.count }}</b> 次，建议核验是否为本人操作或账号被盗用。
+          </span>
+          <span v-else>当前筛选结果中没有失败登录，未见异常。</span>
+        </div>
+
+        <div class="login-log__kv">
+          <span class="login-log__kv-k">当前页失败次数</span>
+          <span class="login-log__kv-v">{{ failedLogs.length }} 次</span>
+        </div>
+        <div class="login-log__kv">
+          <span class="login-log__kv-k">当前页失败率</span>
+          <span class="login-log__kv-v">{{ pageFailRate }}</span>
+        </div>
+        <div class="login-log__kv">
+          <span class="login-log__kv-k">触发锁定账号数</span>
+          <span class="login-log__kv-v">{{ lockedAccountCount }} 个</span>
+        </div>
+        <!-- 异地登录需 IP 归属地，登录日志接口未返回，按说明性文案渲染 -->
+        <div class="login-log__kv">
+          <span class="login-log__kv-k">异地登录</span>
+          <span class="login-log__kv-v login-log__kv-v--muted">暂无法判定（接口未返回 IP 归属地）</span>
+        </div>
+      </template>
+
+      <p v-else class="login-log__anomaly-empty">当前列表暂无登录记录，无可分析的异常提示。</p>
+    </el-card>
   </div>
 </template>
 
@@ -187,6 +260,81 @@ onMounted(load);
 
   &__card {
     border: 1px solid $border-color;
+  }
+
+  /* ---------------- 异常登录提示卡（对齐设计稿 login-logs.html） ---------------- */
+  &__anomaly {
+    margin-top: 14px;
+  }
+
+  &__anomaly-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  &__anomaly-title {
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &__tip {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border-radius: $radius-sm;
+    background: $color-warning-bg;
+    color: $color-warning-text;
+    font-size: 12px;
+    line-height: 1.6;
+
+    b {
+      font-weight: 600;
+    }
+  }
+
+  &__tip-icon {
+    flex: 0 0 auto;
+    margin-top: 2px;
+  }
+
+  &__kv {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px dashed $border-color;
+    font-size: 12.5px;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__kv-k {
+    color: $text-secondary;
+  }
+
+  &__kv-v {
+    font-weight: 600;
+    color: $text-primary;
+
+    &--muted {
+      font-weight: 400;
+      color: $text-secondary;
+    }
+  }
+
+  &__anomaly-empty {
+    margin: 0;
+    padding: 14px 0;
+    text-align: center;
+    font-size: 12.5px;
+    color: $text-secondary;
   }
 }
 </style>

@@ -14,7 +14,8 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ArrowLeft, Refresh, Timer, VideoPause } from '@element-plus/icons-vue';
 import * as examsApi from '@/api/exams';
-import { EXAM_STATUS_LABELS } from '@/constants';
+import { COUNTDOWN_WARNING_MINUTES, EXAM_STATUS_LABELS } from '@/constants';
+import { useSettingsStore } from '@/stores/settings';
 import { formatDateTime } from '@/utils/datetime';
 import { getExamStatus } from '@/utils/examStatus';
 import { openMonitorStream, type MonitorStreamHandle, type MonitorStreamState } from '@/utils/monitorStream';
@@ -25,6 +26,7 @@ import type { ExamMonitor, ExamMonitorRow, MonitorStatus } from '@/types';
 
 const route = useRoute();
 const router = useRouter();
+const settingsStore = useSettingsStore();
 const examId = String(route.params.id ?? '');
 
 const monitor = ref<ExamMonitor | null>(null);
@@ -97,10 +99,99 @@ function remainingClass(row: ExamMonitorRow): string {
   return '';
 }
 
-/** 切屏异常行标记（次数 ≥ 3 或累计 ≥ 120 秒，与后端判定口径接近）。 */
+/** 切屏判定阈值（复用系统设置，与「成绩报表 · 切屏审查」同口径）。 */
+const cheatCountThreshold = computed(() => settingsStore.settings.cheatCountThreshold);
+const cheatSecondsThreshold = computed(() => settingsStore.settings.cheatSecondsThreshold);
+
+/** 切屏异常行标记（次数或累计离开时长任一达阈值）。 */
 function isCheatWarned(row: ExamMonitorRow): boolean {
-  return row.cheatCount >= 3 || row.cheatSeconds >= 120;
+  return row.cheatCount >= cheatCountThreshold.value || row.cheatSeconds >= cheatSecondsThreshold.value;
 }
+
+/** 告警级别：仅决定圆点颜色，文字一律走文本档（语义原色不作文字色）。 */
+type AlertLevel = 'error' | 'warning' | 'info';
+
+interface MonitorAlert {
+  id: string;
+  level: AlertLevel;
+  title: string;
+  detail: string;
+}
+
+/**
+ * 异常告警派生（全部来自 `examsApi.monitor` 快照，不新增接口/字段）。
+ *
+ * 规则：
+ * 1) 切屏达阈值 → error，未达阈值但有切屏 → warning；
+ * 2) 自动交卷（autoSubmitted）→ info；
+ * 3) 作答中且剩余不足 `COUNTDOWN_WARNING_MINUTES` 分钟 → warning；
+ * 4) 考试进行中仍有考生未开始 → 聚合为一条 info（避免逐人刷屏）。
+ * 同一考生命中多条时按优先级只保留最高级别的一条。
+ */
+const alerts = computed<MonitorAlert[]>(() => {
+  const countThreshold = cheatCountThreshold.value;
+  const secondsThreshold = cheatSecondsThreshold.value;
+  const warnSeconds = COUNTDOWN_WARNING_MINUTES * 60;
+  const list: MonitorAlert[] = [];
+
+  for (const row of rows.value) {
+    if (row.cheatCount > 0 || row.cheatSeconds > 0) {
+      const overSeconds = row.cheatSeconds - secondsThreshold;
+      const over = row.cheatCount >= countThreshold || row.cheatSeconds >= secondsThreshold;
+      list.push({
+        id: `cheat-${row.userId}`,
+        level: over ? 'error' : 'warning',
+        title: over
+          ? `${row.userName} 累计离开 ${row.cheatSeconds} 秒`
+          : `${row.userName} 切屏 ${row.cheatCount} 次`,
+        detail: over
+          ? `切屏 ${row.cheatCount} 次 · ${
+              overSeconds > 0 ? `超阈值 ${overSeconds} 秒` : `次数达阈值 ${countThreshold} 次`
+            }`
+          : `累计离开 ${row.cheatSeconds} 秒，未超阈值`,
+      });
+      continue;
+    }
+    if (row.autoSubmitted) {
+      list.push({
+        id: `auto-${row.userId}`,
+        level: 'info',
+        title: `${row.userName} 已自动交卷`,
+        detail: row.submittedAt ? `交卷时间 ${formatDateTime(row.submittedAt)}` : '到达时限未手动提交',
+      });
+      continue;
+    }
+    if (row.status === 'in_progress' && remainingOf(row) <= warnSeconds) {
+      list.push({
+        id: `time-${row.userId}`,
+        level: 'warning',
+        title: `${row.userName} 剩余不足 ${COUNTDOWN_WARNING_MINUTES} 分钟`,
+        detail: `剩余 ${formatRemaining(remainingOf(row))}，仍在作答`,
+      });
+    }
+  }
+
+  const ongoing = !!monitor.value && getExamStatus(monitor.value.exam) === 'ongoing';
+  const notStarted = ongoing ? rows.value.filter((r) => r.status === 'not_started') : [];
+  if (notStarted.length > 0) {
+    const names = notStarted.slice(0, 3).map((r) => r.userName);
+    list.push({
+      id: 'not-started',
+      level: 'info',
+      title: `${notStarted.length} 人开考后仍未进入`,
+      detail:
+        notStarted.length > names.length ? `${names.join('、')} 等，可线下提醒` : names.join('、'),
+    });
+  }
+
+  const rank: Record<AlertLevel, number> = { error: 0, warning: 1, info: 2 };
+  return list.sort((a, b) => rank[a.level] - rank[b.level]);
+});
+
+/** 单屏最多展示的告警条数（超出以「其余 N 条」收尾，避免大屏纵向撑开）。 */
+const ALERT_LIMIT = 8;
+const visibleAlerts = computed(() => alerts.value.slice(0, ALERT_LIMIT));
+const hiddenAlertCount = computed(() => Math.max(0, alerts.value.length - ALERT_LIMIT));
 
 /** 应用一份监考数据（推送/轮询共用）。 */
 function apply(data: ExamMonitor): void {
@@ -234,6 +325,7 @@ async function handleExtend(row: ExamMonitorRow): Promise<void> {
 }
 
 onMounted(async () => {
+  void settingsStore.load();
   await load();
   startStream();
   tickTimer = window.setInterval(() => {
@@ -319,6 +411,38 @@ function goBack(): void {
           <div class="monitor__card-value">{{ summary?.averageScore ?? 0 }}</div>
         </div>
       </div>
+
+      <el-card class="monitor__alert-card" shadow="never">
+        <template #header>
+          <div class="monitor__alert-hd">
+            <span>异常告警</span>
+            <el-tag v-if="alerts.length > 0" size="small" type="danger" effect="light">
+              {{ alerts.length }}
+            </el-tag>
+          </div>
+        </template>
+
+        <p v-if="alerts.length === 0" class="monitor__alert-empty">当前无异常，考生作答正常。</p>
+
+        <ul v-else class="monitor__alert-list">
+          <li
+            v-for="item in visibleAlerts"
+            :key="item.id"
+            class="monitor__alert-item"
+            :class="`monitor__alert-item--${item.level}`"
+          >
+            <span class="monitor__alert-dot" aria-hidden="true"></span>
+            <div class="monitor__alert-body">
+              <div class="monitor__alert-title">{{ item.title }}</div>
+              <div class="monitor__alert-detail">{{ item.detail }}</div>
+            </div>
+          </li>
+        </ul>
+
+        <div v-if="hiddenAlertCount > 0" class="monitor__alert-more">
+          另有 {{ hiddenAlertCount }} 条告警未显示，可在考生表中逐条查看
+        </div>
+      </el-card>
 
       <el-card class="table-card" shadow="never">
         <el-table v-loading="loading" :data="rows" row-key="userId" stripe>
@@ -505,6 +629,99 @@ function goBack(): void {
 
   &__muted {
     color: $text-disabled;
+  }
+
+  // ── 异常告警卡 ──────────────────────────────────────────────
+  &__alert-card {
+    margin-bottom: 14px;
+  }
+
+  &__alert-hd {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .el-tag {
+      margin-left: auto;
+    }
+  }
+
+  &__alert-empty {
+    margin: 0;
+    font-size: 13px;
+    color: $text-secondary;
+  }
+
+  &__alert-list {
+    position: relative;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    // 时间轴发丝线（1px，非强调条）
+    &::before {
+      content: '';
+      position: absolute;
+      left: 3.5px;
+      top: 6px;
+      bottom: 6px;
+      width: 1px;
+      background: $border-color;
+    }
+
+    > li + li {
+      margin-top: 12px;
+    }
+  }
+
+  &__alert-item {
+    position: relative;
+    padding-left: 18px;
+
+    &--error .monitor__alert-dot {
+      background: $color-error;
+    }
+
+    &--warning .monitor__alert-dot {
+      background: $color-warning;
+    }
+
+    &--info .monitor__alert-dot {
+      background: $color-info;
+    }
+  }
+
+  &__alert-dot {
+    position: absolute;
+    left: 0;
+    top: 5px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: $text-disabled;
+  }
+
+  &__alert-title {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: $text-primary;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__alert-detail {
+    margin-top: 2px;
+    font-size: 12px;
+    color: $text-secondary;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__alert-more {
+    margin-top: 12px;
+    padding-top: 10px;
+    font-size: 12px;
+    color: $text-secondary;
+    border-top: 1px solid $border-color;
   }
 }
 </style>
