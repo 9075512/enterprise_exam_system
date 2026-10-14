@@ -70,6 +70,7 @@ declare module 'vue' {
     RichTextEditor: typeof import('./components/common/RichTextEditor.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    StatCard: typeof import('./components/common/StatCard.vue')['default']
     StatusTag: typeof import('./components/common/StatusTag.vue')['default']
     TableDensityToggle: typeof import('./components/common/TableDensityToggle.vue')['default']
   }

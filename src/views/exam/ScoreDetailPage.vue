@@ -1,14 +1,21 @@
 <script setup lang="ts">
 /**
- * 考试结果（W3-T1）。考生仅本人（后端 403 拦截）；管理员任意。
- * 结果区只展示结论性信息；逐题对错/解析/切屏记录在弹窗内查看。
+ * 考试结果 / 成绩明细（W3-T1）。考生仅本人（后端 403 拦截）；管理员任意。
+ *
+ * v3.1 方向 C（设计稿 p-score-detail 重排）：
+ * 由「结论卡 + 明细弹窗」改为**单页两栏**——左列「结果卡 + 切屏提示 + 逐题明细」，
+ * 右列吸顶「答题概况 + 切屏记录」；逐题明细不再收进弹窗（设计稿即内联），
+ * 解析默认折叠，由「展开全部解析」统一控制。
+ * 结论卡去掉语义色渐变底（违反「层次靠线条、渐变只给品牌」），改白底 + 语义徽标。
+ *
  * v1.6：支持填空/简答展示；含简答题的答卷交卷后进 pending_review（客观题先行计分），
  *       显示「待阅卷」态，阅卷完成后总分 = 客观 + 主观。
  */
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import dayjs from 'dayjs';
 import { ElMessage } from 'element-plus';
-import { ArrowLeft, CircleCheck, CircleClose, List, Clock } from '@element-plus/icons-vue';
+import { ArrowLeft, CircleCheck, CircleClose, Clock, Refresh } from '@element-plus/icons-vue';
 import * as examsApi from '@/api/exams';
 import * as recordsApi from '@/api/records';
 import { useRequest } from '@/composables/useRequest';
@@ -38,7 +45,6 @@ const examMap = computed<Record<string, { id: string; name: string; passScore: n
 
 const record = ref<ExamRecord | null>(null);
 const loading = ref(true);
-const detailVisible = ref(false);
 
 /** 考试名称：详情字段优先，兜底考试列表，再兜底试卷快照名 */
 const examName = computed<string>(() => {
@@ -79,6 +85,20 @@ const passed = computed<boolean>(() => {
   return record.value.score >= passScore.value;
 });
 
+/** 结论徽标（文案 + 色调） */
+const resultBadge = computed<{ label: string; tone: 'ok' | 'err' | 'warn' | 'gray' }>(() => {
+  if (isPendingReview.value) return { label: '待阅卷', tone: 'warn' };
+  if (passScore.value === null) return { label: '未设及格线', tone: 'gray' };
+  return passed.value ? { label: '及格', tone: 'ok' } : { label: '未及格', tone: 'err' };
+});
+
+/** 页头描述：考试名 · 交卷时间 */
+const headerDesc = computed<string>(() => {
+  if (!record.value) return '';
+  const at = record.value.submittedAt ? ` · 交卷时间 ${formatDateTime(record.value.submittedAt)}` : '';
+  return `${examName.value}${at}`;
+});
+
 const totalQuestions = computed<number>(() => record.value?.paperSnapshot.questions.length ?? 0);
 
 /** 客观题（含填空）——可自动判分；简答题人工阅卷，不计入对错统计 */
@@ -100,7 +120,22 @@ const accuracy = computed<number>(() =>
   gradableCount.value === 0 ? 0 : Math.round((correctCount.value / gradableCount.value) * 100),
 );
 
-/** 明细弹窗筛选：全部 / 仅答错（题号始终沿用原始全局索引） */
+/** 客观题得分（答对得满分）/ 满分 */
+const objectiveTotal = computed<number>(() => gradableQuestions.value.reduce((s, q) => s + q.score, 0));
+const objectiveScored = computed<number>(() =>
+  gradableQuestions.value.filter((q) => questionCorrect(q.question)).reduce((s, q) => s + q.score, 0),
+);
+
+/** 主观题（简答）满分 / 已阅卷得分 */
+const subjectiveQuestions = computed<PaperSnapshotQuestion[]>(() =>
+  (record.value?.paperSnapshot.questions ?? []).filter((q) => q.question.type === 'short'),
+);
+const subjectiveTotal = computed<number>(() => subjectiveQuestions.value.reduce((s, q) => s + q.score, 0));
+const subjectiveScored = computed<number>(() =>
+  subjectiveQuestions.value.reduce((s, q) => s + (subjectiveScore(q.questionId) ?? 0), 0),
+);
+
+/** 明细筛选：全部 / 仅答错（题号始终沿用原始全局索引） */
 const detailFilter = ref<'all' | 'wrong'>('all');
 const detailQuestions = computed<{ item: PaperSnapshotQuestion; index: number }[]>(() => {
   const questions = (record.value?.paperSnapshot.questions ?? []).map((item, index) => ({ item, index }));
@@ -112,10 +147,8 @@ const detailQuestions = computed<{ item: PaperSnapshotQuestion; index: number }[
   return questions;
 });
 
-function openDetail(): void {
-  detailFilter.value = 'all';
-  detailVisible.value = true;
-}
+/** 解析统一展开开关（设计稿「展开全部解析」，默认折叠） */
+const analysisOpen = ref(false);
 
 /** 管理员查看到尚未交卷的记录：无答题入口，落到提示态 */
 const inProgressByAdmin = computed<boolean>(
@@ -131,6 +164,8 @@ const cheatAbnormal = computed<boolean>(
     cheatCount.value >= settingsStore.settings.cheatCountThreshold ||
     cheatTotalSeconds.value >= settingsStore.settings.cheatSecondsThreshold,
 );
+/** 切屏记录倒序（最近的在前） */
+const cheatEventsDesc = computed(() => [...(record.value?.cheatEvents ?? [])].reverse());
 
 function userAnswer(questionId: string): number[] | string[] {
   return record.value?.answers[questionId] ?? [];
@@ -155,20 +190,28 @@ function subjectiveScore(questionId: string): number | null {
   return typeof s === 'number' ? s : null;
 }
 
-/** 客观题答案文案 */
-function objectiveAnswerText(q: PaperSnapshotQuestion): string {
-  const user = userAnswer(q.questionId) as number[];
-  const correct = q.question.answer as number[];
-  return `你的答案：${user.map((i) => optionLetter(i)).join('') || '未作答'} ／ 正确答案：${correct
-    .map((i) => optionLetter(i))
-    .join('')}`;
+/** 选项字母串（如 A、C） */
+function lettersOf(indexes: number[]): string {
+  return indexes.map((i) => optionLetter(i)).join('、');
+}
+
+/** 选项文案串（如 A. xxx；B. yyy），越界索引跳过 */
+function textsOf(q: PaperSnapshotQuestion, indexes: number[]): string {
+  const options = q.question.options ?? [];
+  return indexes
+    .filter((i) => i >= 0 && i < options.length)
+    .map((i) => `${optionLetter(i)}. ${options[i]}`)
+    .join('；');
 }
 
 /** 填空逐空对比行 */
-function fillRows(q: PaperSnapshotQuestion): Array<{ no: number; user: string; correct: string }> {
+function fillRows(q: PaperSnapshotQuestion): Array<{ no: number; user: string; correct: string; ok: boolean }> {
   const correct = q.question.answer as string[];
   const user = userAnswer(q.questionId) as string[];
-  return correct.map((c, i) => ({ no: i + 1, user: user[i] ?? '', correct: c }));
+  return correct.map((c, i) => {
+    const u = user[i] ?? '';
+    return { no: i + 1, user: u, correct: c, ok: u.trim().toLowerCase() === c.trim().toLowerCase() };
+  });
 }
 
 /** 简答：考生作答文本 */
@@ -183,6 +226,10 @@ function shortReference(q: PaperSnapshotQuestion): string {
 
 function back(): void {
   void router.push(isAdmin.value ? '/admin/scores' : '/exam/scores');
+}
+
+function goMyExams(): void {
+  void router.push('/exam/my');
 }
 
 onMounted(async () => {
@@ -210,10 +257,15 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="score-detail">
-    <PageHeader title="考试结果" :description="examName">
+  <div class="sd">
+    <button type="button" class="sd__back" @click="back">
+      <el-icon><ArrowLeft /></el-icon>
+      返回{{ isAdmin ? '成绩报表' : '我的成绩' }}
+    </button>
+
+    <PageHeader title="成绩明细" :description="headerDesc">
       <template #actions>
-        <el-button :icon="ArrowLeft" @click="back">返回</el-button>
+        <el-button v-if="!isAdmin" :icon="Refresh" @click="goMyExams">再考一次</el-button>
       </template>
     </PageHeader>
 
@@ -223,371 +275,380 @@ onMounted(async () => {
 
     <EmptyState v-else-if="inProgressByAdmin" text="该记录尚未交卷，暂无可查看的成绩" />
 
-    <template v-else>
-      <!-- 待阅卷提示 -->
-      <el-alert
-        v-if="isPendingReview"
-        class="score-detail__pending"
-        type="warning"
-        :closable="false"
-        show-icon
-        title="答卷已提交，待人工阅卷"
-        description="本卷含简答题，当前仅显示客观题（含填空）自动判分结果；待阅卷完成后公布最终成绩。"
-      />
-
-      <!-- 结果卡：一屏内看完的结论性信息 -->
-      <el-card
-        class="score-detail__result"
-        shadow="never"
-        :class="isPendingReview ? '' : passed ? 'score-detail__result--pass' : 'score-detail__result--fail'"
-      >
-        <div class="score-detail__hero">
-          <div class="score-detail__score-block">
-            <div class="score-detail__score-wrap">
-              <div
-                class="score-detail__score num"
-                :class="isPendingReview ? '' : passed ? 'is-pass' : 'is-fail'"
-              >
-                {{ formatScore(record.score) }}
-                <span class="score-detail__score-total">/ {{ formatScore(record.paperSnapshot.totalScore) }}</span>
-              </div>
-              <div class="score-detail__pass">
-                <template v-if="isPendingReview">
-                  <el-tag size="large" effect="dark" type="warning">
-                    <el-icon class="score-detail__pass-icon"><Clock /></el-icon>待阅卷
-                  </el-tag>
-                  <span class="score-detail__pass-hint">当前为客观题得分</span>
-                </template>
-                <template v-else-if="passScore !== null">
-                  <el-tag size="large" effect="dark" :type="passed ? 'success' : 'danger'">
-                    {{ passed ? '合格' : '不合格' }}
-                  </el-tag>
-                  <span class="score-detail__pass-hint">及格线 {{ formatScore(passScore) }} 分</span>
-                </template>
-                <span v-else class="score-detail__pass-hint">未设置及格线</span>
-              </div>
-            </div>
-
-            <div class="score-detail__stats">
-              <div class="score-detail__stat">
-                <span class="score-detail__stat-value num score-detail__stat-value--ok">{{ correctCount }}</span>
-                <span class="score-detail__stat-label">答对</span>
-              </div>
-              <span class="score-detail__stat-sep" />
-              <div class="score-detail__stat">
-                <span class="score-detail__stat-value num score-detail__stat-value--bad">{{ wrongCount }}</span>
-                <span class="score-detail__stat-label">答错</span>
-              </div>
-              <span class="score-detail__stat-sep" />
-              <div class="score-detail__stat">
-                <span class="score-detail__stat-value num">{{ accuracy }}%</span>
-                <span class="score-detail__stat-label">正确率</span>
-              </div>
-            </div>
-          </div>
-
-          <el-button type="primary" size="large" :icon="List" @click="openDetail">
-            查看成绩明细（{{ totalQuestions }} 题）
-          </el-button>
-        </div>
-
-        <el-divider class="score-detail__divider" />
-
-        <div class="score-detail__meta">
-          <div class="score-detail__meta-item">
-            <span class="score-detail__label">考试名称</span>
-            <span class="score-detail__value" :title="examName">{{ examName }}</span>
-          </div>
-          <div class="score-detail__meta-item">
-            <span class="score-detail__label">姓名</span>
-            <span class="score-detail__value">{{ examineeName }}</span>
-          </div>
-          <div class="score-detail__meta-item">
-            <span class="score-detail__label">科室</span>
-            <span class="score-detail__value">{{ departmentName }}</span>
-          </div>
-          <div class="score-detail__meta-item">
-            <span class="score-detail__label">交卷时间</span>
-            <span class="score-detail__value-row">
-              <span class="score-detail__value">{{ formatDateTime(record.submittedAt) }}</span>
-              <el-tag v-if="record.autoSubmitted" size="small" type="warning" effect="plain">
-                超时自动交卷
-              </el-tag>
-            </span>
-          </div>
-          <div class="score-detail__meta-item">
-            <span class="score-detail__label">作答次数</span>
-            <span class="score-detail__value">第 {{ record.attemptNo }} 次作答</span>
-          </div>
-          <div class="score-detail__meta-item">
-            <span class="score-detail__label">试卷</span>
-            <span class="score-detail__value" :title="record.paperSnapshot.paperName">
-              {{ record.paperSnapshot.paperName }}
-            </span>
+    <div v-else class="sd__wrap">
+      <div class="sd__main">
+        <!-- 待阅卷提示 -->
+        <div v-if="isPendingReview" class="sd__tip">
+          <el-icon class="sd__tip-icon"><Clock /></el-icon>
+          <div>
+            本卷含简答题，当前仅显示客观题（含填空）自动判分结果；<b>待阅卷完成后</b>公布最终成绩。
           </div>
         </div>
-      </el-card>
 
-      <!-- 成绩明细弹窗 -->
-      <el-dialog
-        v-model="detailVisible"
-        title="成绩明细"
-        width="900px"
-        top="6vh"
-        destroy-on-close
-        class="score-detail__dialog"
-      >
-        <div class="score-detail__dialog-body">
-          <!-- 小结 + 筛选 -->
-          <div class="score-detail__dialog-bar">
-            <div class="score-detail__dialog-stats">
-              <span class="score-detail__chip score-detail__chip--ok">
-                <el-icon><CircleCheck /></el-icon>答对 {{ correctCount }}
-              </span>
-              <span class="score-detail__chip score-detail__chip--bad">
-                <el-icon><CircleClose /></el-icon>答错 {{ wrongCount }}
-              </span>
-              <span class="score-detail__chip">正确率 {{ accuracy }}%</span>
+        <!-- 结果卡 -->
+        <el-card class="sd__result" shadow="never">
+          <div class="sd__hero">
+            <div class="sd__hero-left">
+              <div class="sd__hero-label">
+                <span class="sd__kicker">考试结果</span>
+                <span class="sd__bdg" :class="`sd__bdg--${resultBadge.tone}`">{{ resultBadge.label }}</span>
+                <span v-if="record.autoSubmitted" class="sd__bdg sd__bdg--warn">超时自动交卷</span>
+              </div>
+              <div class="sd__hero-score">
+                <span class="sd__score" :class="isPendingReview ? '' : passed ? 'is-pass' : 'is-fail'">
+                  {{ formatScore(record.score) }}
+                </span>
+                <span class="sd__score-total">/ {{ formatScore(record.paperSnapshot.totalScore) }} 分</span>
+                <span v-if="passScore !== null" class="sd__passline">及格线 {{ formatScore(passScore) }} 分</span>
+              </div>
+              <div class="sd__hero-meta">
+                {{ examineeName }} · {{ departmentName }} · 交卷时间 {{ formatDateTime(record.submittedAt) }}
+              </div>
             </div>
-            <el-radio-group v-model="detailFilter" size="small">
-              <el-radio-button value="all">全部</el-radio-button>
-              <el-radio-button value="wrong">仅答错（{{ wrongCount }}）</el-radio-button>
-            </el-radio-group>
+
+            <div class="sd__hero-side">
+              <div>
+                <span class="sd__kicker">客观题</span>
+                <span class="sd__num">{{ objectiveScored }} / {{ objectiveTotal }}</span>
+              </div>
+              <div>
+                <span class="sd__kicker">主观题</span>
+                <span class="sd__num">{{ isPendingReview ? '待阅卷' : `${subjectiveScored} / ${subjectiveTotal}` }}</span>
+              </div>
+              <div>
+                <span class="sd__kicker">作答次数</span>
+                <span class="sd__num">第 {{ record.attemptNo }} 次</span>
+              </div>
+              <div>
+                <span class="sd__kicker">试卷</span>
+                <span class="sd__num sd__num--ellipsis" :title="record.paperSnapshot.paperName">
+                  {{ record.paperSnapshot.paperName }}
+                </span>
+              </div>
+            </div>
           </div>
+        </el-card>
 
-          <!-- 逐题明细 -->
-          <el-card
-            v-for="{ item, index } in detailQuestions"
-            :key="item.questionId"
-            class="score-detail__question"
-            shadow="never"
-            :class="{
-              'score-detail__question--correct': qStatus(item) === 'correct',
-              'score-detail__question--wrong': qStatus(item) === 'wrong',
-              'score-detail__question--pending': qStatus(item) === 'pending' || qStatus(item) === 'scored',
-            }"
-          >
-            <div class="score-detail__qhead">
-              <span class="score-detail__qindex">第 {{ index + 1 }} 题</span>
-              <el-tag size="small" effect="plain" :type="item.question.type === 'judge' ? 'warning' : 'primary'">
-                {{ QUESTION_TYPE_LABELS[item.question.type as QuestionType] }}
-              </el-tag>
-              <el-tag size="small" type="info" effect="plain">{{ formatScore(item.score) }} 分</el-tag>
+        <!-- 切屏异常提示 -->
+        <div v-if="cheatCount > 0" class="sd__tip" :class="{ 'sd__tip--err': cheatAbnormal }">
+          <el-icon class="sd__tip-icon"><CircleClose /></el-icon>
+          <div>
+            <b>检测到异常切屏行为：</b>本场考试累计离开页面 <b>{{ cheatTotalSeconds }} 秒</b>（{{ cheatCount }} 次），{{
+              cheatAbnormal ? '已超过阈值，记录已留存，管理员可发起切屏审查。' : '未超过阈值，不影响成绩。'
+            }}
+          </div>
+        </div>
 
-              <!-- 客观/填空：答对答错 -->
-              <el-tag
-                v-if="qStatus(item) === 'correct' || qStatus(item) === 'wrong'"
-                size="small"
-                effect="dark"
-                :type="qStatus(item) === 'correct' ? 'success' : 'danger'"
+        <!-- 逐题明细 -->
+        <el-card class="sd__detail" shadow="never">
+          <template #header>
+            <h3 class="sd__card-title">逐题明细</h3>
+            <span class="sd__sub">共 {{ totalQuestions }} 题 · 答对 {{ correctCount }} 题</span>
+            <div class="sd__seg">
+              <button
+                type="button"
+                :class="{ 'is-on': detailFilter === 'all' }"
+                @click="detailFilter = 'all'"
               >
-                <el-icon class="score-detail__qresult-icon">
-                  <CircleCheck v-if="qStatus(item) === 'correct'" />
-                  <CircleClose v-else />
-                </el-icon>
-                {{ qStatus(item) === 'correct' ? '答对' : '答错' }}
-              </el-tag>
-              <!-- 简答：待阅卷 / 已阅卷 -->
-              <el-tag v-else-if="qStatus(item) === 'pending'" size="small" effect="dark" type="warning">
-                待阅卷
-              </el-tag>
-              <el-tag v-else size="small" effect="dark" type="success">
-                得分 {{ formatScore(subjectiveScore(item.questionId) ?? 0) }}
-              </el-tag>
+                全部
+              </button>
+              <button
+                type="button"
+                :class="{ 'is-on': detailFilter === 'wrong' }"
+                @click="detailFilter = 'wrong'"
+              >
+                仅答错 {{ wrongCount }}
+              </button>
             </div>
+            <el-button size="small" class="sd__expand" @click="analysisOpen = !analysisOpen">
+              {{ analysisOpen ? '收起全部解析' : '展开全部解析' }}
+            </el-button>
+          </template>
 
-            <p class="score-detail__stem">{{ item.question.stem }}</p>
-
-            <!-- 客观题：选项 + 答案行 -->
-            <template v-if="isObjectiveType(item.question.type)">
-              <ul class="score-detail__options">
-                <li
-                  v-for="(option, optIndex) in item.question.options"
-                  :key="optIndex"
-                  class="score-detail__option"
-                  :class="{
-                    'score-detail__option--correct': (item.question.answer as number[]).includes(optIndex),
-                    'score-detail__option--chosen': (userAnswer(item.questionId) as number[]).includes(optIndex),
-                  }"
+          <div class="sd__qlist">
+            <article
+              v-for="{ item, index } in detailQuestions"
+              :key="item.questionId"
+              class="sd__q"
+            >
+              <div class="sd__q-head">
+                <span class="sd__q-no">{{ index + 1 }}</span>
+                <span class="sd__q-type">{{ QUESTION_TYPE_LABELS[item.question.type as QuestionType] }}</span>
+                <span class="sd__q-score">{{ formatScore(item.score) }} 分</span>
+                <span
+                  v-if="qStatus(item) === 'correct' || qStatus(item) === 'wrong'"
+                  class="sd__bdg sd__bdg--q"
+                  :class="qStatus(item) === 'correct' ? 'sd__bdg--ok' : 'sd__bdg--err'"
                 >
-                  <span class="score-detail__option-letter">{{ optionLetter(optIndex) }}</span>
-                  <span class="score-detail__option-text">{{ option }}</span>
-                  <el-tag
-                    v-if="(item.question.answer as number[]).includes(optIndex)"
-                    size="small"
-                    type="success"
-                    effect="plain"
-                  >
-                    正确答案
-                  </el-tag>
-                  <el-tag
-                    v-if="(userAnswer(item.questionId) as number[]).includes(optIndex)"
-                    size="small"
-                    type="primary"
-                    effect="plain"
-                  >
-                    你的选择
-                  </el-tag>
-                </li>
-              </ul>
-
-              <p class="score-detail__answer-line">{{ objectiveAnswerText(item) }}</p>
-            </template>
-
-            <!-- 填空：逐空对比 -->
-            <template v-else-if="item.question.type === 'fill'">
-              <ul class="score-detail__fills">
-                <li v-for="row in fillRows(item)" :key="row.no" class="score-detail__fill">
-                  <span class="score-detail__fill-no">第 {{ row.no }} 空</span>
-                  <span class="score-detail__fill-cell score-detail__fill-cell--user">
-                    {{ row.user || '未作答' }}
-                  </span>
-                  <span class="score-detail__fill-cell score-detail__fill-cell--correct">
-                    {{ row.correct }}
-                  </span>
-                  <el-tag
-                    :type="row.user.trim().toLowerCase() === row.correct.trim().toLowerCase() ? 'success' : 'danger'"
-                    size="small"
-                    effect="plain"
-                  >
-                    {{ row.user.trim().toLowerCase() === row.correct.trim().toLowerCase() ? '正确' : '错误' }}
-                  </el-tag>
-                </li>
-              </ul>
-            </template>
-
-            <!-- 简答：你的答案 + 参考答案 + 得分 -->
-            <template v-else>
-              <div class="score-detail__short">
-                <div class="score-detail__short-row">
-                  <span class="score-detail__short-label">你的答案</span>
-                  <!-- 富文本作答：内容已由服务端白名单净化（v1.7③ S1），此处渲染安全 -->
-                  <div
-                    v-if="shortUserText(item.questionId)"
-                    class="score-detail__short-text rich-text"
-                    v-html="shortUserText(item.questionId)"
-                  />
-                  <span v-else class="score-detail__short-text score-detail__short-text--empty">未作答</span>
-                </div>
-                <div class="score-detail__short-row score-detail__short-row--ref">
-                  <span class="score-detail__short-label">参考答案</span>
-                  <span class="score-detail__short-text">{{ shortReference(item) }}</span>
-                </div>
-                <div v-if="subjectiveScore(item.questionId) !== null" class="score-detail__short-row">
-                  <span class="score-detail__short-label">阅卷得分</span>
-                  <strong class="score-detail__short-score">
-                    {{ formatScore(subjectiveScore(item.questionId)!) }} / {{ formatScore(item.score) }}
-                  </strong>
-                </div>
+                  {{ qStatus(item) === 'correct' ? `答对 · ${formatScore(item.score)} 分` : '答错 · 0 分' }}
+                </span>
+                <span v-else-if="qStatus(item) === 'pending'" class="sd__bdg sd__bdg--warn">待阅卷</span>
+                <span v-else class="sd__bdg sd__bdg--ok">
+                  得分 {{ formatScore(subjectiveScore(item.questionId) ?? 0) }} / {{ formatScore(item.score) }}
+                </span>
               </div>
-            </template>
 
-            <el-alert
-              v-if="item.question.analysis"
-              type="info"
-              :closable="false"
-              class="score-detail__analysis"
-              title="解析"
-              :description="item.question.analysis"
-            />
-          </el-card>
+              <p class="sd__q-stem">{{ item.question.stem }}</p>
+
+              <!-- 客观题：你的答案 / 正确答案 -->
+              <template v-if="isObjectiveType(item.question.type)">
+                <div class="sd__ans-grid">
+                  <div>
+                    <span class="sd__kicker">你的答案</span>
+                    <div class="sd__ans" :class="qStatus(item) === 'correct' ? 'is-ok' : 'is-err'">
+                      <span class="sd__ans-letters">
+                        {{ lettersOf(userAnswer(item.questionId) as number[]) || '未作答' }}
+                      </span>
+                      <span class="sd__ans-texts">
+                        {{ textsOf(item, userAnswer(item.questionId) as number[]) || '—' }}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <span class="sd__kicker">正确答案</span>
+                    <div class="sd__ans is-ok">
+                      <span class="sd__ans-letters">{{ lettersOf(item.question.answer as number[]) }}</span>
+                      <span class="sd__ans-texts">{{ textsOf(item, item.question.answer as number[]) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <!-- 填空：逐空对比 -->
+              <template v-else-if="item.question.type === 'fill'">
+                <ul class="sd__fills">
+                  <li v-for="row in fillRows(item)" :key="row.no" class="sd__fill">
+                    <span class="sd__fill-no">第 {{ row.no }} 空</span>
+                    <span class="sd__fill-cell">{{ row.user || '未作答' }}</span>
+                    <span class="sd__fill-cell sd__fill-cell--correct">{{ row.correct }}</span>
+                    <span class="sd__bdg" :class="row.ok ? 'sd__bdg--ok' : 'sd__bdg--err'">
+                      {{ row.ok ? '正确' : '错误' }}
+                    </span>
+                  </li>
+                </ul>
+              </template>
+
+              <!-- 简答：你的作答 + 参考答案 + 阅卷得分 -->
+              <template v-else>
+                <div class="sd__short">
+                  <div class="sd__short-row">
+                    <span class="sd__kicker">你的作答</span>
+                    <!-- 富文本作答：内容已由服务端白名单净化（v1.7③ S1），此处渲染安全 -->
+                    <div
+                      v-if="shortUserText(item.questionId)"
+                      class="sd__short-text rich-text"
+                      v-html="shortUserText(item.questionId)"
+                    />
+                    <span v-else class="sd__short-text sd__short-text--empty">未作答</span>
+                  </div>
+                  <div class="sd__short-row">
+                    <span class="sd__kicker">参考答案</span>
+                    <span class="sd__short-text">{{ shortReference(item) }}</span>
+                  </div>
+                  <div v-if="subjectiveScore(item.questionId) !== null" class="sd__short-row">
+                    <span class="sd__kicker">阅卷得分</span>
+                    <strong class="sd__short-score">
+                      {{ formatScore(subjectiveScore(item.questionId)!) }} / {{ formatScore(item.score) }}
+                    </strong>
+                  </div>
+                </div>
+              </template>
+
+              <div v-if="analysisOpen && item.question.analysis" class="sd__analysis">
+                <el-icon class="sd__analysis-icon"><CircleCheck /></el-icon>
+                <div><b>解析：</b>{{ item.question.analysis }}</div>
+              </div>
+            </article>
+          </div>
 
           <EmptyState v-if="detailQuestions.length === 0" text="全部答对，没有错题" />
+        </el-card>
+      </div>
 
-          <!-- 切屏记录 -->
-          <el-card class="score-detail__cheat table-card" shadow="never">
-            <template #header>
-              <span>切屏记录（{{ cheatCount }} 次 / 累计 {{ cheatTotalSeconds }} 秒）</span>
-            </template>
+      <!-- 右列：答题概况 + 切屏记录 -->
+      <aside class="sd__aside">
+        <el-card class="sd__side-card" shadow="never">
+          <template #header>
+            <h3 class="sd__card-title">答题概况</h3>
+          </template>
+          <div class="sd__kv">
+            <span class="sd__kv-k">总题数</span>
+            <span class="sd__kv-v">{{ totalQuestions }} 题</span>
+          </div>
+          <div class="sd__kv">
+            <span class="sd__kv-k">答对</span>
+            <span class="sd__kv-v is-ok">{{ correctCount }} 题</span>
+          </div>
+          <div class="sd__kv">
+            <span class="sd__kv-k">答错</span>
+            <span class="sd__kv-v is-err">{{ wrongCount }} 题</span>
+          </div>
+          <div class="sd__kv">
+            <span class="sd__kv-k">主观题</span>
+            <span class="sd__kv-v">{{ subjectiveQuestions.length }} 题</span>
+          </div>
+          <div class="sd__kv">
+            <span class="sd__kv-k">正确率</span>
+            <span class="sd__kv-v">{{ accuracy }}%</span>
+          </div>
+        </el-card>
 
-            <el-alert
-              v-if="cheatAbnormal && cheatCount > 0"
-              class="score-detail__cheat-alert"
-              type="error"
-              :closable="false"
-              title="检测到异常切屏行为"
-            />
+        <el-card class="sd__side-card" shadow="never">
+          <template #header>
+            <h3 class="sd__card-title">切屏记录</h3>
+            <span class="sd__bdg" :class="cheatAbnormal ? 'sd__bdg--err' : 'sd__bdg--gray'">
+              {{ cheatCount }} 次
+            </span>
+          </template>
 
-            <EmptyState v-if="cheatCount === 0" text="无异常切屏记录" />
+          <EmptyState v-if="cheatCount === 0" text="无异常切屏记录" :image-size="42" />
 
-            <el-table v-else :data="record.cheatEvents" stripe>
-              <el-table-column label="发生时间" min-width="200">
-                <template #default="{ row }">{{ formatDateTime(row.at) }}</template>
-              </el-table-column>
-              <el-table-column label="离开时长（秒）" width="160" align="center">
-                <template #default="{ row }">{{ row.awaySeconds }}</template>
-              </el-table-column>
-            </el-table>
-          </el-card>
-        </div>
+          <div v-else class="sd__timeline">
+            <div
+              v-for="(event, i) in cheatEventsDesc"
+              :key="i"
+              class="sd__tl"
+              :class="event.awaySeconds >= 15 ? 'is-err' : 'is-on'"
+            >
+              <div class="sd__tl-t">离开页面 {{ event.awaySeconds }} 秒</div>
+              <div class="sd__tl-d">发生时间 {{ dayjs(event.at).format('MM-DD HH:mm:ss') }}</div>
+            </div>
+          </div>
 
-        <template #footer>
-          <el-button @click="detailVisible = false">关闭</el-button>
-        </template>
-      </el-dialog>
-    </template>
+          <div v-if="cheatCount > 0" class="sd__tip sd__tip--inline" :class="{ 'sd__tip--err': cheatAbnormal }">
+            累计 <b>{{ cheatTotalSeconds }} 秒</b>，{{ cheatAbnormal ? '已超过阈值' : '未超过阈值，不影响成绩' }}。
+          </div>
+        </el-card>
+      </aside>
+    </div>
   </div>
 </template>
 
 <style scoped lang="scss">
 @use '@/styles/variables.scss' as *;
 
-.score-detail {
-  &__pending {
-    margin-bottom: 16px;
+.sd {
+  &__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 9px;
+    padding: 0;
+    border: none;
+    background: none;
+    font-size: 12.5px;
+    color: $text-secondary;
+    cursor: pointer;
+
+    &:hover {
+      color: $color-primary;
+    }
   }
 
-  &__result {
-    border-radius: $radius-lg;
-    overflow: hidden;
+  &__wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    align-items: start;
+    gap: 14px;
+  }
 
-    &--pass {
-      background: linear-gradient(
-        135deg,
-        rgba($color-success, 0.06) 0%,
-        rgba($color-primary, 0.03) 100%
-      );
+  &__main {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  &__aside {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: sticky;
+    top: 66px;
+  }
+
+  &__card-title {
+    margin: 0;
+    font-size: 13.5px;
+    font-weight: 620;
+    color: $text-primary;
+  }
+
+  &__sub {
+    font-size: 11.5px;
+    color: $text-secondary;
+  }
+
+  /* 提示条 */
+  &__tip {
+    display: flex;
+    gap: 9px;
+    padding: 10px 12px;
+    border-radius: $radius-sm;
+    background: $color-warning-bg;
+    font-size: 12px;
+    line-height: 1.55;
+    color: $color-warning-text;
+
+    b {
+      font-weight: 650;
     }
 
-    &--fail {
-      background: linear-gradient(
-        135deg,
-        rgba($color-error, 0.06) 0%,
-        rgba($color-primary, 0.03) 100%
-      );
+    &--err {
+      background: $color-error-bg;
+      color: $color-error-text;
+    }
+
+    &--inline {
+      margin-top: 12px;
+    }
+  }
+
+  &__tip-icon {
+    margin-top: 2px;
+    flex: 0 0 auto;
+  }
+
+  /* 结果卡 */
+  &__result {
+    :deep(.el-card__body) {
+      padding: 18px;
     }
   }
 
   &__hero {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    flex-wrap: wrap;
     gap: 16px;
+    flex-wrap: wrap;
   }
 
-  &__score-block {
+  &__hero-left {
+    min-width: 0;
+  }
+
+  &__hero-label {
     display: flex;
     align-items: center;
+    gap: 10px;
     flex-wrap: wrap;
-    gap: 24px;
   }
 
-  &__score-wrap {
+  &__hero-score {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
+    align-items: flex-end;
+    gap: 10px;
+    margin-top: 8px;
   }
 
   &__score {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 4px;
-    font-size: 36px;
+    font-size: 38px;
     font-weight: 700;
-    line-height: 1.1;
-    letter-spacing: -0.01em;
+    line-height: 1;
+    letter-spacing: -0.02em;
     color: $color-primary;
+    font-variant-numeric: tabular-nums;
 
     &.is-pass {
       color: $color-success-text;
@@ -599,340 +660,450 @@ onMounted(async () => {
   }
 
   &__score-total {
-    font-size: 15px;
-    font-weight: 500;
-    color: $text-secondary;
-  }
-
-  &__pass {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  &__pass-icon {
-    margin-right: 4px;
-    vertical-align: -2px;
-  }
-
-  &__pass-hint {
+    padding-bottom: 5px;
     font-size: 13px;
     color: $text-secondary;
   }
 
-  // 答对 / 答错 / 正确率
-  &__stats {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 10px 18px;
-    border-radius: $radius-base;
-    background: rgba(255, 255, 255, 0.72);
-    border: 1px solid $border-color;
+  &__passline {
+    padding-bottom: 6px;
+    font-size: 12px;
+    color: $text-secondary;
   }
 
-  &__stat {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    min-width: 52px;
+  &__hero-meta {
+    margin-top: 8px;
+    font-size: 12px;
+    color: $text-secondary;
   }
 
-  &__stat-value {
-    font-size: 20px;
-    font-weight: 700;
-    line-height: 1.2;
+  &__hero-side {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    width: 240px;
+  }
+
+  &__num {
+    display: block;
+    margin-top: 4px;
+    font-size: 13px;
+    font-weight: 640;
     color: $text-primary;
+    font-variant-numeric: tabular-nums;
+
+    &--ellipsis {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+  }
+
+  /* 微标签 */
+  &__kicker {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: $text-secondary;
+  }
+
+  /* 状态徽标（设计稿 .bdg） */
+  &__bdg {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 20px;
+    padding: 0 7px;
+    border-radius: 5px;
+    font-size: 11.5px;
+    font-weight: 580;
+    white-space: nowrap;
+
+    &::before {
+      content: '';
+      flex: 0 0 5px;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    &--q::before {
+      display: none;
+    }
+
+    &--gray {
+      background: $color-neutral-bg;
+      color: $text-secondary;
+    }
 
     &--ok {
+      background: $color-success-bg;
       color: $color-success-text;
     }
 
-    &--bad {
+    &--warn {
+      background: $color-warning-bg;
+      color: $color-warning-text;
+    }
+
+    &--err {
+      background: $color-error-bg;
       color: $color-error-text;
     }
   }
 
-  &__stat-label {
-    font-size: 12px;
-    color: $text-secondary;
+  /* 分段控件（设计稿 .seg） */
+  &__seg {
+    display: inline-flex;
+    gap: 2px;
+    margin-left: auto;
+    padding: 2px;
+    border-radius: $radius-sm;
+    background: $color-neutral-bg;
+
+    button {
+      height: 24px;
+      padding: 0 10px;
+      border: none;
+      border-radius: $radius-xs;
+      background: none;
+      font-size: 12px;
+      font-weight: 550;
+      color: $text-secondary;
+      cursor: pointer;
+
+      &.is-on {
+        background: $bg-paper;
+        color: $text-primary;
+        /* 方向 C：层次交给发丝线，不用投影（DESIGN-C §2.1） */
+        box-shadow: inset 0 0 0 1px $line-strong;
+      }
+    }
   }
 
-  &__stat-sep {
-    width: 1px;
-    height: 26px;
-    background: $border-color;
+  &__expand {
+    margin-left: 8px;
   }
 
-  &__divider {
-    margin: 16px 0;
-  }
-
-  &__meta {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 10px 16px;
-  }
-
-  &__meta-item {
+  /* 逐题明细 */
+  &__qlist {
     display: flex;
     flex-direction: column;
-    gap: 5px;
-    min-width: 0;
-    padding: 10px 12px;
-    border-radius: $radius-sm;
-    background: rgba(255, 255, 255, 0.78);
+    gap: 12px;
+  }
+
+  &__q {
+    padding: 14px;
     border: 1px solid $border-color;
+    border-radius: $radius-base;
+    background: $bg-paper;
   }
 
-  &__label {
-    font-size: 12px;
-    color: $text-secondary;
-  }
-
-  &__value {
-    min-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    font-size: 13.5px;
-    font-weight: 500;
-    color: $text-primary;
-  }
-
-  &__value-row {
+  &__q-head {
     display: flex;
     align-items: center;
     gap: 8px;
-    min-width: 0;
-  }
-
-  &__dialog-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 14px;
-    padding: 10px 12px;
-    border-radius: $radius-base;
-    background: $color-table-head;
-    border: 1px solid $border-color;
+    margin-bottom: 8px;
   }
 
-  &__dialog-stats {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
+  &__q-no {
+    display: inline-grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: $radius-sm;
+    background: $color-primary;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
   }
 
-  &__chip {
+  &__q-type {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 3px 10px;
-    border-radius: 999px;
-    background: $bg-paper;
-    border: 1px solid $border-color;
-    font-size: 12.5px;
+    height: 19px;
+    padding: 0 6px;
+    border-radius: $radius-xs;
+    background: $color-neutral-bg;
+    font-size: 11px;
+    font-weight: 550;
     color: $text-secondary;
+  }
 
-    &--ok {
-      color: $color-success-text;
+  &__q-score {
+    font-size: 11px;
+    color: $text-secondary;
+  }
+
+  &__q-head .sd__bdg {
+    margin-left: auto;
+  }
+
+  &__q-stem {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 520;
+    line-height: 1.7;
+    color: $text-primary;
+  }
+
+  /* 你的答案 / 正确答案 */
+  &__ans-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  &__ans {
+    margin-top: 4px;
+    padding: 9px 11px;
+    border: 1px solid $border-color;
+    border-radius: $radius-xs;
+    background: $color-neutral-bg;
+
+    &.is-ok {
+      background: $color-success-bg;
       border-color: $color-success-border;
     }
 
-    &--bad {
-      color: $color-error-text;
+    &.is-err {
+      background: $color-error-bg;
       border-color: $color-error-border;
     }
   }
 
-  &__qresult-icon {
-    margin-right: 4px;
-    vertical-align: -2px;
-  }
-
-  &__dialog-body {
-    max-height: 72vh;
-    overflow-y: auto;
-    padding-right: 4px;
-  }
-
-  &__question {
-    border-radius: $radius-base;
-    margin-bottom: 12px;
-    border-left: 4px solid transparent;
-
-    &:last-child {
-      margin-bottom: 12px;
-    }
-
-    &--correct {
-      border-left-color: $color-success;
-    }
-
-    &--wrong {
-      border-left-color: $color-error;
-    }
-
-    &--pending {
-      border-left-color: $color-warning;
-    }
-  }
-
-  &__qhead {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 10px;
-  }
-
-  &__qindex {
-    font-weight: 600;
+  &__ans-letters {
+    display: block;
+    font-size: 13px;
+    font-weight: 640;
     color: $text-primary;
   }
 
-  &__stem {
-    margin: 0 0 12px;
-    font-size: 14px;
+  &__ans-texts {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
     line-height: 1.6;
-    color: $text-primary;
-  }
-
-  &__options {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  &__option {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 8px;
-    border-radius: $radius-sm;
-    font-size: 13px;
-    color: $text-primary;
-
-    &--correct {
-      background: $color-success-bg;
-    }
-
-    &--chosen {
-      outline: 1px dashed $color-primary;
-    }
-
-    &-letter {
-      flex: 0 0 20px;
-      text-align: center;
-      font-weight: 600;
-      color: $text-secondary;
-    }
-
-    &-text {
-      flex: 1;
-      min-width: 0;
-    }
-  }
-
-  &__answer-line {
-    margin: 12px 0 0;
-    font-size: 13px;
     color: $text-secondary;
+    word-break: break-word;
   }
 
+  /* 填空逐空对比 */
   &__fills {
-    margin: 0;
+    margin: 12px 0 0;
     padding: 0;
     list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 
   &__fill {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 8px;
-    border-radius: $radius-sm;
-    font-size: 13px;
-    color: $text-primary;
-
-    &-no {
-      flex: 0 0 52px;
-      font-weight: 600;
-      color: $text-secondary;
-    }
-
-    &-cell {
-      flex: 1;
-      min-width: 0;
-      padding: 6px 10px;
-      border-radius: $radius-sm;
-      border: 1px solid $border-color;
-      word-break: break-word;
-
-      &--correct {
-        background: $color-success-bg;
-      }
-    }
+    font-size: 12.5px;
   }
 
-  &__short {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  &__short-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    font-size: 13px;
-
-    &--ref {
-      padding: 8px 10px;
-      border-radius: $radius-sm;
-      background: $color-primary-soft;
-      border: 1px solid rgba($color-primary, 0.16);
-    }
-  }
-
-  &__short-label {
-    flex: 0 0 64px;
+  &__fill-no {
+    flex: 0 0 52px;
     font-weight: 600;
     color: $text-secondary;
   }
 
-  &__short-text {
+  &__fill-cell {
     flex: 1;
     min-width: 0;
+    padding: 6px 10px;
+    border: 1px solid $border-color;
+    border-radius: $radius-xs;
     color: $text-primary;
-    line-height: 1.6;
+    word-break: break-word;
+
+    &--correct {
+      background: $color-success-bg;
+      border-color: $color-success-border;
+    }
+  }
+
+  /* 简答 */
+  &__short {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  &__short-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__short-text {
+    padding: 10px 12px;
+    border: 1px solid $border-color;
+    border-left: 2px solid $color-primary;
+    border-radius: $radius-xs;
+    background: $bg-paper;
+    font-size: 12.5px;
+    line-height: 1.75;
+    color: $text-primary;
     word-break: break-word;
 
     &--empty {
-      color: $text-disabled;
+      border-left-color: $border-color;
+      color: $text-secondary;
     }
   }
 
   &__short-score {
+    font-size: 13px;
     color: $color-primary;
-    font-size: 14px;
   }
 
+  /* 解析 */
   &__analysis {
+    display: flex;
+    gap: 9px;
     margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: $radius-sm;
+    background: $color-info-bg;
+    font-size: 12px;
+    line-height: 1.6;
+    color: $color-info-text;
+
+    b {
+      font-weight: 650;
+    }
   }
 
-  &__cheat {
-    border-radius: $radius-lg;
+  &__analysis-icon {
+    margin-top: 2px;
+    flex: 0 0 auto;
   }
 
-  &__cheat-alert {
-    margin-bottom: 12px;
+  /* 右侧概况 kv */
+  &__kv {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px dashed $border-color;
+    font-size: 12.5px;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__kv-k {
+    color: $text-secondary;
+  }
+
+  &__kv-v {
+    font-weight: 580;
+    color: $text-primary;
+    font-variant-numeric: tabular-nums;
+
+    &.is-ok {
+      color: $color-success-text;
+    }
+
+    &.is-err {
+      color: $color-error-text;
+    }
+  }
+
+  &__side-card {
+    :deep(.el-card__header) {
+      justify-content: space-between;
+    }
+  }
+
+  /* 切屏时间线（设计稿 .timeline / .tl） */
+  &__timeline {
+    position: relative;
+    padding-left: 20px;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 5px;
+      top: 5px;
+      bottom: 5px;
+      width: 1.5px;
+      background: $line-strong;
+    }
+  }
+
+  &__tl {
+    position: relative;
+    padding-bottom: 14px;
+
+    &:last-child {
+      padding-bottom: 0;
+    }
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: -20px;
+      top: 3px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: $bg-paper;
+      border: 2px solid $line-strong;
+    }
+
+    &.is-on::before {
+      background: $color-primary;
+      border-color: $color-primary;
+    }
+
+    &.is-err::before {
+      background: $color-error;
+      border-color: $color-error;
+    }
+  }
+
+  &__tl-t {
+    font-size: 12.5px;
+    font-weight: 580;
+    color: $text-primary;
+  }
+
+  &__tl-d {
+    margin-top: 2px;
+    font-size: 11.5px;
+    color: $text-secondary;
+  }
+
+  @media (max-width: 1080px) {
+    &__wrap {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    &__aside {
+      position: static;
+    }
+
+    &__hero-side {
+      width: 100%;
+    }
+
+    &__ans-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
 }
 </style>

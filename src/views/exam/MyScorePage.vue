@@ -2,11 +2,15 @@
 /**
  * 我的成绩（W3-T1，考生）。records.my 分页，考试名/及格线取本科室可见考试。
  * 关键字按考试名称**服务端**过滤：输入防抖后回到第 1 页重新加载，分页/翻页均带上关键字。
+ *
+ * v3.1 方向 C（设计稿 p-exam-scores 重排）：页头下补四张统计卡
+ * （已参加 / 平均分 / 最高分 / 未及格），列表卡改为「卡头搜索 + 表格」结构；
+ * 统计口径取自单独拉取的全量记录（pageSize 上限 100 条），与列表的服务端分页互不影响。
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Search, Refresh } from '@element-plus/icons-vue';
+import { CircleClose, Document, Refresh, Search, Star, TrendCharts } from '@element-plus/icons-vue';
 import * as examsApi from '@/api/exams';
 import * as recordsApi from '@/api/records';
 import * as appealsApi from '@/api/appeals';
@@ -15,15 +19,18 @@ import { usePagination } from '@/composables/usePagination';
 import { useSettingsStore } from '@/stores/settings';
 import { formatDateTime } from '@/utils/datetime';
 import { formatScore } from '@/utils/format';
-import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 import DataTablePagination from '@/components/common/DataTablePagination.vue';
+import StatCard from '@/components/common/StatCard.vue';
 import type { ExamMy, ExamRecord } from '@/types';
 
 const router = useRouter();
 const settingsStore = useSettingsStore();
 const { data: myExams } = useRequest(() => examsApi.my());
+/** 全量记录（仅用于统计卡口径；失败静默，统计区退化为 0） */
+const { data: allRecords } = useRequest(() => recordsApi.my({ page: 1, pageSize: 100 }));
 
 const examMap = computed<Record<string, ExamMy>>(() =>
   Object.fromEntries((myExams.value ?? []).map((e) => [e.id, e])),
@@ -89,6 +96,31 @@ function passScoreOf(examId: string): number | null {
   return examMap.value[examId]?.passScore ?? null;
 }
 
+function isFail(record: ExamRecord): boolean {
+  const line = passScoreOf(record.examId);
+  return line !== null && record.score < line;
+}
+
+/* ------------------------------ 统计卡（基于全量记录） ------------------------------ */
+const stats = computed(() => {
+  const list = allRecords.value?.list ?? [];
+  if (list.length === 0) {
+    return { taken: 0, avg: 0, max: 0, failed: 0 };
+  }
+  const scores = list.map((r) => r.score);
+  const sum = scores.reduce((a, b) => a + b, 0);
+  return {
+    taken: list.length,
+    avg: Math.round((sum / list.length) * 10) / 10,
+    max: Math.max(...scores),
+    failed: list.filter((r) => isFail(r)).length,
+  };
+});
+
+function goRetakes(): void {
+  void router.push('/exam/retakes');
+}
+
 function goDetail(record: ExamRecord): void {
   void router.push(`/score-detail/${record.id}`);
 }
@@ -131,37 +163,52 @@ async function submitAppeal(): Promise<void> {
   <div class="my-score">
     <PageHeader title="我的成绩" description="查看已交卷考试的成绩与明细" />
 
+    <!-- 统计卡（设计稿 p-exam-scores） -->
+    <div class="my-score__stats">
+      <StatCard label="已参加" :value="stats.taken" unit="场" :icon="Document" />
+      <StatCard label="平均分" :value="stats.avg" unit="分" :icon="TrendCharts" />
+      <StatCard label="最高分" :value="stats.max" unit="分" :icon="Star" />
+      <StatCard label="未及格" :value="stats.failed" unit="场" tone="error" :icon="CircleClose">
+        <template #foot>
+          <a v-if="stats.failed > 0" href="javascript:void(0)" @click="goRetakes">去申请补考</a>
+          <span v-else>暂无未及格记录</span>
+        </template>
+      </StatCard>
+    </div>
+
     <LoadingSkeleton v-if="loading && records.length === 0" :rows="5" />
 
-    <el-card v-else class="table-card" shadow="never">
-      <div class="table-card__toolbar">
-        <div class="table-card__toolbar-filters">
+    <el-card v-else class="my-score__panel" shadow="never">
+      <template #header>
+        <h3 class="my-score__panel-title">成绩列表</h3>
+        <div class="my-score__panel-act">
           <el-input
             v-model="filterKeyword"
             class="my-score__filter-keyword"
-            placeholder="按考试名称搜索"
+            placeholder="搜索考试名称"
             clearable
             :prefix-icon="Search"
             @input="onKeywordInput"
           />
-        </div>
-        <div class="my-score__filter-actions">
           <el-button :icon="Refresh" @click="onReset">重置</el-button>
         </div>
-      </div>
+      </template>
 
       <el-table v-loading="loading" :data="records" row-key="id" stripe>
-        <el-table-column label="考试名称" min-width="200">
-          <template #default="{ row }">{{ examName(row.examId) }}</template>
+        <el-table-column label="考试名称" min-width="220">
+          <template #default="{ row }">
+            <div class="my-score__exam">{{ examName(row.examId) }}</div>
+            <div v-if="passScoreOf(row.examId) !== null" class="my-score__exam-sub">
+              及格线 {{ passScoreOf(row.examId) }} 分
+            </div>
+          </template>
         </el-table-column>
-        <el-table-column label="作答次数" width="90" align="center">
-          <template #default="{ row }">第 {{ row.attemptNo }} 次</template>
-        </el-table-column>
-        <el-table-column label="交卷时间" width="180">
-          <template #default="{ row }">{{ formatDateTime(row.submittedAt) }}</template>
-        </el-table-column>
-        <el-table-column label="得分" width="100" align="center">
-          <template #default="{ row }">{{ formatScore(row.score) }}</template>
+        <el-table-column label="得分" width="100" align="right">
+          <template #default="{ row }">
+            <span class="my-score__score" :class="{ 'is-fail': isFail(row as ExamRecord) }">
+              {{ formatScore(row.score) }}
+            </span>
+          </template>
         </el-table-column>
         <el-table-column label="是否及格" width="110" align="center">
           <template #default="{ row }">
@@ -169,17 +216,23 @@ async function submitAppeal(): Promise<void> {
               <el-tag
                 size="small"
                 effect="plain"
-                :type="row.score >= (passScoreOf(row.examId) as number) ? 'success' : 'danger'"
+                :type="isFail(row as ExamRecord) ? 'danger' : 'success'"
               >
-                {{ row.score >= (passScoreOf(row.examId) as number) ? '及格' : '不及格' }}
+                {{ isFail(row as ExamRecord) ? '未及格' : '及格' }}
               </el-tag>
             </template>
             <span v-else>—</span>
           </template>
         </el-table-column>
+        <el-table-column label="作答次数" width="100" align="center">
+          <template #default="{ row }">第 {{ row.attemptNo }} 次</template>
+        </el-table-column>
+        <el-table-column label="交卷时间" width="180">
+          <template #default="{ row }">{{ formatDateTime(row.submittedAt) }}</template>
+        </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="goDetail(row as ExamRecord)">查看明细</el-button>
+            <el-button type="primary" link @click="goDetail(row as ExamRecord)">成绩明细</el-button>
             <el-button
               v-if="appealEnabledOf((row as ExamRecord).examId)"
               link
@@ -190,11 +243,11 @@ async function submitAppeal(): Promise<void> {
           </template>
         </el-table-column>
         <template #empty>
-          <EmptyState :text="emptyText" />
+          <EmptyState :text="emptyText" :filtered="Boolean(filterKeyword.trim())" @clear="onReset" />
         </template>
       </el-table>
 
-      <div class="table-card__pagination">
+      <div class="my-score__pagination">
         <DataTablePagination
           :page="page"
           :page-size="pageSize"
@@ -236,17 +289,64 @@ async function submitAppeal(): Promise<void> {
 </template>
 
 <style scoped lang="scss">
-.my-score__filter-keyword {
-  width: 260px;
-}
+@use '@/styles/variables.scss' as *;
 
-.my-score__filter-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+.my-score {
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+  }
 
-.my-score__appeal-alert {
-  margin-bottom: 16px;
+  &__panel-title {
+    margin: 0;
+    font-size: 13.5px;
+    font-weight: 620;
+    color: $text-primary;
+  }
+
+  &__panel-act {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  &__filter-keyword {
+    width: 240px;
+  }
+
+  &__exam {
+    font-weight: 560;
+    color: $text-primary;
+  }
+
+  &__exam-sub {
+    margin-top: 2px;
+    font-size: 12px;
+    color: $text-secondary;
+  }
+
+  &__score {
+    font-size: 13.5px;
+    font-weight: 640;
+    color: $text-primary;
+    font-variant-numeric: tabular-nums;
+
+    &.is-fail {
+      color: $color-error-text;
+    }
+  }
+
+  &__pagination {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 14px;
+  }
+
+  &__appeal-alert {
+    margin-bottom: 16px;
+  }
 }
 </style>
