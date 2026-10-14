@@ -9,6 +9,7 @@ import type {
   ExamStatus,
   NotifyTemplateKey,
   NotifyTemplates,
+  QuestionDifficulty,
   QuestionType,
   Role,
 } from '@/types';
@@ -45,6 +46,20 @@ export const QUESTION_TYPE_OPTIONS: ReadonlyArray<{ value: QuestionType; label: 
   { value: 'judge', label: '判断题' },
   { value: 'fill', label: '填空题' },
   { value: 'short', label: '简答题' },
+];
+
+/** 题目难度文案（v3.2） */
+export const QUESTION_DIFFICULTY_LABELS: Record<QuestionDifficulty, string> = {
+  low: '低',
+  medium: '中',
+  high: '高',
+};
+
+/** 题目难度下拉选项（v3.2） */
+export const QUESTION_DIFFICULTY_OPTIONS: ReadonlyArray<{ value: QuestionDifficulty; label: string }> = [
+  { value: 'low', label: '低' },
+  { value: 'medium', label: '中' },
+  { value: 'high', label: '高' },
 ];
 
 /** 考试状态文案 */

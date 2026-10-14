@@ -8,7 +8,8 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import * as questionsApi from '@/api/questions';
-import type { QuestionBatchEditInput } from '@/types';
+import { QUESTION_DIFFICULTY_OPTIONS } from '@/constants';
+import type { QuestionBatchEditInput, QuestionDifficulty } from '@/types';
 
 const props = defineProps<{
   visible: boolean;
@@ -42,6 +43,9 @@ const form = reactive({
   /** 是否修改默认分值 */
   changeScore: false,
   defaultScore: 10,
+  /** 是否修改题目难度（v3.2；'' = 清除难度） */
+  changeDifficulty: false,
+  difficulty: '' as QuestionDifficulty | '',
 });
 
 const submitting = ref(false);
@@ -67,13 +71,15 @@ watch(
     form.tagsMode = 'append';
     form.changeScore = false;
     form.defaultScore = 10;
+    form.changeDifficulty = false;
+    form.difficulty = '';
     void loadTagOptions();
   },
 );
 
 /** 未勾选任何字段时提交按钮禁用 */
 const canSubmit = computed<boolean>(
-  () => form.changeSubject || form.changeTags || form.changeScore,
+  () => form.changeSubject || form.changeTags || form.changeScore || form.changeDifficulty,
 );
 
 async function handleSubmit(): Promise<void> {
@@ -93,6 +99,7 @@ async function handleSubmit(): Promise<void> {
     payload.tagsMode = form.tagsMode;
   }
   if (form.changeScore) payload.defaultScore = form.defaultScore;
+  if (form.changeDifficulty) payload.difficulty = form.difficulty || null;
 
   submitting.value = true;
   try {
@@ -165,6 +172,24 @@ function handleCancel(): void {
           :step="0.5"
           :disabled="!form.changeScore"
         />
+      </el-form-item>
+
+      <el-form-item>
+        <el-checkbox v-model="form.changeDifficulty">修改难度</el-checkbox>
+        <el-select
+          v-model="form.difficulty"
+          clearable
+          :disabled="!form.changeDifficulty"
+          placeholder="不设置（清空难度）"
+          class="batch-select"
+        >
+          <el-option
+            v-for="opt in QUESTION_DIFFICULTY_OPTIONS"
+            :key="opt.value"
+            :label="opt.label"
+            :value="opt.value"
+          />
+        </el-select>
       </el-form-item>
     </el-form>
 

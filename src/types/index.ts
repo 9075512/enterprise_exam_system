@@ -10,6 +10,9 @@ export type Role = 'admin' | 'author' | 'examinee';
 /** 题型：单选 / 多选 / 判断 / 填空 / 简答 */
 export type QuestionType = 'single' | 'multiple' | 'judge' | 'fill' | 'short';
 
+/** 题目难度（v3.2；低/中/高，null = 未标注） */
+export type QuestionDifficulty = 'low' | 'medium' | 'high';
+
 /** 考试状态（由时间窗实时推导，不落库） */
 export type ExamStatus = 'not_started' | 'ongoing' | 'ended';
 
@@ -210,6 +213,8 @@ export interface Question {
   defaultScore: number;
   analysis: string;
   subject: string;
+  /** 题目难度（v3.2；null = 未标注） */
+  difficulty: QuestionDifficulty | null;
   /** 知识点标签（多标签，v1.7②；空数组 = 未打标签） */
   tags: string[];
   /** 评分细则（分档 rubric，v1.7③ S1；仅简答题可用，空数组 = 未设置） */
@@ -443,6 +448,8 @@ export interface DrawQuestionItem {
   score: number;
   type: QuestionType;
   stem: string;
+  /** 题目难度（v3.2；null = 未标注） */
+  difficulty: QuestionDifficulty | null;
 }
 
 /** 抽题缺口项 */
@@ -479,6 +486,8 @@ export interface QuestionFilter {
   /** '' 表示不限 */
   type: QuestionType | '';
   subject: string;
+  /** 题目难度（'' 表示不限，v3.2） */
+  difficulty: QuestionDifficulty | '';
   /** 知识点标签（'' 表示不限，v1.7②） */
   tag: string;
   keyword: string;
@@ -492,6 +501,8 @@ export interface QuestionBatchEditInput {
   /** append（追加，默认）/ replace（覆盖） */
   tagsMode?: 'append' | 'replace';
   defaultScore?: number;
+  /** 目标难度（省略 = 不改；null = 清除，v3.2） */
+  difficulty?: QuestionDifficulty | null;
 }
 
 /** 用户保存输入（新建/编辑共用） */
@@ -520,6 +531,8 @@ export interface QuestionSaveInput {
   defaultScore: number;
   analysis?: string;
   subject?: string;
+  /** 题目难度（v3.2；null / 省略 = 未标注） */
+  difficulty?: QuestionDifficulty | null;
   /** 知识点标签（v1.7②；最多 10 个，单个 ≤32 字） */
   tags?: string[];
   /** 评分细则（v1.7③ S1；仅简答题生效，最多 10 档） */

@@ -4,6 +4,7 @@ import type {
   Page,
   Question,
   QuestionBatchEditInput,
+  QuestionDifficulty,
   QuestionSaveInput,
   QuestionType,
 } from '@/types';
@@ -13,6 +14,8 @@ export interface QuestionPoolQuery {
   bankIds?: string[];
   type?: QuestionType | '';
   subject?: string;
+  /** 题目难度（v3.2） */
+  difficulty?: QuestionDifficulty | '';
   /** 知识点标签（v1.7②） */
   tag?: string;
   keyword?: string;
@@ -31,6 +34,7 @@ export function pool(query: QuestionPoolQuery = {}): Promise<Page<Question>> {
     bankIds: serializeBankIds(query.bankIds),
     type: query.type || undefined,
     subject: query.subject || undefined,
+    difficulty: query.difficulty || undefined,
     tag: query.tag || undefined,
     keyword: query.keyword || undefined,
     page: query.page,

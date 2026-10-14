@@ -14,6 +14,8 @@ import * as questionsApi from '@/api/questions';
 import { useRequest } from '@/composables/useRequest';
 import { usePagination } from '@/composables/usePagination';
 import {
+  QUESTION_DIFFICULTY_LABELS,
+  QUESTION_DIFFICULTY_OPTIONS,
   QUESTION_TYPE_LABELS,
   QUESTION_TYPE_OPTIONS,
 } from '@/constants';
@@ -28,6 +30,7 @@ import type {
   DrawTagRule,
   DrawTagShortage,
   Question,
+  QuestionDifficulty,
   QuestionType,
 } from '@/types';
 
@@ -37,6 +40,8 @@ interface SelectedQuestion {
   score: number;
   stem: string;
   type: QuestionType;
+  /** 题目难度（v3.2；null = 未标注） */
+  difficulty: QuestionDifficulty | null;
 }
 
 const route = useRoute();
@@ -149,6 +154,7 @@ async function generateDraft(): Promise<void> {
         score: item.score,
         stem: item.stem,
         type: item.type,
+        difficulty: item.difficulty,
       });
       existing.add(item.questionId);
       added += 1;
@@ -165,6 +171,7 @@ async function generateDraft(): Promise<void> {
 /* ------------------------------ 手动题池 ------------------------------ */
 const poolType = ref<QuestionType | ''>('');
 const poolSubject = ref('');
+const poolDifficulty = ref<QuestionDifficulty | ''>('');
 const poolTag = ref('');
 const poolKeyword = ref('');
 const subjects = ref<string[]>([]);
@@ -186,6 +193,7 @@ const {
       bankIds: selectedBankIds.value,
       type: poolType.value,
       subject: poolSubject.value,
+      difficulty: poolDifficulty.value,
       tag: poolTag.value,
       keyword: poolKeyword.value.trim(),
       page: p,
@@ -235,6 +243,7 @@ function onPoolSearch(): void {
 function onPoolResetFilters(): void {
   poolType.value = '';
   poolSubject.value = '';
+  poolDifficulty.value = '';
   poolTag.value = '';
   poolKeyword.value = '';
   resetPool();
@@ -267,9 +276,15 @@ function isSelected(questionId: string): boolean {
   return selectedIds.value.has(questionId);
 }
 
-function addSelected(questionId: string, score: number, stem: string, type: QuestionType): void {
+function addSelected(
+  questionId: string,
+  score: number,
+  stem: string,
+  type: QuestionType,
+  difficulty: QuestionDifficulty | null,
+): void {
   if (isSelected(questionId)) return;
-  selected.value.push({ questionId, score, stem, type });
+  selected.value.push({ questionId, score, stem, type, difficulty });
   sortSelected();
 }
 
@@ -279,7 +294,7 @@ function removeSelected(questionId: string): void {
 
 function togglePoolQuestion(row: Question, checked: boolean): void {
   if (checked) {
-    addSelected(row.id, row.defaultScore, row.stem, row.type);
+    addSelected(row.id, row.defaultScore, row.stem, row.type, row.difficulty);
   } else {
     removeSelected(row.id);
   }
@@ -289,7 +304,6 @@ const totalScore = computed<number>(() => calcTotalScore(selected.value));
 
 /* ---------------- C 类对齐：信息面板（选题范围 / 结构 / 分布 / 发布检查） ----------------
  * 全部由已选题目的真实数据推导，不引入后端未提供的字段。
- * 数据缺口：Question 无 difficulty 字段，故「难度分布」降级为「按题型/分值分布」。
  */
 /** 保留 1 位小数（与 examRules.calcTotalScore 同口径） */
 const round1 = (n: number): number => Math.round(n * 10) / 10;
@@ -345,8 +359,53 @@ const typeAggRows = computed<TypeAggRow[]>(() => {
 /** 试卷结构：仅展示有题目的题型 */
 const structureRows = computed<TypeAggRow[]>(() => typeAggRows.value.filter((row) => row.count > 0));
 
-/** 分布面板（难度分布降级）：与试卷结构同源，仅展示有题目的题型 */
-const distributionRows = computed<TypeAggRow[]>(() => structureRows.value);
+/** 难度分布行（v3.2）：按已选题目难度聚合（低/中/高 + 未标注） */
+interface DifficultyAggRow {
+  key: QuestionDifficulty | 'none';
+  label: string;
+  count: number;
+  percent: number;
+  /** 是否有对应题目（0 人时表格仍展示，进度条为空） */
+  hasValue: boolean;
+}
+
+const DIFFICULTY_DEFS: ReadonlyArray<{ key: QuestionDifficulty | 'none'; label: string }> = [
+  { key: 'low', label: QUESTION_DIFFICULTY_LABELS.low },
+  { key: 'medium', label: QUESTION_DIFFICULTY_LABELS.medium },
+  { key: 'high', label: QUESTION_DIFFICULTY_LABELS.high },
+  { key: 'none', label: '未标注' },
+];
+
+const difficultyRows = computed<DifficultyAggRow[]>(() => {
+  const total = selected.value.length;
+  return DIFFICULTY_DEFS.map((def) => {
+    const count = selected.value.filter((q) =>
+      def.key === 'none' ? q.difficulty === null : q.difficulty === def.key,
+    ).length;
+    return {
+      key: def.key,
+      label: def.label,
+      count,
+      percent: total > 0 ? round1((count / total) * 100) : 0,
+      hasValue: count > 0,
+    };
+  });
+});
+
+/** 已标注难度的题数（用于分布卡文案口径） */
+const difficultyTaggedCount = computed<number>(
+  () => selected.value.filter((q) => q.difficulty !== null).length,
+);
+
+/** 是否含未标注难度的题目（决定是否给出提示） */
+const hasUntaggedDifficulty = computed<boolean>(() =>
+  selected.value.some((q) => q.difficulty === null),
+);
+
+/** 展示用难度行：低/中/高 恒定展示，「未标注」仅在有值时展示 */
+const visibleDifficultyRows = computed<DifficultyAggRow[]>(() =>
+  difficultyRows.value.filter((row) => row.key !== 'none' || row.count > 0),
+);
 
 /** 发布检查项（均可由当前工作态真实算出，与 handleSave 的校验口径一致） */
 interface CheckItem {
@@ -463,6 +522,7 @@ onMounted(async () => {
       score: q.score,
       stem: q.question.stem,
       type: q.question.type,
+      difficulty: q.question.difficulty,
     }));
     sortSelected();
     await loadPoolSubjects();
@@ -658,6 +718,20 @@ onMounted(async () => {
               <el-option v-for="s in subjects" :key="s" :label="s" :value="s" />
             </el-select>
             <el-select
+              v-model="poolDifficulty"
+              class="composer__filter-item"
+              placeholder="全部难度"
+              clearable
+            >
+              <el-option label="全部难度" value="" />
+              <el-option
+                v-for="opt in QUESTION_DIFFICULTY_OPTIONS"
+                :key="opt.value"
+                :label="opt.label"
+                :value="opt.value"
+              />
+            </el-select>
+            <el-select
               v-model="poolTag"
               class="composer__filter-item"
               placeholder="全部知识点"
@@ -710,6 +784,14 @@ onMounted(async () => {
                 </el-tag>
               </template>
             </el-table-column>
+            <el-table-column label="难度" width="80" align="center">
+              <template #default="{ row }">
+                <el-tag v-if="row.difficulty" size="small" effect="plain" type="info">
+                  {{ QUESTION_DIFFICULTY_LABELS[row.difficulty as QuestionDifficulty] }}
+                </el-tag>
+                <span v-else class="composer__muted">—</span>
+              </template>
+            </el-table-column>
             <el-table-column prop="subject" label="科目" width="120" show-overflow-tooltip />
             <el-table-column label="默认分值" width="100" align="center">
               <template #default="{ row }">{{ row.defaultScore }}</template>
@@ -738,6 +820,15 @@ onMounted(async () => {
             <el-tooltip :content="item.stem" placement="top" :show-after="300">
               <span class="composer__selected-stem">{{ item.stem }}</span>
             </el-tooltip>
+            <el-tag
+              v-if="item.difficulty"
+              class="composer__selected-diff"
+              size="small"
+              effect="plain"
+              type="info"
+            >
+              {{ QUESTION_DIFFICULTY_LABELS[item.difficulty] }}
+            </el-tag>
             <el-input-number
               v-model="item.score"
               class="composer__selected-score"
@@ -825,14 +916,14 @@ onMounted(async () => {
         <div v-else class="composer__insight-empty">尚未选择题目</div>
       </el-card>
 
-      <!-- 难度分布（降级为按题型/分值分布） -->
+      <!-- 难度分布（v3.2）：按已选题目难度聚合 -->
       <el-card class="composer__insight" shadow="never">
         <template #header><span class="composer__card-title">难度分布</span></template>
-        <div v-if="distributionRows.length" class="composer__bars">
-          <div v-for="row in distributionRows" :key="row.type" class="composer__bar">
+        <div v-if="selected.length" class="composer__bars">
+          <div v-for="row in visibleDifficultyRows" :key="row.key" class="composer__bar">
             <div class="composer__bar-head">
               <span>{{ row.label }}</span>
-              <span class="composer__bar-meta num">{{ row.count }} 题 · {{ row.total }} 分</span>
+              <span class="composer__bar-meta num">{{ row.count }} 题 · {{ row.percent }}%</span>
             </div>
             <div class="composer__bar-track">
               <i class="composer__bar-fill" :style="{ width: `${row.percent}%` }" />
@@ -840,9 +931,8 @@ onMounted(async () => {
           </div>
         </div>
         <div v-else class="composer__insight-empty">尚未选择题目</div>
-        <p class="composer__insight-note">
-          <!-- 数据缺口：Question 无 difficulty 字段，暂以题型/分值分布替代 -->
-          Question 无 difficulty 字段，暂以题型 / 分值分布替代。
+        <p v-if="selected.length" class="composer__insight-note">
+          {{ difficultyTaggedCount }} / {{ selected.length }} 题已标注难度<template v-if="hasUntaggedDifficulty">；「未标注」不影响组卷，可在题库详情页补充</template>。
         </p>
       </el-card>
 
@@ -1073,6 +1163,14 @@ onMounted(async () => {
     white-space: nowrap;
     font-size: 13px;
     color: $text-primary;
+  }
+
+  &__selected-diff {
+    flex: 0 0 auto;
+  }
+
+  &__muted {
+    color: $text-disabled;
   }
 
   &__selected-score {

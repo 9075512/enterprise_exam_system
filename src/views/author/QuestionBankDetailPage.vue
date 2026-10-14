@@ -15,6 +15,8 @@ import { usePagination } from '@/composables/usePagination';
 import { useConfirm } from '@/composables/useConfirm';
 import {
   BANK_TEXT,
+  QUESTION_DIFFICULTY_LABELS,
+  QUESTION_DIFFICULTY_OPTIONS,
   QUESTION_TYPE_LABELS,
   QUESTION_TYPE_OPTIONS,
 } from '@/constants';
@@ -33,7 +35,7 @@ import QuestionBankFormDialog from './QuestionBankFormDialog.vue';
 import QuestionImportDialog from './QuestionImportDialog.vue';
 import QuestionBatchEditDialog from './QuestionBatchEditDialog.vue';
 import BankAuthorBatchDialog from './BankAuthorBatchDialog.vue';
-import type { Question, QuestionType } from '@/types';
+import type { Question, QuestionDifficulty, QuestionType } from '@/types';
 
 const route = useRoute();
 const router = useRouter();
@@ -53,6 +55,7 @@ const { data: bank, loading: bankLoading, refresh: refreshBank } = useRequest(()
 /* ------------------------------ 试题筛选 ------------------------------ */
 const filterType = ref<QuestionType | ''>('');
 const filterSubject = ref('');
+const filterDifficulty = ref<QuestionDifficulty | ''>('');
 const filterTag = ref('');
 const filterKeyword = ref('');
 
@@ -91,6 +94,7 @@ const {
     banksApi.questions(bankId.value, {
       type: filterType.value,
       subject: filterSubject.value,
+      difficulty: filterDifficulty.value,
       tag: filterTag.value,
       keyword: filterKeyword.value.trim(),
       page: p,
@@ -101,7 +105,13 @@ const {
 
 /** 是否处于筛选态（决定空态口径与是否给「清空筛选」出路） */
 const hasFilter = computed<boolean>(() =>
-  Boolean(filterType.value || filterSubject.value || filterTag.value || filterKeyword.value.trim()),
+  Boolean(
+    filterType.value ||
+      filterSubject.value ||
+      filterDifficulty.value ||
+      filterTag.value ||
+      filterKeyword.value.trim(),
+  ),
 );
 
 function onSearch(): void {
@@ -111,6 +121,7 @@ function onSearch(): void {
 function onResetFilters(): void {
   filterType.value = '';
   filterSubject.value = '';
+  filterDifficulty.value = '';
   filterTag.value = '';
   filterKeyword.value = '';
   reset();
@@ -361,6 +372,20 @@ onMounted(() => {
               <el-option v-for="s in subjects" :key="s" :label="s" :value="s" />
             </el-select>
             <el-select
+              v-model="filterDifficulty"
+              class="bank-detail__filter-item"
+              placeholder="全部难度"
+              clearable
+            >
+              <el-option label="全部难度" value="" />
+              <el-option
+                v-for="opt in QUESTION_DIFFICULTY_OPTIONS"
+                :key="opt.value"
+                :label="opt.label"
+                :value="opt.value"
+              />
+            </el-select>
+            <el-select
               v-model="filterTag"
               class="bank-detail__filter-item"
               placeholder="全部知识点"
@@ -411,6 +436,14 @@ onMounted(() => {
               </template>
             </el-table-column>
             <el-table-column prop="subject" label="科目" width="110" show-overflow-tooltip />
+            <el-table-column label="难度" width="80" align="center">
+              <template #default="{ row }">
+                <el-tag v-if="row.difficulty" size="small" effect="plain" type="info">
+                  {{ QUESTION_DIFFICULTY_LABELS[row.difficulty as QuestionDifficulty] }}
+                </el-tag>
+                <span v-else class="bank-detail__muted">—</span>
+              </template>
+            </el-table-column>
             <el-table-column label="知识点" min-width="150">
               <template #default="{ row }">
                 <template v-if="row.tags?.length">
@@ -670,6 +703,10 @@ onMounted(() => {
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 16px;
   margin-top: 16px;
+}
+
+.bank-detail__muted {
+  color: $text-disabled;
 }
 
 .card-head {

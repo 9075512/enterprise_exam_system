@@ -16,10 +16,11 @@ import {
   JUDGE_OPTIONS,
   MAX_OPTIONS,
   MIN_OPTIONS,
+  QUESTION_DIFFICULTY_OPTIONS,
   QUESTION_TYPE_OPTIONS,
 } from '@/constants';
 import { optionLetter } from '@/utils/format';
-import type { Question, QuestionType, RubricBand } from '@/types';
+import type { Question, QuestionDifficulty, QuestionType, RubricBand } from '@/types';
 
 const props = defineProps<{
   visible: boolean;
@@ -59,6 +60,8 @@ const form = reactive({
   defaultScore: 10,
   analysis: '',
   subject: '',
+  /** 题目难度（v3.2；'' = 未标注） */
+  difficulty: '' as QuestionDifficulty | '',
   /** 知识点标签（v1.7②；最多 10 个） */
   tags: [] as string[],
   /** 评分细则（v1.7③ S1；仅简答题生效，最多 10 档） */
@@ -123,6 +126,7 @@ function resetForm(): void {
     form.defaultScore = q.defaultScore;
     form.analysis = q.analysis;
     form.subject = q.subject;
+    form.difficulty = q.difficulty ?? '';
     form.tags = [...(q.tags ?? [])];
     form.rubric = (q.rubric ?? []).map((b) => ({ ...b }));
   } else {
@@ -135,6 +139,7 @@ function resetForm(): void {
     form.defaultScore = 10;
     form.analysis = '';
     form.subject = props.defaultSubject ?? '';
+    form.difficulty = '';
     form.tags = [];
     form.rubric = [];
   }
@@ -272,6 +277,7 @@ async function handleSubmit(): Promise<void> {
       defaultScore: form.defaultScore,
       analysis: form.analysis.trim(),
       subject: form.subject.trim() || props.defaultSubject || '',
+      difficulty: form.difficulty || null,
       tags: form.tags.map((t) => t.trim()).filter(Boolean).slice(0, MAX_TAGS),
       rubric:
         form.type === 'short'
@@ -450,6 +456,17 @@ function handleCancel(): void {
         <el-input v-model="form.subject" placeholder="默认继承题库分类，可修改" />
       </el-form-item>
 
+      <el-form-item label="难度">
+        <el-select v-model="form.difficulty" clearable placeholder="未标注" class="difficulty-select">
+          <el-option
+            v-for="opt in QUESTION_DIFFICULTY_OPTIONS"
+            :key="opt.value"
+            :label="opt.label"
+            :value="opt.value"
+          />
+        </el-select>
+      </el-form-item>
+
       <el-form-item label="知识点标签">
         <el-select
           v-model="form.tags"
@@ -536,6 +553,10 @@ function handleCancel(): void {
 
 .tag-select {
   width: 100%;
+}
+
+.difficulty-select {
+  width: 160px;
 }
 
 .rubric-list {
