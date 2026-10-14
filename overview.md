@@ -134,3 +134,17 @@
 - 验证：`vue-tsc` 0、vitest **215/215**、`vite build` 成功；CDP 定向复验 9 页全部正常渲染（scores 三联卡 / dashboard 三新块 / 明细页知识点卡截图实测）
 - 提交：`0fb5c0c`(scores) → `01930a6`(reviews) → `a9d51f3`(dashboard) → `3c2e62e`(组卷域五页) → `07cdde7`(score-detail)
 - 仍开放的缺口（需加后端字段/接口，前端已诚实标注）：题目级健康度指标、题目 `difficulty`、阅卷 SLA 与告警工单、阅卷评语/标记存疑、表格列集合差异
+
+## 练题端专项审计（第四轮，commit `2df89a3`…`ab13358`）
+
+前三轮的审计 lane 只覆盖根应用（30 页同源 5173）；**练题端是独立构建 / 独立端口（5174）/ 独立 token / 独立 styles/**，从未过 computed-style 审计。本轮新增 `docs/ui-v3b/tools/audit-practice.mjs`（探针换成移动端 kit `kit/m.css` 的 `.m-*` ↔ 练题端工程选择器，移动视口 390×844），对 7 页设计稿逐页实测，发现与根应用同源的 B / A9 类缺陷并修复：
+
+| 项 | 设计 | 练题端实测（改前 → 改后） |
+| --- | --- | --- |
+| B1 同类 · body 基准字号 | 14px | **16px → 14px**（7/7 页） |
+| B2 同类 · 输入框描边 | #D9DEE7 | `.el-input` 作用域 **#e9ecf1 → #D9DEE7**（`:root` 写了被 EP 按作用域吃掉） |
+| A9 同类 · 文字档 | text-2 #3D4657 | `--el-text-color-regular` **#5a6474 → #3D4657**（缺第 4 档） |
+
+- 不算缺陷的实测差异（工程适配）：TabBar 让位内距 74px / 底栏 flex 居中 / `el-button--small` 无设计对应（r6 vs 控件档 r8 待产品定夺）；业务类文字色实测已符合设计，50 处 `$text-secondary` 不盲迁
+- 护栏：`practice-web/src/styles/styleGuard.test.ts` 新增 4 条，practice-web 测试 **28→32** 全绿、`vue-tsc` 0、`vite build` 成功；根应用 **215/215** 不受影响
+- 提交：`2df89a3`（审计 lane + 报告章节）→ `ab13358`（练题端全局层修复 + 护栏）
