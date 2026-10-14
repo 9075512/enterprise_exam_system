@@ -13,10 +13,16 @@
  * - 「及格率趋势」「科目错题归因」「知识点错题归因」：分别由 examTrend / subjectWrong / tagWrong 支撑，保留。
  * - 「最近考试」：由 examsApi.list() 支撑（原「近期考试」按设计稿文案更名为「最近考试」）。
  *
- * 以下设计稿区块因后端无对应数据源，**未实现**（不臆造数据）：
- * - 「科室及格率」：DashboardReport 不含「按科室聚合的成绩 / 及格率」；
- * - 「待办」：无待办 / 待阅卷 / 复核申请的聚合数据源；
- * - 「异常告警」：无切屏 / 异常事件的聚合数据源。
+ * C 类残项已补齐（v3.1 方向 C；后端无对应聚合接口，按「能算就算、算不出就诚实标注」处理）：
+ * - 「科室及格率」：DashboardReport 无「按科室聚合」段；改用最近 ≤5 场（按开始时间倒序）的
+ *   reportsApi.examReport().departments 在前端按人次数加权平均。口径见 scopeLabel（最近 N 场），
+ *   **非**全司历史口径；某场报表请求失败则跳过该场，全部为空/失败时以「—」占位（不臆造）。
+ * - 「待办」：用现成接口汇总真实数字——recordsApi.listPending（待阅卷）、
+ *   appealsApi.list(status=pending)（待处理复核申请）、retakesApi.listRetakes(status=pending)
+ *   （待审批补考申请），以及「异常告警」页统计的切屏异常数；单项请求失败以「—」占位。
+ * - 「异常告警」：recordsApi.listCheatByExam 对最近 ≤5 场统计「含切屏事件的已交卷记录」，
+ *   阈值口径与「成绩报表 · 切屏审查」「实时监考」一致（取自系统设置 cheatCountThreshold /
+ *   cheatSecondsThreshold）。设计稿的「告警工单」后端无表，故以切屏记录替代，不臆造告警状态。
  */
 import { computed, onMounted, reactive, ref } from 'vue';
 import VChart from 'vue-echarts';
@@ -27,16 +33,24 @@ import { CanvasRenderer } from 'echarts/renderers';
 import {
   Collection,
   Document,
+  EditPen,
+  Flag,
   OfficeBuilding,
+  Refresh,
   Search,
   User,
+  Warning,
 } from '@element-plus/icons-vue';
+import * as appealsApi from '@/api/appeals';
 import * as banksApi from '@/api/banks';
 import * as departmentsApi from '@/api/departments';
 import * as examsApi from '@/api/exams';
 import * as papersApi from '@/api/papers';
+import * as recordsApi from '@/api/records';
 import * as reportsApi from '@/api/reports';
+import * as retakesApi from '@/api/retakes';
 import * as usersApi from '@/api/users';
+import { useSettingsStore } from '@/stores/settings';
 import { THEME } from '@/constants/theme';
 import {
   CHART_AXIS_LABEL,
@@ -48,14 +62,14 @@ import {
   peakIndex,
   softBars,
 } from '@/utils/chartTheme';
-import { formatRange } from '@/utils/datetime';
-import { formatPercent } from '@/utils/format';
+import { formatDateTime, formatRange } from '@/utils/datetime';
+import { formatPercent, formatScore } from '@/utils/format';
 import { getExamStatus } from '@/utils/examStatus';
 import PageHeader from '@/components/common/PageHeader.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import StatusTag from '@/components/common/StatusTag.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
-import type { DashboardReport, Department, Exam, SubjectWrongItem } from '@/types';
+import type { DashboardReport, Department, DeptItem, Exam, SubjectWrongItem } from '@/types';
 
 use([LineChart, BarChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
 
@@ -159,9 +173,174 @@ async function load(): Promise<void> {
   if (dash.status === 'fulfilled') dashboardData.value = dash.value;
 
   loading.value = false;
+
+  // C 类补充块在「考试列表就绪」后各自并发拉取（互相隔离失败，不拖垮整页）
+  void loadDepartmentPassRates();
+  void loadTodos();
+  void loadCheatAlerts();
 }
 
 onMounted(load);
+
+/* =============================== C 类残项：设计稿三块 =============================== */
+
+/**
+ * 科室及格率的「需关注」阈值（图形语义，非业务规则）：
+ * 低于该值的科室进度条改走 warning 色，便于一眼定位薄弱科室；不参与任何及格判定。
+ * 与「成绩报表 · 科室对比」同口径。
+ */
+const DEPARTMENT_PASS_RATE_WARN = 0.9;
+
+/** 派生块口径上限：最近 N 场考试（避免逐场报表的 N+1 过重） */
+const DERIVED_EXAM_LIMIT = 5;
+
+const settingsStore = useSettingsStore();
+
+/** 最近 N 场考试（按开始时间倒序） */
+const recentExams = computed<Exam[]>(() =>
+  [...exams.value]
+    .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+    .slice(0, DERIVED_EXAM_LIMIT),
+);
+
+/** 口径文案（最近 N 场，N 为实际参与聚合的考试数） */
+const scopeLabel = computed<string>(() => `最近 ${recentExams.value.length} 场`);
+
+/* ---------- 1. 科室及格率（前端按人数加权聚合；DashboardReport 无该段） ---------- */
+const departmentPassRates = ref<DeptItem[]>([]);
+const passRateLoading = ref(false);
+
+async function loadDepartmentPassRates(): Promise<void> {
+  passRateLoading.value = true;
+  try {
+    const results = await Promise.allSettled(
+      recentExams.value.map((e) => reportsApi.examReport(e.id)),
+    );
+    // 按科室加权聚合：count 求和；avgScore / passRate 以 count 为权重
+    const acc = new Map<
+      string,
+      { name: string; count: number; scoreSum: number; passSum: number }
+    >();
+    for (const r of results) {
+      if (r.status !== 'fulfilled') continue;
+      for (const d of r.value.departments) {
+        const cur =
+          acc.get(d.departmentId) ?? { name: d.departmentName, count: 0, scoreSum: 0, passSum: 0 };
+        cur.count += d.count;
+        cur.scoreSum += d.count * d.avgScore;
+        cur.passSum += d.count * d.passRate;
+        if (d.departmentName) cur.name = d.departmentName;
+        acc.set(d.departmentId, cur);
+      }
+    }
+    departmentPassRates.value = [...acc.entries()]
+      .map(([departmentId, v]) => ({
+        departmentId,
+        departmentName: v.name,
+        count: v.count,
+        avgScore: v.count > 0 ? v.scoreSum / v.count : 0,
+        passRate: v.count > 0 ? v.passSum / v.count : 0,
+      }))
+      .sort((a, b) => b.passRate - a.passRate);
+  } catch {
+    departmentPassRates.value = [];
+  } finally {
+    passRateLoading.value = false;
+  }
+}
+
+/* ---------- 2. 待办（现成接口汇总真实数字，失败以 — 占位） ---------- */
+const pendingReviewCount = ref<number | null>(null);
+const pendingReviewOldestAt = ref('');
+const pendingAppealCount = ref<number | null>(null);
+const pendingAppealOldestAt = ref('');
+const pendingRetakeCount = ref<number | null>(null);
+const todoLoading = ref(false);
+
+async function loadTodos(): Promise<void> {
+  todoLoading.value = true;
+  const [pending, appeals, retakes] = await Promise.allSettled([
+    recordsApi.listPending({ page: 1, pageSize: 5 }),
+    appealsApi.list({ status: 'pending', page: 1, pageSize: 5 }),
+    retakesApi.listRetakes({ status: 'pending', page: 1, pageSize: 5 }),
+  ]);
+  if (pending.status === 'fulfilled') {
+    pendingReviewCount.value = pending.value.total;
+    const times = pending.value.list
+      .map((r) => r.submittedAt)
+      .filter((t): t is string => Boolean(t))
+      .sort();
+    pendingReviewOldestAt.value = times[0] ?? '';
+  }
+  if (appeals.status === 'fulfilled') {
+    pendingAppealCount.value = appeals.value.total;
+    const times = appeals.value.list.map((a) => a.appliedAt).filter(Boolean).sort();
+    pendingAppealOldestAt.value = times[0] ?? '';
+  }
+  if (retakes.status === 'fulfilled') pendingRetakeCount.value = retakes.value.total;
+  todoLoading.value = false;
+}
+
+/* ---------- 3. 异常告警（切屏审查口径，最近 ≤5 场） ---------- */
+interface CheatAlert {
+  id: string;
+  userName: string;
+  examName: string;
+  cheatCount: number;
+  cheatSeconds: number;
+  /** 是否达阈值（次数或累计离开时长任一达阈） */
+  over: boolean;
+  /** 最近一次切屏事件时刻（ISO） */
+  at: string;
+}
+
+const cheatAlerts = ref<CheatAlert[]>([]);
+const cheatAlertCount = ref<number | null>(null);
+const alertLoading = ref(false);
+
+/** 时间线展示上限 */
+const ALERT_LIMIT = 6;
+const visibleCheatAlerts = computed<CheatAlert[]>(() => cheatAlerts.value.slice(0, ALERT_LIMIT));
+
+async function loadCheatAlerts(): Promise<void> {
+  alertLoading.value = true;
+  try {
+    // 阈值口径来自系统设置（失败静默保留默认值，见 settings store）
+    await settingsStore.load();
+    const targets = recentExams.value;
+    const results = await Promise.allSettled(targets.map((e) => recordsApi.listCheatByExam(e.id)));
+    const rows: CheatAlert[] = [];
+    results.forEach((r, i) => {
+      if (r.status !== 'fulfilled') return;
+      const fallbackExamName = targets[i]?.name ?? '';
+      for (const rec of r.value) {
+        const cheatCount = rec.cheatEvents.length;
+        const cheatSeconds = Math.round(
+          rec.cheatEvents.reduce((sum, ev) => sum + (Number(ev.awaySeconds) || 0), 0),
+        );
+        rows.push({
+          id: rec.id,
+          userName: rec.userName || '—',
+          examName: rec.examName || fallbackExamName,
+          cheatCount,
+          cheatSeconds,
+          over:
+            cheatCount >= settingsStore.settings.cheatCountThreshold ||
+            cheatSeconds >= settingsStore.settings.cheatSecondsThreshold,
+          at: rec.cheatEvents[rec.cheatEvents.length - 1]?.at || rec.submittedAt || '',
+        });
+      }
+    });
+    rows.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+    cheatAlerts.value = rows;
+    cheatAlertCount.value = rows.filter((r) => r.over).length;
+  } catch {
+    cheatAlerts.value = [];
+    cheatAlertCount.value = null;
+  } finally {
+    alertLoading.value = false;
+  }
+}
 
 /* ------------------------------ 图表 option ------------------------------ */
 /**
@@ -376,8 +555,9 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
         </el-col>
       </el-row>
 
+      <!-- 设计稿 g-2-1：考试场次趋势（主）+ 科室及格率（侧） -->
       <el-row :gutter="16" class="dashboard__charts">
-        <el-col :xs="24" :md="12">
+        <el-col :xs="24" :md="16">
           <el-card v-loading="chartLoading" class="dashboard__chart-card" shadow="never">
             <template #header>
               <span>考试场次趋势</span>
@@ -387,24 +567,65 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
             <VChart v-else :option="sessionOption" autoresize style="height: 300px" />
           </el-card>
         </el-col>
-        <el-col :xs="24" :md="12">
+        <el-col :xs="24" :md="8">
+          <el-card v-loading="passRateLoading" class="dashboard__chart-card" shadow="never">
+            <template #header>
+              <span>科室及格率</span>
+              <span class="dashboard__chart-hint">按人数加权 · {{ scopeLabel }}</span>
+            </template>
+            <!-- 数据缺口：DashboardReport 无「按科室聚合」段，此处由最近 ≤5 场 examReport().departments 前端加权聚合 -->
+            <table v-if="departmentPassRates.length > 0" class="dashboard__dept">
+              <thead>
+                <tr>
+                  <th>科室</th>
+                  <th class="dashboard__dept-num">人数</th>
+                  <th class="dashboard__dept-num">平均分</th>
+                  <th>及格率</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in departmentPassRates" :key="row.departmentId">
+                  <td class="dashboard__dept-name" :title="row.departmentName">
+                    {{ row.departmentName }}
+                  </td>
+                  <td class="dashboard__dept-num num">{{ row.count }}</td>
+                  <td class="dashboard__dept-num num">{{ formatScore(row.avgScore) }}</td>
+                  <td>
+                    <div class="dashboard__rate">
+                      <span class="dashboard__rate-num num">{{ formatPercent(row.passRate) }}</span>
+                      <el-progress
+                        class="dashboard__rate-bar"
+                        :percentage="Math.round(row.passRate * 100)"
+                        :stroke-width="6"
+                        :show-text="false"
+                        :color="row.passRate >= DEPARTMENT_PASS_RATE_WARN ? THEME.primary : THEME.warning"
+                      />
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <EmptyState v-else text="—（暂无科室成绩数据：最近 5 场报表为空或请求失败）" />
+          </el-card>
+        </el-col>
+      </el-row>
+
+      <el-row :gutter="16" class="dashboard__charts">
+        <el-col :xs="24" :md="8">
           <el-card v-loading="chartLoading" class="dashboard__chart-card" shadow="never">
             <template #header><span>及格率趋势</span></template>
             <EmptyState v-if="!dashboardData || dashboardData.examTrend.length === 0" text="暂无趋势数据" />
             <VChart v-else :option="trendOption" autoresize style="height: 300px" />
           </el-card>
         </el-col>
-      </el-row>
-
-      <el-row :gutter="16" class="dashboard__charts">
-        <el-col :xs="24" :md="12">
+        <el-col :xs="24" :md="8">
           <el-card v-loading="chartLoading" class="dashboard__chart-card" shadow="never">
             <template #header><span>科目错题归因</span></template>
             <EmptyState v-if="!dashboardData || dashboardData.subjectWrong.length === 0" text="暂无归因数据" />
             <VChart v-else :option="subjectOption" autoresize style="height: 300px" />
           </el-card>
         </el-col>
-        <el-col :xs="24" :md="12">
+        <el-col :xs="24" :md="8">
           <el-card v-loading="chartLoading" class="dashboard__chart-card" shadow="never">
             <template #header>
               <span>知识点错题归因</span>
@@ -419,31 +640,139 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
         </el-col>
       </el-row>
 
-      <el-card class="dashboard__recent" shadow="never">
-        <template #header>
-          <span>最近考试</span>
-        </template>
-
-        <EmptyState v-if="exams.length === 0" text="暂无考试" />
-
-        <el-table v-else :data="exams" row-key="id" stripe>
-          <el-table-column prop="name" label="考试名称" min-width="180" show-overflow-tooltip />
-          <el-table-column label="关联试卷" min-width="180" show-overflow-tooltip>
-            <template #default="{ row }">{{ paperNames[row.paperId] || row.paperId }}</template>
-          </el-table-column>
-          <el-table-column label="参与科室" width="100" align="center">
-            <template #default="{ row }">{{ row.departmentIds.length }}</template>
-          </el-table-column>
-          <el-table-column label="时间窗" min-width="320">
-            <template #default="{ row }">{{ formatRange(row.startTime, row.endTime) }}</template>
-          </el-table-column>
-          <el-table-column label="状态" width="100" align="center">
-            <template #default="{ row }">
-              <StatusTag :status="getExamStatus(row as Exam)" />
+      <!-- 设计稿 g-3-1：最近考试（主）+ 待办 / 异常告警（右侧栏） -->
+      <el-row :gutter="16" class="dashboard__charts">
+        <el-col :xs="24" :md="16">
+          <el-card class="dashboard__chart-card" shadow="never">
+            <template #header>
+              <span>最近考试</span>
             </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
+
+            <EmptyState v-if="exams.length === 0" text="暂无考试" />
+
+            <el-table v-else :data="exams" row-key="id" stripe>
+              <el-table-column prop="name" label="考试名称" min-width="160" show-overflow-tooltip />
+              <el-table-column label="关联试卷" min-width="150" show-overflow-tooltip>
+                <template #default="{ row }">{{ paperNames[row.paperId] || row.paperId }}</template>
+              </el-table-column>
+              <el-table-column label="参与科室" width="90" align="center">
+                <template #default="{ row }">{{ row.departmentIds.length }}</template>
+              </el-table-column>
+              <el-table-column label="时间窗" min-width="260" show-overflow-tooltip>
+                <template #default="{ row }">{{ formatRange(row.startTime, row.endTime) }}</template>
+              </el-table-column>
+              <el-table-column label="状态" width="90" align="center">
+                <template #default="{ row }">
+                  <StatusTag :status="getExamStatus(row as Exam)" />
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-card>
+        </el-col>
+
+        <el-col :xs="24" :md="8">
+          <!-- 待办：全部为现成接口汇总的真实数字，失败项以「—」占位 -->
+          <el-card v-loading="todoLoading" class="dashboard__chart-card" shadow="never">
+            <template #header>
+              <span>待办</span>
+              <span class="dashboard__chart-hint">全局实时</span>
+            </template>
+            <ul class="dashboard__todo">
+              <li class="dashboard__todo-item">
+                <el-icon class="dashboard__todo-ic dashboard__todo-ic--warn"><EditPen /></el-icon>
+                <div class="dashboard__todo-body">
+                  <div class="dashboard__todo-title">
+                    <template v-if="pendingReviewCount !== null">
+                      {{ pendingReviewCount }} 份主观题待阅卷
+                    </template>
+                    <template v-else>—</template>
+                  </div>
+                  <div class="dashboard__todo-sub">
+                    <template v-if="pendingReviewCount === null">待阅卷数据获取失败</template>
+                    <template v-else-if="pendingReviewCount === 0">暂无积压</template>
+                    <template v-else-if="pendingReviewOldestAt">
+                      最早提交 {{ formatDateTime(pendingReviewOldestAt) }}
+                    </template>
+                    <template v-else>—</template>
+                  </div>
+                </div>
+              </li>
+              <li class="dashboard__todo-item">
+                <el-icon class="dashboard__todo-ic dashboard__todo-ic--err"><Warning /></el-icon>
+                <div class="dashboard__todo-body">
+                  <div class="dashboard__todo-title">
+                    <template v-if="cheatAlertCount !== null">{{ cheatAlertCount }} 条切屏异常</template>
+                    <template v-else>—</template>
+                  </div>
+                  <div class="dashboard__todo-sub">
+                    <template v-if="cheatAlertCount === null">切屏审查数据获取失败</template>
+                    <template v-else>{{ scopeLabel }} · 达阈值口径</template>
+                  </div>
+                </div>
+              </li>
+              <li class="dashboard__todo-item">
+                <el-icon class="dashboard__todo-ic"><Flag /></el-icon>
+                <div class="dashboard__todo-body">
+                  <div class="dashboard__todo-title">
+                    <template v-if="pendingAppealCount !== null">
+                      {{ pendingAppealCount }} 份成绩复核申请
+                    </template>
+                    <template v-else>—</template>
+                  </div>
+                  <div class="dashboard__todo-sub">
+                    <template v-if="pendingAppealCount === null">复核申请数据获取失败</template>
+                    <template v-else-if="pendingAppealCount === 0">暂无待处理</template>
+                    <template v-else-if="pendingAppealOldestAt">
+                      最早申请于 {{ formatDateTime(pendingAppealOldestAt) }}
+                    </template>
+                    <template v-else>—</template>
+                  </div>
+                </div>
+              </li>
+              <li class="dashboard__todo-item">
+                <el-icon class="dashboard__todo-ic"><Refresh /></el-icon>
+                <div class="dashboard__todo-body">
+                  <div class="dashboard__todo-title">
+                    <template v-if="pendingRetakeCount !== null">{{ pendingRetakeCount }} 条补考申请</template>
+                    <template v-else>—</template>
+                  </div>
+                  <div class="dashboard__todo-sub">
+                    <template v-if="pendingRetakeCount === null">补考申请数据获取失败</template>
+                    <template v-else>待审批</template>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </el-card>
+
+          <!-- 异常告警：以「含切屏事件的已交卷记录」替代设计稿的告警工单（后端无工单表） -->
+          <el-card v-loading="alertLoading" class="dashboard__chart-card" shadow="never">
+            <template #header>
+              <span>异常告警</span>
+              <span class="dashboard__chart-hint">{{ scopeLabel }} · 切屏审查口径</span>
+            </template>
+            <ul v-if="visibleCheatAlerts.length > 0" class="dashboard__alerts">
+              <li
+                v-for="a in visibleCheatAlerts"
+                :key="a.id"
+                class="dashboard__alert"
+                :class="{ 'dashboard__alert--over': a.over }"
+              >
+                <div class="dashboard__alert-title">
+                  <template v-if="a.over">
+                    {{ a.userName }} 切屏 {{ a.cheatCount }} 次 / 累计离开 {{ a.cheatSeconds }} 秒
+                  </template>
+                  <template v-else>{{ a.userName }} 切屏 {{ a.cheatCount }} 次</template>
+                </div>
+                <div class="dashboard__alert-sub">
+                  {{ a.examName }} · {{ a.at ? formatDateTime(a.at).slice(11) : '—' }}
+                </div>
+              </li>
+            </ul>
+            <EmptyState v-else text="—（最近 5 场暂无切屏异常记录）" />
+          </el-card>
+        </el-col>
+      </el-row>
     </template>
   </div>
 </template>
@@ -492,8 +821,165 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
   margin-bottom: 16px;
 }
 
-.dashboard__recent {
-  border-radius: $radius-lg;
+// —— C 类残项 1：科室及格率（「表格 + 内联进度条」，与「成绩报表 · 科室对比」同范式）
+.dashboard__dept {
+  width: 100%;
+  border-collapse: collapse;
+
+  th {
+    padding: 6px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-align: left;
+    white-space: nowrap;
+    color: $text-secondary;
+    border-bottom: 1px solid $line-strong;
+  }
+
+  td {
+    padding: 7px 8px;
+    font-size: 13px;
+    color: $text-body;
+    border-bottom: 1px solid $border-color;
+    vertical-align: middle;
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+
+  // 表头数字列与正文数字列同向右对齐
+  th.dashboard__dept-num {
+    text-align: right;
+  }
+
+  &-name {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: $text-primary;
+  }
+
+  &-num {
+    text-align: right;
+    white-space: nowrap;
+  }
+}
+
+.dashboard__rate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 120px;
+}
+
+.dashboard__rate-num {
+  flex: 0 0 auto;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.dashboard__rate-bar {
+  flex: 1 1 auto;
+  min-width: 60px;
+}
+
+// —— C 类残项 2：待办（图标件沿用统计卡语言：26px 软底图标 + 主色/语义图形档）
+.dashboard__todo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dashboard__todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.dashboard__todo-ic {
+  display: grid;
+  flex: 0 0 26px;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: $radius-xs;
+  background: $color-primary-soft;
+  color: $color-primary;
+  font-size: 15px;
+
+  &--warn {
+    background: $color-warning-bg;
+    color: $color-warning;
+  }
+
+  &--err {
+    background: $color-error-bg;
+    color: $color-error;
+  }
+}
+
+.dashboard__todo-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dashboard__todo-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.dashboard__todo-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: $text-secondary;
+}
+
+// —— C 类残项 3：异常告警（时间线：左缘 2px 图形档色条，文字保持文本档）
+.dashboard__alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dashboard__alert {
+  position: relative;
+  padding-left: 10px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 2px auto 2px 0;
+    width: 2px;
+    border-radius: $radius-xs;
+    background: $color-warning;
+  }
+
+  &--over::before {
+    background: $color-error;
+  }
+}
+
+.dashboard__alert-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.dashboard__alert-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: $text-secondary;
 }
 
 // 统计卡（DESIGN-C §2.4）：左缘 2px 主色条 + 26px 主色软底图标 + 纵向层级。
