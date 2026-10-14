@@ -106,3 +106,46 @@ A9 是 A2/A4/A5 的共同根因：设计稿四档文字，工程只落地了三�
 3. **A1–A6**（按钮/弹窗/表单/徽标/表格字号 —— 都是 `:root` EP 变量一揽子可解）；
 4. **A9 文字档补 #3D4657**（token 层加一档，A2/A4/A5 随之解决）；
 5. **C 类**按页面逐个排期（需产品确认：settings 卡片化 vs 页签、scores 分析卡、departments 科室树 优先级最高）。
+
+---
+
+## 修复后复验（2026-10-14 第二轮，commit `36a0e15`…`03207d0`）
+
+B/A/A9 类全部修完后，用同一把尺子重跑 `tools/audit-fidelity.mjs`（30 页全量），对**同语义元素取 computed style** 做一次前/后对照，确认修复真的落到渲染层（而非只在源码里声明）。
+
+### 关键项实机计算值（前 → 后）
+
+| 元素 | 属性 | 修复前 | 修复后 | 设计稿 | 对应 |
+| --- | --- | --- | --- | --- | --- |
+| `body` | font-size | **16px** | **13.5px** | 13.5px | **B1** |
+| `.el-dialog`（teleport 浮层根） | font-size | **16px** | **13.5px** | 13.5px | **B1** |
+| `--el-font-size-base` | 变量值 | （未设） | **13px** | — | B1 |
+| `--el-text-color-regular` | 变量值 | #5A6474 | **#3D4657** | text-2 | A9 |
+| 输入框描边 | box-shadow inset 色 | **#E9ECF1** | **#D9DEE7** | #D9DEE7 | **B2** |
+| 表头底边 | border-bottom-color | **#EEF2F7** | **#D9DEE7** | #D9DEE7 | **B3/B4** |
+| 表格单元 | border-bottom-color | **#EEF2F7** | **#E9ECF1** | #E9ECF1 | B3 |
+| 表格单元 | font-size | **14px** | **13px** | 13px | **B5/A5** |
+| 表格单元 | color | #5A6474 | **#3D4657** | #3D4657 | **A9** |
+| 主按钮 | font-size | **14px** | **12.5px** | 12.5px | A1 |
+| 次按钮 | border / color | #E9ECF1 / #5A6474 | **#D9DEE7 / #0D1220** | 同 | A2/A9 |
+| 弹窗头 / 体 | padding | 18px 24px / 20px 24px | **13px 16px / 16px** | 同 | A3 |
+| 徽标 `.el-tag` | height/radius/font-size | 24px/4px/12px | **20px/5px/11.5px** | 同 | A6 |
+| 页签 `.el-tabs__item` | height | **33px** | **39px** | 39px | A7 |
+| 卡头 | 匹配率 | 34% | **66%** | — | A3 |
+
+### 汇总
+
+- 严格逐属性全等口径：**112/567 (19.8%) → 142/567 (25.0%)，+30 个元素转正**。
+- 该绝对值偏低不是问题源：探针会取 `boxShadow`（EP 用 `inset 0 0 0 1px` 阴影画输入框/表格边框，设计稿用真 `border`，**结构上不可能相等**）与 `fontWeight`（设计稿 550/580 → 工程取整 500/600，属 **D 类已文档化偏差**）。只看**趋势**与**逐项计算值**，不看绝对值。
+- 剩余未对齐项均为 D 类：表头行高 38px（设计 36）、表头 12px（设计 11）、卡片内距 16px（设计各卡 8–20 不一）、字重取整。
+
+### 护栏补强
+
+`src/styles/globalStyle.test.ts` 新增 `describe('全站样式 · 保真度审计修复（B/A 类）')` 11 条，把 B1–B5/A1–A6/A8/A9 的**声明作用域**钉住（如 `.el-input.el-input` 元素级声明、`.el-table.el-table` 同作用域、表头规则含 `.is-leaf`）。vitest 读不到 computed style，**计算值仍以本文件 §修复后复验 + CDP 实测为准**（vitest 215/215 全绿）。
+
+### ⚠️ 仍需产品决策的 C 类（本轮未做）
+
+- `scores` 分数段分布 / 科室对比 / 错题排行 TOP 5 三张分析卡（后端仅 `Report.summary/bands/departments/wrongRate`，首屏需先选考试）；
+- `dashboard` 科室及格率 / 待办 / 异常告警（无后端聚合）；
+- `composer` 向导流 vs 设计稿分区面板、`reviews` 需先选记录、`paper-preview` 信息块；
+- 表格列集合差异（信息架构不同，非遗漏）。
