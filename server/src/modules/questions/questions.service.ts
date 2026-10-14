@@ -281,7 +281,14 @@ export async function listGlobal(
     repo.listFiltered(queryFilter, paging),
     repo.countFiltered(queryFilter),
   ]);
-  return buildPage(rows.map(mapQuestionRow), total, paging.page, paging.pageSize);
+  // 作答正确率：仅对当前页题目做一次批量聚合（无作答 → null），供组卷「难度系数（P 值）」取实测值
+  const rateMap = await repo.correctRateByQuestionIds(rows.map((r) => r.id));
+  return buildPage(
+    rows.map((r) => mapQuestionRow(r, rateMap.get(r.id) ?? null)),
+    total,
+    paging.page,
+    paging.pageSize,
+  );
 }
 
 /** 全部科目（去重排序，可限定题库集合；author 限定到被授权题库）。 */

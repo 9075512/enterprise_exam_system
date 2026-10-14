@@ -117,6 +117,8 @@ export async function getById(id: string, operator: Operator): Promise<PaperDeta
 
   const qRows = await questionRepo.findByIds(pqRows.map((r) => r.question_id));
   const qMap = new Map(qRows.map((r) => [r.id, r]));
+  // 实测正确率：供组卷页「难度系数（P 值）」评估（无练题作答 → null）
+  const rateMap = await questionRepo.correctRateByQuestionIds(qRows.map((r) => r.id));
 
   // 兼容存量乱序数据：详情按题型（单选→多选→判断）稳定排序返回。
   const orderedRows = sortByQuestionType(pqRows, (r) => qMap.get(r.question_id)?.type);
@@ -125,7 +127,7 @@ export async function getById(id: string, operator: Operator): Promise<PaperDeta
   for (const r of orderedRows) {
     const qr = qMap.get(r.question_id);
     if (!qr) continue; // 理论上不会发生（外键 CASCADE 保证一致性）
-    const dto = mapQuestionRow(qr);
+    const dto = mapQuestionRow(qr, rateMap.get(qr.id) ?? null);
     questions.push({
       questionId: r.question_id,
       score: Number(r.score),
