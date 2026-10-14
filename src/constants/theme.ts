@@ -50,6 +50,8 @@ export const THEME = {
 
   /** 文本 */
   textPrimary: '#0D1220',
+  /** 设计稿 text-2 档：表格正文 / 表单标签 / 次按钮字色（$text-body 同源） */
+  textBody: '#3D4657',
   textSecondary: '#5A6474',
   /** 禁用/已结束等弱化文本（图形档，禁止承载正文） */
   textDisabled: '#858F9E',

@@ -316,7 +316,7 @@ describe('全站样式 · v3.1 方向 C 布局与表头护栏', () => {
   });
 
   it('表头「标签化」：小号 + 加字距 + 大写 + 弱文字色 + 强发丝线分隔', () => {
-    const header = /\.el-table\.el-table th\.el-table__cell\s*\{([^}]*)\}/.exec(scss)?.[1] ?? '';
+    const header = /\.el-table\.el-table th\.el-table__cell[^{]*\{([^}]*)\}/.exec(scss)?.[1] ?? '';
     expect(header).not.toBe('');
     expect(header).toMatch(/font-size:\s*12px/);
     expect(header).toMatch(/letter-spacing:\s*0?\.0[3-9]em/);
@@ -466,7 +466,7 @@ describe('全站样式 · v3.1 方向 C 组件刻度护栏', () => {
  * v3.1 方向 C 第五批：表单控件族刻度护栏（DESIGN-C §2.3 / §2.4）。
  *
  * 这批改的是「每个表单/列表都会出现」的 EP 原生控件——页签、分页、复选、单选、
- * 开关、步骤条、进度条。与 EP 默认差异最大的是页签（40→33px 高、14→13px 字、
+ * 开关、步骤条、进度条。与 EP 默认差异最大的是页签（40→39px 高、14→13px 字、
  * 非选中由深色改弱色）与分页（EP 只染文字，设计稿是主色实底）。
  * 另有一条反查：EP 的进度条轨道色不是 CSS 变量，写 --el-progress-bg-color 是无效的，
  * 必须直接覆盖 .el-progress-bar__outer —— 断言禁止回退到无效写法。
@@ -475,8 +475,8 @@ describe('全站样式 · v3.1 方向 C 表单控件族护栏', () => {
   const scss = readFileSync(resolve(process.cwd(), 'src/styles/index.scss'), 'utf8');
   const settings = readFileSync(resolve(process.cwd(), 'src/views/admin/SettingsPage.vue'), 'utf8');
 
-  it('页签刻度：33px 高 / 13px / 非选中弱色 / 选中主色加粗', () => {
-    expect(scss).toMatch(/--el-tabs-header-height:\s*33px/);
+  it('页签刻度：39px 高 / 13px / 非选中弱色 / 选中主色加粗', () => {
+    expect(scss).toMatch(/--el-tabs-header-height:\s*39px/);
 
     const item = /\.el-tabs__item\s*\{([^}]*)\}/.exec(scss)?.[1] ?? '';
     expect(item).not.toBe('');
@@ -625,5 +625,93 @@ describe('全站样式 · v3.1 方向 C 考试端换肤护栏', () => {
       expect(block).toMatch(/\.stat-card__icon\s*\{[\s\S]*?background:\s*\$color-[\w-]+-bg/);
       expect(block).not.toMatch(/(?<![-\w])color\s*:\s*\$color-(?:success|warning|error|info)\s*;/);
     }
+  });
+});
+
+/**
+ * 保真度审计修复护栏（FIDELITY-AUDIT.md B/A 类，2026-10-14）。
+ *
+ * 这组断言针对一类「护栏测不到」的缺陷：**声明存在但计算值不对**。
+ * 成因是 Element Plus 组件级同名变量/规则比 :root 更近（同优先级按注入顺序胜出），
+ * 顶层声明被无声吃掉。所以断言不只看「写了什么」，更锁死「必须写在哪个作用域」——
+ * 一旦有人把 `.el-input.el-input` 的高优先级覆盖改回裸 `.el-input`，这里先红。
+ *
+ * ⚠️ vitest 环境取不到 getComputedStyle 的真实结果，故这些是「作用域写法」断言；
+ *    真正的计算值校验走 docs/ui-v3b/tools/audit-fidelity.mjs（CDP 实测）。
+ */
+describe('全站样式 · 保真度审计修复（B/A 类）', () => {
+  const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+  const scss = readFileSync(resolve(process.cwd(), 'src/styles/index.scss'), 'utf8');
+  const layout = strip(readFileSync(resolve(process.cwd(), 'src/layouts/AppLayout.vue'), 'utf8'));
+
+  it('B1 基准字号：body 13.5px + EP 组件基准 13px（浮层继承 body，此前取浏览器 16px）', () => {
+    expect(scss).toMatch(/body\s*\{[\s\S]*?font-size:\s*13\.5px/);
+    expect(scss).toMatch(/--el-font-size-base:\s*13px/);
+  });
+
+  it('B2 输入框描边：必须写在 .el-input.el-input 作用域（:root 声明会被组件级吃掉）', () => {
+    expect(scss).toMatch(/\.el-input\.el-input[\s\S]{0,80}--el-input-border-color:\s*#\{\$line-strong\}/);
+  });
+
+  it('B3/B5 表格：.el-table.el-table 作用域设边框色与 13px 字号', () => {
+    const block = /\.el-table\.el-table\s*\{([\s\S]*?)\n\}/.exec(scss)?.[1] ?? '';
+    expect(block).not.toBe('');
+    expect(block).toMatch(/--el-table-border-color:\s*#\{\$border-color\}/);
+    expect(block).toMatch(/--el-table-text-color:\s*#\{\$text-body\}/);
+    expect(block).toMatch(/font-size:\s*13px/);
+  });
+
+  it('B4 表头底边必须带 .is-leaf（否则与 EP 同优先级被注入顺序覆盖）', () => {
+    expect(scss).toMatch(/\.el-table\.el-table th\.el-table__cell\.is-leaf/);
+  });
+
+  it('B3 回归：不再用规范外的浅灰作表格边框（页面级硬编码曾把变量带偏）', () => {
+    expect(scss).not.toMatch(/#eef2f7/i);
+  });
+
+  it('A1 按钮刻度：12.5px / 内距 8px 12px', () => {
+    const block = /\.el-button\.el-button\s*\{([\s\S]*?)\n\}/.exec(scss)?.[1] ?? '';
+    expect(block).toMatch(/font-size:\s*12\.5px/);
+    expect(block).toMatch(/padding:\s*8px 12px/);
+  });
+
+  it('A2 次按钮：字色 text-1 + 描边强发丝线，且不移除语义类型/text/link 形态', () => {
+    const sel = /\.el-button\.el-button:not\(\.el-button--primary\)([\s\S]*?)\{([\s\S]*?)\n\}/.exec(scss);
+    expect(sel).not.toBeNull();
+    // 覆盖选择器必须排除全部语义类型与 text/link（否则会误伤主按钮与文字按钮）
+    for (const t of ['success', 'warning', 'danger', 'info']) {
+      expect(sel![0]).toContain(`:not(.el-button--${t})`);
+    }
+    expect(sel![0]).toContain(':not(.is-text)');
+    expect(sel![0]).toContain(':not(.is-link)');
+    expect(sel![2]).toMatch(/--el-button-text-color:\s*#\{\$text-primary\}/);
+    expect(sel![2]).toMatch(/--el-button-border-color:\s*#\{\$line-strong\}/);
+  });
+
+  it('A3 弹窗刻度：头 13px 16px / 标题 14px / 正文 16px / 脚 12px 16px', () => {
+    expect(scss).toMatch(/\.el-dialog\.el-dialog[\s\S]*?\.el-dialog__header\s*\{\s*padding:\s*13px 16px/);
+    expect(scss).toMatch(/\.el-dialog__title\s*\{\s*font-size:\s*14px/);
+    expect(scss).toMatch(/\.el-dialog__body\s*\{\s*padding:\s*16px/);
+    expect(scss).toMatch(/\.el-dialog__footer\s*\{\s*padding:\s*12px 16px/);
+  });
+
+  it('A4 表单标签：12px / 600 / text-2', () => {
+    const block = /\.el-form-item__label\.el-form-item__label\s*\{([^}]*)\}/.exec(scss)?.[1] ?? '';
+    expect(block).toMatch(/font-size:\s*12px/);
+    expect(block).toMatch(/font-weight:\s*600/);
+    expect(block).toMatch(/color:\s*\$text-body/);
+  });
+
+  it('A6 徽标刻度：20px 高 / 5px 圆角 / 11.5px', () => {
+    const block = /\.el-tag\.el-tag\s*\{([\s\S]*?)\n\}/.exec(scss)?.[1] ?? '';
+    expect(block).toMatch(/height:\s*20px/);
+    expect(block).toMatch(/border-radius:\s*5px/);
+    expect(block).toMatch(/font-size:\s*11\.5px/);
+  });
+
+  it('A8 品牌区：mark 24px/r6 + 名称 13.5px/600 + 英文副标题', () => {
+    expect(layout).toMatch(/&__brand-mark\s*\{[\s\S]*?width:\s*24px[\s\S]*?border-radius:\s*6px/);
+    expect(layout).toMatch(/&__brand-name\s*\{[\s\S]*?font-size:\s*13\.5px[\s\S]*?font-weight:\s*600/);
+    expect(layout).toMatch(/small\s*\{[\s\S]*?font-size:\s*9\.5px/);
   });
 });

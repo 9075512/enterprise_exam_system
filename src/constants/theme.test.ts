@@ -73,6 +73,7 @@ describe('设计 token · SCSS ↔ TS 同源', () => {
     ['bg-paper', 'surface'],
     ['color-table-hover', 'tableHover'],
     ['color-neutral-bg', 'neutralBg'],
+    ['text-body', 'textBody'],
   ];
 
   it.each(PAIRS)('$%s 与 THEME.%s 值一致', (scssName, key) => {
@@ -88,6 +89,7 @@ describe('设计 token · 可访问性（对白底 #FFFFFF）', () => {
     ['errorText', THEME.errorText],
     ['infoText', THEME.infoText],
     ['textPrimary', THEME.textPrimary],
+    ['textBody', THEME.textBody],
     ['textSecondary', THEME.textSecondary],
   ];
 

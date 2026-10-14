@@ -50,10 +50,15 @@ $color-info-50: #EFF8FF;
 $bg-page: #F7F8FA;
 $bg-paper: #FFFFFF;
 
-// 文本
-$text-primary: #0D1220; // 18.7:1 ✅
-$text-secondary: #5A6474; // 6.0:1 ✅
-$text-disabled: #858F9E; // 3.27:1 —— 图形档，禁止承载正文
+// 文本（四档，对齐 DESIGN-C §2 的 text-1/2/3 + icon）
+$text-primary: #0D1220; // 18.7:1 ✅ = DESIGN-C --text-1
+// 设计稿 text-2 档：表格正文 / 表单标签 / 次按钮字色。
+// 保真度审计 A9 发现：工程此前只有 primary/secondary/disabled 三档，
+// 凡设计稿用 text-2 处都落到了 text-3(#5A6474)，整体比设计稿「灰一档」。
+// $text-secondary 保持 = 设计稿的 text-3，勿改语义。
+$text-body: #3D4657; // 9.5:1 ✅ = DESIGN-C --text-2
+$text-secondary: #5A6474; // 6.0:1 ✅ = DESIGN-C --text-3
+$text-disabled: #858F9E; // 3.27:1 —— 图形档，禁止承载正文 = DESIGN-C --icon
 
 // 边框 / 圆角 / 阴影
 $border-color: #E9ECF1; // 发丝线：行分隔 / 卡片边
