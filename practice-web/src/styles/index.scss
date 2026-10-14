@@ -63,6 +63,9 @@ body {
   // 基准字号 14px（= kit/m.css 的 body）。EP 浮层（弹窗 / 气泡 / 下拉）teleport 到 body，
   // 其根字号继承自 body —— 此前未设，取浏览器默认 16px，整层比设计稿大一档（审计 B1 同类）。
   font-size: 14px;
+  // 正文行距 1.55（= kit/m.css 的 body）：B1 只补了字号，行高漏了，
+  // 自然文本实际取浏览器 normal（≈1.2），正文行距比设计稿紧一档（逐页审计补遗）。
+  line-height: 1.55;
   color: $text-primary;
   background-color: $bg-page;
   -webkit-font-smoothing: antialiased;

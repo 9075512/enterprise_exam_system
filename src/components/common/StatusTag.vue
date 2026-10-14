@@ -45,10 +45,33 @@ const info = computed(() => {
 
 <template>
   <el-tag
+    class="status-tag"
     effect="plain"
-    round
     :style="{ color: info.fg, borderColor: info.border, backgroundColor: info.bg }"
   >
     {{ info.label }}
   </el-tag>
 </template>
+
+<style scoped lang="scss">
+/* 状态徽标 = 设计稿 .bdg：20px / 5px 方角 / 11.5px + 5px 圆点（currentColor）。
+ *
+ * 此前用 EP 的 `round`（9999px 胶囊）且无圆点，与设计稿不符 —— 且 `round` 是组件级
+ * 属性，全局 `.el-tag.el-tag{border-radius:5px}` 压不过 EP 的 `.el-tag.is-round`（同为
+ * (0,2,0)，EP 懒加载后注入胜出），是 A6 修复的唯一漏网点。逐页审计补正。
+ */
+.status-tag {
+  gap: 5px;
+  border-radius: 5px;
+  font-weight: 600;
+
+  &::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: 0 0 5px;
+  }
+}
+</style>

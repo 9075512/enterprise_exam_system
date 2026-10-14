@@ -60,6 +60,10 @@ body {
   // 基准字号 13.5px（DESIGN-C）。EP 浮层（弹窗 / 下拉 / 气泡）teleport 到 body，
   // 其根字号继承自 body —— 此前未设，取浏览器默认 16px，导致弹窗整层大一档（审计 B1）。
   font-size: 13.5px;
+  // 正文行距 1.55（= kit/c.css 的 body）：B1 只补了字号，行高漏了，
+  // 自然文本实际取浏览器 normal（≈1.2），全站正文行距比设计稿紧一档（逐页审计补遗）。
+  // EP 组件内部均自设 line-height，故只影响页面级自然文本。
+  line-height: 1.55;
   color: $text-primary;
   background-color: $bg-page;
   -webkit-font-smoothing: antialiased;
@@ -153,9 +157,18 @@ body {
   }
 }
 
+// 零投影兜底：EP 的 `.el-card.is-always-shadow` / `.is-hover-shadow` 是 (0,2,0) 的组件级规则，
+// 且 EP 样式懒加载分包后注入 —— 与全局 `.el-card.el-card` 同优先级时 EP 胜出，
+// 导致未显式 `shadow="never"` 的卡片仍带默认投影（实测：题库卡片 rgba(0,0,0,.12) 0 0 12px）。
+// 三写类名抬到 (0,3,0) 才能真正压过，兑现「卡片零投影」（层次交给线条）。
+.el-card.el-card.is-always-shadow,
+.el-card.el-card.is-hover-shadow:hover,
+.el-card.el-card.is-hover-shadow:focus {
+  box-shadow: none;
+}
+
 // 可交互卡片：悬停用「左缘主色条 + 描边加深」表达可点，不做上浮与投影
-.hover-lift {
-  cursor: pointer;
+.hover-lift {  cursor: pointer;
   transition: border-color $transition-base, box-shadow $transition-base;
 
   &:hover {

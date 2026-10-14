@@ -715,3 +715,17 @@ describe('全站样式 · 保真度审计修复（B/A 类）', () => {
     expect(layout).toMatch(/small\s*\{[\s\S]*?font-size:\s*9\.5px/);
   });
 });
+
+describe('全站样式 · 逐页审计修复（第十轮）', () => {
+  it('B1 补遗：body 正文行距 1.55（kit/c.css body 的 line-height）', () => {
+    const block = /body\s*\{([^}]*)\}/.exec(scss)?.[1] ?? '';
+    expect(block).toMatch(/font-size:\s*13\.5px/);
+    expect(block).toMatch(/line-height:\s*1\.55/);
+  });
+
+  it('卡片零投影兜底：三写类名 (0,3,0) 压过 EP 的 is-always-shadow / is-hover-shadow', () => {
+    expect(scss).toMatch(
+      /\.el-card\.el-card\.is-always-shadow[\s\S]*?\.el-card\.el-card\.is-hover-shadow:hover[\s\S]*?\.el-card\.el-card\.is-hover-shadow:focus\s*\{\s*box-shadow:\s*none/,
+    );
+  });
+});

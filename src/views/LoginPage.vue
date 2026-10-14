@@ -527,13 +527,14 @@ function backToCredentials(): void {
     color: $text-secondary;
   }
 
+  // 登录主按钮：对齐设计稿 login.html 的内联刻度 `height:38px;font-size:13.5px`
+  // （原 46px/15px/字距 .2em 为工程自定，比设计稿大一档 —— 逐页审计补正）
   &__submit {
     width: 100%;
-    height: 46px;
+    height: 38px;
     margin-top: 6px;
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: 0.2em;
+    font-size: 13.5px;
+    font-weight: 500;
   }
 
   &__back {

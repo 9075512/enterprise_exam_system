@@ -174,6 +174,13 @@ describe('练题端 · 保真度审计修复（B/A9 类）', () => {
     expect(m?.[1]).toMatch(/font-size:\s*14px/);
   });
 
+  it('B1 补遗：body 正文行距 1.55（= kit/m.css body 的 line-height）', () => {
+    const src = stripComments(runtime());
+    const m = src.match(/\nbody\s*\{([^}]*)\}/);
+    expect(m, '未找到 body 规则').toBeTruthy();
+    expect(m?.[1]).toMatch(/line-height:\s*1\.55/);
+  });
+
   it('A9 同类：token 层补第 4 档文字色 $text-body = #3D4657（= DESIGN-C text-2）', () => {
     expect(vars()).toMatch(/\$text-body:\s*#3D4657/i);
   });
