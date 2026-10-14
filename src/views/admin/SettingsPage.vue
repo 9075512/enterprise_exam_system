@@ -59,7 +59,7 @@ const TAB_LABEL: Record<SettingsTab, string> = {
 /** 配置域一句话说明（渲染在各卡顶部） */
 const TAB_DESC: Record<SettingsTab, string> = {
   exam: '新建考试时自动带入的默认时长、及格线与每人答题次数；已发布的考试不受影响。',
-  anti: '作答过程中的防作弊检测、作答呈现与监考推送；阈值会同时影响考生端提示与成绩报表的异常判定。',
+  anti: '作答过程中的防作弊检测、作答呈现与监考推送；阈值会同时影响考试端提示与成绩报表的异常判定。',
   grading: '补考申请与成绩复核的默认开放策略；补考仅限答题次数为 1 次的考试，且需管理员审批。',
   account: '密码策略、登录防护与两步验证；默认密码仅用于新建账号与管理员重置密码。',
   notify: '站内信与邮件的通知渠道、触发事件、SMTP 服务与文案模板；邮件发送失败会自动降级为仅站内信。',
@@ -577,7 +577,7 @@ async function handleReset(): Promise<void> {
                   class="settings-page__num"
                 />
                 <p class="settings-page__hint">
-                  切屏次数达到该值会在考生端提示并计入异常，同时影响成绩报表判定。
+                  切屏次数达到该值会在考试端提示并计入异常，同时影响成绩报表判定。
                 </p>
               </div>
             </el-form-item>
@@ -642,7 +642,7 @@ async function handleReset(): Promise<void> {
 
         <div class="settings-page__section">
           <span class="settings-page__section-title">作答呈现与提醒</span>
-          <span class="settings-page__section-note">试卷下发方式与考生端时间提醒</span>
+          <span class="settings-page__section-note">试卷下发方式与考试端时间提醒</span>
         </div>
         <el-row :gutter="24">
           <el-col :xs="24" :sm="24" :md="12">
@@ -684,7 +684,7 @@ async function handleReset(): Promise<void> {
                   :step="1"
                   class="settings-page__num"
                 />
-                <p class="settings-page__hint">考生端倒计时剩余不足该分钟数时进入提醒态。</p>
+                <p class="settings-page__hint">考试端倒计时剩余不足该分钟数时进入提醒态。</p>
               </div>
             </el-form-item>
           </el-col>

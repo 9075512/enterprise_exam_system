@@ -118,18 +118,24 @@ async function submitApply(): Promise<void> {
   }
 }
 
-/** 补考规则（静态说明，与设计稿文案一致） */
+/**
+ * 补考规则说明。口径对齐后端 retakes.service 的真实判定：
+ * - 资格：未及格、且该考试答题次数为 1 次（maxAttempts === 1）；
+ * - 次数：每场至多一条有效申请（待审批 / 已通过），被驳回后可重新申请；
+ * - 成绩：以最近一次作答成绩为准（系统不合并历史最高分）；
+ * - 时限：后端未设申请截止时间（无「逾期不再受理」约束）。
+ */
 const RULES = [
-  { k: '申请时限', v: '成绩发布后 5 个工作日内' },
-  { k: '申请次数', v: '每场考试限 1 次' },
-  { k: '补考成绩', v: '以补考实测分数记录，及格即通过' },
-  { k: '缺考处理', v: '需说明原因，审批通过后方可补考' },
+  { k: '补考资格', v: '未及格，且该考试答题次数为 1 次' },
+  { k: '审批方式', v: '管理员逐条审批，通过后可再作答一次' },
+  { k: '申请次数', v: '每场至多一条有效申请，被驳回后可重新申请' },
+  { k: '成绩口径', v: '以最近一次作答成绩为准，及格即通过' },
 ];
 </script>
 
 <template>
   <div class="my-retake">
-    <PageHeader title="我的补考" description="查看补考申请与审批结果 · 未及格考试可在发布后 5 个工作日内申请">
+    <PageHeader title="我的补考" description="查看补考申请与审批结果 · 未及格可申请补考，由管理员审批">
       <template #actions>
         <el-button :icon="Refresh" @click="load">刷新状态</el-button>
       </template>
@@ -220,7 +226,7 @@ const RULES = [
             <el-option v-for="exam in eligibleExams" :key="exam.id" :label="exam.name" :value="exam.id" />
           </el-select>
           <span class="my-retake__hint">
-            仅列出你本人可申请补考的考试（未及格、且未申请过）
+            仅列出你本人可申请补考的考试（未及格、答题次数为 1 次、且未申请过）
           </span>
         </div>
 
@@ -239,7 +245,7 @@ const RULES = [
         <div class="my-retake__tip">
           <el-icon class="my-retake__tip-icon"><InfoFilled /></el-icon>
           <div>
-            补考由管理员审批并统一安排场次，审批结果会通过<b>消息中心</b>通知你；每场考试<b>仅可申请一次</b>补考。
+            补考由管理员审批并统一安排场次，审批结果会通过<b>消息中心</b>通知你；同一场考试的待审批 / 已通过申请不可重复提交。
           </div>
         </div>
 
@@ -264,7 +270,7 @@ const RULES = [
 
         <div class="my-retake__tip my-retake__tip--warn">
           <el-icon class="my-retake__tip-icon"><Clock /></el-icon>
-          <div>低于及格线的成绩才能申请补考；申请后请留意审批结果，逾期不再受理。</div>
+          <div>低于及格线的成绩才能申请补考；申请提交后请留意管理员审批结果。</div>
         </div>
       </div>
     </div>

@@ -184,7 +184,7 @@ async function handleDelete(paper: Paper): Promise<void> {
 
     <EmptyState
       v-else-if="!papers || papers.length === 0"
-      text="还没有试卷，从题库组一份卷子试试"
+      text="还没有试卷，从题库组一份试卷试试"
       action-text="新建试卷"
       @action="goComposer"
     />

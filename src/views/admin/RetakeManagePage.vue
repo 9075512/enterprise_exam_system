@@ -84,17 +84,20 @@ const settingsStore = useSettingsStore();
  * - `retakeDefaultEnabled`：补考申请全局默认开关
  *
  * ⚠️ 设置中暂无「补考次数上限 / 计分方式 / 排考间隔 / 审批人」等字段，
- * 相关行（下方标注「说明性文案」）为**展示用途的静态规则文案**，
- * 仅用于说明默认口径；真实规则一律以「系统设置」页为准。
+ * 故此前展示的四条静态文案（2 次 / 取最高分 / 7 天排考）与后端真实判定不符，已移除。
+ * 现按后端 `retakes.service` 的真实口径表述：仅「未及格且答题次数为 1 次」可申请；
+ * 每场至多一条有效申请（被驳回可重新申请）；成绩以最近一次作答为准（不合并历史最高分）。
  * 本卡只读，不新增任何后端接口或请求（settings 已在应用启动时由布局加载）。
  */
 const retakeRules = computed<Array<{ label: string; value: string }>>(() => {
   const s = settingsStore.settings;
   return [
-    { label: '每人每场可补考次数', value: '2 次' }, // 说明性文案
-    { label: '补考成绩计分方式', value: '取最高分' }, // 说明性文案
-    { label: '补考申请是否需审批', value: '需要（默认：管理员）' }, // 说明性文案
-    { label: '自动排考间隔', value: '原考试结束后 7 天' }, // 说明性文案
+    // —— 行为规则（对齐后端 canApplyRetake / applyRetake 判定） ——
+    { label: '补考资格', value: '未及格，且该考试答题次数为 1 次' },
+    { label: '审批方式', value: '管理员逐条审批，通过后可再作答一次' },
+    { label: '申请次数', value: '每场至多一条有效申请，被驳回后可重新申请' },
+    { label: '补考成绩口径', value: '以最近一次作答成绩为准（不合并历史最高分）' },
+    // —— 系统设置项 ——
     { label: '考试默认及格线', value: `${s.examDefaultPassScore} 分` },
     { label: '每人默认答题次数上限', value: `${s.examDefaultMaxAttempts} 次` },
     { label: '补考申请默认开关', value: s.retakeDefaultEnabled ? '已启用' : '未启用' },
@@ -219,7 +222,7 @@ async function handleReject(row: Retake): Promise<void> {
     <el-card class="retake-manage-page__rules" shadow="never">
       <template #header>
         <div class="retake-manage-page__rules-head">
-          <span class="retake-manage-page__rules-title">补考规则（系统设置）</span>
+          <span class="retake-manage-page__rules-title">补考规则</span>
           <el-button class="retake-manage-page__rules-action" link type="primary" @click="goSettings">
             前往设置
           </el-button>

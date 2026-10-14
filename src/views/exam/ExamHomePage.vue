@@ -188,6 +188,11 @@ function daysUntil(exam: ExamMy): number {
   return dayjs(exam.startTime).startOf('day').diff(dayjs().startOf('day'), 'day');
 }
 
+/** 可作答次数（与「我的考试」同口径：基础次数 + 特殊安排加次 + 补考通过加次） */
+function attemptChances(exam: ExamMy): number {
+  return exam.maxAttempts + exam.extraAttempts + (exam.retakeStatus === 'approved' ? 1 : 0);
+}
+
 /** 徽标：进行中=ok / ≤2 天=warn / 其它=gray（设计稿 .bdg--ok / --warn） */
 function examBadge(exam: ExamMy): { text: string; tone: 'ok' | 'warn' | 'gray' } {
   if (exam.recordStatus === 'in_progress') return { text: '进行中', tone: 'ok' };
@@ -309,7 +314,7 @@ onMounted(load);
                     </span>
                   </div>
                   <div class="exam-home__exam-meta">
-                    闭卷 · 共 {{ exam.maxAttempts }} 次机会 · 及格线 {{ exam.passScore }} 分
+                    共 {{ attemptChances(exam) }} 次机会 · 及格线 {{ exam.passScore }} 分
                   </div>
                 </div>
                 <el-button

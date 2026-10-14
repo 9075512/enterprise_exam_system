@@ -193,7 +193,7 @@ function subjectiveScore(questionId: string): number | null {
 /**
  * 该题阅卷备注（评语 / 存疑）。
  * 注意：**服务端按角色过滤**——考生视角只返回「勾选同步给考生」的评语，存疑等内部标记被剔除，
- * 因此考生端 `reviewNote().doubtful` 永远为 undefined；管理员查看时才可见。
+ * 因此考试端 `reviewNote().doubtful` 永远为 undefined；管理员查看时才可见。
  */
 function reviewNote(questionId: string): ReviewNote | undefined {
   return record.value?.reviewNotes?.[questionId];

@@ -191,10 +191,10 @@ async function handleDelete(exam: Exam): Promise<void> {
           <template #default="{ row }">{{ formatRange(row.startTime, row.endTime) }}</template>
         </el-table-column>
         <el-table-column label="时长" width="90" align="center">
-          <template #default="{ row }">{{ row.durationMinutes }} 分</template>
+          <template #default="{ row }">{{ row.durationMinutes }} 分钟</template>
         </el-table-column>
-        <el-table-column label="及格线" width="90" align="center">
-          <template #default="{ row }">{{ row.passScore }}</template>
+        <el-table-column label="及格线" width="100" align="center">
+          <template #default="{ row }">{{ row.passScore }} 分</template>
         </el-table-column>
         <el-table-column label="答题次数" width="90" align="center">
           <template #default="{ row }">{{ row.maxAttempts }} 次</template>

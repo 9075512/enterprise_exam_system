@@ -164,7 +164,7 @@ export interface Exam {
   createdAt: string;
 }
 
-/** 考生端考试（附带本人作答状态，无记录时为 null） */
+/** 考试端考试（附带本人作答状态，无记录时为 null） */
 export interface ExamMy extends Exam {
   /** 本人最近一条记录的状态（进行中优先于已交卷）；无记录时为 null */
   recordStatus: RecordStatus | null;

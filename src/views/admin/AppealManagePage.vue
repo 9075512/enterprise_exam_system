@@ -85,7 +85,7 @@ const changeTimeline = computed<Array<{ title: string; detail: string; tone: str
   const nodes: Array<{ title: string; detail: string; tone: string }> = [
     {
       title: '提交复核申请',
-      detail: `${formatDateTime(appeal.appliedAt)} · 考生端${appeal.reason ? ` · ${appeal.reason}` : ''}`,
+      detail: `${formatDateTime(appeal.appliedAt)} · 考试端${appeal.reason ? ` · ${appeal.reason}` : ''}`,
       tone: appeal.status === 'pending' ? 'is-on' : '',
     },
   ];

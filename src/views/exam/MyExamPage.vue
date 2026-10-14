@@ -8,7 +8,7 @@
  * 卡片态由本人记录推导（进行中 / 已完成 / 未及格 / 未开始 / 已结束），
  * 交卷记录额外拉一次 `records.my` 用于展示得分与及格结论（失败时静默降级为不带分数）。
  */
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { InfoFilled, Refresh, Search } from '@element-plus/icons-vue';
@@ -16,6 +16,7 @@ import * as examsApi from '@/api/exams';
 import * as recordsApi from '@/api/records';
 import { applyRetake } from '@/api/retakes';
 import { useRequest } from '@/composables/useRequest';
+import { useSettingsStore } from '@/stores/settings';
 import { formatDateTime, formatRange } from '@/utils/datetime';
 import { getExamStatus } from '@/utils/examStatus';
 import ContentBoard from '@/components/common/ContentBoard.vue';
@@ -25,6 +26,7 @@ import PageHeader from '@/components/common/PageHeader.vue';
 import type { ExamMy, ExamRecord, RetakeStatus } from '@/types';
 
 const router = useRouter();
+const settingsStore = useSettingsStore();
 const { data: exams, loading, refresh: refreshExams } = useRequest(() => examsApi.my());
 /** 我的成绩（仅用于在卡片上展示得分与及格结论；失败静默） */
 const { data: recordsPage } = useRequest(() => recordsApi.my({ page: 1, pageSize: 100 }));
@@ -241,13 +243,38 @@ function actionState(row: ExamMy): ActionState {
   return { label: '开始考试', enabled: false, tip: `答题次数已用完（最多 ${maxAllowed} 次）` };
 }
 
-/** 考试须知（静态规则，与设计稿文案一致） */
-const NOTICES = [
-  { icon: InfoFilled, text: '开考后 15 分钟未进入视为缺考' },
-  { icon: InfoFilled, text: '考试期间累计离开超过 60 秒记为切屏异常' },
-  { icon: InfoFilled, text: '未及格可在截止日期前申请补考，取最高分' },
-  { icon: InfoFilled, text: '成绩发布后 5 个工作日内可申请复核' },
-];
+/**
+ * 考试须知。
+ * 数值口径与系统设置（后端 DEFAULT_SETTINGS）保持一致，避免写死后与管理员配置脱节：
+ * - 切屏异常：`cheatCountThreshold` 次或 `cheatSecondsThreshold` 秒，任一达到即记异常；
+ * - 复核时限：`appealWindowDays` 天（自交卷起算，0 = 不限时限），复核关闭时不展示该条；
+ * - 补考：仅「未及格且答题次数为 1 次」的考试可申请（后端 canApplyRetake 口径）。
+ */
+const notices = computed<Array<{ icon: unknown; text: string }>>(() => {
+  const s = settingsStore.settings;
+  const items: Array<{ icon: unknown; text: string }> = [
+    { icon: InfoFilled, text: '考试需在开放时间窗内进入作答，时间窗结束后将无法开考' },
+    {
+      icon: InfoFilled,
+      text: `切屏累计达 ${s.cheatCountThreshold} 次、或累计离开页面 ${s.cheatSecondsThreshold} 秒，将记为异常`,
+    },
+    { icon: InfoFilled, text: '未及格可申请补考（仅限单次作答的考试），审核通过后可再作答一次' },
+  ];
+  if (s.appealEnabled) {
+    items.push({
+      icon: InfoFilled,
+      text:
+        s.appealWindowDays > 0
+          ? `成绩发布后 ${s.appealWindowDays} 日内可申请复核`
+          : '成绩发布后可申请复核（不限时限）',
+    });
+  }
+  return items;
+});
+
+onMounted(() => {
+  void settingsStore.load();
+});
 </script>
 
 <template>
@@ -407,7 +434,7 @@ const NOTICES = [
           <h3 class="my-exam__card-title">考试须知</h3>
         </template>
         <div class="my-exam__notice-list">
-          <div v-for="(notice, i) in NOTICES" :key="i" class="my-exam__notice-item">
+          <div v-for="(notice, i) in notices" :key="i" class="my-exam__notice-item">
             <el-icon class="my-exam__notice-icon"><component :is="notice.icon" /></el-icon>
             <span>{{ notice.text }}</span>
           </div>

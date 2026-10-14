@@ -2,7 +2,7 @@
  * 内容运营 API（v1.9⑥ · 公告 + 轮播图）。
  *
  * - 管理端：公告 / 轮播图的分页、增删改（仅 admin）；
- * - 考生端：`fetchFeed('exam')` 取当前生效内容（考试端展示用）。
+ * - 考试端：`fetchFeed('exam')` 取当前生效内容（考试端展示用）。
  */
 import { del, get, post, put } from './http';
 import type {
@@ -99,9 +99,9 @@ export function batchBanners(ids: string[], action: ContentBatchAction): Promise
   return post<ContentBatchResult>('/content/banners/batch', { ids, action });
 }
 
-/* ------------------------------ 考生端 ------------------------------ */
+/* ------------------------------ 考试端 ------------------------------ */
 
-/** 考生端当前生效的公告 + 轮播图（考试端首页 / 我的考试页展示用） */
+/** 考试端当前生效的公告 + 轮播图（考试端首页 / 我的考试页展示用） */
 export function fetchFeed(scope: 'exam' | 'practice' = 'exam'): Promise<ContentFeed> {
   return get<ContentFeed>('/content/feed', { scope });
 }

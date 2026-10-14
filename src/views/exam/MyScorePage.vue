@@ -210,9 +210,23 @@ function appealMeta(record: ExamRecord): { text: string; tone: 'gray' | 'warn' |
 /** 复核记录时间线（设计稿 exam-scores.html「复核记录」卡） */
 const appealTimeline = computed(() => buildAppealTimeline(myAppeals.value?.list ?? []));
 
-/** 可申请复核：考试开放复核 且 尚未申请过 */
+/** 复核申请时限（天；0 = 不限时限）——与服务端 `appealWindowDays` 同口径，自交卷起算 */
+function withinAppealWindow(record: ExamRecord): boolean {
+  const days = settingsStore.settings.appealWindowDays;
+  if (!days || days <= 0) return true;
+  const submitted = record.submittedAt ? new Date(record.submittedAt).getTime() : NaN;
+  if (!Number.isFinite(submitted)) return true;
+  return Date.now() - submitted <= days * 24 * 60 * 60 * 1000;
+}
+
+/** 可申请复核：考试开放复核 且 尚未申请过 且 仍在申请时限内 */
 function canAppeal(record: ExamRecord): boolean {
-  return appealEnabledOf(record.examId) && !appealStatusMap.value[record.id];
+  return appealEnabledOf(record.examId) && !appealStatusMap.value[record.id] && withinAppealWindow(record);
+}
+
+/** 已开放复核但超出申请时限（列表给出「已超时限」说明，避免按钮凭空消失） */
+function appealExpired(record: ExamRecord): boolean {
+  return appealEnabledOf(record.examId) && !appealStatusMap.value[record.id] && !withinAppealWindow(record);
 }
 
 async function submitAppeal(): Promise<void> {
@@ -327,6 +341,7 @@ async function submitAppeal(): Promise<void> {
             <el-button v-if="canAppeal(row as ExamRecord)" link @click="openAppeal(row as ExamRecord)">
               申请复核
             </el-button>
+            <span v-else-if="appealExpired(row as ExamRecord)" class="my-score__muted">已超复核时限</span>
           </template>
         </el-table-column>
         <template #empty>

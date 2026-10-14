@@ -91,11 +91,12 @@ function formatRemaining(seconds: number): string {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-/** 剩余不足 5 分钟标红，不足 10 分钟标橙（与作答页提醒口径近似）。 */
+/** 剩余不足 countdownWarningMinutes 分钟标红，不足其 2 倍标橙（与作答页倒计时提醒口径一致） */
 function remainingClass(row: ExamMonitorRow): string {
   const left = remainingOf(row);
-  if (left <= 300) return 'monitor__remaining--danger';
-  if (left <= 600) return 'monitor__remaining--warn';
+  const warn = settingsStore.settings.countdownWarningMinutes * 60;
+  if (left <= warn) return 'monitor__remaining--danger';
+  if (left <= warn * 2) return 'monitor__remaining--warn';
   return '';
 }
 

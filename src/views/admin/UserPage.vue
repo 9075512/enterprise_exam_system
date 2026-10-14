@@ -300,7 +300,7 @@ async function handleDelete(user: User): Promise<void> {
           <el-input
             v-model="filterKeyword"
             class="user-page__filter-keyword"
-            placeholder="按用户名 / 姓名搜索"
+            placeholder="按登录账号 / 姓名搜索"
             clearable
             :prefix-icon="Search"
             @keyup.enter="onSearch"
@@ -325,7 +325,7 @@ async function handleDelete(user: User): Promise<void> {
       />
 
       <el-table v-else v-loading="loading" :data="users" row-key="id" stripe>
-        <el-table-column prop="username" label="用户名" width="140" show-overflow-tooltip />
+        <el-table-column prop="username" label="登录账号" width="140" show-overflow-tooltip />
         <el-table-column prop="name" label="姓名" width="120" show-overflow-tooltip />
         <el-table-column label="角色" width="110">
           <template #default="{ row }">
