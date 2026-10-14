@@ -40,6 +40,7 @@ coverage
 
 # 临时构建目录
 dist-check
+dist-verify
 .build-verify
 
 # 临时与本地产物

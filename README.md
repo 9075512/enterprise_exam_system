@@ -22,7 +22,7 @@ Vue 3 (Vite, Element Plus, Pinia, Vue Router)  ──REST/JSON──▶  Express
 考试1/
 ├─ src/                      # 前端（Vue 3 + TS）
 │  ├─ api/                   # 各模块 REST 封装（唯一 axios 实例在 http.ts）
-│  ├─ components/common/     # 通用组件（PageHeader/EmptyState/StatusTag/…）
+│  ├─ components/common/     # 通用组件（PageHeader/EmptyState/BatchActionBar/StatusTag/…）
 │  ├─ composables/           # useRequest / usePagination / useConfirm
 │  ├─ constants/             # 业务常量 + 主题色板 theme.ts
 │  ├─ layouts/               # AppLayout + 菜单配置
@@ -97,7 +97,7 @@ npm run dev          # 启动前端（Vite，:5173），已配置 /api 代理到
 ```bash
 # 前端
 npm run typecheck        # vue-tsc --noEmit
-npm run test             # vitest（61 用例）
+npm run test             # vitest（160 用例：工具函数 / store / 通用组件 / composables / 样式护栏）
 npm run build            # vue-tsc + vite build（产物 dist/）
 npm run preview          # 预览构建产物
 
@@ -106,6 +106,10 @@ npm --prefix server run typecheck   # tsc --noEmit
 npm --prefix server run test        # vitest + supertest（523 用例）
 npm --prefix server run build       # 编译到 server/dist
 npm --prefix server run start       # 运行编译产物
+
+# 练题端
+npm --prefix practice-web run typecheck   # vue-tsc --noEmit
+npm --prefix practice-web run test        # vitest（24 用例：配置默认值 / 登录 store / 组件 / 样式护栏）
 ```
 
 ## 默认账号
