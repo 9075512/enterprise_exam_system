@@ -1,11 +1,15 @@
 <script setup lang="ts">
 /**
- * 答题卡（W3-T1）。按题型（单选 → 多选 → 判断）分组展示题号网格：
- * 已答/未答/当前题三种态；点击题号 emit jump（传全局索引）。
+ * 答题卡（W3-T1）。题号网格：已答 / 未答 / 当前题三种态；点击题号 emit jump（传全局索引）。
+ *
+ * v3.1 方向 C（设计稿 p-exam-taking aside）：
+ * 头部改为「答题卡」微标签 + 题型构成汇总 + 已答计数标签，不再按题型分组渲染多段网格
+ * （设计稿是一张平铺网格，题号顺序即试卷顺序，跳转语义不变）；
+ * 单元格改为 4px 圆角方片（已答=主色实底白字 / 当前=主色 2px 描边 / 未答=发丝线），
+ * 图例沿用设计稿的色块行。进度条已上移到作答页顶栏，此处不再重复。
  */
 import { computed } from 'vue';
 import { QUESTION_TYPE_LABELS } from '@/constants';
-import { THEME } from '@/constants/theme';
 import type { QuestionType } from '@/types';
 
 const props = defineProps<{
@@ -16,25 +20,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{ (e: 'jump', index: number): void }>();
 
-/** 分组固定顺序（与后端组卷展示顺序一致） */
+/** 题型固定顺序（与后端组卷展示顺序一致），仅用于汇总行文案 */
 const TYPE_ORDER: QuestionType[] = ['single', 'multiple', 'judge', 'fill', 'short'];
-
-interface GroupItem {
-  /** 全局题号（原始索引 + 1），始终按原顺序编号 */
-  no: number;
-  /** 全局索引，用于 answered 判定与 jump */
-  index: number;
-  id: string;
-}
-
-interface QuestionGroup {
-  type: QuestionType;
-  label: string;
-  answeredCount: number;
-  /** 当前题是否落在该分组内（用于高亮分组） */
-  active: boolean;
-  items: GroupItem[];
-}
 
 const answeredCount = computed<number>(
   () => props.questions.filter((q) => (props.answers[q.id]?.length ?? 0) > 0).length,
@@ -42,30 +29,13 @@ const answeredCount = computed<number>(
 
 const unansweredCount = computed<number>(() => props.questions.length - answeredCount.value);
 
-/** 完成度百分比（无题目时按 100 处理，避免进度条出现 0/0） */
-const progress = computed<number>(() => {
-  if (props.questions.length === 0) return 100;
-  return Math.round((answeredCount.value / props.questions.length) * 100);
-});
-
-const groups = computed<QuestionGroup[]>(() => {
-  const buckets = new Map<QuestionType, GroupItem[]>();
-  props.questions.forEach((q, index) => {
-    const list = buckets.get(q.type) ?? [];
-    list.push({ no: index + 1, index, id: q.id });
-    buckets.set(q.type, list);
-  });
-  return TYPE_ORDER.filter((type) => (buckets.get(type)?.length ?? 0) > 0).map((type) => {
-    const items = buckets.get(type) ?? [];
-    const answered = items.filter((item) => (props.answers[item.id]?.length ?? 0) > 0).length;
-    return {
-      type,
-      label: QUESTION_TYPE_LABELS[type],
-      answeredCount: answered,
-      active: items.some((item) => item.index === props.currentIndex),
-      items,
-    };
-  });
+/** 题型构成汇总（如「单选 20 · 多选 10 · 判断 10」），空卷返回空串 */
+const composition = computed<string>(() => {
+  const buckets = new Map<QuestionType, number>();
+  props.questions.forEach((q) => buckets.set(q.type, (buckets.get(q.type) ?? 0) + 1));
+  return TYPE_ORDER.filter((t) => buckets.get(t))
+    .map((t) => `${QUESTION_TYPE_LABELS[t]} ${buckets.get(t)}`)
+    .join(' · ');
 });
 
 function answered(id: string): boolean {
@@ -75,76 +45,47 @@ function answered(id: string): boolean {
 function cellTitle(no: number, id: string): string {
   return `第 ${no} 题（${answered(id) ? '已答' : '未答'}）`;
 }
-
-function onJump(index: number): void {
-  emit('jump', index);
-}
 </script>
 
 <template>
   <div class="answer-sheet">
-    <!-- 总进度 -->
     <div class="answer-sheet__head">
-      <div class="answer-sheet__stat">
-        <span>已答 <b class="num">{{ answeredCount }}</b> / 共 {{ questions.length }}</span>
-        <span class="answer-sheet__stat-left">未答 {{ unansweredCount }}</span>
+      <div class="answer-sheet__title">
+        <span class="answer-sheet__kicker">答题卡</span>
+        <span v-if="composition" class="answer-sheet__comp">{{ composition }}</span>
       </div>
-      <el-progress
-        class="answer-sheet__progress"
-        :percentage="progress"
-        :stroke-width="6"
-        :show-text="false"
-        :color="progress === 100 ? THEME.success : THEME.primary"
-      />
+      <span class="answer-sheet__tag">已答 {{ answeredCount }}</span>
     </div>
 
-    <div class="answer-sheet__body">
-      <div
-        v-for="group in groups"
-        :key="group.type"
-        class="answer-sheet__group"
-        :class="{ 'answer-sheet__group--active': group.active }"
+    <div class="answer-sheet__grid">
+      <button
+        v-for="(item, index) in questions"
+        :key="item.id"
+        type="button"
+        class="answer-sheet__cell"
+        :class="{
+          'answer-sheet__cell--answered': answered(item.id),
+          'answer-sheet__cell--current': index === currentIndex,
+        }"
+        :title="cellTitle(index + 1, item.id)"
+        :aria-label="cellTitle(index + 1, item.id)"
+        :aria-current="index === currentIndex ? 'true' : undefined"
+        @click="emit('jump', index)"
       >
-        <div class="answer-sheet__group-title">
-          <span class="answer-sheet__group-name">
-            <i class="answer-sheet__dot" :class="`answer-sheet__dot--${group.type}`" />
-            {{ group.label }}
-          </span>
-          <span class="answer-sheet__group-count num">
-            {{ group.answeredCount }}/{{ group.items.length }}
-          </span>
-        </div>
-        <div class="answer-sheet__grid">
-          <button
-            v-for="item in group.items"
-            :key="item.id"
-            type="button"
-            class="answer-sheet__cell"
-            :class="{
-              'answer-sheet__cell--answered': answered(item.id),
-              'answer-sheet__cell--current': item.index === currentIndex,
-            }"
-            :title="cellTitle(item.no, item.id)"
-            :aria-label="cellTitle(item.no, item.id)"
-            :aria-current="item.index === currentIndex ? 'true' : undefined"
-            @click="onJump(item.index)"
-          >
-            {{ item.no }}
-          </button>
-        </div>
-      </div>
+        {{ index + 1 }}
+      </button>
     </div>
 
-    <!-- 图例 -->
+    <!-- 图例（设计稿 .lg） -->
     <div class="answer-sheet__legend">
       <span class="answer-sheet__legend-item">
-        <i class="answer-sheet__swatch answer-sheet__swatch--answered" />已答
+        <i class="answer-sheet__swatch answer-sheet__swatch--answered" />已作答（{{ answeredCount }}）
       </span>
       <span class="answer-sheet__legend-item">
-        <i class="answer-sheet__swatch answer-sheet__swatch--empty" />未答
+        <i class="answer-sheet__swatch answer-sheet__swatch--current" />当前题目
       </span>
       <span class="answer-sheet__legend-item">
-        <i class="answer-sheet__swatch answer-sheet__swatch--current" />当前
+        <i class="answer-sheet__swatch" />未作答（{{ unansweredCount }}）
       </span>
     </div>
   </div>
@@ -156,188 +97,136 @@ function onJump(index: number): void {
 .answer-sheet {
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 220px);
 
   &__head {
-    flex: 0 0 auto;
-  }
-
-  &__stat {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 8px;
-    font-size: 13px;
-    color: $text-secondary;
-
-    b {
-      font-size: 15px;
-      color: $text-primary;
-    }
-  }
-
-  &__stat-left {
-    font-size: 12px;
-    color: $text-disabled;
-  }
-
-  &__progress {
+    gap: 10px;
     margin-bottom: 12px;
   }
 
-  &__body {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    padding-right: 4px;
-  }
-
-  &__group {
-    padding: 10px;
-    border: 1px solid transparent;
-    border-radius: $radius-sm;
-    transition: background-color $transition-fast, border-color $transition-fast;
-
-    & + & {
-      margin-top: 8px;
-    }
-
-    &--active {
-      background: $color-primary-soft;
-      border-color: rgba($color-primary, 0.24);
-    }
-  }
-
-  &__group-title {
+  &__title {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 8px;
-    font-size: 13px;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
   }
 
-  &__group-name {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+  /* 微标签：10.5px / 大写 / 加字距（DESIGN-C §2.3） */
+  &__kicker {
+    font-size: 10.5px;
     font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
     color: $text-secondary;
   }
 
-  &__dot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: $color-primary;
-
-    &--single {
-      background: $color-primary;
-    }
-
-    &--multiple {
-      background: $color-secondary;
-    }
-
-    &--judge {
-      background: $color-warning;
-    }
-
-    &--fill {
-      background: $color-success;
-    }
-
-    &--short {
-      background: $text-disabled;
-    }
+  &__comp {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: $text-primary;
   }
 
-  &__group-count {
-    font-size: 12px;
-    color: $text-disabled;
+  &__tag {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    height: 19px;
+    padding: 0 6px;
+    border-radius: $radius-xs;
+    background: $color-neutral-bg;
+    font-size: 11px;
+    font-weight: 550;
+    color: $text-secondary;
   }
 
   &__grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
-    gap: 8px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+    max-height: calc(100vh - 300px);
+    overflow-y: auto;
   }
 
   &__cell {
-    height: 36px;
-    border: 1px solid $border-color;
-    border-radius: $radius-sm;
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid $line-strong;
+    border-radius: $radius-xs;
     background: $bg-paper;
-    color: $text-primary;
-    font-size: 13px;
+    font-size: 12px;
+    font-weight: 580;
+    color: $text-secondary;
     font-variant-numeric: tabular-nums;
     cursor: pointer;
-    transition: background-color $transition-fast, border-color $transition-fast, color $transition-fast,
-      box-shadow $transition-fast;
+    transition: background-color $transition-fast, border-color $transition-fast, color $transition-fast;
 
     &:hover {
       border-color: $color-primary;
-      background: $color-primary-soft;
+      color: $color-primary;
     }
 
     &--answered {
       background: $color-primary;
       border-color: $color-primary;
-      color: $bg-paper;
-      font-weight: 600;
+      color: #fff;
 
       &:hover {
         background: $color-primary-dark;
         border-color: $color-primary-dark;
+        color: #fff;
       }
     }
 
     &--current {
       border-color: $color-primary;
       border-width: 2px;
-      font-weight: 700;
-      box-shadow: 0 0 0 3px rgba($color-primary, 0.18);
+      color: $color-primary;
+      font-weight: 680;
+
+      /* 已答 + 当前：主色实底上必须保持白字（主色字压主色底读不出来） */
+      &.answer-sheet__cell--answered {
+        color: #fff;
+      }
     }
   }
 
   &__legend {
-    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid $border-color;
+  }
+
+  &__legend-item {
     display: flex;
     align-items: center;
-    gap: 14px;
-    margin-top: 12px;
-    padding-top: 10px;
-    border-top: 1px solid $border-color;
+    gap: 8px;
     font-size: 12px;
     color: $text-secondary;
   }
 
-  &__legend-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-  }
-
   &__swatch {
-    display: inline-block;
+    flex: 0 0 12px;
     width: 12px;
     height: 12px;
+    border: 1px solid $line-strong;
     border-radius: 3px;
-    border: 1px solid $border-color;
 
     &--answered {
       background: $color-primary;
       border-color: $color-primary;
     }
 
-    &--empty {
-      background: $bg-paper;
-    }
-
     &--current {
       background: $bg-paper;
       border-color: $color-primary;
-      box-shadow: 0 0 0 2px rgba($color-primary, 0.18);
+      border-width: 2px;
     }
   }
 }

@@ -2,17 +2,23 @@
 /**
  * 全屏答题页（W3-T1，全站逻辑最重）。
  * 快照答题 + 断点续答 + 倒计时（到时自动交卷）+ 节流暂存 + 切屏上报 + 交卷判分。
- * 不使用 AppLayout：自带顶部固定栏 / 左侧答题区 / 右侧答题卡 / 底部操作栏。
+ * 不使用 AppLayout：自带顶部固定栏 / 左侧答题区 / 右侧答题卡（v3.1 对齐设计稿 p-exam-taking）。
+ *
+ * v3.1 方向 C 布局对齐：顶栏由 64px 双层（品牌渐变条 + 返回钮）压到 56px 单层
+ * `exambar`（题标 + 副标题 + 倒计时 + 进度条 + 已答计数 + 暂存退出 / 交卷）；
+ * 进度条从底部吸底栏上移到顶栏，取消底部固定栏（提交动作常驻可见）；
+ * 切屏异常由顶栏药丸改为正文顶部的警示条（与设计稿一致，且文案能说清阈值）。
  */
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import dayjs from 'dayjs';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { ArrowLeft, Warning } from '@element-plus/icons-vue';
+import { InfoFilled, Warning } from '@element-plus/icons-vue';
 import * as examsApi from '@/api/exams';
 import * as recordsApi from '@/api/records';
 import { useAuthStore } from '@/stores/auth';
 import { useSettingsStore } from '@/stores/settings';
+import { formatScore } from '@/utils/format';
 import CountdownTimer from './components/CountdownTimer.vue';
 import VisibilityGuard from './components/VisibilityGuard.vue';
 import QuestionCard from './components/QuestionCard.vue';
@@ -41,16 +47,22 @@ const currentIndex = ref(0);
 /** 快照题目列表 */
 const questions = computed(() => record.value?.paperSnapshot.questions ?? []);
 
-/** 本次作答序号（>1 时标题旁展示标记） */
+/** 本次作答序号（>1 时副标题展示标记） */
 const attemptNo = computed<number>(() => record.value?.attemptNo ?? 1);
 
-/** 已答 / 未答题数（底部操作栏实时进度） */
+/** 已答 / 未答题数（顶栏实时进度） */
 const answeredCount = computed<number>(
   () => questions.value.filter((q) => (answers.value[q.questionId]?.length ?? 0) > 0).length,
 );
 const unansweredCount = computed<number>(() => questions.value.length - answeredCount.value);
 
-/** 姓名首字（头像占位） */
+/** 进度百分比（无题按 0，避免 0/0 出现 NaN 宽度） */
+const progressPercent = computed<number>(() => {
+  if (questions.value.length === 0) return 0;
+  return Math.round((answeredCount.value / questions.value.length) * 100);
+});
+
+/** 姓名首字（头像占位，暂存退出确认文案用） */
 const avatarText = computed<string>(() => (auth.currentUser?.name ?? '').trim().slice(0, 1) || '考');
 
 /** 防作弊：答题页浮水印 / 复制限制（读系统设置，响应式） */
@@ -179,7 +191,7 @@ async function onAway(seconds: number): Promise<void> {
   }
 }
 
-/* ------------------------------ 交卷 ------------------------------ */
+/* ------------------------------ 交卷 / 暂存退出 ------------------------------ */
 async function handleSubmit(): Promise<void> {
   if (submitted.value) return;
   try {
@@ -192,6 +204,23 @@ async function handleSubmit(): Promise<void> {
     return;
   }
   await doSubmit(false);
+}
+
+/** 暂存并退出：保留已作答内容，回到「我的考试」（倒计时不暂停） */
+async function handleSaveExit(): Promise<void> {
+  if (submitted.value) return;
+  try {
+    await ElMessageBox.confirm(
+      '暂存并退出？已作答内容会保留，再次进入可从当前进度继续（倒计时不会暂停）。',
+      '暂存退出',
+      { type: 'info', confirmButtonText: '暂存并退出', cancelButtonText: '继续作答' },
+    );
+  } catch {
+    return;
+  }
+  if (saveTimer) window.clearTimeout(saveTimer);
+  await silenceSave();
+  void router.push('/exam/my');
 }
 
 async function doSubmit(auto: boolean): Promise<void> {
@@ -242,93 +271,89 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
     <LoadingSkeleton v-if="loading" :rows="8" />
 
     <template v-else-if="record && exam">
-      <!-- 顶部固定栏 -->
-      <header class="taking__header">
-        <div class="taking__header-left">
-          <button type="button" class="taking__back" aria-label="返回（需先交卷）" @click="handleSubmit">
-            <el-icon><ArrowLeft /></el-icon>
-          </button>
-          <span class="taking__title" :title="exam.name">{{ exam.name }}</span>
-          <el-tag v-if="attemptNo > 1" size="small" type="warning" effect="light" round>
-            第 {{ attemptNo }} 次作答
-          </el-tag>
-          <span v-if="auth.currentUser" class="taking__examinee">
-            <span class="taking__avatar">{{ avatarText }}</span>
-            <span class="taking__examinee-name">{{ auth.currentUser.name }}</span>
-            <span class="taking__examinee-dept">
-              {{ auth.currentUser.departmentName || '未分配科室' }}
+      <!-- 顶部固定栏（设计稿 .exambar） -->
+      <header class="taking__bar">
+        <div class="taking__brand">
+          <span class="taking__mark">考</span>
+          <div class="taking__brand-text">
+            <span class="taking__name" :title="exam.name">{{ exam.name }}</span>
+            <span class="taking__sub">
+              闭卷 · 共 {{ questions.length }} 题 · 满分 {{ formatScore(record.paperSnapshot.totalScore) }} 分<template
+                v-if="attemptNo > 1"
+              >
+                · 第 {{ attemptNo }} 次作答</template
+              >
             </span>
-          </span>
+          </div>
         </div>
-        <div class="taking__header-right">
-          <span v-if="cheatCount > 0" class="taking__cheat">
-            <el-icon><Warning /></el-icon>
-            切屏 {{ cheatCount }} 次 / {{ cheatAwayTotal }} 秒
-          </span>
-          <el-tag v-if="record?.extraMinutes" class="taking__extra" type="warning" size="small" effect="plain">
-            含加时 {{ record.extraMinutes }} 分钟
-          </el-tag>
-          <CountdownTimer :remaining-seconds="remaining" />
+
+        <div class="taking__bar-sp" />
+
+        <span v-if="cheatCount > 0" class="taking__cheat">
+          <el-icon><Warning /></el-icon>
+          切屏 {{ cheatCount }} 次 / {{ cheatAwayTotal }} 秒
+        </span>
+        <span v-if="record.extraMinutes" class="taking__extra">含加时 {{ record.extraMinutes }} 分钟</span>
+
+        <CountdownTimer :remaining-seconds="remaining" />
+
+        <div class="taking__progress" role="img" :aria-label="`作答进度 ${progressPercent}%`">
+          <span class="taking__progress-fill" :style="{ width: `${progressPercent}%` }" />
         </div>
+        <span class="taking__progress-text">已答 {{ answeredCount }} / {{ questions.length }}</span>
+
+        <el-button :disabled="submitted" @click="handleSaveExit">暂存退出</el-button>
+        <el-button type="primary" :loading="submitting" :disabled="submitted" @click="handleSubmit">
+          交卷
+        </el-button>
       </header>
 
-      <!-- 主体 -->
-      <main class="taking__body">
-        <section
-          class="taking__questions"
-          :class="{ 'taking__questions--disabled': submitted }"
-        >
-          <div
-            v-for="(item, index) in questions"
-            :id="`question-${index}`"
-            :key="item.questionId"
-            class="taking__question"
-          >
-            <QuestionCard
-              :index="index"
-              :question="item.question"
-              :score="item.score"
-              :model-value="answers[item.questionId] ?? []"
-              @update:model-value="(value) => updateAnswer(item.questionId, value)"
-            />
+      <!-- 主体：左答题区 + 右吸顶答题卡（设计稿 .ans-wrap） -->
+      <div class="taking__wrap">
+        <div class="taking__main">
+          <div v-if="cheatCount > 0" class="taking__tip">
+            <el-icon class="taking__tip-icon"><Warning /></el-icon>
+            <div>
+              系统检测到你在本场考试中离开页面 <b>{{ cheatCount }}</b> 次、累计
+              <b>{{ cheatAwayTotal }}</b> 秒。考试期间请保持本页面为当前窗口，累计离开超过
+              <b>{{ settingsStore.settings.cheatSecondsThreshold }}</b> 秒将记为异常。
+            </div>
           </div>
-        </section>
+
+          <section class="taking__questions" :class="{ 'is-disabled': submitted }">
+            <div
+              v-for="(item, index) in questions"
+              :id="`question-${index}`"
+              :key="item.questionId"
+              class="taking__question"
+            >
+              <QuestionCard
+                :index="index"
+                :question="item.question"
+                :score="item.score"
+                :model-value="answers[item.questionId] ?? []"
+                @update:model-value="(value) => updateAnswer(item.questionId, value)"
+              />
+            </div>
+          </section>
+        </div>
 
         <aside class="taking__aside">
-          <AnswerSheet
-            :questions="questions.map((q) => ({ id: q.questionId, type: q.question.type }))"
-            :answers="answers"
-            :current-index="currentIndex"
-            @jump="jump"
-          />
-        </aside>
-      </main>
+          <el-card class="taking__sheet" shadow="never">
+            <AnswerSheet
+              :questions="questions.map((q) => ({ id: q.questionId, type: q.question.type }))"
+              :answers="answers"
+              :current-index="currentIndex"
+              @jump="jump"
+            />
+          </el-card>
 
-      <!-- 底部操作栏 -->
-      <footer class="taking__footer">
-        <div class="taking__progress">
-          <span class="taking__progress-item">
-            已答 <b class="num">{{ answeredCount }}</b> / {{ questions.length }}
-          </span>
-          <span class="taking__progress-sep" aria-hidden="true" />
-          <span class="taking__progress-item taking__progress-item--muted">
-            未答 <b class="num">{{ unansweredCount }}</b>
-          </span>
-        </div>
-        <div class="taking__footer-right">
-          <span class="taking__footer-hint">答案将自动暂存；倒计时结束将自动交卷。</span>
-          <el-button
-            class="taking__submit"
-            type="primary"
-            size="large"
-            :loading="submitting"
-            :disabled="submitted"
-            @click="handleSubmit"
-          >
-            交 卷
-          </el-button>
-        </div>
-      </footer>
+          <div class="taking__note">
+            <el-icon class="taking__note-icon"><InfoFilled /></el-icon>
+            <span>作答内容自动暂存；异常退出后重新进入可继续作答，倒计时不暂停。</span>
+          </div>
+        </aside>
+      </div>
 
       <VisibilityGuard :disabled="submitted" @away="onAway" />
     </template>
@@ -360,161 +385,172 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
     font-size: 15px;
     font-weight: 600;
     letter-spacing: 2px;
-    color: rgba(16, 24, 40, 0.06);
+    color: rgba(13, 18, 32, 0.06);
     transform: rotate(-24deg);
     user-select: none;
     white-space: nowrap;
   }
 
-  &__header {
+  /* 顶栏：56px 单层（设计稿 .exambar） */
+  &__bar {
     position: sticky;
     top: 0;
     z-index: 100;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    height: 64px;
-    padding: 0 24px;
-    background: rgba(255, 255, 255, 0.88);
-    backdrop-filter: blur(10px);
+    gap: 14px;
+    height: 56px;
+    padding: 0 $page-padding;
+    background: $bg-paper;
     border-bottom: 1px solid $border-color;
-    box-shadow: $shadow-sm;
-
-    /* 顶部品牌渐变细条 */
-    &::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: $gradient-brand;
-    }
   }
 
-  &__header-left {
+  &__brand {
     display: flex;
     align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  &__mark {
+    flex: 0 0 26px;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: $radius-sm;
+    background: $color-primary;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  &__brand-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  &__name {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 13px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &__sub {
+    font-size: 11px;
+    color: $text-secondary;
+    white-space: nowrap;
+  }
+
+  &__bar-sp {
+    flex: 1;
+    min-width: 8px;
+  }
+
+  &__cheat {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: $radius-xs;
+    background: $color-warning-bg;
+    border: 1px solid $color-warning-border;
+    font-size: 11.5px;
+    font-weight: 550;
+    color: $color-warning-text;
+    white-space: nowrap;
+  }
+
+  &__extra {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: $radius-xs;
+    background: $color-neutral-bg;
+    font-size: 11.5px;
+    color: $text-secondary;
+    white-space: nowrap;
+  }
+
+  &__progress {
+    flex: 0 0 170px;
+    width: 170px;
+    height: 5px;
+    border-radius: 3px;
+    background: $color-neutral-bg;
+    overflow: hidden;
+  }
+
+  &__progress-fill {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: $color-primary;
+    transition: width $transition-base;
+  }
+
+  &__progress-text {
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: $text-secondary;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 主体：左答题 + 右吸顶答题卡 */
+  &__wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 262px;
+    align-items: start;
+    gap: 16px;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px $page-padding 40px;
+  }
+
+  &__main {
+    display: flex;
+    flex-direction: column;
     gap: 12px;
     min-width: 0;
   }
 
-  &__back {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 34px;
-    height: 34px;
-    padding: 0;
-    border: 1px solid $border-color;
+  /* 切屏异常警示条（设计稿 .tip--warn） */
+  &__tip {
+    display: flex;
+    gap: 9px;
+    padding: 10px 12px;
     border-radius: $radius-sm;
-    background: $bg-paper;
-    font-size: 17px;
-    color: $text-secondary;
-    cursor: pointer;
-    transition: color $transition-fast, border-color $transition-fast, background-color $transition-fast;
+    background: $color-warning-bg;
+    font-size: 12px;
+    line-height: 1.55;
+    color: $color-warning-text;
 
-    &:hover {
-      color: $color-primary;
-      border-color: rgba($color-primary, 0.4);
-      background: $color-primary-soft;
+    b {
+      font-weight: 650;
     }
   }
 
-  &__title {
-    flex-shrink: 0;
-    max-width: 320px;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    font-size: 16px;
-    font-weight: 600;
-    color: $text-primary;
-  }
-
-  &__examinee {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-    padding-left: 12px;
-    border-left: 1px solid $border-color;
-  }
-
-  &__avatar {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: $gradient-brand;
-    font-size: 13px;
-    font-weight: 600;
-    color: #fff;
-  }
-
-  &__examinee-name {
-    flex-shrink: 0;
-    font-size: 14px;
-    font-weight: 500;
-    color: $text-primary;
-  }
-
-  &__examinee-dept {
-    flex-shrink: 0;
-    padding: 2px 10px;
-    border-radius: 999px;
-    background: $color-table-head;
-    border: 1px solid $border-color;
-    font-size: 12px;
-    color: $text-secondary;
-  }
-
-  &__header-right {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-shrink: 0;
-  }
-
-  &__cheat {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 5px 12px;
-    border-radius: 999px;
-    background: $color-error-bg;
-    border: 1px solid $color-error-border;
-    font-size: 12px;
-    font-weight: 500;
-    color: $color-error-text;
-  }
-
-  &__extra {
-    font-size: 12px;
-  }
-
-  &__body {
-    display: flex;
-    align-items: flex-start;
-    gap: 24px;
-    max-width: 1280px;
-    margin: 0 auto;
-    padding: 24px 24px 112px;
+  &__tip-icon {
+    margin-top: 2px;
+    flex: 0 0 auto;
   }
 
   &__questions {
-    flex: 1;
-    min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 12px;
 
-    &--disabled {
+    &.is-disabled {
       pointer-events: none;
       opacity: 0.75;
     }
@@ -522,120 +558,53 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
 
   &__question {
     /* 答题卡跳转时避免被吸顶栏遮挡 */
-    scroll-margin-top: 84px;
+    scroll-margin-top: 76px;
   }
 
   &__aside {
-    flex: 0 0 280px;
-    width: 280px;
-    position: sticky;
-    top: 88px;
-    background: $bg-paper;
-    border: 1px solid $border-color;
-    border-radius: $radius-lg;
-    box-shadow: $shadow-sm;
-    padding: 18px;
-  }
-
-  &__footer {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 100;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    height: 72px;
-    padding: 0 24px;
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(10px);
-    border-top: 1px solid $border-color;
-    box-shadow: 0 -2px 10px rgba(16, 24, 40, 0.06);
-  }
-
-  &__progress {
-    display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 12px;
+    position: sticky;
+    top: 76px;
   }
 
-  &__progress-item {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 4px;
-    font-size: 13px;
-    color: $text-secondary;
-
-    b {
-      font-size: 18px;
-      font-weight: 700;
-      color: $color-primary;
-    }
-
-    &--muted b {
-      color: $color-warning-text;
-    }
+  &__sheet {
+    --el-card-padding: 14px;
   }
 
-  &__progress-sep {
-    width: 1px;
-    height: 14px;
-    background: $border-color;
-  }
-
-  &__footer-right {
+  /* 自动暂存说明 */
+  &__note {
     display: flex;
-    align-items: center;
-    gap: 18px;
-    min-width: 0;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px 14px;
+    border: 1px solid $border-color;
+    border-radius: $radius-base;
+    background: $bg-paper;
+    font-size: 12px;
+    line-height: 1.6;
+    color: $text-secondary;
   }
 
-  &__footer-hint {
-    font-size: 13px;
-    color: $text-disabled;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  &__note-icon {
+    margin-top: 2px;
+    flex: 0 0 auto;
+    font-size: 14px;
+    color: $color-info-text;
   }
 
-  &__submit {
-    padding: 0 34px;
-    font-weight: 600;
-    letter-spacing: 3px;
-    border: none;
-    background: $gradient-brand;
-    box-shadow: 0 8px 18px -8px rgba($color-primary, 0.75);
-    transition: box-shadow $transition-base, transform $transition-fast, filter $transition-fast;
-
-    &:hover,
-    &:focus {
-      background: $gradient-brand;
-      filter: brightness(1.06);
-      box-shadow: 0 10px 22px -8px rgba($color-primary, 0.85);
-    }
-
-    &:active {
-      transform: translateY(1px);
-    }
-
-    &.is-disabled,
-    &.is-loading {
-      background: $gradient-brand;
-      opacity: 0.6;
-      box-shadow: none;
-      filter: none;
-    }
-  }
-
-  @media (max-width: 900px) {
-    &__footer-hint {
+  @media (max-width: 1100px) {
+    &__sub {
       display: none;
     }
 
-    &__title {
-      max-width: 160px;
+    &__wrap {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    &__aside {
+      position: static;
     }
   }
 }

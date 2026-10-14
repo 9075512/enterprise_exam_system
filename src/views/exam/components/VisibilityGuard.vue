@@ -58,7 +58,8 @@ onUnmounted(() => document.removeEventListener('visibilitychange', onVisibilityC
 
   &__alert {
     width: min(520px, calc(100vw - 48px));
-    border-radius: $radius-lg;
+    border-radius: $radius-base;
+    /* 遮罩层属浮层，保留投影（DESIGN-C §2.2 唯一允许投影的场景） */
     box-shadow: $shadow-lg;
   }
 }
