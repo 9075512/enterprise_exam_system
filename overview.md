@@ -190,3 +190,13 @@
 - **浮点防线**：`0.77 − 0.72 = 0.050000000000000044` 会把边界误判偏易，delta 千分位取整后再比（单测边界钉住）
 
 **验证**：CDP 两场景实测——演示库现状（含 3 条真实作答）系数 **0.69**（纯标注应为 0.80，实测优先生效）→ near + info 三件套全中；造 70% 验证作答后 **0.65** → hard + warning 三件套全中；验证数据独立标记精确清理、零污染。vue-tsc 0 / 225/225 / build ✅；服务端 539/539。截图 `_shot/composer-difficulty.png`。
+
+## 考生端「复核记录」时间线落地（第九轮）
+
+八轮后重盘 C 类剩余项：第二轮报告的页面级缺口绝大多数已在第三轮及后续轮次补齐（departments 科室树、exam-monitor 异常告警、retakes 补考规则、appeals 变更史、practice-settings 六卡、content、home-config、permissions、audit、login-logs、maintenance、exam-home 均已就位）。逐卡核对后**唯一剩余的结构缺口**是考生端 `exam-scores` 的「**复核记录**」时间线卡：
+
+- **纯函数** `services/appealTimeline.ts`：每条申请恒有「提交复核申请」；通过追加「复核通过 · X → Y 分」（is-done）、驳回追加「复核未通过 · 维持原分」（is-err）；pending 不追加（状态由列表「复核状态」列表达）；条目按时间倒序合并。单测 6 条
+- **页面**：成绩列表卡下方新增「复核记录」卡（发丝竖线 + 9px 三态圆点，语义原色仅图形）+「同一场考试只能申请一次」warning 提示条；数据源复用已有 `appeals.my`
+- **验证**：CDP 实测（考生视角）4 条时间线倒序、三态圆点与提示条计算值全中（`$color-success`/`$color-error`/`$line-strong`/warning 三件套），与列表「复核状态」列同源联动；验证数据带标记直插 `score_appeals`（不改任何成绩）实测后精确清理。前端 225 → **231/231**、vue-tsc 0、build ✅；服务端零改动。截图 `_shot/exam-scores-appeal-log.png`
+
+**至此设计稿 38 页与工程的区块级差异已全部对齐或有据可依**；仍开放项均需产品决策（阅卷 SLA 与告警工单表、表格列集合信息架构、练题端小按钮圆角、难度目标值配置化）。

@@ -339,3 +339,35 @@ C 类收尾与第五轮后，开放项里唯一「数据源已存在、无需产
 ### 仍开放的缺口（需产品决策）
 
 阅卷 SLA（超时 N 小时）与告警工单表（需新表 + 语义）、表格列集合差异（信息架构不同）、练题端小按钮 r6 vs r8。**「难度系数与目标配置」的目标值配置化**若产品要按域配置，走配置域范式即可。
+
+---
+
+## 考生端「复核记录」时间线落地（2026-10-14 第九轮）
+
+八轮后重盘 C 类剩余项：第二轮报告里的页面级缺口绝大多数已在第三轮收尾及后续轮次补齐（departments 科室树、exam-monitor 异常告警、retakes 补考规则、appeals 成绩变更史、practice-settings 六卡、content 双页签、home-config 生效说明、permissions 选择角色/当前统计、audit 日志详情、login-logs 异常提示、maintenance 三卡、exam-home 五区块均已就位）。逐卡核对后**唯一剩余的结构缺口**是考生端 `exam-scores` 的「**复核记录**」时间线卡 + 「同一场考试只能申请一次」提示条——数据源 `appeals.my`（ScoreAppeal 全字段）早已存在，本轮补齐。
+
+### 落地范围
+
+| 层 | 改动 |
+| --- | --- |
+| **纯函数** | 新增 `services/appealTimeline.ts`：`buildAppealTimeline`（每条申请恒有「提交复核申请」；approved 追加「复核通过 · X → Y 分」（is-done）、rejected 追加「复核未通过 · 维持原分」（is-err）、**pending 不追加**（状态由列表「复核状态」列表达）；条目按时间倒序合并）；`formatTimelineTime`（设计稿 MM-DD HH:mm，空值/非法值返回空串） |
+| **页面** | `MyScorePage.vue` 成绩列表卡下方新增「复核记录」卡（`v-if="!loading"`）：`.timeline/.tl` 时间线（左缘 1.5px 发丝线 + 9px 圆点）+ 空态文案；卡下方 `el-alert` warning 提示条（同一场考试只能申请一次，全局已收敛为 `.tip` 形态） |
+| **样式** | 圆点三态：中性 = `$bg-paper` 底 + `$line-strong` 描边；通过 = `$color-success` 原色（**仅图形**，文字仍 `$text-primary`）；驳回 = `$color-error` 原色——严格遵循语义色铁律 |
+| **测试** | 新增 `services/appealTimeline.test.ts` 6 条（通过两条倒序 / 驳回 / 待处理单条 / 跨申请倒序合并 / 空数组与缺段副文案 / 时间格式化），前端 225 → **231** |
+
+### 设计差异的工程化决策
+
+- **pending 不追加结果条目**：设计稿只有「提交/通过/未通过」三种形态；待处理状态已由列表「复核状态」列表达，时间线不重复造第四种形态。
+- **申请复核保持弹窗**（设计稿是独立表单卡）：工程弹窗流已存在且带冲突校验（后端 1005），不改信息架构。
+- **时间取自记录字段而非渲染时钟**：`reviewedAt ?? appliedAt` 回落，杜绝空值渲染 NaN。
+
+### 验证（CDP 实测计算值，截图 `_shot/exam-scores-appeal-log.png`）
+
+- 验证数据：演示库 `score_appeals` 直插两条带标记记录（`ap-qa-verify-approved`：0 → 5 分通过；`ap-qa-verify-rejected`：维持原分驳回），**不改任何 `exam_records.score`**，实测后精确删除（remaining appeals = 0，零污染）。
+- 实测（考生 zhangsan 视角）：4 条时间线按时间倒序（09-29 → 09-28 → 08-29 → 08-28）；is-done 圆点 `rgb(18,183,106)`、is-err `rgb(240,68,56)`、中性 `rgb(255,255,255)` 底 + `rgb(217,222,231)` 描边（`$bg-paper` + `$line-strong`）；标题 12.5px/600/`rgb(13,18,32)`、副文案 11.5px/`rgb(90,100,116)`；竖线 1.5px/`$line-strong`；提示条 `bg #FFFAEB / color #B54708`（warning 三件套，文字走深字档）；卡 `margin-top 16px`。
+- 列表「复核状态」列与时间线同源联动（已通过/已驳回徽标真实显示）。
+- 前端 vue-tsc 0 / vitest **231/231** / `vite build` 成功；服务端零改动（539/539 维持）。
+
+### 仍开放的缺口（需产品决策）
+
+阅卷 SLA（超时 N 小时）与告警工单表（需新表 + 语义）、表格列集合差异（信息架构不同）、练题端小按钮 r6 vs r8、难度系数目标值配置化（如需按科室/考试类型配，走配置域双份同步范式）。**设计稿 38 页与工程的区块级差异至此已全部对齐或有据可依。**
