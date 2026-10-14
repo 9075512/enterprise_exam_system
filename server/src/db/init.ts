@@ -72,6 +72,7 @@ async function indexExists(conn: mysql.Connection, table: string, index: string)
  *   5) practice_answers 复合索引 idx_pa_user_answered (user_id, answered_at)：学习报告按时间区间聚合、
  *      每日一练当日统计用（二期增量）；旧库需原地补建，新库已含在 CREATE TABLE 中。
  *      注：二期 3 张 practice_* 新表（favorites / daily_tasks / settings）同样由 DDL 幂等创建。
+ *   6) questions.difficulty（题目难度 low/medium/high，NULL = 未标注；组卷「难度分布」与题库列筛选用）。
  */
 async function applyMigrations(conn: mysql.Connection): Promise<void> {
   const changes: string[] = [];
@@ -113,6 +114,14 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
   if (!(await columnExists(conn, 'questions', 'rubric'))) {
     await conn.query(`ALTER TABLE questions ADD COLUMN rubric JSON NULL AFTER tags`);
     changes.push('questions.rubric');
+  }
+
+  // v3.2：题目难度（ENUM low/medium/high；NULL = 未标注）。组卷「难度分布」与题库列筛选用。
+  if (!(await columnExists(conn, 'questions', 'difficulty'))) {
+    await conn.query(
+      `ALTER TABLE questions ADD COLUMN difficulty ENUM('low','medium','high') NULL AFTER subject`,
+    );
+    changes.push('questions.difficulty');
   }
 
   // v1.5：用户邮箱（邮件通知接收地址，可空）

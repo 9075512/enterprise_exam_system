@@ -12,7 +12,7 @@ import { genId } from '../../utils/id.js';
 import { nowDb } from '../../utils/datetime.js';
 import { normalizePaging, buildPage } from '../../utils/pagination.js';
 import { parseJsonColumn } from '../../utils/json.js';
-import type { Page, QuestionDto, QuestionType, RubricBand } from '../../types/domain.js';
+import type { Page, QuestionDto, QuestionType, QuestionDifficulty, RubricBand } from '../../types/domain.js';
 
 /** 选项数量上下限（判断题固定 2 项，不受上限约束）。 */
 const MAX_OPTIONS = 6;
@@ -30,6 +30,7 @@ export interface NormalizedQuestion {
   defaultScore: number;
   analysis: string;
   subject: string;
+  difficulty: QuestionDifficulty | null;
   tags: string[];
   rubric: RubricBand[];
 }
@@ -90,6 +91,11 @@ function normalizeScore(raw: unknown): number {
   return defaultScore;
 }
 
+/** 题目难度归一（v3.2；合法枚举外一律视为未标注 null）。 */
+function normalizeDifficulty(raw: unknown): QuestionDifficulty | null {
+  return raw === 'low' || raw === 'medium' || raw === 'high' ? raw : null;
+}
+
 /**
  * 校验并归一化试题入参。
  * 客观题（单选/多选/判断）规则与 v1.0 一致；填空/简答为文本答案、无选项。
@@ -102,6 +108,7 @@ export function normalizeQuestion(input: {
   defaultScore?: number;
   analysis?: string;
   subject?: string;
+  difficulty?: unknown;
   tags?: string[];
   rubric?: unknown;
 }): NormalizedQuestion {
@@ -111,6 +118,7 @@ export function normalizeQuestion(input: {
   const type = input.type;
   const tags = normalizeTags(input.tags);
   const rubric = normalizeRubric(input.rubric, type);
+  const difficulty = normalizeDifficulty(input.difficulty);
 
   // 填空 / 简答：无选项，答案为文本数组
   if (type === 'fill' || type === 'short') {
@@ -130,6 +138,7 @@ export function normalizeQuestion(input: {
       defaultScore: normalizeScore(input.defaultScore),
       analysis,
       subject,
+      difficulty,
       tags,
       rubric,
     };
@@ -172,6 +181,7 @@ export function normalizeQuestion(input: {
     defaultScore: normalizeScore(input.defaultScore),
     analysis,
     subject,
+    difficulty,
     tags,
     rubric: [], // 评分细则仅简答题可用
   };
@@ -183,6 +193,7 @@ export async function listByBank(
   filter: {
     type?: QuestionType;
     subject?: string;
+    difficulty?: QuestionDifficulty;
     tag?: string;
     keyword?: string;
     page?: number;
@@ -198,6 +209,7 @@ export async function listByBank(
     bankId,
     type: filter.type,
     subject: filter.subject,
+    difficulty: filter.difficulty,
     tag: filter.tag,
     keyword: filter.keyword,
   };
@@ -214,6 +226,7 @@ export async function listGlobal(
     bankIds?: string[];
     type?: QuestionType;
     subject?: string;
+    difficulty?: QuestionDifficulty;
     tag?: string;
     keyword?: string;
     page?: number;
@@ -227,6 +240,7 @@ export async function listGlobal(
     bankIds,
     type: filter.type,
     subject: filter.subject,
+    difficulty: filter.difficulty,
     tag: filter.tag,
     keyword: filter.keyword,
   };
@@ -274,6 +288,7 @@ export async function create(
     defaultScore?: number;
     analysis?: string;
     subject?: string;
+    difficulty?: unknown;
     tags?: string[];
     rubric?: unknown;
   },
@@ -304,6 +319,7 @@ export async function update(
     defaultScore?: number;
     analysis?: string;
     subject?: string;
+    difficulty?: unknown;
     tags?: string[];
     rubric?: unknown;
   },
@@ -351,6 +367,8 @@ export interface BatchEditInput {
   tagsMode?: 'append' | 'replace';
   /** 目标默认分值（省略 = 不改；校验 > 0） */
   defaultScore?: number;
+  /** 目标难度（省略 = 不改；null = 清除难度，v3.2） */
+  difficulty?: QuestionDifficulty | null;
 }
 
 /**
@@ -377,13 +395,15 @@ export async function batchEdit(
   const hasSubject = input.subject !== undefined;
   const hasTags = input.tags !== undefined;
   const hasScore = input.defaultScore !== undefined;
-  if (!hasSubject && !hasTags && !hasScore) {
+  const hasDifficulty = input.difficulty !== undefined;
+  if (!hasSubject && !hasTags && !hasScore && !hasDifficulty) {
     throw badRequest('请至少选择一个要修改的字段');
   }
 
   const nextSubject = hasSubject ? String(input.subject ?? '').trim() || '未分类' : undefined;
   const nextScore = hasScore ? normalizeScore(input.defaultScore) : undefined;
   const nextTags = hasTags ? normalizeTags(input.tags) : undefined;
+  const nextDifficulty = hasDifficulty ? normalizeDifficulty(input.difficulty) : undefined;
   const mode: 'append' | 'replace' = input.tagsMode === 'replace' ? 'replace' : 'append';
 
   for (const row of rows) {
@@ -403,6 +423,7 @@ export async function batchEdit(
       defaultScore: nextScore ?? Number(row.default_score),
       analysis: row.analysis ?? '',
       subject: nextSubject ?? row.subject,
+      difficulty: hasDifficulty ? (nextDifficulty ?? null) : (row.difficulty ?? null),
       tags: mergedTags,
       rubric: parseJsonColumn<RubricBand[]>(row.rubric, []),
     });

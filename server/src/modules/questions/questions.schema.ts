@@ -8,6 +8,11 @@ const typeEnum = z.enum(['single', 'multiple', 'judge', 'fill', 'short'], {
   errorMap: () => ({ message: '题型不合法' }),
 });
 
+/** 题目难度枚举（v3.2）。 */
+const difficultyEnum = z.enum(['low', 'medium', 'high'], {
+  errorMap: () => ({ message: '题目难度不合法' }),
+});
+
 /** 兼容 `bankIds=a&bankIds=b` 与 `bankIds=a,b` 两种传参。 */
 const bankIdsQuery = z.preprocess(
   (v) => {
@@ -34,6 +39,8 @@ export const questionSchema = z.object({
   defaultScore: z.coerce.number().optional().default(10),
   analysis: z.string().optional().default(''),
   subject: z.string().optional().default(''),
+  // 题目难度（v3.2；null / 省略 = 未标注）
+  difficulty: difficultyEnum.nullish(),
   // 知识点标签（v1.7②；最多 10 个，单个 ≤32 字，service 层再归一化）
   tags: z.array(z.string()).max(10, '知识点标签最多 10 个').optional().default([]),
   // 评分细则（v1.7③ S1；仅简答题生效，service 层按分值降序去重并限 10 档）
@@ -54,6 +61,7 @@ export const questionSchema = z.object({
 export const questionListQuerySchema = z.object({
   bankIds: bankIdsQuery,
   type: typeQuery,
+  difficulty: z.preprocess((v) => (v === '' ? undefined : v), difficultyEnum.optional()),
   subject: z.string().optional().default(''),
   tag: z.string().optional().default(''),
   keyword: z.string().optional().default(''),
@@ -73,9 +81,16 @@ export const batchEditSchema = z
     tags: z.array(z.string()).max(10, '知识点标签最多 10 个').optional(),
     tagsMode: z.enum(['append', 'replace'], { errorMap: () => ({ message: '标签写入模式不合法' }) }).optional(),
     defaultScore: z.coerce.number().positive('分值必须为正数').optional(),
+    // 题目难度（v3.2；null = 清除该字段）
+    difficulty: difficultyEnum.nullish(),
   })
-  .refine((v) => v.subject !== undefined || v.tags !== undefined || v.defaultScore !== undefined, {
-    message: '请至少选择一个要修改的字段',
-  });
+  .refine(
+    (v) =>
+      v.subject !== undefined ||
+      v.tags !== undefined ||
+      v.defaultScore !== undefined ||
+      v.difficulty !== undefined,
+    { message: '请至少选择一个要修改的字段' },
+  );
 
 export type QuestionInput = z.infer<typeof questionSchema>;

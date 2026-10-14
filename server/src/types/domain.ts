@@ -9,6 +9,9 @@ export type Role = 'admin' | 'author' | 'examinee';
 /** 题型：单选 / 多选 / 判断 */
 export type QuestionType = 'single' | 'multiple' | 'judge' | 'fill' | 'short';
 
+/** 题目难度（v3.2；低/中/高，null = 未标注） */
+export type QuestionDifficulty = 'low' | 'medium' | 'high';
+
 /** 账号状态 */
 export type UserStatus = 'active' | 'disabled';
 
@@ -201,6 +204,8 @@ export interface QuestionDto {
   defaultScore: number;
   analysis: string;
   subject: string;
+  /** 题目难度（v3.2；null = 未标注） */
+  difficulty: QuestionDifficulty | null;
   /** 知识点标签（多标签，v1.7②；空数组 = 未打标签） */
   tags: string[];
   /** 评分细则（分档 rubric，v1.7③ S1；仅简答题可用，空数组 = 未设置） */
@@ -309,6 +314,8 @@ export interface DrawQuestionItem {
   score: number;
   type: QuestionType;
   stem: string;
+  /** 题目难度（v3.2；null = 未标注） */
+  difficulty: QuestionDifficulty | null;
 }
 
 /** 抽题缺口项 */

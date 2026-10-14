@@ -323,7 +323,7 @@ export async function drawQuestions(
     }
     for (const r of rows) {
       drawnIds.push(r.id);
-      questions.push({ questionId: r.id, score: p.score, type: r.type, stem: r.stem });
+      questions.push({ questionId: r.id, score: p.score, type: r.type, stem: r.stem, difficulty: r.difficulty ?? null });
     }
   }
   return { questions, shortages, tagShortages };

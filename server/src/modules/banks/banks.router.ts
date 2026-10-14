@@ -91,6 +91,7 @@ banksRouter.get(
     const q = req.query as unknown as {
       type?: 'single' | 'multiple' | 'judge' | 'fill' | 'short';
       subject: string;
+      difficulty?: 'low' | 'medium' | 'high';
       tag: string;
       keyword: string;
       page: number;
@@ -100,6 +101,7 @@ banksRouter.get(
     const result = await questionsService.listByBank(req.params.id, {
       type: q.type,
       subject: q.subject,
+      difficulty: q.difficulty,
       tag: q.tag,
       keyword: q.keyword,
       page: paging.page,

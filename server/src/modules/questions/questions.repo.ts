@@ -4,12 +4,12 @@
 import type { RowDataPacket } from 'mysql2/promise';
 import { query, runQuery, type SqlExecutor } from '../../db/pool.js';
 import type { QuestionRow } from './question.mapper.js';
-import type { QuestionType, RubricBand } from '../../types/domain.js';
+import type { QuestionType, QuestionDifficulty, RubricBand } from '../../types/domain.js';
 
 export type { QuestionRow } from './question.mapper.js';
 
 const COLUMNS =
-  'id, bank_id, type, stem, options, answer, default_score, analysis, subject, tags, rubric, created_by, created_at';
+  'id, bank_id, type, stem, options, answer, default_score, analysis, subject, difficulty, tags, rubric, created_by, created_at';
 
 /** 试题筛选条件。 */
 export interface QuestionFilter {
@@ -19,6 +19,8 @@ export interface QuestionFilter {
   bankIds?: string[];
   type?: QuestionType;
   subject?: string;
+  /** 按题目难度过滤（v3.2） */
+  difficulty?: QuestionDifficulty;
   /** 按知识点标签过滤（v1.7②） */
   tag?: string;
   keyword?: string;
@@ -42,6 +44,10 @@ function buildWhere(f: QuestionFilter): { where: string; params: string[] } {
   if (f.subject && f.subject.trim() !== '') {
     conds.push('subject = ?');
     params.push(f.subject.trim());
+  }
+  if (f.difficulty) {
+    conds.push('difficulty = ?');
+    params.push(f.difficulty);
   }
   if (f.tag && f.tag.trim() !== '') {
     conds.push('JSON_CONTAINS(tags, JSON_QUOTE(?))');
@@ -190,6 +196,7 @@ export async function insert(
     defaultScore: number;
     analysis: string;
     subject: string;
+    difficulty: QuestionDifficulty | null;
     tags: string[];
     rubric: RubricBand[];
     createdBy: string;
@@ -200,8 +207,8 @@ export async function insert(
   await runQuery(
     exec,
     `INSERT INTO questions
-       (id, bank_id, type, stem, options, answer, default_score, analysis, subject, tags, rubric, created_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, bank_id, type, stem, options, answer, default_score, analysis, subject, difficulty, tags, rubric, created_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       row.id,
       row.bankId,
@@ -212,6 +219,7 @@ export async function insert(
       row.defaultScore,
       row.analysis,
       row.subject,
+      row.difficulty,
       JSON.stringify(row.tags),
       JSON.stringify(row.rubric),
       row.createdBy,
@@ -232,6 +240,7 @@ export async function update(
     defaultScore: number;
     analysis: string;
     subject: string;
+    difficulty: QuestionDifficulty | null;
     tags: string[];
     rubric: RubricBand[];
   },
@@ -240,7 +249,7 @@ export async function update(
   await runQuery(
     exec,
     `UPDATE questions
-       SET bank_id = ?, type = ?, stem = ?, options = ?, answer = ?, default_score = ?, analysis = ?, subject = ?, tags = ?, rubric = ?
+       SET bank_id = ?, type = ?, stem = ?, options = ?, answer = ?, default_score = ?, analysis = ?, subject = ?, difficulty = ?, tags = ?, rubric = ?
      WHERE id = ?`,
     [
       row.bankId,
@@ -251,6 +260,7 @@ export async function update(
       row.defaultScore,
       row.analysis,
       row.subject,
+      row.difficulty,
       JSON.stringify(row.tags),
       JSON.stringify(row.rubric),
       id,

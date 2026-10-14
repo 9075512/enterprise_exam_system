@@ -30,6 +30,13 @@ export const bankQuestionsQuerySchema = z.object({
       .optional(),
   ),
   subject: z.string().optional().default(''),
+  /** 题目难度过滤（v3.2） */
+  difficulty: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z
+      .enum(['low', 'medium', 'high'], { errorMap: () => ({ message: '题目难度不合法' }) })
+      .optional(),
+  ),
   /** 知识点标签过滤（v1.7②） */
   tag: z.string().optional().default(''),
   keyword: z.string().optional().default(''),

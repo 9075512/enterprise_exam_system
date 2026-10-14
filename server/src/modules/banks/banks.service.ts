@@ -542,6 +542,7 @@ export async function cloneBank(
             defaultScore: Number(r.default_score),
             analysis: r.analysis ?? '',
             subject: r.subject,
+            difficulty: r.difficulty ?? null,
             tags: parseJsonColumn<string[]>(r.tags, []),
             rubric: parseJsonColumn<RubricBand[]>(r.rubric, []),
             createdBy: r.created_by,

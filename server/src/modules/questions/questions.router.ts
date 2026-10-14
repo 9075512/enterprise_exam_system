@@ -16,7 +16,7 @@ import {
 } from './questions.schema.js';
 import * as questionsService from './questions.service.js';
 import type { BatchEditInput } from './questions.service.js';
-import type { QuestionType } from '../../types/domain.js';
+import type { QuestionType, QuestionDifficulty } from '../../types/domain.js';
 
 export const questionsRouter = Router();
 
@@ -30,6 +30,7 @@ questionsRouter.get(
     const q = req.query as unknown as {
       bankIds?: string[];
       type?: QuestionType;
+      difficulty?: QuestionDifficulty;
       subject: string;
       tag: string;
       keyword: string;

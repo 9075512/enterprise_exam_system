@@ -4,7 +4,7 @@
 import type { RowDataPacket } from 'mysql2/promise';
 import { parseJsonColumn } from '../../utils/json.js';
 import { fromDbDateSafe } from '../../utils/datetime.js';
-import type { QuestionDto, QuestionType, RubricBand } from '../../types/domain.js';
+import type { QuestionDto, QuestionType, QuestionDifficulty, RubricBand } from '../../types/domain.js';
 
 /** `questions` 表原始行。 */
 export interface QuestionRow extends RowDataPacket {
@@ -17,6 +17,7 @@ export interface QuestionRow extends RowDataPacket {
   default_score: number | string;
   analysis: string | null;
   subject: string;
+  difficulty: QuestionDifficulty | null;
   tags: unknown;
   rubric: unknown;
   created_by: string;
@@ -54,6 +55,7 @@ export function mapQuestionRow(row: QuestionRow): QuestionDto {
     defaultScore: Number(row.default_score),
     analysis: row.analysis ?? '',
     subject: row.subject,
+    difficulty: row.difficulty ?? null,
     tags: parseJsonColumn<string[]>(row.tags, []),
     rubric: row.type === 'short' ? parseRubric(row.rubric) : [],
     createdBy: row.created_by,
