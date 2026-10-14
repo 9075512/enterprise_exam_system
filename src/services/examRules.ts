@@ -6,7 +6,12 @@
  * 本文件仅提供前端展示所需的轻量纯函数（总分汇总、逐题对错对比），不参与服务端判分。
  * `getExamStatus` 由 `@/utils/examStatus` 复用并 re-export，保持单一实现。
  */
-import type { PaperQuestion, QuestionType } from '@/types';
+import {
+  PAPER_DIFFICULTY_TOLERANCE,
+  PAPER_TARGET_DIFFICULTY,
+  QUESTION_DIFFICULTY_P_VALUE,
+} from '@/constants';
+import type { PaperQuestion, QuestionDifficulty, QuestionType } from '@/types';
 import { getExamStatus } from '@/utils/examStatus';
 
 export { getExamStatus };
@@ -58,4 +63,72 @@ export function isAnswerCorrect(
     return a === b;
   }
   return ua.length === 1 && ua[0] === qa[0];
+}
+
+/* ------------------------------ 组卷难度系数（P 值，v3.3） ------------------------------
+ * 纯计算，仅用于组卷页评估：把「已选题目」折算为单一难度系数，与目标值对标，给出发布建议。
+ * 口径：单题 P 值优先取实测正确率（练题作答聚合，越易越高），无作答时按人工难度标注锚点估算；
+ * 目标值与容差见 `@/constants`（对齐设计稿 composer「目标 0.72」）。
+ */
+
+/** 难度系数评估的输入项（只需难度标注、实测正确率与分值） */
+export interface DifficultyInput {
+  /** 人工难度标注（null = 未标注） */
+  difficulty: QuestionDifficulty | null;
+  /** 实测正确率 0–100（null/undefined = 无练题作答，回退难度标注估算） */
+  correctRate?: number | null;
+  /** 题目分值（加权权重） */
+  score: number;
+}
+
+/** 难度系数对标结论四态：无数据 / 接近目标 / 偏易 / 偏难 */
+export type DifficultyVerdict = 'none' | 'near' | 'easy' | 'hard';
+
+/** 单题难度系数（P 值，0–1）：实测正确率优先；否则难度标注锚点；两者皆无 → null（不计入评估） */
+export function questionPValue(q: DifficultyInput): number | null {
+  if (typeof q.correctRate === 'number' && Number.isFinite(q.correctRate)) {
+    return Math.min(Math.max(q.correctRate, 0), 100) / 100;
+  }
+  if (q.difficulty) return QUESTION_DIFFICULTY_P_VALUE[q.difficulty];
+  return null;
+}
+
+/** 可评估（有实测正确率或难度标注）的题数 */
+export function evaluableQuestionCount(items: readonly DifficultyInput[]): number {
+  return items.filter((q) => questionPValue(q) !== null).length;
+}
+
+/** 当前难度系数：按分值加权平均（无可用数据 → null，不造数），保留 2 位小数 */
+export function calcDifficultyIndex(items: readonly DifficultyInput[]): number | null {
+  let weighted = 0;
+  let weight = 0;
+  for (const q of items) {
+    const p = questionPValue(q);
+    if (p === null || !(q.score > 0)) continue;
+    weighted += p * q.score;
+    weight += q.score;
+  }
+  return weight > 0 ? Math.round((weighted / weight) * 100) / 100 : null;
+}
+
+/** 对标目标值的结论态（无数据 → none；|Δ| ≤ 容差 → near；高于目标 → easy；低于 → hard） */
+export function difficultyVerdict(current: number | null): DifficultyVerdict {
+  if (current === null) return 'none';
+  // 千分位取整后再比，消除浮点误差（0.77 − 0.72 = 0.050000000000000044，会误判为偏易）
+  const delta = Math.round((current - PAPER_TARGET_DIFFICULTY) * 1000) / 1000;
+  if (Math.abs(delta) <= PAPER_DIFFICULTY_TOLERANCE) return 'near';
+  return delta > 0 ? 'easy' : 'hard';
+}
+
+/** 结论提示文案（供组卷页 tip 展示） */
+export function difficultyVerdictText(current: number | null): string {
+  const target = PAPER_TARGET_DIFFICULTY.toFixed(2);
+  const verdict = difficultyVerdict(current);
+  if (verdict === 'none' || current === null) {
+    return '已选题目暂无难度数据（未标注难度且无练题作答），无法评估难度系数。';
+  }
+  const cur = current.toFixed(2);
+  if (verdict === 'near') return `当前难度系数 ${cur}，接近目标值 ${target}，可直接发布。`;
+  if (verdict === 'easy') return `当前难度系数 ${cur}，偏易（目标 ${target}），建议补充高难度题目。`;
+  return `当前难度系数 ${cur}，偏难（目标 ${target}），建议补充低难度题目。`;
 }

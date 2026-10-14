@@ -7,7 +7,16 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Delete, Plus, ArrowLeft, Search, Refresh, CircleCheck } from '@element-plus/icons-vue';
+import {
+  Delete,
+  Plus,
+  ArrowLeft,
+  Search,
+  Refresh,
+  CircleCheck,
+  Warning,
+  WarningFilled,
+} from '@element-plus/icons-vue';
 import * as banksApi from '@/api/banks';
 import * as papersApi from '@/api/papers';
 import * as questionsApi from '@/api/questions';
@@ -16,11 +25,20 @@ import { usePagination } from '@/composables/usePagination';
 import {
   QUESTION_DIFFICULTY_LABELS,
   QUESTION_DIFFICULTY_OPTIONS,
+  QUESTION_DIFFICULTY_P_VALUE,
   QUESTION_TYPE_LABELS,
   QUESTION_TYPE_OPTIONS,
+  PAPER_DIFFICULTY_TOLERANCE,
+  PAPER_TARGET_DIFFICULTY,
 } from '@/constants';
 import { useSettingsStore } from '@/stores/settings';
-import { calcTotalScore } from '@/services/examRules';
+import {
+  calcDifficultyIndex,
+  calcTotalScore,
+  difficultyVerdict,
+  difficultyVerdictText,
+  type DifficultyVerdict,
+} from '@/services/examRules';
 import DataTablePagination from '@/components/common/DataTablePagination.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
@@ -42,6 +60,8 @@ interface SelectedQuestion {
   type: QuestionType;
   /** 题目难度（v3.2；null = 未标注） */
   difficulty: QuestionDifficulty | null;
+  /** 实测正确率（v3.3；0–100，null/未定义 = 无练题作答，难度系数取标注锚点估算） */
+  correctRate?: number | null;
 }
 
 const route = useRoute();
@@ -155,6 +175,8 @@ async function generateDraft(): Promise<void> {
         stem: item.stem,
         type: item.type,
         difficulty: item.difficulty,
+        // 抽题结果不含实测作答统计，难度系数按标注锚点估算
+        correctRate: null,
       });
       existing.add(item.questionId);
       added += 1;
@@ -282,9 +304,10 @@ function addSelected(
   stem: string,
   type: QuestionType,
   difficulty: QuestionDifficulty | null,
+  correctRate: number | null = null,
 ): void {
   if (isSelected(questionId)) return;
-  selected.value.push({ questionId, score, stem, type, difficulty });
+  selected.value.push({ questionId, score, stem, type, difficulty, correctRate });
   sortSelected();
 }
 
@@ -294,7 +317,7 @@ function removeSelected(questionId: string): void {
 
 function togglePoolQuestion(row: Question, checked: boolean): void {
   if (checked) {
-    addSelected(row.id, row.defaultScore, row.stem, row.type, row.difficulty);
+    addSelected(row.id, row.defaultScore, row.stem, row.type, row.difficulty, row.correctRate ?? null);
   } else {
     removeSelected(row.id);
   }
@@ -406,6 +429,22 @@ const hasUntaggedDifficulty = computed<boolean>(() =>
 const visibleDifficultyRows = computed<DifficultyAggRow[]>(() =>
   difficultyRows.value.filter((row) => row.key !== 'none' || row.count > 0),
 );
+
+/* ------------------------------ 难度系数（P 值，v3.3） ------------------------------
+ * 把已选题目折算为单一难度系数并与目标值对标，给出发布建议（对齐设计稿 composer 难度分布卡）。
+ * 口径见 `@/services/examRules`：实测正确率优先、人工难度标注回落、按分值加权。
+ */
+
+/** 当前难度系数（无可用数据 → null，不造数） */
+const currentDifficulty = computed<number | null>(() => calcDifficultyIndex(selected.value));
+
+/** 难度系数对标结论态（none / near / easy / hard） */
+const difficultyIndicator = computed<DifficultyVerdict>(() =>
+  difficultyVerdict(currentDifficulty.value),
+);
+
+/** 难度系数结论提示文案 */
+const difficultyTip = computed<string>(() => difficultyVerdictText(currentDifficulty.value));
 
 /** 发布检查项（均可由当前工作态真实算出，与 handleSave 的校验口径一致） */
 interface CheckItem {
@@ -523,6 +562,7 @@ onMounted(async () => {
       stem: q.question.stem,
       type: q.question.type,
       difficulty: q.question.difficulty,
+      correctRate: q.question.correctRate ?? null,
     }));
     sortSelected();
     await loadPoolSubjects();
@@ -916,9 +956,16 @@ onMounted(async () => {
         <div v-else class="composer__insight-empty">尚未选择题目</div>
       </el-card>
 
-      <!-- 难度分布（v3.2）：按已选题目难度聚合 -->
+      <!-- 难度分布（v3.2）：按已选题目难度聚合；难度系数对标目标值（v3.3） -->
       <el-card class="composer__insight" shadow="never">
-        <template #header><span class="composer__card-title">难度分布</span></template>
+        <template #header>
+          <div class="composer__card-head">
+            <span class="composer__card-title">难度分布</span>
+            <el-tag size="small" effect="plain" type="info">
+              目标 {{ PAPER_TARGET_DIFFICULTY.toFixed(2) }}
+            </el-tag>
+          </div>
+        </template>
         <div v-if="selected.length" class="composer__bars">
           <div v-for="row in visibleDifficultyRows" :key="row.key" class="composer__bar">
             <div class="composer__bar-head">
@@ -934,6 +981,18 @@ onMounted(async () => {
         <p v-if="selected.length" class="composer__insight-note">
           {{ difficultyTaggedCount }} / {{ selected.length }} 题已标注难度<template v-if="hasUntaggedDifficulty">；「未标注」不影响组卷，可在题库详情页补充</template>。
         </p>
+        <div
+          v-if="selected.length"
+          class="composer__verdict"
+          :class="`is-${difficultyIndicator}`"
+        >
+          <el-icon class="composer__verdict-icon">
+            <CircleCheck v-if="difficultyIndicator === 'near'" />
+            <WarningFilled v-else-if="difficultyIndicator === 'easy' || difficultyIndicator === 'hard'" />
+            <Warning v-else />
+          </el-icon>
+          <span>{{ difficultyTip }}</span>
+        </div>
       </el-card>
 
       <!-- 发布检查：可真实算出的校验项清单 -->
@@ -1204,6 +1263,13 @@ onMounted(async () => {
     color: $text-primary;
   }
 
+  &__card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
   &__scope {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1260,6 +1326,43 @@ onMounted(async () => {
     margin: 12px 0 0;
     font-size: 12px;
     color: $text-secondary;
+  }
+
+  // 难度系数结论条：文字一律走语义色 -text 档，原色只作底/描边（方向 C 语义色铁律）
+  &__verdict {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border: 1px solid $border-color;
+    border-radius: $radius-sm;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: $text-body;
+
+    &-icon {
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    &.is-near {
+      border-color: $color-info-border;
+      background: $color-info-bg;
+      color: $color-info-text;
+    }
+
+    &.is-easy,
+    &.is-hard {
+      border-color: $color-warning-border;
+      background: $color-warning-bg;
+      color: $color-warning-text;
+    }
+
+    &.is-none {
+      background: $color-neutral-bg;
+      color: $text-secondary;
+    }
   }
 
   &__struct-head,

@@ -62,6 +62,23 @@ export const QUESTION_DIFFICULTY_OPTIONS: ReadonlyArray<{ value: QuestionDifficu
   { value: 'high', label: '高' },
 ];
 
+/**
+ * 题目难度 → 难度系数（P 值）锚点（v3.3）。
+ * 组卷「难度系数」在题目无实测作答数据时的估算依据：低难度（易）通过率最高、高难度（难）最低。
+ * 仅用于组卷评估，不参与判分。题目有实测正确率时以其为准。
+ */
+export const QUESTION_DIFFICULTY_P_VALUE: Record<QuestionDifficulty, number> = {
+  low: 0.9,
+  medium: 0.7,
+  high: 0.5,
+};
+
+/** 组卷目标难度系数（P 值，v3.3；对齐设计稿 composer 的「目标 0.72」） */
+export const PAPER_TARGET_DIFFICULTY = 0.72;
+
+/** 难度系数判定「接近目标」的容差（v3.3；|当前 − 目标| ≤ 容差即视为接近） */
+export const PAPER_DIFFICULTY_TOLERANCE = 0.05;
+
 /** 考试状态文案 */
 export const EXAM_STATUS_LABELS: Record<ExamStatus, string> = {
   not_started: '未开始',
