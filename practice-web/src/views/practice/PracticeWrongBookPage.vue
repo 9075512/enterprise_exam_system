@@ -170,17 +170,16 @@ onMounted(load);
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 16px;
-    padding: 14px 16px;
-    background: #fff;
-    border: 1px solid $practice-border;
-    border-left: 3px solid $color-error;
+    margin-bottom: 14px;
+    padding: 13px 14px;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
 
     :deep(.el-button) {
       flex: 0 0 auto;
       border: none;
-      border-radius: $practice-radius-sm;
+      border-radius: $radius-xs;
       background: $practice-primary;
 
       &:hover,
@@ -192,21 +191,21 @@ onMounted(load);
 
   &__title {
     margin: 0;
-    font-size: 16px;
-    font-weight: 700;
+    font-size: 15px;
+    font-weight: 640;
     color: $text-primary;
   }
 
   &__sub {
-    margin: 4px 0 0;
-    font-size: 12px;
+    margin: 3px 0 0;
+    font-size: 11.5px;
     color: $text-secondary;
   }
 
   &__skeleton {
-    padding: 18px;
-    background: #fff;
-    border: 1px solid $practice-border;
+    padding: 14px;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
   }
 
@@ -219,21 +218,20 @@ onMounted(load);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
+    width: 42px;
+    height: 42px;
     margin-bottom: 14px;
-    border: 1px solid $practice-border;
-    border-radius: $practice-radius;
-    background: #fff;
-    font-size: 20px;
-    font-weight: 700;
+    border-radius: 50%;
+    background: $practice-surface-3;
+    font-size: 18px;
+    font-weight: 640;
     color: $text-disabled;
     line-height: 1;
   }
 
   &__empty-text {
     margin: 0;
-    font-size: 14px;
+    font-size: 13.5px;
     color: $text-secondary;
   }
 
@@ -245,44 +243,30 @@ onMounted(load);
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 10px;
-    padding-left: 10px;
-    position: relative;
-
-    &::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 0;
-      width: 3px;
-      height: 13px;
-      margin-top: -6.5px;
-      border-radius: 2px;
-      background: $practice-primary;
-    }
+    margin-bottom: 9px;
 
     :deep(.el-button) {
       margin-left: auto;
-      border-radius: $practice-radius-sm;
+      border-radius: $radius-xs;
     }
   }
 
   &__group-name {
-    font-size: 14px;
-    font-weight: 700;
+    font-size: 13.5px;
+    font-weight: 640;
     color: $text-primary;
   }
 
   &__group-count {
-    font-size: 12px;
+    font-size: 11.5px;
     color: $text-secondary;
   }
 
   &__item {
     padding: 13px 14px;
     margin-bottom: 8px;
-    background: #fff;
-    border: 1px solid $practice-border;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
   }
 
@@ -294,11 +278,10 @@ onMounted(load);
   }
 
   &__type {
-    padding: 2px 7px;
-    border-radius: 4px;
+    padding: 1px 6px;
+    border-radius: $radius-xs;
     background: $practice-soft;
-    border: 1px solid $practice-border;
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 600;
     color: $practice-primary;
   }
@@ -310,7 +293,7 @@ onMounted(load);
 
   &__stem {
     margin: 0;
-    font-size: 14px;
+    font-size: 13.5px;
     line-height: 1.7;
     color: $text-primary;
     word-break: break-word;
@@ -321,7 +304,7 @@ onMounted(load);
     text-align: center;
 
     :deep(.el-button) {
-      border-radius: $practice-radius-sm;
+      border-radius: $radius-xs;
     }
   }
 }

@@ -13,6 +13,9 @@
  * 4) v2.2 主色唯一性：练题端只有 $practice-primary 一套主色，
  *    不得再出现 $color-primary / $color-secondary 系列、不得硬编码主色、
  *    分类色不得回退到 violet；Element Plus 主色须与 $practice-primary 同源。
+ * 5) v3.1 方向 C 换肤：去 3px 左缘强调条（改图标块 + 发丝线卡片）、
+ *    圆角不越 10px（胶囊 99px 与显式 radius-exception 除外）、
+ *    顶栏为白底承载面、卡片零投影。
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -78,10 +81,52 @@ describe('练题端 · 语义色作文字护栏', () => {
   });
 });
 
-describe('练题端 · 主色唯一性护栏', () => {
-  it('业务层不硬编码主色（#1d4ed8 / #2563eb / rgb(29,78,216)）', () => {
+describe('练题端 · v3.1 方向 C 换肤护栏', () => {
+  it('不再出现 3px 左缘强调条（改为图标块 + 发丝线卡片）', () => {
     const offenders = businessFiles.filter((file) =>
-      /#1d4ed8|#2563eb|29\s*,\s*78\s*,\s*216/i.test(stripComments(readFileSync(file, 'utf8'))),
+      /border-left:\s*3px\b/i.test(stripComments(readFileSync(file, 'utf8'))),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it('圆角不越 10px（胶囊 99px 与显式 radius-exception 除外）', () => {
+    const offenders: string[] = [];
+    for (const file of businessFiles) {
+      // 注：此处不剥离注释——`radius-exception` 标记本身就是注释，需保留原文判断
+      for (const line of readFileSync(file, 'utf8').split('\n')) {
+        const m = line.match(/border-radius:\s*(\d{2,})px/);
+        if (!m) continue;
+        const value = Number(m[1]);
+        if (value <= 10 || value === 99) continue;
+        if (/radius-exception/.test(line)) continue;
+        offenders.push(`${file} → ${line.trim()}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('顶栏为白底承载面（去 v1.7 深蓝实色块）', () => {
+    const vars = readFileSync(resolve(ROOT, 'styles/variables.scss'), 'utf8');
+    const layout = readFileSync(resolve(ROOT, 'layouts/PracticeLayout.vue'), 'utf8');
+    expect(vars).toMatch(/\$practice-header:\s*#[fF]{6}\b/);
+    expect(layout).toMatch(/background:\s*\$practice-header/);
+  });
+
+  it('卡片零投影（层次交给发丝线；$shadow-sm = none）', () => {
+    const vars = readFileSync(resolve(ROOT, 'styles/variables.scss'), 'utf8');
+    const runtime = readFileSync(resolve(ROOT, 'styles/index.scss'), 'utf8');
+    expect(vars).toMatch(/\$shadow-sm:\s*none/);
+    // Element Plus 卡片：双写类名抬优先级后须显式去投影
+    expect(runtime).toMatch(/\.el-card\.el-card[\s\S]{0,400}box-shadow:\s*none/);
+  });
+});
+
+describe('练题端 · 主色唯一性护栏', () => {
+  it('业务层不硬编码主色（旧 #1d4ed8 / #2563eb，新 #0b5bff）', () => {
+    const offenders = businessFiles.filter((file) =>
+      /#1d4ed8|#2563eb|#0b5bff|(29\s*,\s*78\s*,\s*216)|(11\s*,\s*91\s*,\s*255)/i.test(
+        stripComments(readFileSync(file, 'utf8')),
+      ),
     );
     expect(offenders).toEqual([]);
   });
@@ -100,10 +145,12 @@ describe('练题端 · 主色唯一性护栏', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('Element Plus 主色与 $practice-primary 同源', () => {
+  it('Element Plus 主色与 $practice-primary 同源（v3.1 收敛到 C 方向 #0b5bff）', () => {
     const vars = readFileSync(resolve(ROOT, 'styles/variables.scss'), 'utf8');
     const el = readFileSync(resolve(ROOT, 'styles/element/index.scss'), 'utf8');
-    expect(vars).toMatch(/\$practice-primary:\s*#1d4ed8/i);
-    expect(el).toMatch(/'base':\s*#1d4ed8/i);
+    const runtime = readFileSync(resolve(ROOT, 'styles/index.scss'), 'utf8');
+    expect(vars).toMatch(/\$practice-primary:\s*#0b5bff/i);
+    expect(el).toMatch(/'base':\s*#0b5bff/i);
+    expect(runtime).toMatch(/--el-color-primary:\s*#0b5bff/i);
   });
 });

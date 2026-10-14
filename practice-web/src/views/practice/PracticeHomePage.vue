@@ -272,47 +272,47 @@ onMounted(load);
 
   &__hello {
     margin: 0;
-    font-size: 18px;
-    font-weight: 700;
+    font-size: 19px;
+    font-weight: 640;
+    letter-spacing: -0.02em;
     color: $text-primary;
   }
 
   &__sub {
-    margin: 4px 0 0;
-    font-size: 13px;
+    margin: 5px 0 0;
+    font-size: 12.5px;
     color: $text-secondary;
   }
 
   &__skeleton {
     :deep(.el-skeleton) {
       margin-bottom: 12px;
-      padding: 18px;
-      background: #fff;
-      border: 1px solid $practice-border;
+      padding: 14px;
+      background: $bg-paper;
+      border: 1px solid $border-color;
       border-radius: $practice-radius;
     }
   }
 
-  /* 错题本：白卡 + 左侧强调条 */
+  /* 错题本入口：图标块 + 卡片（v3.1 去左缘强调条） */
   &__wrong {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
-    padding: 14px 16px;
-    background: #fff;
-    border: 1px solid $practice-border;
-    border-left: 3px solid $color-error;
+    gap: 11px;
+    margin-bottom: 9px;
+    padding: 13px 14px;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
     cursor: pointer;
     transition: border-color $transition-fast, background-color $transition-fast;
 
     &:active {
-      background: #fafbfd;
+      background: $practice-surface-2;
     }
 
     &.is-empty {
-      opacity: 0.7;
+      opacity: 0.72;
     }
   }
 
@@ -323,11 +323,10 @@ onMounted(load);
     justify-content: center;
     width: 36px;
     height: 36px;
-    border-radius: $practice-radius-sm;
+    border-radius: $radius-xs;
     background: $color-error-bg;
-    border: 1px solid $color-error-border;
-    font-size: 14px;
-    font-weight: 700;
+    font-size: 13px;
+    font-weight: 680;
     color: $color-error-text;
     line-height: 1;
   }
@@ -335,36 +334,34 @@ onMounted(load);
   &__wrong-body {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 2px;
     min-width: 0;
     flex: 1;
   }
 
   &__wrong-title {
-    font-size: 14px;
-    font-weight: 700;
+    font-size: 13.5px;
+    font-weight: 620;
     color: $text-primary;
   }
 
   &__wrong-count {
-    font-size: 12px;
+    font-size: 11.5px;
     color: $text-secondary;
   }
 
   &__wrong-btn {
     flex: 0 0 auto;
-    border-radius: $practice-radius-sm;
+    border-radius: $radius-xs;
   }
 
-  /* 收藏卡：主色强调条（区别于错题本的红色） */
+  /* 收藏卡：图标块用主色软底（区别于错题本的语义红） */
   &__wrong--fav {
-    margin-bottom: 20px;
-    border-left-color: $practice-primary;
+    border-color: $border-color;
   }
 
   &__wrong-icon--fav {
     background: $practice-soft;
-    border-color: $practice-border;
     color: $practice-primary;
   }
 
@@ -372,22 +369,22 @@ onMounted(load);
   &__daily {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
-    padding: 15px 16px;
-    background: #fff;
-    border: 1px solid $practice-border;
-    border-left: 3px solid $practice-primary;
+    gap: 11px;
+    margin-bottom: 9px;
+    padding: 13px 14px;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
     cursor: pointer;
     transition: border-color $transition-fast, background-color $transition-fast;
 
     &:active {
-      background: #fafbfd;
+      background: $practice-surface-2;
     }
 
-    &.is-done {
-      border-left-color: $color-success;
+    &.is-done .home__daily-mark {
+      background: $color-success-bg;
+      color: $color-success-text;
     }
   }
 
@@ -396,13 +393,12 @@ onMounted(load);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: $practice-radius-sm;
+    width: 36px;
+    height: 36px;
+    border-radius: $radius-xs;
     background: $practice-soft;
-    border: 1px solid $practice-border;
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 11.5px;
+    font-weight: 680;
     color: $practice-primary;
     line-height: 1;
   }
@@ -410,28 +406,29 @@ onMounted(load);
   &__daily-body {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 2px;
     min-width: 0;
     flex: 1;
   }
 
   &__daily-title {
-    font-size: 15px;
-    font-weight: 700;
+    font-size: 13.5px;
+    font-weight: 620;
     color: $text-primary;
   }
 
   &__daily-sub {
-    font-size: 12px;
+    font-size: 11.5px;
     color: $text-secondary;
   }
 
   &__daily-btn {
     flex: 0 0 auto;
-    min-height: 32px;
-    padding: 0 14px;
+    min-height: 31px;
+    padding: 0 13px;
     border: none;
-    border-radius: $practice-radius-sm;
+    border-radius: $radius-xs;
+    font-size: 12.5px;
     background: $practice-primary;
 
     &:hover,
@@ -440,13 +437,12 @@ onMounted(load);
     }
   }
 
-  /* 打卡与成就卡（v2.0⑤） */
+  /* 打卡与成就卡 */
   &__ach {
-    margin-bottom: 12px;
-    padding: 14px 16px;
-    background: #fff;
-    border: 1px solid $practice-border;
-    border-left: 3px solid $practice-primary;
+    margin-bottom: 9px;
+    padding: 14px;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
   }
 
@@ -486,19 +482,19 @@ onMounted(load);
   }
 
   &__ach-title {
-    font-size: 14px;
-    font-weight: 700;
+    font-size: 13.5px;
+    font-weight: 620;
     color: $text-primary;
   }
 
   &__ach-sub {
-    font-size: 12px;
+    font-size: 11.5px;
     color: $text-secondary;
   }
 
   &__ach-count {
     flex: 0 0 auto;
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 600;
     color: $practice-primary;
     font-variant-numeric: tabular-nums;
@@ -507,84 +503,75 @@ onMounted(load);
   &__badges {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
     margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed $border-color;
   }
 
   &__badge {
-    padding: 3px 9px;
-    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 9px;
+    border-radius: 99px;
     background: $practice-soft;
-    border: 1px solid $practice-border;
-    font-size: 12px;
+    font-size: 10.5px;
     font-weight: 600;
     color: $practice-primary;
 
     &.is-locked {
-      background: #f8fafc;
-      border-color: $practice-border;
+      background: $practice-surface-3;
       color: $text-disabled;
-      font-weight: 400;
+      font-weight: 500;
     }
   }
 
+  /* 区块标题：v3.1 去掉左缘竖条 */
   &__hint {
-    margin: 0 0 12px;
-    padding-left: 10px;
-    position: relative;
-    font-size: 13px;
-    font-weight: 700;
+    margin: 0 0 9px;
+    font-size: 14px;
+    font-weight: 640;
     color: $text-primary;
-    &::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 0;
-      width: 3px;
-      height: 13px;
-      margin-top: -6.5px;
-      border-radius: 2px;
-      background: $practice-primary;
-    }
   }
 
   &__empty {
-    padding: 34px 16px;
+    padding: 24px 12px;
     text-align: center;
-    background: #fff;
-    border: 1px solid $practice-border;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
   }
 
   &__empty-title {
     margin: 0;
-    font-size: 14px;
-    font-weight: 700;
+    font-size: 13.5px;
+    font-weight: 600;
     color: $text-primary;
   }
 
   &__empty-sub {
     margin: 8px 0 0;
-    font-size: 12.5px;
+    font-size: 12px;
     line-height: 1.6;
     color: $text-secondary;
   }
 
-  /* 题库卡：白卡 + 序号 + 细边框 */
+  /* 题库卡：图标块 + 细边框 */
   &__bank {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
-    padding: 15px 16px;
-    background: #fff;
-    border: 1px solid $practice-border;
+    gap: 11px;
+    margin-bottom: 9px;
+    padding: 13px 14px;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
     transition: border-color $transition-fast, background-color $transition-fast;
 
     &:active {
       border-color: rgba($practice-primary, 0.45);
-      background: #fafbfd;
+      background: $practice-surface-2;
     }
   }
 
@@ -593,14 +580,13 @@ onMounted(load);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: $practice-radius-sm;
-    background: $practice-soft;
-    border: 1px solid $practice-border;
-    font-size: 15px;
-    font-weight: 700;
-    color: $practice-primary;
+    width: 26px;
+    height: 26px;
+    border-radius: $radius-xs;
+    background: $practice-surface-3;
+    font-size: 12px;
+    font-weight: 680;
+    color: $text-secondary;
     font-variant-numeric: tabular-nums;
     line-height: 1;
   }
@@ -611,8 +597,8 @@ onMounted(load);
   }
 
   &__bank-name {
-    font-size: 15px;
-    font-weight: 700;
+    font-size: 13.5px;
+    font-weight: 620;
     color: $text-primary;
     word-break: break-word;
   }
@@ -622,29 +608,28 @@ onMounted(load);
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
-    margin-top: 7px;
-    font-size: 13px;
+    margin-top: 3px;
+    font-size: 11.5px;
     color: $text-secondary;
   }
 
   &__bank-cat {
-    padding: 2px 7px;
-    border-radius: 4px;
+    padding: 1px 6px;
+    border-radius: $radius-xs;
     background: $practice-soft;
-    border: 1px solid $practice-border;
     color: $practice-primary;
-    font-size: 12px;
+    font-size: 10.5px;
     font-weight: 600;
   }
 
   &__bank-count {
-    font-size: 12px;
+    font-size: 11.5px;
     color: $text-secondary;
   }
 
   &__bank-desc {
-    margin-top: 7px;
-    font-size: 12px;
+    margin-top: 5px;
+    font-size: 11.5px;
     line-height: 1.6;
     color: $text-disabled;
     word-break: break-word;
@@ -652,11 +637,12 @@ onMounted(load);
 
   &__bank-btn {
     flex: 0 0 auto;
-    min-height: 32px;
-    padding: 0 14px;
-    font-weight: 600;
+    min-height: 31px;
+    padding: 0 13px;
+    font-size: 12.5px;
+    font-weight: 580;
     border: none;
-    border-radius: $practice-radius-sm;
+    border-radius: $radius-xs;
     background: $practice-primary;
 
     &:hover,

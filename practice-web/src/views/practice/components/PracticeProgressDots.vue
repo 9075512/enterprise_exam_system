@@ -51,34 +51,22 @@ const normalized = computed<Array<'unanswered' | 'correct' | 'wrong'>>(() => {
 
 .progress-dots {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 5px;
-  margin-left: auto;
-  overflow-x: auto;
-  padding: 3px 0;
-  scrollbar-width: none;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
+  gap: 4px;
 
   &__dot {
     flex: 0 0 auto;
-    width: 8px;
-    height: 8px;
+    width: 22px;
+    height: 4px;
     border-radius: 2px;
-    transition: width $transition-base, background-color $transition-fast;
-
-    /* 当前题：加宽为短条 */
-    &.is-current {
-      width: 16px;
-    }
+    transition: background-color $transition-fast;
   }
 }
 
-/* 浅色底（内容区）配色 */
+/* 浅色底（内容区）配色：中性 / 答对 / 答错 / 当前（设计图 .m-dots） */
 .progress-dots--on-light .progress-dots__dot {
-  background: #cbd5e1;
+  background: $practice-surface-3;
 
   &--correct {
     background: $color-success;
@@ -106,11 +94,11 @@ const normalized = computed<Array<'unanswered' | 'correct' | 'wrong'>>(() => {
   background: rgba(255, 255, 255, 0.4);
 
   &--correct {
-    background: #86efac;
+    background: $color-success-bg;
   }
 
   &--wrong {
-    background: #fca5a5;
+    background: $color-error-bg;
   }
 
   &.is-current {

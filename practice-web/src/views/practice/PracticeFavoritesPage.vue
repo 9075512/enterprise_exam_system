@@ -213,16 +213,15 @@ onMounted(load);
     justify-content: space-between;
     gap: 12px;
     margin-bottom: 14px;
-    padding: 14px 16px;
-    background: #fff;
-    border: 1px solid $practice-border;
-    border-left: 3px solid $practice-primary;
+    padding: 13px 14px;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
 
     :deep(.el-button) {
       flex: 0 0 auto;
       border: none;
-      border-radius: $practice-radius-sm;
+      border-radius: $radius-xs;
       background: $practice-primary;
 
       &:hover,
@@ -234,21 +233,21 @@ onMounted(load);
 
   &__title {
     margin: 0;
-    font-size: 16px;
-    font-weight: 700;
+    font-size: 15px;
+    font-weight: 640;
     color: $text-primary;
   }
 
   &__sub {
-    margin: 4px 0 0;
-    font-size: 12px;
+    margin: 3px 0 0;
+    font-size: 11.5px;
     color: $text-secondary;
   }
 
-  /* 筛选 chip 行：横向滚动，不换行 */
+  /* 筛选 chip 行：横向滚动，不换行（设计图 .m-chips / .m-chip） */
   &__filter {
     display: flex;
-    gap: 8px;
+    gap: 7px;
     margin-bottom: 14px;
     overflow-x: auto;
     padding-bottom: 2px;
@@ -261,12 +260,15 @@ onMounted(load);
 
   &__chip {
     flex: 0 0 auto;
-    min-height: 32px;
-    padding: 0 12px;
-    border: 1px solid $practice-border;
-    border-radius: 16px;
-    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
+    padding: 0 11px;
+    border: 1px solid $line-strong;
+    border-radius: 99px;
+    background: $bg-paper;
     font-size: 12px;
+    font-weight: 550;
     color: $text-secondary;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
@@ -274,16 +276,16 @@ onMounted(load);
 
     &.is-active {
       border-color: $practice-primary;
-      background: $practice-soft;
-      color: $practice-primary;
-      font-weight: 600;
+      background: $practice-primary;
+      color: #fff;
+      font-weight: 620;
     }
   }
 
   &__skeleton {
-    padding: 18px;
-    background: #fff;
-    border: 1px solid $practice-border;
+    padding: 14px;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
   }
 
@@ -296,14 +298,13 @@ onMounted(load);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
+    width: 42px;
+    height: 42px;
     margin-bottom: 14px;
-    border: 1px solid $practice-border;
-    border-radius: $practice-radius;
-    background: #fff;
-    font-size: 20px;
-    font-weight: 700;
+    border-radius: 50%;
+    background: $practice-surface-3;
+    font-size: 18px;
+    font-weight: 640;
     color: $text-disabled;
     line-height: 1;
   }
@@ -311,7 +312,7 @@ onMounted(load);
   &__empty-text {
     margin: 0;
     padding: 0 24px;
-    font-size: 14px;
+    font-size: 13.5px;
     line-height: 1.7;
     color: $text-secondary;
   }
@@ -319,8 +320,8 @@ onMounted(load);
   &__item {
     padding: 13px 14px;
     margin-bottom: 8px;
-    background: #fff;
-    border: 1px solid $practice-border;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
   }
 
@@ -333,11 +334,10 @@ onMounted(load);
 
   &__type {
     flex: 0 0 auto;
-    padding: 2px 7px;
-    border-radius: 4px;
+    padding: 1px 6px;
+    border-radius: $radius-xs;
     background: $practice-soft;
-    border: 1px solid $practice-border;
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 600;
     color: $practice-primary;
   }
@@ -372,7 +372,7 @@ onMounted(load);
 
   &__stem {
     margin: 0;
-    font-size: 14px;
+    font-size: 13.5px;
     line-height: 1.7;
     color: $text-primary;
     word-break: break-word;
@@ -383,7 +383,7 @@ onMounted(load);
     text-align: center;
 
     :deep(.el-button) {
-      border-radius: $practice-radius-sm;
+      border-radius: $radius-xs;
     }
   }
 }

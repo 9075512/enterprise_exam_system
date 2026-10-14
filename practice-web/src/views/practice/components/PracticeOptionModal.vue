@@ -130,7 +130,7 @@ function confirm(): void {
 :deep(.el-dialog__header) {
   margin-right: 0;
   padding: 16px 18px 12px;
-  border-bottom: 1px solid $border-soft;
+  border-bottom: 1px solid $border-color;
 }
 
 :deep(.el-dialog__title) {
@@ -145,7 +145,7 @@ function confirm(): void {
 
 :deep(.el-dialog__footer) {
   padding: 14px 18px 16px;
-  border-top: 1px solid $border-soft;
+  border-top: 1px solid $border-color;
 
   .el-button {
     min-height: 40px;
@@ -171,24 +171,10 @@ function confirm(): void {
   }
 
   &__label {
-    position: relative;
     margin-bottom: 12px;
-    padding-left: 10px;
-    font-size: 14px;
-    font-weight: 700;
+    font-size: 13.5px;
+    font-weight: 640;
     color: $text-primary;
-
-    &::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 0;
-      width: 3px;
-      height: 13px;
-      margin-top: -6.5px;
-      border-radius: 2px;
-      background: $practice-primary;
-    }
   }
 
   &__choices {
@@ -220,9 +206,9 @@ function confirm(): void {
     min-height: 42px;
     margin: 0;
     padding: 0 14px;
-    border: 1px solid $practice-border;
+    border: 1px solid $line-strong;
     border-radius: $practice-radius-sm;
-    background: #fff;
+    background: $bg-paper;
     transition: border-color $transition-fast, background-color $transition-fast;
   }
 

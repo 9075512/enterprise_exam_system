@@ -4,6 +4,7 @@
  * 单选/判断 → 单选；多选 → 复选（提交前升序）。
  * 选项行样式化为「可选卡片」：左侧圆形（单选）/圆角方形（多选）字母徽标表示选项，
  * 原生控件视觉隐藏但保留可点击与键盘可达性。
+ * 视觉：v3.1 方向 C —— 移动端刻度（卡 16px 内距 / 题干 14.5px / 选项 13px），零投影。
  */
 import { computed } from 'vue';
 import { QUESTION_TYPE_LABELS } from '@/constants';
@@ -39,7 +40,7 @@ const checkboxValue = computed<number[]>({
 <template>
   <div class="question-card">
     <div class="question-card__head">
-      <span class="question-card__index num">第 {{ index + 1 }} 题</span>
+      <span class="question-card__index num">{{ index + 1 }}</span>
       <span class="question-card__type" :class="`question-card__type--${question.type}`">
         {{ QUESTION_TYPE_LABELS[question.type] }}
       </span>
@@ -68,40 +69,41 @@ const checkboxValue = computed<number[]>({
 @use '@/styles/variables.scss' as *;
 
 .question-card {
-  padding: 22px 26px;
+  padding: 16px;
   background: $bg-paper;
   border: 1px solid $border-color;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-sm;
+  border-radius: $radius-base;
 
   &__head {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 16px;
+    gap: 8px;
+    margin-bottom: 10px;
   }
 
+  /* 题号方块（设计图 .m-q__no b）：主色实底白字 */
   &__index {
     display: inline-flex;
     align-items: center;
-    height: 28px;
-    padding: 0 14px;
-    border-radius: 999px;
-    background: $practice-soft;
-    font-size: 13px;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: $radius-xs;
+    background: $practice-primary;
+    font-size: 11.5px;
     font-weight: 700;
-    color: $practice-primary;
-    letter-spacing: 0.4px;
+    color: #fff;
+    line-height: 1;
   }
 
   /* 题型徽标配色（单选蓝 / 多选青 / 判断橙）——分类色，只表题型不表状态 */
   &__type {
     display: inline-flex;
     align-items: center;
-    height: 24px;
-    padding: 0 11px;
-    border-radius: 999px;
-    font-size: 12px;
+    height: 19px;
+    padding: 0 6px;
+    border-radius: $radius-xs;
+    font-size: 10.5px;
     font-weight: 600;
 
     &--single {
@@ -122,38 +124,24 @@ const checkboxValue = computed<number[]>({
 
   &__score {
     margin-left: auto;
-    font-size: 13px;
-    font-weight: 600;
-    color: $text-disabled;
+    font-size: 11.5px;
+    font-weight: 550;
+    color: $text-secondary;
   }
 
   &__stem {
-    position: relative;
-    margin: 0 0 18px;
-    padding-left: 14px;
-    font-size: 16px;
-    line-height: 1.8;
-    letter-spacing: 0.2px;
+    margin: 0 0 14px;
+    font-size: 14.5px;
+    line-height: 1.75;
+    font-weight: 520;
     color: $text-primary;
-
-    /* 克制的题干锚点：首行前的小竖条 */
-    &::before {
-      content: '';
-      position: absolute;
-      top: 0.45em;
-      left: 0;
-      width: 3px;
-      height: 1em;
-      border-radius: 3px;
-      background: linear-gradient(180deg, $practice-primary, $practice-primary-light);
-    }
   }
 
   &__options {
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 12px;
+    gap: 8px;
   }
 
   &__option {
@@ -162,20 +150,16 @@ const checkboxValue = computed<number[]>({
     align-items: flex-start;
     height: auto;
     margin-right: 0;
-    padding: 13px 16px;
-    border: 1px solid $border-color;
-    border-radius: $radius-base;
+    padding: 11px 12px;
+    border: 1px solid $line-strong;
+    border-radius: $radius-sm;
     background: $bg-paper;
     white-space: normal;
     cursor: pointer;
-    transition: border-color $transition-fast, background-color $transition-fast,
-      box-shadow $transition-fast, transform $transition-fast;
+    transition: border-color $transition-fast, background-color $transition-fast;
 
     &:hover {
-      border-color: rgba($practice-primary, 0.4);
-      background: $practice-soft;
-      box-shadow: $shadow-sm;
-      transform: translateY(-1px);
+      border-color: rgba($practice-primary, 0.45);
     }
 
     &:focus-within {
@@ -186,7 +170,6 @@ const checkboxValue = computed<number[]>({
     &.is-checked {
       border-color: $practice-primary;
       background: $practice-soft;
-      box-shadow: 0 0 0 3px rgba($practice-primary, 0.1), 0 2px 8px -2px rgba($practice-primary, 0.28);
     }
 
     /* 原生控件视觉隐藏（保留在 DOM 中以维持点击与键盘可达性） */
@@ -204,19 +187,19 @@ const checkboxValue = computed<number[]>({
     :deep(.el-checkbox__label) {
       display: flex;
       align-items: flex-start;
-      gap: 12px;
+      gap: 10px;
       padding: 0;
       margin: 0;
       width: 100%;
-      font-size: 15px;
-      line-height: 1.7;
-      color: $text-primary;
+      font-size: 13px;
+      line-height: 1.55;
+      color: $text-secondary;
       white-space: normal;
     }
 
     &.is-checked :deep(.el-radio__label),
     &.is-checked :deep(.el-checkbox__label) {
-      color: $practice-primary-dark;
+      color: $text-primary;
       font-weight: 500;
     }
   }
@@ -226,19 +209,18 @@ const checkboxValue = computed<number[]>({
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
-    border: 1px solid $border-color;
+    width: 20px;
+    height: 20px;
+    border: 1.5px solid $line-strong;
     border-radius: 50%;
-    background: $color-table-head;
-    font-size: 13px;
-    font-weight: 700;
+    background: transparent;
+    font-size: 11px;
+    font-weight: 640;
     color: $text-secondary;
-    transition: background-color $transition-fast, border-color $transition-fast,
-      color $transition-fast, box-shadow $transition-fast;
+    transition: background-color $transition-fast, border-color $transition-fast, color $transition-fast;
 
     &--multi {
-      border-radius: 8px;
+      border-radius: $radius-xs;
     }
   }
 
@@ -246,7 +228,6 @@ const checkboxValue = computed<number[]>({
     border-color: $practice-primary;
     background: $practice-primary;
     color: #fff;
-    box-shadow: 0 0 0 3px rgba($practice-primary, 0.16);
   }
 
   &__text {

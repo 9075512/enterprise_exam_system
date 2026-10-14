@@ -75,7 +75,7 @@ async function handleSubmit(): Promise<void> {
 </script>
 
 <template>
-  <PracticeLayout>
+  <PracticeLayout bare>
     <div class="login">
       <div class="login__hero">
         <div class="login__logo" aria-hidden="true">练</div>
@@ -143,64 +143,68 @@ async function handleSubmit(): Promise<void> {
 @use '@/styles/variables.scss' as *;
 
 .login {
-  padding-top: 16px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: $bg-paper;
 
+  /* 主色 hero：铺满顶部并延伸至状态栏区域（bare 布局下 main 已 flush） */
   &__hero {
-    text-align: center;
-    margin-bottom: 22px;
+    padding: calc(22px + env(safe-area-inset-top)) 22px 38px;
+    background: $practice-primary;
+    color: #fff;
   }
 
   &__logo {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 60px;
-    height: 60px;
-    border-radius: $practice-radius;
-    background: $practice-primary;
+    width: 46px;
+    height: 46px;
+    border-radius: 13px; // radius-exception：设计图 .pl__logo（主色块上的圆角标识）
+    background: rgba(255, 255, 255, 0.18);
     color: #fff;
-    font-size: 28px;
+    font-size: 20px;
     font-weight: 700;
     line-height: 1;
   }
 
   &__title {
-    margin: 14px 0 6px;
-    font-size: 20px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    color: $text-primary;
+    margin: 16px 0 0;
+    font-size: 23px;
+    font-weight: 660;
+    letter-spacing: -0.02em;
+    color: #fff;
   }
 
   &__subtitle {
-    margin: 0;
-    font-size: 13px;
-    color: $text-secondary;
+    margin: 6px 0 0;
+    font-size: 12.5px;
+    line-height: 1.6;
+    opacity: 0.85;
   }
 
-  /* 表单区：白卡 + 细边框 + 标题栏 */
+  /* 表单面板：白底 + 上圆角，负 margin 叠在主色 hero 之上（sheet 形态） */
   &__panel {
-    padding: 0 18px 20px;
-    background: #fff;
-    border: 1px solid $practice-border;
-    border-radius: $practice-radius;
+    flex: 1;
+    margin-top: -16px;
+    padding: 20px 22px 26px;
+    background: $bg-paper;
+    border-radius: 16px 16px 0 0; // radius-exception：设计图 .pl__panel（底部上浮 sheet）
   }
 
   &__panel-head {
-    margin: 0 -18px 18px;
-    padding: 14px 18px;
-    border-bottom: 1px solid $border-soft;
+    margin-bottom: 16px;
     font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
+    font-weight: 650;
     color: $text-primary;
   }
 
   &__form {
     :deep(.el-form-item__label) {
       padding-bottom: 6px;
-      font-size: 13px;
-      font-weight: 600;
+      font-size: 12px;
+      font-weight: 560;
       line-height: 1.4;
       color: $text-secondary;
     }
@@ -208,8 +212,8 @@ async function handleSubmit(): Promise<void> {
     :deep(.el-input__wrapper) {
       border-radius: $practice-radius-sm;
       padding: 2px 12px;
-      box-shadow: 0 0 0 1px $practice-border inset;
-      background: #fff;
+      box-shadow: 0 0 0 1px $line-strong inset;
+      background: $bg-paper;
       transition: box-shadow $transition-fast;
     }
 
@@ -223,14 +227,14 @@ async function handleSubmit(): Promise<void> {
     }
 
     :deep(.el-form-item) {
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
   }
 
   &__captcha {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 9px;
     width: 100%;
   }
 
@@ -241,26 +245,28 @@ async function handleSubmit(): Promise<void> {
 
   &__captcha-img {
     flex: 0 0 auto;
-    height: 40px;
-    width: 124px;
+    height: 42px;
+    width: 104px;
     border-radius: $practice-radius-sm;
-    background: #fff;
-    border: 1px solid $practice-border;
+    background: $bg-paper;
+    border: 1px solid $line-strong;
     cursor: pointer;
   }
 
   &__captcha-refresh {
     flex: 0 0 auto;
+    font-size: 11.5px;
+    font-weight: 560;
     color: $practice-primary;
   }
 
   &__submit {
     width: 100%;
-    height: 46px;
-    margin-top: 4px;
-    font-size: 16px;
-    font-weight: 700;
-    letter-spacing: 3px;
+    height: 42px;
+    margin-top: 6px;
+    font-size: 15px;
+    font-weight: 580;
+    letter-spacing: 2px;
     border: none;
     border-radius: $practice-radius-sm;
     background: $practice-primary;
@@ -275,8 +281,9 @@ async function handleSubmit(): Promise<void> {
   &__tip {
     margin: 18px 0 0;
     text-align: center;
-    font-size: 12px;
-    color: $text-disabled;
+    font-size: 11.5px;
+    line-height: 1.65;
+    color: $text-secondary;
   }
 }
 </style>

@@ -15,7 +15,6 @@ import PracticeLayout from '@/layouts/PracticeLayout.vue';
 import QuestionCard from '@/views/exam/components/QuestionCard.vue';
 import PracticeFeedback from './components/PracticeFeedback.vue';
 import PracticeProgressDots from './components/PracticeProgressDots.vue';
-import { usePracticeAuthStore } from '@/stores/practiceAuth';
 import { usePracticeConfigStore } from '@/stores/practiceConfig';
 import * as practiceApi from '@/api/practice';
 import type {
@@ -30,7 +29,6 @@ import type {
 
 const route = useRoute();
 const router = useRouter();
-const practiceAuth = usePracticeAuthStore();
 const configStore = usePracticeConfigStore();
 
 /** 是否为错题复习模式 */
@@ -42,6 +40,14 @@ const normalBankId = computed<string>(() => (isReans.value ? '' : String(route.p
 const source = computed<string>(() => (typeof route.query.source === 'string' ? route.query.source : ''));
 const isDaily = computed<boolean>(() => source.value === 'daily');
 const isFavorite = computed<boolean>(() => source.value === 'favorite');
+
+/** 来源标记文案（设计图 `.sx__src`） */
+const srcLabel = computed<string>(() => {
+  if (isDaily.value) return '每日一练';
+  if (isFavorite.value) return '收藏重练';
+  if (isReans.value) return '错题复习';
+  return '';
+});
 
 const loading = ref(true);
 const errorMessage = ref('');
@@ -55,7 +61,6 @@ const results = ref<Record<string, PracticeCheckResult>>({});
 const submitting = ref(false);
 const finished = ref(false);
 
-const userName = computed<string>(() => practiceAuth.currentUser?.name ?? '');
 const currentQuestion = computed<PracticeQuestion | null>(() => questions.value[index.value] ?? null);
 const currentId = computed<string>(() => currentQuestion.value?.id ?? '');
 const currentAnswer = computed<number[]>(() => answers.value[currentId.value] ?? []);
@@ -311,10 +316,8 @@ onMounted(init);
 </script>
 
 <template>
-  <PracticeLayout>
-    <template #actions>
-      <span class="session__user">{{ userName }}</span>
-    </template>
+  <PracticeLayout bare>
+    <!-- 作答页无顶栏（设计图 p-session 为 bare）：进度工具栏由页面自带，满幅贴顶 -->
 
     <!-- 加载中 -->
     <div v-if="loading" class="session__skeleton">
@@ -368,43 +371,49 @@ onMounted(init);
     <!-- 作答中 -->
     <div v-else class="session">
       <div class="session__top">
-        <button type="button" class="session__back" aria-label="返回" @click="goHome">‹</button>
-        <span class="session__counter">
-          第 {{ index + 1 }} / {{ questions.length }} 题<template v-if="dailyProgress"> · {{ dailyProgress }}</template>
-        </span>
-        <PracticeProgressDots :total="questions.length" :current="index" :marks="marks" variant="on-light" />
-      </div>
-
-      <!-- 来源标记 + 收藏 -->
-      <div class="session__meta">
-        <span v-if="isDaily" class="session__source">每日一练</span>
-        <span v-else-if="isFavorite" class="session__source">收藏重练</span>
-        <span v-else-if="isReans" class="session__source">错题复习</span>
-        <button
-          v-if="configStore.config.favoriteEnabled"
-          type="button"
-          class="session__fav"
-          :class="{ 'is-on': currentFavorited }"
-          :disabled="favoriteBusy"
-          :aria-pressed="currentFavorited"
-          @click="toggleFavorite"
-        >
-          {{ currentFavorited ? '已收藏' : '收藏本题' }}
-        </button>
-      </div>
-
-      <div v-if="currentQuestion" class="session__card" :class="{ 'is-locked': !!currentResult }">
-        <QuestionCard
-          :index="index"
-          :question="toQuestion(currentQuestion)"
-          :score="0"
-          :model-value="currentAnswer"
-          @update:model-value="onAnswer"
+        <div class="session__row">
+          <button type="button" class="session__back" aria-label="返回" @click="goHome">‹</button>
+          <span class="session__counter">
+            第 {{ index + 1 }} / {{ questions.length }} 题<template v-if="dailyProgress"> · {{ dailyProgress }}</template>
+          </span>
+          <div class="session__right">
+            <span v-if="srcLabel" class="session__source">{{ srcLabel }}</span>
+            <button
+              v-if="configStore.config.favoriteEnabled"
+              type="button"
+              class="session__fav"
+              :class="{ 'is-on': currentFavorited }"
+              :disabled="favoriteBusy"
+              :aria-pressed="currentFavorited"
+              @click="toggleFavorite"
+            >
+              {{ currentFavorited ? '已收藏' : '收藏本题' }}
+            </button>
+          </div>
+        </div>
+        <PracticeProgressDots
+          class="session__dots"
+          :total="questions.length"
+          :current="index"
+          :marks="marks"
+          variant="on-light"
         />
       </div>
 
-      <!-- 反馈区（提交后） -->
-      <PracticeFeedback v-if="currentResult" :result="currentResult" :selected="currentAnswer" />
+      <div class="session__body">
+        <div v-if="currentQuestion" class="session__card" :class="{ 'is-locked': !!currentResult }">
+          <QuestionCard
+            :index="index"
+            :question="toQuestion(currentQuestion)"
+            :score="0"
+            :model-value="currentAnswer"
+            @update:model-value="onAnswer"
+          />
+        </div>
+
+        <!-- 反馈区（提交后） -->
+        <PracticeFeedback v-if="currentResult" :result="currentResult" :selected="currentAnswer" />
+      </div>
 
       <!-- 操作区（吸底） -->
       <div class="session__actions">
@@ -435,22 +444,22 @@ onMounted(init);
 @use '@/styles/variables.scss' as *;
 
 .session {
-  &__user {
-    max-width: 120px;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
+  /* 作答页为 bare 布局：无顶栏，进度工具栏由页面自带并满幅贴顶（设计图 .sx） */
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
 
   &__skeleton {
+    margin: 14px;
     padding: 18px;
-    background: #fff;
-    border: 1px solid $practice-border;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
   }
 
   &__state {
-    padding: 64px 0;
+    padding: 64px 20px;
     text-align: center;
   }
 
@@ -458,48 +467,47 @@ onMounted(init);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
-    margin-bottom: 14px;
-    border: 1px solid $practice-border;
-    border-radius: $practice-radius;
-    background: #fff;
-    font-size: 20px;
+    width: 42px;
+    height: 42px;
+    margin-bottom: 12px;
+    border-radius: 50%;
+    background: $practice-surface-3;
+    font-size: 19px;
     font-weight: 700;
     color: $text-disabled;
     line-height: 1;
   }
 
   &__state-text {
-    margin: 0 0 20px;
-    font-size: 14px;
+    margin: 0 0 18px;
+    font-size: 13.5px;
     color: $text-secondary;
   }
 
-  /* 顶部工具栏：返回钮 + 题号 + 进度点 */
+  /* 顶部工具栏：返回 + 题号 + 来源/收藏 + 进度点（满幅白条，设计图 .sx__top） */
   &__top {
+    padding: calc(10px + env(safe-area-inset-top)) 14px 12px;
+    background: $bg-paper;
+    border-bottom: 1px solid $border-color;
+  }
+
+  &__row {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 12px;
-    padding: 10px 12px;
-    background: #fff;
-    border: 1px solid $practice-border;
-    border-radius: $practice-radius;
   }
 
   &__back {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
+    flex: 0 0 30px;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
     padding: 0;
-    border: 1px solid $practice-border;
-    border-radius: $practice-radius-sm;
-    background: #fff;
-    font-size: 18px;
+    border: 1px solid $line-strong;
+    border-radius: $radius-sm;
+    background: $bg-paper;
+    font-size: 16px;
     line-height: 1;
     color: $text-secondary;
     cursor: pointer;
@@ -513,56 +521,69 @@ onMounted(init);
   }
 
   &__counter {
-    flex: 0 0 auto;
-    font-size: 13px;
-    font-weight: 700;
-    color: $practice-primary;
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
     white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 13px;
+    font-weight: 620;
+    color: $text-primary;
   }
 
-  /* 来源标记 + 收藏按钮行 */
-  &__meta {
+  &__right {
     display: flex;
+    flex: 0 0 auto;
     align-items: center;
     gap: 8px;
-    margin: -4px 0 12px;
+    margin-left: auto;
   }
 
   &__source {
-    flex: 0 0 auto;
-    padding: 2px 8px;
-    border: 1px solid $practice-border;
-    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: $radius-sm;
     background: $practice-soft;
-    font-size: 11px;
-    font-weight: 600;
+    font-size: 10.5px;
+    font-weight: 620;
     color: $practice-primary;
   }
 
   &__fav {
     flex: 0 0 auto;
-    margin-left: auto;
-    min-height: 30px;
-    padding: 0 12px;
-    border: 1px solid $practice-border;
-    border-radius: $practice-radius-sm;
-    background: #fff;
-    font-size: 12px;
+    height: 26px;
+    padding: 0 10px;
+    border: 1px solid $line-strong;
+    border-radius: 99px;
+    background: $bg-paper;
+    font-size: 11px;
+    font-weight: 580;
     color: $text-secondary;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     transition: color $transition-fast, border-color $transition-fast, background-color $transition-fast;
 
+    /* 已收藏：琥珀「星标」态（设计图 .sx__fav.is-on） */
     &.is-on {
-      border-color: $practice-primary;
-      background: $practice-soft;
-      color: $practice-primary;
-      font-weight: 600;
+      border-color: $color-warning-border;
+      background: $color-warning-bg;
+      color: $color-warning-text;
     }
 
     &:disabled {
       opacity: 0.6;
     }
+  }
+
+  &__dots {
+    margin-top: 11px;
+  }
+
+  &__body {
+    flex: 1;
+    padding: 14px;
   }
 
   &__card {
@@ -575,55 +596,33 @@ onMounted(init);
     :deep(.question-card__score) {
       display: none;
     }
-
-    /* 卡片与选项在练题端的精细化调整（仅作用于此处的 :deep 覆盖） */
-    :deep(.question-card) {
-      padding: 18px 16px;
-      border: 1px solid $practice-border;
-      border-radius: $practice-radius;
-      box-shadow: none;
-    }
-
-    :deep(.question-card__options) {
-      gap: 10px;
-    }
-
-    :deep(.question-card__option) {
-      padding: 14px;
-      border-radius: $practice-radius-sm;
-      background: #fff;
-    }
-
-    :deep(.question-card__letter) {
-      width: 28px;
-      height: 28px;
-      font-size: 13px;
-    }
   }
 
-  /* 吸底操作区：白底 + 上边框 */
+  /* 吸底操作区：白底 + 上边框（设计图 .m-foot） */
   &__actions {
     position: sticky;
     bottom: 0;
     z-index: 10;
     display: flex;
-    gap: 12px;
-    margin: 18px -14px 0;
-    padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
-    background: #fff;
-    border-top: 1px solid $practice-border;
+    gap: 9px;
+    margin-top: auto;
+    padding: 10px 14px calc(14px + env(safe-area-inset-bottom));
+    background: $bg-paper;
+    border-top: 1px solid $border-color;
 
     :deep(.el-button) {
       flex: 1;
-      height: 46px;
-      font-size: 16px;
-      font-weight: 600;
-      border-radius: $practice-radius-sm;
+      height: 42px;
+      font-size: 14px;
+      font-weight: 580;
+      border-radius: $radius-sm;
     }
   }
 
   &__redo {
-    background: #fff;
+    background: $bg-paper;
+    border-color: $line-strong;
+    color: $text-primary;
   }
 
   &__submit,
@@ -639,52 +638,55 @@ onMounted(init);
 }
 
 .summary {
-  padding: 24px 0 12px;
+  padding: 32px 20px calc(16px + env(safe-area-inset-bottom));
   text-align: center;
 
   &__mark {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 52px;
-    height: 52px;
-    border: 2px solid $practice-primary;
+    width: 48px;
+    height: 48px;
+    border: 1px solid $practice-border-soft;
     border-radius: 50%;
-    font-size: 26px;
+    background: $practice-soft;
+    font-size: 22px;
     font-weight: 700;
     color: $practice-primary;
     line-height: 1;
   }
 
   &__title {
-    margin: 14px 0 22px;
-    font-size: 19px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
+    margin: 14px 0 20px;
+    font-size: 17px;
+    font-weight: 660;
+    letter-spacing: -0.01em;
     color: $text-primary;
   }
 
   &__stats {
     display: flex;
     justify-content: center;
-    gap: 10px;
-    margin-bottom: 20px;
+    gap: 9px;
+    margin-bottom: 18px;
   }
 
   &__stat {
     flex: 1;
     max-width: 120px;
-    padding: 16px 8px;
-    background: #fff;
-    border: 1px solid $practice-border;
+    padding: 13px;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
   }
 
   &__num {
     display: block;
-    font-size: 26px;
-    font-weight: 700;
-    color: $practice-primary;
+    font-size: 20px;
+    font-weight: 680;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: $text-primary;
     font-variant-numeric: tabular-nums;
   }
 
@@ -692,20 +694,16 @@ onMounted(init);
     color: $color-success-text;
   }
 
-  &__stat--rate &__num {
-    color: $practice-primary;
-  }
-
   &__label {
     display: block;
-    margin-top: 5px;
-    font-size: 12px;
+    margin-top: 3px;
+    font-size: 11px;
     color: $text-secondary;
   }
 
   &__tip {
-    margin: 0 0 20px;
-    font-size: 13px;
+    margin: 0 0 18px;
+    font-size: 12px;
     color: $text-secondary;
 
     &::before {
@@ -718,7 +716,7 @@ onMounted(init);
     /* 每日一练完成态附加行：无勾选装饰，字号略小 */
     &--daily {
       margin-top: -12px;
-      font-size: 12px;
+      font-size: 11.5px;
       color: $practice-primary;
 
       &::before {
@@ -730,15 +728,15 @@ onMounted(init);
 
   &__actions {
     display: flex;
-    gap: 12px;
+    gap: 9px;
     margin-bottom: 12px;
 
     :deep(.el-button) {
       flex: 1;
-      height: 46px;
-      font-size: 15px;
-      font-weight: 600;
-      border-radius: $practice-radius-sm;
+      height: 42px;
+      font-size: 14px;
+      font-weight: 580;
+      border-radius: $radius-sm;
     }
 
     :deep(.el-button--primary) {

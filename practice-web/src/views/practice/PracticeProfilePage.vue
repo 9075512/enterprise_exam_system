@@ -9,6 +9,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessageBox } from 'element-plus';
+import { SwitchButton, TrendCharts } from '@element-plus/icons-vue';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
 import * as practiceApi from '@/api/practice';
 import { usePracticeAuthStore } from '@/stores/practiceAuth';
@@ -141,21 +142,27 @@ onMounted(loadStats);
       <!-- 学习（学习报告入口可被后台关闭，v1.9⑤） -->
       <template v-if="config.reportEnabled">
         <div class="pf__section">学习</div>
-        <button type="button" class="pf__row" @click="goReport">
-          <span class="pf__row-text">学习报告</span>
-          <span class="pf__row-tail">
-            <span v-if="streakDays > 0" class="pf__badge">连续 {{ streakDays }} 天</span>
-            <span class="pf__row-arrow" aria-hidden="true">›</span>
-          </span>
-        </button>
+        <div class="pf__list">
+          <button type="button" class="pf__row" @click="goReport">
+            <el-icon class="pf__row-icon"><TrendCharts /></el-icon>
+            <span class="pf__row-text">学习报告</span>
+            <span class="pf__row-tail">
+              <span v-if="streakDays > 0" class="pf__badge">连续 {{ streakDays }} 天</span>
+              <span class="pf__row-arrow" aria-hidden="true">›</span>
+            </span>
+          </button>
+        </div>
       </template>
 
       <!-- 账号操作 -->
       <div class="pf__section">账号</div>
-      <button type="button" class="pf__row" @click="handleLogout">
-        <span class="pf__row-text">退出登录</span>
-        <span class="pf__row-arrow" aria-hidden="true">›</span>
-      </button>
+      <div class="pf__list">
+        <button type="button" class="pf__row" @click="handleLogout">
+          <el-icon class="pf__row-icon pf__row-icon--muted"><SwitchButton /></el-icon>
+          <span class="pf__row-text">退出登录</span>
+          <span class="pf__row-arrow" aria-hidden="true">›</span>
+        </button>
+      </div>
 
       <p class="pf__tip">练题账号与公司内网考试系统一致；练题数据独立保存，不影响考试成绩统计。</p>
     </div>
@@ -177,10 +184,10 @@ onMounted(loadStats);
     display: flex;
     align-items: center;
     gap: 14px;
-    margin-bottom: 20px;
+    margin-bottom: 18px;
     padding: 16px;
-    background: #fff;
-    border: 1px solid $practice-border;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
   }
 
@@ -189,13 +196,13 @@ onMounted(loadStats);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 48px;
-    height: 48px;
-    border-radius: $practice-radius;
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
     background: $practice-primary;
     color: #fff;
     font-size: 20px;
-    font-weight: 700;
+    font-weight: 660;
     line-height: 1;
   }
 
@@ -206,7 +213,8 @@ onMounted(loadStats);
   &__name {
     margin: 0;
     font-size: 16px;
-    font-weight: 700;
+    font-weight: 650;
+    letter-spacing: -0.01em;
     color: $text-primary;
   }
 
@@ -214,73 +222,68 @@ onMounted(loadStats);
     display: flex;
     align-items: center;
     gap: 6px;
-    margin: 7px 0 0;
-    font-size: 13px;
+    margin: 6px 0 0;
+    font-size: 11.5px;
     line-height: 1.4;
   }
 
   &__dept-label {
     flex: 0 0 auto;
-    padding: 1px 6px;
-    border-radius: 3px;
+    display: inline-flex;
+    align-items: center;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: $radius-xs;
     background: $practice-soft;
     color: $practice-primary;
-    font-size: 11px;
+    font-size: 10.5px;
+    font-weight: 600;
   }
 
   &__dept-value {
     min-width: 0;
-    color: $text-primary;
+    color: $text-secondary;
     word-break: break-word;
   }
 
   &__meta {
     margin: 5px 0 0;
-    font-size: 12px;
+    font-size: 11px;
     color: $text-secondary;
     word-break: break-word;
   }
 
+  /* 区块标题：v3.1 去掉左缘竖条 */
   &__section {
-    position: relative;
-    margin: 0 0 10px;
-    padding-left: 10px;
+    margin: 0 2px 9px;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 640;
     color: $text-primary;
-
-    &::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 0;
-      width: 3px;
-      height: 13px;
-      margin-top: -6.5px;
-      border-radius: 2px;
-      background: $practice-primary;
-    }
   }
 
+  /* 统计四宫格（设计图 .pf-stats：4 列居中） */
   &__stats {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-bottom: 20px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 18px;
   }
 
   &__stat {
-    padding: 14px 12px;
-    background: #fff;
-    border: 1px solid $practice-border;
+    padding: 12px 6px;
+    text-align: center;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
   }
 
   &__num {
     display: block;
-    font-size: 22px;
+    font-size: 18px;
     font-weight: 700;
-    color: $practice-primary;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: $text-primary;
     font-variant-numeric: tabular-nums;
 
     &--ok {
@@ -295,37 +298,64 @@ onMounted(loadStats);
   &__label {
     display: block;
     margin-top: 4px;
-    font-size: 12px;
+    font-size: 10px;
     color: $text-secondary;
   }
 
   &__loading {
-    margin: -12px 0 16px;
-    font-size: 12px;
-    color: $text-disabled;
+    margin: -8px 0 16px;
+    font-size: 11.5px;
+    color: $text-secondary;
+  }
+
+  /* 列表：卡片承载 + 行分隔线（设计图 .pf-list / .pf-row） */
+  &__list {
+    margin-bottom: 18px;
+    background: $bg-paper;
+    border: 1px solid $border-color;
+    border-radius: $practice-radius;
+    overflow: hidden;
   }
 
   &__row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 11px;
     width: 100%;
-    min-height: 48px;
-    padding: 0 16px;
-    margin-bottom: 16px;
-    background: #fff;
-    border: 1px solid $practice-border;
-    border-radius: $practice-radius;
-    font-size: 14px;
+    padding: 14px;
+    background: none;
+    border: none;
+    border-bottom: 1px solid $border-color;
+    font-size: 13.5px;
     color: $text-primary;
     text-align: left;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     transition: background-color $transition-fast;
 
-    &:active {
-      background: #fafbfd;
+    &:last-child {
+      border-bottom: none;
     }
+
+    &:active {
+      background: $practice-surface-2;
+    }
+  }
+
+  &__row-icon {
+    flex: 0 0 auto;
+    font-size: 16px;
+    color: $practice-primary;
+
+    &--muted {
+      color: $text-disabled;
+    }
+  }
+
+  &__row-text {
+    flex: 1;
+    min-width: 0;
+    font-weight: 550;
   }
 
   &__row-arrow {
@@ -341,20 +371,22 @@ onMounted(loadStats);
   }
 
   &__badge {
-    padding: 1px 7px;
-    border: 1px solid $practice-border;
-    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    height: 19px;
+    padding: 0 7px;
+    border-radius: 99px;
     background: $practice-soft;
-    font-size: 11px;
-    font-weight: 600;
+    font-size: 10.5px;
+    font-weight: 620;
     color: $practice-primary;
   }
 
   &__tip {
-    margin: 0;
-    font-size: 12px;
+    margin: 0 2px;
+    font-size: 11px;
     line-height: 1.7;
-    color: $text-disabled;
+    color: $text-secondary;
   }
 }
 </style>

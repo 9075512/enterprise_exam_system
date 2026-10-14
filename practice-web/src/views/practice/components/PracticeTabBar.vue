@@ -76,8 +76,8 @@ function go(tab: TabItem): void {
   bottom: 0;
   z-index: 30;
   display: flex;
-  background: #fff;
-  border-top: 1px solid $practice-border;
+  background: $bg-paper;
+  border-top: 1px solid $border-color;
   padding-bottom: env(safe-area-inset-bottom);
 
   &__item {
@@ -87,12 +87,13 @@ function go(tab: TabItem): void {
     align-items: center;
     justify-content: center;
     gap: 3px;
-    height: 52px;
+    height: 56px;
     padding: 0;
     border: none;
     background: transparent;
     color: $text-secondary;
-    font-size: 11px;
+    font-size: 10.5px;
+    font-weight: 550;
     line-height: 1;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
@@ -100,7 +101,7 @@ function go(tab: TabItem): void {
 
     &.is-active {
       color: $practice-primary;
-      font-weight: 600;
+      font-weight: 620;
     }
   }
 

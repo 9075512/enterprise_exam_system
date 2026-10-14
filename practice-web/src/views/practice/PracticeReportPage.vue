@@ -58,6 +58,16 @@ function bankPercent(item: PracticeBankStat): number {
   return item.totalCount > 0 ? Math.round((item.doneCount / item.totalCount) * 100) : 0;
 }
 
+/**
+ * 科目掌握度正确率色调（设计图 .sub__a：≥90 优 / ≥70 中 / 其余告警）。
+ * 只改文字色，不表达「状态标签」语义（薄弱仍由 badge 承载）。
+ */
+function accTone(acc: number): string {
+  if (acc >= 90) return 'is-ok';
+  if (acc >= 70) return 'is-warn';
+  return 'is-low';
+}
+
 /** 加载全部报告数据 */
 async function load(): Promise<void> {
   loading.value = true;
@@ -155,7 +165,8 @@ onMounted(load);
         <!-- 今日一练 -->
         <template v-if="dailyAvailable">
           <div class="rpt__section">今日一练</div>
-          <div class="rpt__daily" :class="{ 'is-done': daily?.completed }">
+          <div class="rpt__daily">
+            <span class="rpt__daily-icon" aria-hidden="true">今日</span>
             <div class="rpt__daily-body">
               <span class="rpt__daily-title">
                 {{ daily?.completed ? '今日已完成' : '今日任务待完成' }}
@@ -202,10 +213,14 @@ onMounted(load);
             <div class="rpt__subject-top">
               <span class="rpt__subject-name">{{ item.subject }}</span>
               <span v-if="item.weak" class="rpt__weak">薄弱</span>
-              <span class="rpt__subject-acc">{{ item.accuracy }}%</span>
+              <span class="rpt__subject-acc" :class="accTone(item.accuracy)">{{ item.accuracy }}%</span>
             </div>
             <div class="rpt__bar" role="img" :aria-label="`正确率 ${item.accuracy}%`">
-              <span class="rpt__bar-fill" :style="{ width: `${item.accuracy}%` }" />
+              <span
+                class="rpt__bar-fill"
+                :class="{ 'is-weak': item.weak }"
+                :style="{ width: `${item.accuracy}%` }"
+              />
             </div>
             <p class="rpt__subject-meta">已练 {{ item.doneCount }} 题 · 答对 {{ item.correctCount }} 题</p>
           </div>
@@ -254,9 +269,9 @@ onMounted(load);
   }
 
   &__skeleton {
-    padding: 18px;
-    background: #fff;
-    border: 1px solid $practice-border;
+    padding: 14px;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
 
     :deep(.el-skeleton) {
@@ -264,77 +279,74 @@ onMounted(load);
     }
   }
 
-  /* 顶部：标题 + 连续打卡 */
+  /* 顶部：标题 + 连续打卡（主色实底卡，设计图 .rp__hero） */
   &__hero {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
     padding: 16px;
-    margin-bottom: 12px;
-    background: #fff;
-    border: 1px solid $practice-border;
-    border-left: 3px solid $practice-primary;
+    margin-bottom: 10px;
+    background: $practice-primary;
+    color: #fff;
     border-radius: $practice-radius;
   }
 
   &__hero-title {
     margin: 0;
-    font-size: 16px;
-    font-weight: 700;
-    color: $text-primary;
+    font-size: 17px;
+    font-weight: 660;
+    color: #fff;
   }
 
   &__hero-sub {
-    margin: 4px 0 0;
-    font-size: 12px;
-    color: $text-secondary;
+    margin: 5px 0 0;
+    font-size: 11px;
+    line-height: 1.55;
+    opacity: 0.85;
   }
 
   &__streak {
     flex: 0 0 auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    padding: 6px 12px;
-    border: 1px solid $practice-border;
-    border-radius: $practice-radius-sm;
-    background: $practice-soft;
+    margin-left: auto;
+    text-align: right;
   }
 
   &__streak-num {
-    font-size: 20px;
+    display: block;
+    font-size: 24px;
     font-weight: 700;
-    color: $practice-primary;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    color: #fff;
     font-variant-numeric: tabular-nums;
-    line-height: 1.1;
   }
 
   &__streak-label {
-    font-size: 11px;
-    color: $practice-primary;
+    font-size: 10px;
+    opacity: 0.85;
   }
 
   &__stats {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-bottom: 20px;
+    gap: 9px;
+    margin-top: 10px;
   }
 
   &__stat {
-    padding: 14px 12px;
-    background: #fff;
-    border: 1px solid $practice-border;
+    padding: 12px 13px;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
   }
 
   &__num {
     display: block;
-    font-size: 22px;
-    font-weight: 700;
-    color: $practice-primary;
+    font-size: 20px;
+    font-weight: 680;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: $text-primary;
     font-variant-numeric: tabular-nums;
 
     &--ok {
@@ -348,67 +360,56 @@ onMounted(load);
 
   &__label {
     display: block;
-    margin-top: 4px;
-    font-size: 12px;
+    margin-top: 3px;
+    font-size: 11px;
     color: $text-secondary;
   }
 
-  /* 区块标题（沿用练题端左强调条） */
+  /* 区块标题（v3.1 去 3px 左强调条，设计图 .rp__sec） */
   &__section {
     display: flex;
     align-items: center;
     gap: 8px;
-    position: relative;
-    margin: 0 0 10px;
-    padding-left: 10px;
-    font-size: 13px;
-    font-weight: 700;
+    margin: 18px 2px 9px;
+    font-size: 14px;
+    font-weight: 640;
     color: $text-primary;
-
-    &::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 0;
-      width: 3px;
-      height: 13px;
-      margin-top: -6.5px;
-      border-radius: 2px;
-      background: $practice-primary;
-    }
   }
 
+  /* 趋势区间切换（设计图 .rp__sw：灰底分段器 + 白滑块） */
   &__switch {
     display: inline-flex;
     margin-left: auto;
-    border: 1px solid $practice-border;
-    border-radius: $practice-radius-sm;
-    overflow: hidden;
-    background: #fff;
+    padding: 2px;
+    background: $practice-surface-3;
+    border-radius: $radius-xs;
   }
 
   &__switch-btn {
-    min-height: 28px;
-    padding: 0 10px;
+    height: 22px;
+    padding: 0 9px;
     border: none;
+    border-radius: 4px;
     background: transparent;
     font-size: 11px;
+    font-weight: 580;
     color: $text-secondary;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
 
     &.is-active {
-      background: $practice-primary;
-      color: #fff;
-      font-weight: 600;
+      background: $bg-paper;
+      color: $text-primary;
+      font-weight: 620;
+      box-shadow: 0 1px 2px rgba(13, 18, 32, 0.08);
     }
   }
 
   &__card {
     padding: 14px;
-    margin-bottom: 20px;
-    background: #fff;
-    border: 1px solid $practice-border;
+    margin-bottom: 18px;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
     transition: opacity $transition-fast;
 
@@ -421,30 +422,28 @@ onMounted(load);
     margin: 0;
     padding: 12px 0;
     text-align: center;
-    font-size: 13px;
-    color: $text-disabled;
+    font-size: 12px;
+    color: $text-secondary;
   }
 
-  /* 今日一练 */
+  /* 今日一练（设计图 .m-card .m-row：图标块 + 文案 + 按钮） */
   &__daily {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 16px;
-    margin-bottom: 20px;
-    background: #fff;
-    border: 1px solid $practice-border;
-    border-left: 3px solid $practice-primary;
+    gap: 11px;
+    padding: 14px;
+    margin-bottom: 18px;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
-
-    &.is-done {
-      border-left-color: $color-success;
-    }
 
     :deep(.el-button) {
       flex: 0 0 auto;
+      height: 30px;
+      padding: 0 13px;
       border: none;
-      border-radius: $practice-radius-sm;
+      border-radius: $radius-sm;
+      font-size: 12.5px;
       background: $practice-primary;
 
       &:hover,
@@ -454,22 +453,35 @@ onMounted(load);
     }
   }
 
+  &__daily-icon {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: $radius-xs;
+    background: $practice-soft;
+    font-size: 11px;
+    font-weight: 680;
+    color: $practice-primary;
+  }
+
   &__daily-body {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 2px;
     min-width: 0;
     flex: 1;
   }
 
   &__daily-title {
-    font-size: 14px;
-    font-weight: 700;
+    font-size: 13.5px;
+    font-weight: 600;
     color: $text-primary;
   }
 
   &__daily-sub {
-    font-size: 12px;
+    font-size: 11.5px;
     color: $text-secondary;
   }
 
@@ -478,15 +490,15 @@ onMounted(load);
     padding: 10px 0;
 
     & + & {
-      border-top: 1px solid $practice-border;
+      border-top: 1px solid $border-color;
     }
   }
 
   &__subject-top {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 7px;
+    gap: 7px;
+    margin-bottom: 6px;
   }
 
   &__subject-name {
@@ -494,40 +506,55 @@ onMounted(load);
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 12.5px;
+    font-weight: 580;
     color: $text-primary;
   }
 
   &__weak {
     flex: 0 0 auto;
-    padding: 1px 6px;
-    border: 1px solid $color-error-border;
+    display: inline-flex;
+    align-items: center;
+    height: 17px;
+    padding: 0 6px;
     border-radius: 4px;
     background: $color-error-bg;
-    font-size: 11px;
+    font-size: 10px;
+    font-weight: 620;
     color: $color-error-text;
   }
 
   &__subject-acc {
     flex: 0 0 auto;
     margin-left: auto;
-    font-size: 13px;
-    font-weight: 700;
-    color: $practice-primary;
+    font-size: 12px;
+    font-weight: 640;
+    color: $text-primary;
     font-variant-numeric: tabular-nums;
+
+    &.is-ok {
+      color: $color-success-text;
+    }
+
+    &.is-warn {
+      color: $color-warning-text;
+    }
+
+    &.is-low {
+      color: $color-error-text;
+    }
   }
 
   &__subject-meta {
-    margin: 6px 0 0;
-    font-size: 11px;
+    margin: 5px 0 0;
+    font-size: 10.5px;
     color: $text-secondary;
   }
 
   &__bar {
     height: 6px;
     border-radius: 3px;
-    background: #eef1f6;
+    background: $practice-surface-3;
     overflow: hidden;
   }
 
@@ -537,6 +564,10 @@ onMounted(load);
     border-radius: 3px;
     background: $practice-primary;
     transition: width $transition-fast;
+
+    &.is-weak {
+      background: $color-error;
+    }
   }
 
   /* 题库概览 */
@@ -551,15 +582,15 @@ onMounted(load);
     -webkit-tap-highlight-color: transparent;
 
     & + & {
-      border-top: 1px solid $practice-border;
+      border-top: 1px solid $border-color;
     }
   }
 
   &__bank-top {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 7px;
+    gap: 7px;
+    margin-bottom: 6px;
   }
 
   &__bank-name {
@@ -567,29 +598,31 @@ onMounted(load);
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 12.5px;
+    font-weight: 580;
     color: $text-primary;
   }
 
   &__bank-acc {
     flex: 0 0 auto;
     margin-left: auto;
-    font-size: 11px;
+    font-size: 12px;
+    font-weight: 640;
     color: $text-secondary;
+    font-variant-numeric: tabular-nums;
   }
 
   &__bank-meta {
-    margin: 6px 0 0;
-    font-size: 11px;
+    margin: 5px 0 0;
+    font-size: 10.5px;
     color: $text-secondary;
   }
 
   &__tip {
     margin: 0;
-    font-size: 12px;
+    font-size: 11.5px;
     line-height: 1.7;
-    color: $text-disabled;
+    color: $text-secondary;
   }
 }
 </style>

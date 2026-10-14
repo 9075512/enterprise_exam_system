@@ -180,10 +180,10 @@ function openDetail(item: Announcement): void {
 
   &__carousel {
     margin-bottom: 12px;
-    border: 1px solid $practice-border;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
     overflow: hidden;
-    background: #fff;
+    background: $bg-paper;
   }
 
   &__slide {
@@ -203,9 +203,8 @@ function openDetail(item: Announcement): void {
   }
 
   &__card {
-    background: #fff;
-    border: 1px solid $practice-border;
-    border-left: 3px solid $practice-primary;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $practice-radius;
     overflow: hidden;
   }
@@ -231,11 +230,11 @@ function openDetail(item: Announcement): void {
     align-items: center;
     gap: 8px;
     padding: 10px 14px;
-    border-top: 1px solid $practice-border;
+    border-top: 1px solid $border-color;
     cursor: pointer;
 
     &:active {
-      background: #fafbfd;
+      background: $practice-surface-2;
     }
   }
 
@@ -246,9 +245,9 @@ function openDetail(item: Announcement): void {
     justify-content: center;
     width: 20px;
     height: 20px;
-    border-radius: 4px;
+    border-radius: $radius-xs;
     background: $practice-soft;
-    border: 1px solid $practice-border;
+    border: 1px solid $border-color;
     font-size: 11px;
     font-weight: 700;
     color: $practice-primary;
@@ -284,7 +283,7 @@ function openDetail(item: Announcement): void {
 
   &__more {
     padding: 9px 14px;
-    border-top: 1px solid $practice-border;
+    border-top: 1px solid $border-color;
     text-align: center;
     font-size: 12.5px;
     color: $practice-primary;

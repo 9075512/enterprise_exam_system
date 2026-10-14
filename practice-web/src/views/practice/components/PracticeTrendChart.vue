@@ -3,7 +3,8 @@
  * 练题端 · 趋势图（纯 SVG 手写，**不引入任何图表库**，避免增大公网包体）。
  *
  * 双指标：柱 = 当日练题量；折线 + 圆点 = 当日正确率（0~100%）。
- * 配色沿用「冷静蓝 · 商务风」：主色柱体 + 中性灰网格，不使用红绿涨跌色。
+ * 配色走 v3.1 方向 C 单一主色系：柱=实色主色、折线=主色浅档虚线（靠线型而非第二色区分），
+ * 网格为发丝线。不使用红绿涨跌色，也不借语义色当数据系列色（DESIGN-C §2.5）。
  */
 import { computed } from 'vue';
 import type { PracticeTrendPoint } from '@/types';
@@ -198,28 +199,30 @@ const hasData = computed<boolean>(() => props.points.some((p) => p.doneCount > 0
     height: auto;
   }
 
-  // SVG 上色走 CSS 类（模板属性无法引用 SCSS 变量）——v2.2 收口硬编码色值
+  // SVG 上色走 CSS 类（模板属性无法引用 SCSS 变量）
   &__grid {
-    stroke: $border-soft;
+    stroke: $border-color;
   }
 
+  /* 柱 = 练题量（主体，实色主色） */
   &__bar {
     fill: $practice-primary;
-    opacity: 0.85;
   }
 
+  /* 折线 = 正确率（辅助，主色浅档 + 虚线；靠线型而非第二色区分，DESIGN-C §2.5） */
   &__line {
     fill: none;
-    stroke: $text-secondary;
+    stroke: $practice-primary-light;
+    stroke-dasharray: 4 3;
   }
 
   &__dot {
     fill: $bg-paper;
-    stroke: $text-secondary;
+    stroke: $practice-primary-light;
   }
 
   &__axis-label {
-    fill: $text-disabled;
+    fill: $text-secondary;
   }
 
   &__legend {
@@ -245,20 +248,19 @@ const hasData = computed<boolean>(() => props.points.some((p) => p.doneCount > 0
 
     &--bar {
       background: $practice-primary;
-      opacity: 0.85;
     }
 
     &--line {
       height: 2px;
       border-radius: 1px;
-      background: $text-secondary;
+      background: $practice-primary-light;
     }
   }
 
   &__empty {
     margin: 6px 0 0;
     font-size: 12px;
-    color: $text-disabled;
+    color: $text-secondary;
   }
 }
 </style>

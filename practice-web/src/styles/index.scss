@@ -1,26 +1,35 @@
 // =============================================================
 // 全局样式 + 运行时 CSS 变量覆盖（§5.9③）
 // 入口：src/main.ts -> import './styles/index.scss'
+//
+// v3.1 方向 C「精密蓝」：主色阶梯 / 文本档 / 发丝线 / 圆角均与管理端同源，
+// 仅圆角比管理端大一档（移动端：卡 10 / 控件 8 —— 见 element/index.scss）。
+//
+// ⚠️ 覆盖 Element Plus 组件内部样式时，选择器必须「抬一级优先级」
+//    （本项目惯用双写类名，如 `.el-card.el-card`）：
+//    EP 大量组件把圆角/底色挂在自己的 `--el-*` 变量或同名类规则上，
+//    与本文件的全局规则同为 (0,1,0) 优先级时，胜负取决于样式注入顺序——
+//    懒加载分包的 CSS 会后到，表现为「写了但没生效」。v3.1 换肤踩过此坑。
 // =============================================================
 @use './variables.scss' as *;
 
 :root {
-  // Element Plus 主色：与 $practice-primary（#1d4ed8）同源。
-  // v2.2 收口：此前误用管理端主色 #2563eb，令 EP 组件与自定义组件呈现两个蓝。
-  // 浅档为 blue-500…100 阶梯（与主色同族，替代 EP 默认按比例混白的粉蓝）。
-  --el-color-primary: #{$practice-primary};
-  --el-color-primary-light-3: #{$practice-primary-light};
-  --el-color-primary-light-5: #60a5fa;
-  --el-color-primary-light-7: #93c5fd;
-  --el-color-primary-light-8: #bfdbfe;
-  --el-color-primary-light-9: #dbeafe;
-  --el-color-primary-dark-2: #{$practice-primary-dark};
+  // v3.1 方向 C「精密蓝」主色阶梯（= mix(white, base, 30/50/70/80/90%)）
+  --el-color-primary: #0b5bff;
+  --el-color-primary-light-3: #548cff;
+  --el-color-primary-light-5: #85adff;
+  --el-color-primary-light-7: #b6ceff;
+  --el-color-primary-light-8: #cedeff;
+  --el-color-primary-light-9: #e7efff;
+  --el-color-primary-dark-2: #0949cc;
   --el-border-radius-base: 10px;
-  --el-bg-color-page: #f5f7fb;
-  --el-fill-color-light: #f1f5f9;
-  --el-text-color-primary: #0f172a;
-  --el-text-color-regular: #64748b;
-  --el-border-color: #e2e8f0;
+  --el-bg-color-page: #f4f6f9;
+  --el-fill-color-light: #f1f3f6;
+  --el-text-color-primary: #0d1220;
+  --el-text-color-regular: #5a6474;
+  --el-border-color: #e9ecf1;
+  // 表单控件用「强发丝线」：比卡片/行线更明确，但不引入阴影（DESIGN-C §2.1）
+  --el-input-border-color: #{$line-strong};
 }
 
 * {
@@ -41,19 +50,23 @@ body {
   background-color: $bg-page;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-variant-numeric: tabular-nums;
 }
 
-// 卡片：圆角 + 阴影
-.el-card {
+// 卡片：圆角 + 发丝线（v3.1 方向 C：零投影，层次交给线条）
+// ⚠️ 双写 `.el-card.el-card` 抬一级优先级，见文件头说明。
+.el-card.el-card {
   border-radius: $radius-base;
   border-color: $border-color;
+  box-shadow: none;
 }
 
-// 表格：表头底色 + 行 hover
-.el-table th.el-table__cell {
+// 表格：表头「标签化」+ 行 hover（练题端几乎不用表格，保留以兼容）
+.el-table.el-table th.el-table__cell {
   background-color: $color-table-head;
-  color: $text-primary;
+  color: $text-secondary;
   font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .el-table .el-table__body tr:hover > td.el-table__cell {
@@ -67,12 +80,8 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: $line-strong;
   border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
 }
 
 ::-webkit-scrollbar-track {
@@ -80,76 +89,28 @@ body {
 }
 
 // =============================================================
-// v1.2 视觉升级：全局质感与组件统一精修
+// 全局质感与组件统一精修
 // =============================================================
 
 ::selection {
   background: $practice-soft;
-  color: $practice-primary-dark;
+  color: $practice-primary;
 }
 
 // ---------- Element Plus 运行时统一精修 ----------
 
-// 卡片：圆角 + 细边框 + 常态极浅阴影（避免整屏"灰底白块"过重）
-.el-card {
-  border-radius: $radius-lg;
-  border-color: $border-color;
-  box-shadow: $shadow-sm;
-  transition: box-shadow $transition-base, transform $transition-base, border-color $transition-base;
-
-  > .el-card__header {
-    padding: 14px 20px;
-    border-bottom-color: $border-color;
-    font-weight: 600;
-  }
-}
-
-// 可交互卡片：悬停轻微上浮 + 阴影加深（由页面按需挂载）
-.hover-lift {
-  cursor: pointer;
-
-  &:hover {
-    transform: translateY(-3px);
-    box-shadow: $shadow-lg;
-    border-color: $practice-primary-light;
-  }
-}
-
-// 按钮：统一圆角、字重与主按钮层次
+// 按钮：统一圆角、字重与主按钮层次（C 方向零投影，主按钮不再有漂浮阴影）
 .el-button {
   font-weight: 500;
   border-radius: $radius-sm;
 
   &--primary:not(.is-text):not(.is-link) {
-    box-shadow: 0 1px 2px rgba($practice-primary, 0.24);
-
-    &:hover {
-      box-shadow: 0 4px 10px rgba($practice-primary, 0.3);
-    }
+    box-shadow: none;
   }
 
   &.is-text,
   &.is-link {
     font-weight: 500;
-  }
-}
-
-// 表格：表头更轻盈、行高更舒展、去默认边框噪音
-.el-table {
-  --el-table-header-bg-color: #{$color-table-head};
-  --el-table-header-text-color: #{$text-secondary};
-  --el-table-row-hover-bg-color: #{$color-table-hover};
-  --el-table-border-color: #{$border-color};
-
-  font-size: 13.5px;
-
-  th.el-table__cell {
-    font-weight: 600;
-    letter-spacing: 0.02em;
-  }
-
-  .el-table__cell {
-    padding: 11px 0;
   }
 }
 
@@ -163,13 +124,13 @@ body {
   box-shadow: 0 0 0 1px $practice-primary inset, 0 0 0 3px rgba($practice-primary, 0.12);
 }
 
-// 对话框：更圆润 + 头部留白
+// 对话框：圆角 + 头部留白（仅浮层保留投影）
 .el-dialog {
-  border-radius: $radius-lg;
+  border-radius: $radius-base;
   overflow: hidden;
 
   .el-dialog__header {
-    padding: 18px 24px;
+    padding: 18px 20px;
     margin-right: 0;
     border-bottom: 1px solid $border-color;
   }
@@ -180,32 +141,19 @@ body {
   }
 
   .el-dialog__body {
-    padding: 20px 24px;
+    padding: 18px 20px;
   }
 
   .el-dialog__footer {
-    padding: 14px 24px;
+    padding: 14px 20px;
     border-top: 1px solid $border-color;
-    background: #fcfdff;
-  }
-}
-
-// 分页：圆角按钮
-.el-pagination {
-  .el-pager li,
-  button.btn-prev,
-  button.btn-next {
-    border-radius: $radius-sm;
-  }
-
-  .el-pager li.is-active {
-    font-weight: 600;
+    background: $practice-surface-2;
   }
 }
 
 // 标签：圆润、去下划线噪音
 .el-tag {
-  border-radius: 999px;
+  border-radius: $radius-xs;
   font-weight: 500;
 }
 
@@ -214,64 +162,14 @@ body {
   padding: 32px 0;
 }
 
-// ---------- v1.3 列表页统一版式 ----------
-
-// 列表容器卡：统一「工具栏 / 表格 / 分页」的承载面
-.table-card {
-  border-radius: $radius-lg;
-
-  .table-card__toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 14px;
-  }
-
-  .table-card__toolbar-filters {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-
-  .table-card__pagination {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 14px;
-  }
-
-  .el-table {
-    --el-table-border-color: #eef2f7;
-  }
-
-  .el-table--border {
-    border-radius: $radius-sm;
-    overflow: hidden;
-  }
-}
-
-// 通用表格边框柔化（未包卡的页面同样受益）
-.el-table--border {
-  &::after,
-  &::before {
-    background-color: #eef2f7;
-  }
-}
-
-// 描述列表（成绩明细 / 预览页）更透气
-.el-descriptions {
-  --el-descriptions-item-bordered-label-background: #f8fafc;
-
-  .el-descriptions__label {
-    font-weight: 600;
-  }
+// 步骤条 / 进度条刻度
+.el-progress-bar__outer {
+  background-color: $practice-surface-3;
 }
 
 // ---------- 通用工具类 ----------
 
-// 页面级容器（与 PageHeader 配合）
+// 页面级容器
 .page {
   display: flex;
   flex-direction: column;

@@ -2,7 +2,7 @@
 /**
  * 练题反馈区（提交单题后即时展示）：正误标识 + 正确答案 + 用户作答 + 解析。
  * 由作答页在 `QuestionCard` 下方渲染（**不改动 QuestionCard 内部**）。
- * 视觉：冷静蓝 · 商务风（白底 + 左侧强调条 + 细边框，无渐变 / 无 emoji）。
+ * 视觉：v3.1 方向 C —— 语义浅底 + 深字（三件套），去左缘强调条与浮层阴影。
  */
 import { computed } from 'vue';
 import type { PracticeCheckResult } from '@/types';
@@ -69,45 +69,29 @@ const analysisVisible = computed<boolean>(() => props.result.analysisVisible !==
 @use '@/styles/variables.scss' as *;
 
 .feedback {
-  position: relative;
-  margin-top: 14px;
-  padding: 16px;
-  border-radius: $practice-radius;
-  border: 1px solid $practice-border;
-  background: #fff;
-  overflow: hidden;
+  margin-top: 12px;
+  padding: 12px 13px;
+  border-radius: $radius-sm;
+  border: 1px solid transparent;
+  background: $bg-paper;
   animation: feedback-in 0.2s ease-out;
 
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: 3px;
-  }
-
+  /* 语义浅底 + 描边（原色仅作图形，文字一律用 -text 档） */
   &--ok {
-    background: #f6fbf7;
-    border-color: rgba(22, 163, 74, 0.28);
-
-    &::before {
-      background: $color-success;
-    }
+    background: $color-success-bg;
+    border-color: $color-success-border;
   }
 
   &--err {
-    background: #fef7f7;
-    border-color: rgba(220, 38, 38, 0.26);
-
-    &::before {
-      background: $color-error;
-    }
+    background: $color-error-bg;
+    border-color: $color-error-border;
   }
 
   &__head {
     display: flex;
     align-items: center;
-    gap: 9px;
-    margin-bottom: 14px;
+    gap: 8px;
+    margin-bottom: 11px;
   }
 
   &__icon {
@@ -115,11 +99,11 @@ const analysisVisible = computed<boolean>(() => props.result.analysisVisible !==
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
     color: #fff;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     line-height: 1;
   }
@@ -133,9 +117,16 @@ const analysisVisible = computed<boolean>(() => props.result.analysisVisible !==
   }
 
   &__title {
-    font-size: 15px;
-    font-weight: 700;
-    color: $text-primary;
+    font-size: 13px;
+    font-weight: 640;
+  }
+
+  &--ok &__title {
+    color: $color-success-text;
+  }
+
+  &--err &__title {
+    color: $color-error-text;
   }
 
   &__badge {
@@ -147,7 +138,7 @@ const analysisVisible = computed<boolean>(() => props.result.analysisVisible !==
   &__rows {
     display: flex;
     flex-direction: column;
-    gap: 9px;
+    gap: 7px;
   }
 
   &__row {
@@ -159,13 +150,12 @@ const analysisVisible = computed<boolean>(() => props.result.analysisVisible !==
   &__label {
     flex: 0 0 auto;
     font-size: 12px;
-    font-weight: 600;
     color: $text-secondary;
   }
 
   &__value {
-    font-size: 15px;
-    font-weight: 700;
+    font-size: 13.5px;
+    font-weight: 640;
     color: $text-primary;
     letter-spacing: 0.5px;
 
@@ -180,32 +170,38 @@ const analysisVisible = computed<boolean>(() => props.result.analysisVisible !==
     }
   }
 
+  /* 解析：虚线分隔代替灰块，随卡片语义色走 */
   &__analysis {
-    margin-top: 14px;
-    padding: 12px 14px;
-    border-radius: $practice-radius-sm;
-    background: #f8fafc;
-    border: 1px solid $practice-border;
+    margin-top: 11px;
+    padding-top: 11px;
+    border-top: 1px dashed;
+  }
+
+  &--ok &__analysis {
+    border-top-color: $color-success-border;
+  }
+
+  &--err &__analysis {
+    border-top-color: $color-error-border;
   }
 
   &__analysis-head {
-    margin-bottom: 7px;
+    margin-bottom: 5px;
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 640;
     color: $text-secondary;
   }
 
   &__analysis-text {
     margin: 0;
-    font-size: 14px;
-    line-height: 1.8;
+    font-size: 13px;
+    line-height: 1.75;
     color: $text-primary;
     word-break: break-word;
   }
 
   &__analysis--muted {
-    background: #f8fafc;
-    border-style: dashed;
+    border-top-color: $border-color;
 
     .feedback__analysis-text {
       color: $text-secondary;
