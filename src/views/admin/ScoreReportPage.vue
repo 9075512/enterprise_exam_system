@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
  * 成绩报表（W3-T2，管理员）。
- * 顶部选考试 → reports.examReport；四页签：成绩列表 / 分数段 / 科室对比 / 错题排行。
+ * 顶部选考试 → reports.examReport；单页纵向：五统计卡 → 成绩列表 → 三联分析卡（分数段 / 科室对比 / 错题排行）→ 切屏审查。
  */
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import VChart from 'vue-echarts';
 import { CircleCheck, Download, Star, TrendCharts, User, Warning } from '@element-plus/icons-vue';
 import { use } from 'echarts/core';
@@ -65,9 +65,25 @@ const departmentNameMap = computed<Record<string, string>>(() =>
 );
 
 const selectedExamId = ref('');
-const activeTab = ref('records');
 const report = ref<Report | null>(null);
 const reportLoading = ref(false);
+
+/**
+ * 首屏默认选中「最近一场考试」（按开始时间倒序），对齐设计稿 scores.html
+ * 「进入报表页即有数据」的形态，避免首屏停在「请选择一场考试」空态。
+ * 仅在没有选中值时兜底一次；用户手动选择后不再干预（含手动清空）。
+ */
+watch(
+  exams,
+  (list) => {
+    if (selectedExamId.value || !list || list.length === 0) return;
+    const latest = [...list].sort(
+      (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime(),
+    )[0];
+    selectedExamId.value = latest.id;
+  },
+  { immediate: true },
+);
 
 const selectedExam = computed<Exam | null>(
   () => (exams.value ?? []).find((e) => e.id === selectedExamId.value) ?? null,
@@ -149,23 +165,9 @@ watch(selectedExamId, (examId) => {
   void loadCheat();
 });
 
-/* ------------------------------ 图表实例与自适应 ------------------------------ */
-// 图表挂载在 el-tab-pane 内，初始 tab 隐藏时容器宽度为 0；
-// 通过 lazy（首次显示才挂载）+ autoresize（ResizeObserver 跟随容器尺寸）修复。
-// 再对 tab 切换做一次显式 resize() 兜底，规避部分场景下 ResizeObserver 不触发。
-// 注：科室对比自 v3.1 起改为「表格 + 内联进度条」（DESIGN-C §2.3），不再是图表。
-const bandChartRef = ref<InstanceType<typeof VChart> | null>(null);
-
-function onTabChange(name: string | number): void {
-  void nextTick(() => {
-    if (name === 'bands') {
-      bandChartRef.value?.resize();
-    }
-  });
-}
-
 /* ------------------------------ 图表 option ------------------------------ */
-// 分数段分布：浅柱打底 + 人数最多的那一段用主色高亮（设计稿 .ch-bar / .ch-bar--on）
+// 分数段分布：浅柱打底 + 人数最多的那一段用主色高亮（设计稿 .ch-bar / .ch-bar--on）。
+// 图表直接挂载在页面内联三联网格，容器宽度稳定，无需 lazy / tab 切换 resize 兜底。
 const bandOption = computed(() => {
   const counts = (report.value?.bands ?? []).map((b) => b.count);
   return {
@@ -196,6 +198,35 @@ const bandOption = computed(() => {
   };
 });
 
+/* ------------------------------ 三联分析卡派生数据 ------------------------------ */
+/** 人数最多的分数段（用于分数段卡底部 tip；无数据时为 null） */
+const bandPeak = computed(() => {
+  const bands = report.value?.bands ?? [];
+  const index = peakIndex(bands.map((b) => b.count));
+  return index >= 0 ? bands[index] : null;
+});
+
+/**
+ * 科室对比卡：按人数降序只列前 5 个科室（卡头「参考人数 ≥ 10」为设计稿表头说明标签）。
+ */
+const topDepartments = computed(() =>
+  [...(report.value?.departments ?? [])].sort((a, b) => b.count - a.count).slice(0, 5),
+);
+
+/**
+ * 错题排行卡：按错误率降序取前 5。
+ * 数据缺口：WrongItem 无 questionType 字段（后端不返回题型），
+ * 故第二行仅以「答错 N 人 / 共 M 人作答」表达，不展示题型。
+ */
+const topWrong = computed(() =>
+  [...(report.value?.wrongRate ?? [])].sort((a, b) => b.wrongRate - a.wrongRate).slice(0, 5),
+);
+
+/** 错误率图形档：高错误率用 error（警示图形），其余用主色 */
+function wrongTone(rate: number): string {
+  return rate >= 0.5 ? THEME.error : THEME.primary;
+}
+
 /* ------------------------------ 工具 ------------------------------ */
 function isCheat(record: ExamRecord): boolean {
   const count = record.cheatEvents.length;
@@ -212,7 +243,7 @@ function cheatSummary(record: ExamRecord): string {
   return `${count} 次 / ${seconds} 秒`;
 }
 
-/** 切屏异常人数（与「切屏审查」页签同口径） */
+/** 切屏异常人数（与「切屏审查」卡同口径） */
 const cheatCount = computed<number>(() => cheatList.value.filter(isCheat).length);
 
 /** 顶部统计卡（设计稿 scores.html 的 .grid.g5 五卡）——仅「切屏异常」上状态色 */
@@ -286,182 +317,224 @@ const statItems = computed(() => {
         />
       </div>
 
-      <el-tabs v-model="activeTab" class="report-page__tabs" @tab-change="onTabChange">
-        <!-- 1. 成绩列表 -->
-        <el-tab-pane label="成绩列表" name="records">
-          <el-card class="table-card" shadow="never">
-            <el-table v-loading="recordsLoading" :data="records" row-key="id" stripe>
-              <el-table-column label="排名" width="70" align="center">
-                <template #default="{ $index }">
-                  <span class="report-page__rank num">{{ (page - 1) * pageSize + $index + 1 }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="考生姓名" width="120">
-                <template #default="{ row }">{{ userNameMap[row.userId] || row.userId }}</template>
-              </el-table-column>
-              <el-table-column label="科室" width="140">
-                <template #default="{ row }">{{ departmentNameMap[row.departmentId] || '—' }}</template>
-              </el-table-column>
-              <el-table-column label="得分" width="90" align="center">
-                <template #default="{ row }">
-                  <span class="num report-page__score">{{ formatScore(row.score) }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="是否及格" width="110" align="center">
-                <template #default="{ row }">
-                  <el-tag size="small" :type="row.score >= passScore ? 'success' : 'danger'" effect="plain">
-                    {{ row.score >= passScore ? '及格' : '不及格' }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column label="作答次数" width="100" align="center">
-                <template #default="{ row }">第 {{ (row as ExamRecord).attemptNo }} 次</template>
-              </el-table-column>
-              <el-table-column label="切屏异常" min-width="140">
-                <template #default="{ row }">
-                  <el-tag v-if="isCheat(row as ExamRecord)" type="danger" size="small">
-                    {{ cheatSummary(row as ExamRecord) }}
-                  </el-tag>
-                  <span v-else class="report-page__muted">正常</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="交卷时间" width="170">
-                <template #default="{ row }">{{ formatDateTime(row.submittedAt) }}</template>
-              </el-table-column>
-              <template #empty>
-                <EmptyState text="暂无成绩记录" />
-              </template>
-            </el-table>
-            <DataTablePagination
-              :page="page"
-              :page-size="pageSize"
-              :total="total"
-              @update:page="onPageChange"
-              @update:page-size="onSizeChange"
-            />
-          </el-card>
-        </el-tab-pane>
-
-        <!-- 2. 分数段 -->
-        <el-tab-pane label="分数段" name="bands" lazy>
-          <div class="report-page__stack">
-            <el-card v-if="report && report.summary.total > 0" class="report-page__chart-card" shadow="never">
-              <VChart ref="bandChartRef" :option="bandOption" autoresize style="height: 320px" />
-            </el-card>
-            <EmptyState v-else text="暂无成绩数据" />
+      <!-- 成绩列表（全宽卡） -->
+      <el-card class="report-page__section" shadow="never">
+        <template #header>
+          <div class="report-page__hd">
+            <h3 class="report-page__hd-title">成绩列表</h3>
+            <span class="report-page__hd-sub">共 {{ total }} 条</span>
           </div>
-        </el-tab-pane>
+        </template>
+        <el-table v-loading="recordsLoading" :data="records" row-key="id" stripe>
+          <el-table-column label="排名" width="70" align="center">
+            <template #default="{ $index }">
+              <span class="report-page__rank num">{{ (page - 1) * pageSize + $index + 1 }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="考生姓名" width="120">
+            <template #default="{ row }">{{ userNameMap[row.userId] || row.userId }}</template>
+          </el-table-column>
+          <el-table-column label="科室" width="140">
+            <template #default="{ row }">{{ departmentNameMap[row.departmentId] || '—' }}</template>
+          </el-table-column>
+          <el-table-column label="得分" width="90" align="center">
+            <template #default="{ row }">
+              <span class="num report-page__score">{{ formatScore(row.score) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="是否及格" width="110" align="center">
+            <template #default="{ row }">
+              <el-tag size="small" :type="row.score >= passScore ? 'success' : 'danger'" effect="plain">
+                {{ row.score >= passScore ? '及格' : '不及格' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="作答次数" width="100" align="center">
+            <template #default="{ row }">第 {{ (row as ExamRecord).attemptNo }} 次</template>
+          </el-table-column>
+          <el-table-column label="切屏异常" min-width="140">
+            <template #default="{ row }">
+              <el-tag v-if="isCheat(row as ExamRecord)" type="danger" size="small">
+                {{ cheatSummary(row as ExamRecord) }}
+              </el-tag>
+              <span v-else class="report-page__muted">正常</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="交卷时间" width="170">
+            <template #default="{ row }">{{ formatDateTime(row.submittedAt) }}</template>
+          </el-table-column>
+          <template #empty>
+            <EmptyState text="暂无成绩记录" />
+          </template>
+        </el-table>
+        <DataTablePagination
+          :page="page"
+          :page-size="pageSize"
+          :total="total"
+          @update:page="onPageChange"
+          @update:page-size="onSizeChange"
+        />
+      </el-card>
 
-        <!-- 3. 科室对比（v3.1：表格 + 内联进度条，取代双轴柱状图——同屏即可横向比较，无需读图） -->
-        <el-tab-pane label="科室对比" name="departments" lazy>
-          <div class="report-page__stack">
-            <EmptyState v-if="!report || report.departments.length === 0" text="暂无科室数据" />
-            <el-card v-else class="table-card" shadow="never">
-              <el-table :data="report.departments" stripe>
-                <el-table-column prop="departmentName" label="科室" min-width="160" />
-                <el-table-column prop="count" label="人数" width="100" align="center" />
-                <el-table-column label="平均分" width="120" align="center">
-                  <template #default="{ row }">
-                    <span class="num">{{ formatScore(row.avgScore) }}</span>
-                  </template>
-                </el-table-column>
-                <el-table-column label="及格率" min-width="200">
-                  <template #default="{ row }">
-                    <div class="report-page__rate">
-                      <span class="report-page__rate-num num">{{ formatPercent(row.passRate) }}</span>
-                      <el-progress
-                        class="report-page__rate-bar"
-                        :percentage="Math.round(row.passRate * 100)"
-                        :stroke-width="6"
-                        :show-text="false"
-                        :color="row.passRate >= DEPARTMENT_PASS_RATE_WARN ? THEME.primary : THEME.warning"
-                      />
-                    </div>
-                  </template>
-                </el-table-column>
-              </el-table>
-            </el-card>
-          </div>
-        </el-tab-pane>
+      <!-- 三联分析卡（设计稿 .grid.g3） -->
+      <div class="report-page__grid3">
+        <!-- 1. 分数段分布 -->
+        <el-card shadow="never">
+          <template #header>
+            <div class="report-page__hd">
+              <h3 class="report-page__hd-title">分数段分布</h3>
+              <span class="report-page__hd-sub">{{ report?.summary.total ?? 0 }} 人</span>
+            </div>
+          </template>
+          <template v-if="report && report.summary.total > 0">
+            <VChart class="report-page__band-chart" :option="bandOption" autoresize />
+            <div v-if="bandPeak" class="report-page__tip report-page__tip--ok">
+              <el-icon class="report-page__tip-ic"><CircleCheck /></el-icon>
+              <div>
+                {{ bandPeak?.label }} 人数最多（<b>{{ bandPeak?.count }} 人</b>），整体呈右偏分布。
+              </div>
+            </div>
+          </template>
+          <EmptyState v-else text="暂无成绩数据" />
+        </el-card>
 
-        <!-- 4. 错题排行 -->
-        <el-tab-pane label="错题排行" name="wrong">
-          <EmptyState v-if="report && report.wrongRate.length === 0" text="暂无错题数据" />
-          <el-card v-else-if="report" class="table-card" shadow="never">
-            <el-table :data="report.wrongRate" row-key="questionId" stripe>
-              <el-table-column label="题干" min-width="300">
-                <template #default="{ row }">
-                  <el-tooltip :content="row.stem" placement="top" :show-after="300">
-                    <span class="report-page__stem">{{ row.stem }}</span>
-                  </el-tooltip>
-                </template>
-              </el-table-column>
-              <el-table-column prop="wrongCount" label="答错人数" width="110" align="center" />
-              <el-table-column prop="totalAnswered" label="总作答人数" width="120" align="center" />
-              <el-table-column label="错误率" width="200">
-                <template #default="{ row }">
-                  <el-progress
-                    :percentage="Math.round(row.wrongRate * 100)"
-                    :stroke-width="12"
-                    :color="row.wrongRate >= 0.5 ? THEME.error : THEME.primary"
-                  />
-                </template>
-              </el-table-column>
-            </el-table>
-          </el-card>
-        </el-tab-pane>
-
-        <!-- 5. 切屏审查 -->
-        <el-tab-pane label="切屏审查" name="cheat" lazy>
-          <el-card class="table-card" shadow="never">
-            <el-table v-loading="cheatLoading" :data="cheatList" row-key="id" stripe>
-              <el-table-column type="expand">
-                <template #default="{ row }">
-                  <div class="report-page__cheat-timeline">
-                    <p class="report-page__cheat-timeline-title">
-                      切屏时间线（共 {{ (row as ExamRecord).cheatEvents.length }} 次）
-                    </p>
-                    <el-table :data="(row as ExamRecord).cheatEvents" size="small" border>
-                      <el-table-column type="index" label="#" width="60" align="center" />
-                      <el-table-column label="发生时间" min-width="220">
-                        <template #default="{ row: e }">{{ formatDateTime(e.at) }}</template>
-                      </el-table-column>
-                      <el-table-column label="离开时长（秒）" width="160" align="center">
-                        <template #default="{ row: e }">{{ e.awaySeconds }}</template>
-                      </el-table-column>
-                    </el-table>
+        <!-- 2. 科室对比 -->
+        <el-card shadow="never">
+          <template #header>
+            <div class="report-page__hd">
+              <h3 class="report-page__hd-title">科室对比</h3>
+              <div class="report-page__hd-right">
+                <span class="report-page__tag">参考人数 ≥ 10</span>
+              </div>
+            </div>
+          </template>
+          <table v-if="topDepartments.length > 0" class="report-page__mini">
+            <thead>
+              <tr>
+                <th>科室</th>
+                <th>人数</th>
+                <th>平均分</th>
+                <th>及格率</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in topDepartments" :key="row.departmentId">
+                <td class="report-page__mini-name">{{ row.departmentName }}</td>
+                <td class="report-page__mini-num num">{{ row.count }}</td>
+                <td class="report-page__mini-num num">{{ formatScore(row.avgScore) }}</td>
+                <td>
+                  <div class="report-page__rate">
+                    <span class="report-page__rate-num num">{{ formatPercent(row.passRate) }}</span>
+                    <el-progress
+                      class="report-page__rate-bar"
+                      :percentage="Math.round(row.passRate * 100)"
+                      :stroke-width="6"
+                      :show-text="false"
+                      :color="row.passRate >= DEPARTMENT_PASS_RATE_WARN ? THEME.primary : THEME.warning"
+                    />
                   </div>
-                </template>
-              </el-table-column>
-              <el-table-column label="考生姓名" width="120">
-                <template #default="{ row }">{{ row.userName || userNameMap[row.userId] || row.userId }}</template>
-              </el-table-column>
-              <el-table-column label="科室" width="140">
-                <template #default="{ row }">{{ row.departmentName || departmentNameMap[row.departmentId] || '—' }}</template>
-              </el-table-column>
-              <el-table-column label="作答次数" width="100" align="center">
-                <template #default="{ row }">第 {{ (row as ExamRecord).attemptNo }} 次</template>
-              </el-table-column>
-              <el-table-column label="得分" width="90" align="center">
-                <template #default="{ row }">{{ formatScore(row.score) }}</template>
-              </el-table-column>
-              <el-table-column label="切屏" width="170" align="center">
-                <template #default="{ row }">
-                  <el-tag :type="isCheat(row as ExamRecord) ? 'danger' : 'warning'" size="small">
-                    {{ cheatSummary(row as ExamRecord) }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column label="交卷时间" min-width="170">
-                <template #default="{ row }">{{ formatDateTime(row.submittedAt) }}</template>
-              </el-table-column>
-              <template #empty>
-                <EmptyState text="该考试暂无切屏记录" />
-              </template>
-            </el-table>
-          </el-card>
-        </el-tab-pane>
-      </el-tabs>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <EmptyState v-else text="暂无科室数据" />
+        </el-card>
+
+        <!-- 3. 错题排行 TOP 5 -->
+        <el-card shadow="never">
+          <template #header>
+            <div class="report-page__hd">
+              <h3 class="report-page__hd-title">错题排行 TOP 5</h3>
+              <div class="report-page__hd-right">
+                <span class="report-page__hd-sub">按错误率</span>
+              </div>
+            </div>
+          </template>
+          <template v-if="topWrong.length > 0">
+            <div class="report-page__wrong-list">
+              <!-- 数据缺口：WrongItem 无 questionType 字段（后端不返回题型），第二行仅以「答错 N 人 / 共 M 人作答」表达 -->
+              <div v-for="row in topWrong" :key="row.questionId">
+                <div class="report-page__wrong-head">
+                  <el-tooltip :content="row.stem" placement="top" :show-after="300">
+                    <span class="report-page__wrong-stem">{{ row.stem }}</span>
+                  </el-tooltip>
+                  <span class="report-page__wrong-rate num">{{ formatPercent(row.wrongRate) }}</span>
+                </div>
+                <div class="report-page__wrong-meta">
+                  <span class="report-page__wrong-meta-text">答错 {{ row.wrongCount }} 人 / 共 {{ row.totalAnswered }} 人作答</span>
+                  <el-progress
+                    class="report-page__wrong-bar"
+                    :percentage="Math.round(row.wrongRate * 100)"
+                    :stroke-width="6"
+                    :show-text="false"
+                    :color="wrongTone(row.wrongRate)"
+                  />
+                </div>
+              </div>
+            </div>
+            <div class="report-page__tip report-page__tip--warn">
+              <el-icon class="report-page__tip-ic"><Warning /></el-icon>
+              <div>前两题错误率偏高，建议在题库详情中复核参考答案与解析措辞。</div>
+            </div>
+          </template>
+          <EmptyState v-else text="暂无错题数据" />
+        </el-card>
+      </div>
+
+      <!-- 切屏审查（工程合理新增，改为页面下方全宽卡保留） -->
+      <el-card class="report-page__section" shadow="never">
+        <template #header>
+          <div class="report-page__hd">
+            <h3 class="report-page__hd-title">切屏审查</h3>
+            <span class="report-page__hd-sub">{{ cheatCount }} 人异常</span>
+          </div>
+        </template>
+        <el-table v-loading="cheatLoading" :data="cheatList" row-key="id" stripe>
+          <el-table-column type="expand">
+            <template #default="{ row }">
+              <div class="report-page__cheat-timeline">
+                <p class="report-page__cheat-timeline-title">
+                  切屏时间线（共 {{ (row as ExamRecord).cheatEvents.length }} 次）
+                </p>
+                <el-table :data="(row as ExamRecord).cheatEvents" size="small" border>
+                  <el-table-column type="index" label="#" width="60" align="center" />
+                  <el-table-column label="发生时间" min-width="220">
+                    <template #default="{ row: e }">{{ formatDateTime(e.at) }}</template>
+                  </el-table-column>
+                  <el-table-column label="离开时长（秒）" width="160" align="center">
+                    <template #default="{ row: e }">{{ e.awaySeconds }}</template>
+                  </el-table-column>
+                </el-table>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="考生姓名" width="120">
+            <template #default="{ row }">{{ row.userName || userNameMap[row.userId] || row.userId }}</template>
+          </el-table-column>
+          <el-table-column label="科室" width="140">
+            <template #default="{ row }">{{ row.departmentName || departmentNameMap[row.departmentId] || '—' }}</template>
+          </el-table-column>
+          <el-table-column label="作答次数" width="100" align="center">
+            <template #default="{ row }">第 {{ (row as ExamRecord).attemptNo }} 次</template>
+          </el-table-column>
+          <el-table-column label="得分" width="90" align="center">
+            <template #default="{ row }">{{ formatScore(row.score) }}</template>
+          </el-table-column>
+          <el-table-column label="切屏" width="170" align="center">
+            <template #default="{ row }">
+              <el-tag :type="isCheat(row as ExamRecord) ? 'danger' : 'warning'" size="small">
+                {{ cheatSummary(row as ExamRecord) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="交卷时间" min-width="170">
+            <template #default="{ row }">{{ formatDateTime(row.submittedAt) }}</template>
+          </el-table-column>
+          <template #empty>
+            <EmptyState text="该考试暂无切屏记录" />
+          </template>
+        </el-table>
+      </el-card>
     </template>
 
     <ScoreExportDialog v-model="exportVisible" :exam-id="selectedExamId" :exam-name="exportExamName" />
@@ -484,14 +557,197 @@ const statItems = computed(() => {
     margin-bottom: 16px;
   }
 
-  &__stack {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+  /** 全宽卡（成绩列表 / 切屏审查） */
+  &__section {
+    margin-bottom: 16px;
   }
 
-  &__chart-card {
-    border-radius: $radius-lg;
+  /** 三联分析卡（设计稿 .grid.g3） */
+  &__grid3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  /** 卡头（设计稿 .card__hd / .card__hd .right） */
+  &__hd {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+  }
+
+  &__hd-title {
+    margin: 0;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &__hd-sub {
+    font-size: 11.5px;
+    font-weight: 400;
+    color: $text-secondary;
+  }
+
+  &__hd-right {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-left: auto;
+  }
+
+  /** 卡头标签（设计稿 .tag：中性浅底 + 正文档字色） */
+  &__tag {
+    display: inline-flex;
+    align-items: center;
+    height: 19px;
+    padding: 0 6px;
+    border-radius: $radius-sm;
+    background: $color-neutral-bg;
+    color: $text-body;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  /** 底部提示条（设计稿 .tip：语义浅底 + 深字档，不做文字色违规） */
+  &__tip {
+    display: flex;
+    gap: 9px;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: $radius-sm;
+    font-size: 12px;
+    line-height: 1.55;
+
+    b {
+      font-weight: 600;
+    }
+
+    &--ok {
+      background: $color-success-bg;
+      color: $color-success-text;
+    }
+
+    &--warn {
+      background: $color-warning-bg;
+      color: $color-warning-text;
+    }
+  }
+
+  &__tip-ic {
+    flex: 0 0 auto;
+    margin-top: 1px;
+  }
+
+  /** 分数段图表容器 */
+  &__band-chart {
+    height: 180px;
+  }
+
+  /** 科室对比：密集表格（设计稿 .tbl--dense） */
+  &__mini {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+
+    th {
+      padding: 0 0 8px;
+      border-bottom: 1px solid $border-color;
+      color: $text-secondary;
+      font-size: 11.5px;
+      font-weight: 500;
+      text-align: left;
+    }
+
+    td {
+      padding: 8px 0;
+      border-bottom: 1px solid $border-color;
+      color: $text-body;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+  }
+
+  &__mini-name {
+    color: $text-primary;
+    font-weight: 500;
+  }
+
+  &__mini-num {
+    color: $text-primary;
+  }
+
+  /** 科室对比：及格率 = 数值 + 内联进度条（DESIGN-C §2.3），一屏内即可横向比较 */
+  &__rate {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__rate-num {
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: $text-primary;
+  }
+
+  &__rate-bar {
+    flex: 1;
+    min-width: 0;
+    max-width: 84px;
+  }
+
+  /** 错题排行 TOP 5（设计稿 .stack12 的两行列表） */
+  &__wrong-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  &__wrong-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  &__wrong-stem {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12.5px;
+    color: $text-body;
+  }
+
+  &__wrong-rate {
+    flex: 0 0 auto;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &__wrong-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  &__wrong-meta-text {
+    flex: 0 0 auto;
+    font-size: 11px;
+    color: $text-secondary;
+  }
+
+  &__wrong-bar {
+    flex: 1;
+    min-width: 0;
   }
 
   /** 排名（设计稿 .num.c3）——弱色等宽数字 */
@@ -512,34 +768,6 @@ const statItems = computed(() => {
     font-size: 13px;
   }
 
-  /** 科室对比：及格率 = 数值 + 内联进度条（DESIGN-C §2.3），一屏内即可横向比较 */
-  &__rate {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  &__rate-num {
-    flex: 0 0 auto;
-    font-size: 12.5px;
-    color: $text-primary;
-  }
-
-  &__rate-bar {
-    flex: 1;
-    min-width: 0;
-    max-width: 120px;
-  }
-
-  &__stem {
-    display: inline-block;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    vertical-align: bottom;
-  }
-
   &__cheat-timeline {
     padding: 4px 48px 8px;
   }
@@ -555,6 +783,11 @@ const statItems = computed(() => {
 @media (max-width: 1280px) {
   .report-page__stats {
     grid-template-columns: repeat(3, minmax(150px, 1fr));
+  }
+
+  // 三联卡窄屏折成单列
+  .report-page__grid3 {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
