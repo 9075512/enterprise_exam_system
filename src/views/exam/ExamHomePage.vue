@@ -20,15 +20,28 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import dayjs from 'dayjs';
-import { AlarmClock, Bell, Document, Refresh, TrendCharts, Warning } from '@element-plus/icons-vue';
+import {
+  AlarmClock,
+  Bell,
+  Calendar,
+  Clock,
+  Document,
+  Flag,
+  VideoPlay,
+  Refresh,
+  TrendCharts,
+  Warning,
+} from '@element-plus/icons-vue';
 import { getSummary } from '@/api/home';
+import * as examsApi from '@/api/exams';
+import { listNotifications } from '@/api/notifications';
 import { useAuthStore } from '@/stores/auth';
 import { formatDateTime } from '@/utils/datetime';
 import ContentBoard from '@/components/common/ContentBoard.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import StatCard from '@/components/common/StatCard.vue';
-import type { HomeShortcut, HomeSummary } from '@/types';
+import type { ExamMy, HomeShortcut, HomeSummary, Notification } from '@/types';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -42,15 +55,12 @@ const ICONS: Record<string, unknown> = {
   Document,
   Warning,
 };
-const TODO_ICON: Record<string, unknown> = {
-  'pending-exam': AlarmClock,
-  'ongoing-exam': Warning,
-  retake: Refresh,
-  message: Bell,
-};
-
 const loading = ref(true);
 const summary = ref<HomeSummary | null>(null);
+/** 本人考试（用于「即将开始」卡：进行中 + 待考） */
+const myExams = ref<ExamMy[]>([]);
+/** 最新公告（站内信前若干条） */
+const notices = ref<Notification[]>([]);
 
 const userName = computed<string>(() => auth.currentUser?.name ?? '');
 
@@ -150,13 +160,70 @@ const trendSummary = computed(() => {
 
 async function load(): Promise<void> {
   loading.value = true;
-  try {
-    summary.value = await getSummary();
-  } catch {
-    // 首页装饰性数据，失败静默降级（不阻断页面）
-  } finally {
-    loading.value = false;
-  }
+  // 三个请求互不依赖：任一失败不影响其余区块（首页为展示性页面，失败静默降级）
+  const [sum, exams, notes] = await Promise.allSettled([
+    getSummary(),
+    examsApi.my(),
+    listNotifications(1, 4),
+  ]);
+  if (sum.status === 'fulfilled') summary.value = sum.value;
+  if (exams.status === 'fulfilled') myExams.value = exams.value;
+  if (notes.status === 'fulfilled') notices.value = notes.value.list ?? [];
+  loading.value = false;
+}
+
+/* ------------------------------ 即将开始（设计稿 .card 即将开始） ------------------------------ */
+/** 进行中优先，其余待考按开始时间升序，取前 3 条 */
+const upcomingExams = computed<ExamMy[]>(() => {
+  const list = myExams.value.filter((e) => !e.exempt);
+  const ongoing = list.filter((e) => e.recordStatus === 'in_progress');
+  const pending = list
+    .filter((e) => !e.recordStatus)
+    .sort((a, b) => dayjs(a.startTime).valueOf() - dayjs(b.startTime).valueOf());
+  return [...ongoing, ...pending].slice(0, 3);
+});
+
+/** 距开考天数（负数表示已过开始时间） */
+function daysUntil(exam: ExamMy): number {
+  return dayjs(exam.startTime).startOf('day').diff(dayjs().startOf('day'), 'day');
+}
+
+/** 徽标：进行中=ok / ≤2 天=warn / 其它=gray（设计稿 .bdg--ok / --warn） */
+function examBadge(exam: ExamMy): { text: string; tone: 'ok' | 'warn' | 'gray' } {
+  if (exam.recordStatus === 'in_progress') return { text: '进行中', tone: 'ok' };
+  const days = daysUntil(exam);
+  if (days <= 0) return { text: '即将开始', tone: 'warn' };
+  return { text: `${days} 天后`, tone: days <= 2 ? 'warn' : 'gray' };
+}
+
+/** 临近开考（≤2 天）用警示底强调，与设计稿首条卡一致 */
+function isImminent(exam: ExamMy): boolean {
+  return exam.recordStatus !== 'in_progress' && daysUntil(exam) <= 2;
+}
+
+/* ------------------------------ 最新公告 ------------------------------ */
+const NOTICE_ICON: Record<string, unknown> = {
+  publish: Bell,
+  result: Document,
+  retake: Refresh,
+  appeal: Document,
+  security: Warning,
+};
+
+const NOTICE_LABEL: Record<string, string> = {
+  publish: '考试通知',
+  result: '成绩通知',
+  retake: '补考审批',
+  appeal: '复核结论',
+  security: '安全提醒',
+};
+
+function noticeIcon(type: string): unknown {
+  return NOTICE_ICON[type] ?? Bell;
+}
+
+function noticeLabel(type: string): string {
+  return NOTICE_LABEL[type] ?? '通知';
 }
 
 function go(path: string): void {
@@ -169,10 +236,6 @@ function goDetail(recordId: string): void {
 
 function iconOf(shortcut: HomeShortcut): unknown {
   return ICONS[shortcut.icon] ?? Bell;
-}
-
-function todoIcon(key: string): unknown {
-  return TODO_ICON[key] ?? Bell;
 }
 
 function examName(item: { examName?: string }): string {
@@ -220,28 +283,58 @@ onMounted(load);
         />
       </div>
 
-      <!-- 待办 + 快捷入口 / 推荐练题 -->
+      <!-- 即将开始 + 快捷入口 / 最新公告 -->
       <div class="exam-home__row exam-home__row--2-1">
         <el-card class="exam-home__card" shadow="never">
           <template #header>
-            <h3 class="exam-home__card-title">待办事项</h3>
-            <span v-if="todos.length > 0" class="exam-home__card-sub">{{ todos.length }} 项</span>
+            <h3 class="exam-home__card-title">即将开始</h3>
+            <el-button class="exam-home__card-link" link type="primary" @click="go('/exam/my')">
+              全部考试
+            </el-button>
           </template>
 
-          <div v-if="todos.length > 0" class="exam-home__todos">
-            <button
-              v-for="todo in todos"
-              :key="todo.key"
-              type="button"
-              class="exam-home__todo"
-              @click="go(todo.path)"
+          <div v-if="upcomingExams.length > 0" class="exam-home__exams">
+            <div
+              v-for="exam in upcomingExams"
+              :key="exam.id"
+              class="exam-home__exam"
+              :class="{ 'is-imminent': isImminent(exam) }"
             >
-              <span class="exam-home__todo-icon"><el-icon><component :is="todoIcon(todo.key)" /></el-icon></span>
-              <span class="exam-home__todo-text">{{ todo.text }}</span>
-              <span class="exam-home__todo-go">去处理</span>
-            </button>
+              <div class="exam-home__exam-top">
+                <div class="exam-home__exam-info">
+                  <div class="exam-home__exam-name-row">
+                    <span class="exam-home__exam-name">{{ exam.name }}</span>
+                    <span class="exam-home__badge" :class="`exam-home__badge--${examBadge(exam).tone}`">
+                      {{ examBadge(exam).text }}
+                    </span>
+                  </div>
+                  <div class="exam-home__exam-meta">
+                    闭卷 · 共 {{ exam.maxAttempts }} 次机会 · 及格线 {{ exam.passScore }} 分
+                  </div>
+                </div>
+                <el-button
+                  :type="exam.recordStatus === 'in_progress' ? 'primary' : 'default'"
+                  size="small"
+                  @click="go('/exam/my')"
+                >
+                  <el-icon v-if="exam.recordStatus === 'in_progress'"><VideoPlay /></el-icon>
+                  {{ exam.recordStatus === 'in_progress' ? '继续作答' : '查看详情' }}
+                </el-button>
+              </div>
+              <div class="exam-home__exam-foot">
+                <span><el-icon><Calendar /></el-icon>{{ formatDateTime(exam.startTime) }}</span>
+                <span><el-icon><Clock /></el-icon>{{ exam.durationMinutes }} 分钟</span>
+                <span><el-icon><Flag /></el-icon>及格线 {{ exam.passScore }} 分</span>
+              </div>
+            </div>
           </div>
-          <EmptyState v-else text="暂无待办事项" :image-size="42" />
+          <EmptyState
+            v-else
+            text="暂无待考或进行中的考试"
+            :image-size="42"
+            action-text="查看我的考试"
+            @action="go('/exam/my')"
+          />
         </el-card>
 
         <div class="exam-home__stack">
@@ -260,6 +353,34 @@ onMounted(load);
               >
                 <el-icon class="exam-home__shortcut-icon"><component :is="iconOf(item)" /></el-icon>
                 <span class="exam-home__shortcut-text">{{ item.text }}</span>
+              </button>
+            </div>
+          </el-card>
+
+          <el-card v-if="notices.length > 0" class="exam-home__card" shadow="never">
+            <template #header>
+              <h3 class="exam-home__card-title">最新公告</h3>
+              <el-button class="exam-home__card-link" link type="primary" @click="go('/notifications')">
+                更多
+              </el-button>
+            </template>
+            <div class="exam-home__notices">
+              <button
+                v-for="item in notices"
+                :key="item.id"
+                type="button"
+                class="exam-home__notice"
+                @click="go('/notifications')"
+              >
+                <span class="exam-home__notice-icon" :class="{ 'is-important': !item.isRead }">
+                  <el-icon><component :is="noticeIcon(item.type)" /></el-icon>
+                </span>
+                <span class="exam-home__notice-body">
+                  <span class="exam-home__notice-title">{{ item.title }}</span>
+                  <span class="exam-home__notice-meta">
+                    {{ formatDateTime(item.createdAt) }} · {{ noticeLabel(item.type) }}
+                  </span>
+                </span>
               </button>
             </div>
           </el-card>
@@ -484,56 +605,168 @@ onMounted(load);
     font-size: 12px;
   }
 
-  /* 待办事项 */
-  &__todos {
+  /* 即将开始（设计稿「即将开始」卡：临考条目用警示底强调） */
+  &__exams {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
   }
 
-  &__todo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 11px 12px;
+  &__exam {
+    padding: 14px;
     border: 1px solid $border-color;
-    border-radius: $radius-sm;
-    background: $bg-paper;
-    text-align: left;
-    cursor: pointer;
-    transition: border-color $transition-fast, background-color $transition-fast;
+    border-radius: $radius-base;
 
-    &:hover {
-      border-color: $color-primary-border;
-      background: $color-primary-soft;
+    &.is-imminent {
+      border-color: $color-warning-border;
+      background: $color-warning-bg;
     }
   }
 
-  &__todo-icon {
-    flex: 0 0 22px;
-    display: grid;
-    place-items: center;
-    width: 22px;
-    height: 22px;
-    border-radius: $radius-xs;
-    background: $color-primary-soft;
-    color: $color-primary;
-    font-size: 13px;
+  &__exam-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
   }
 
-  &__todo-text {
-    flex: 1;
+  &__exam-info {
     min-width: 0;
-    font-size: 12.5px;
+  }
+
+  &__exam-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__exam-name {
+    font-size: 13px;
+    font-weight: 600;
     color: $text-primary;
   }
 
-  &__todo-go {
-    flex: 0 0 auto;
+  &__exam-meta {
+    margin-top: 4px;
     font-size: 12px;
+    color: $text-secondary;
+  }
+
+  &__exam-foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 12px;
+    font-size: 12px;
+    color: $text-secondary;
+
+    span {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .el-icon {
+      font-size: 13px;
+      color: $text-disabled;
+    }
+  }
+
+  /* 徽标（设计稿 .bdg：20px 高 / 5px 圆角 / 11.5px；点由 ::before 画） */
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 20px;
+    padding: 0 7px;
+    border-radius: 5px;
+    font-size: 11.5px;
     font-weight: 600;
+    white-space: nowrap;
+
+    &::before {
+      content: '';
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    &--ok {
+      background: $color-success-bg;
+      color: $color-success-text;
+    }
+
+    &--warn {
+      background: $color-warning-bg;
+      color: $color-warning-text;
+    }
+
+    &--gray {
+      background: $color-neutral-bg;
+      color: $text-body;
+    }
+  }
+
+  /* 最新公告（设计稿「最新公告」卡：图标块 + 标题 + 时间/类型） */
+  &__notices {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  &__notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    width: 100%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover .exam-home__notice-title {
+      color: $color-primary;
+    }
+  }
+
+  &__notice-icon {
+    flex: 0 0 26px;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: $radius-sm;
+    background: $color-primary-soft;
     color: $color-primary;
+    font-size: 14px;
+
+    /* 未读 = 需注意 → 语义红（图形块，文字仍走文本档） */
+    &.is-important {
+      background: $color-error-bg;
+      color: $color-error-text;
+    }
+  }
+
+  &__notice-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__notice-title {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: $text-primary;
+    transition: color $transition-fast;
+  }
+
+  &__notice-meta {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: $text-secondary;
   }
 
   /* 快捷入口：2×2 竖排图标块（设计稿 .btn--s 竖排） */

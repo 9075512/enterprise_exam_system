@@ -6,11 +6,16 @@
  * v3.1 方向 C（设计稿 p-exam-scores 重排）：页头下补四张统计卡
  * （已参加 / 平均分 / 最高分 / 未及格），列表卡改为「卡头搜索 + 表格」结构；
  * 统计口径取自单独拉取的全量记录（pageSize 上限 100 条），与列表的服务端分页互不影响。
+ *
+ * 结构对齐补遗（保真度审计 C 类）：
+ *   - 页头补统计摘要 + 「导出我的成绩」（客户端 CSV，与统计同源数据）；
+ *   - 表格补「复核状态」列（数据来自 appeals.my，与列表分页无关）。
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { CircleClose, Document, Refresh, Search, Star, TrendCharts } from '@element-plus/icons-vue';
+import dayjs from 'dayjs';
+import { CircleClose, Document, Download, Refresh, Search, Star, TrendCharts } from '@element-plus/icons-vue';
 import * as examsApi from '@/api/exams';
 import * as recordsApi from '@/api/records';
 import * as appealsApi from '@/api/appeals';
@@ -24,13 +29,15 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
 import DataTablePagination from '@/components/common/DataTablePagination.vue';
 import StatCard from '@/components/common/StatCard.vue';
-import type { ExamMy, ExamRecord } from '@/types';
+import type { AppealStatus, ExamMy, ExamRecord } from '@/types';
 
 const router = useRouter();
 const settingsStore = useSettingsStore();
 const { data: myExams } = useRequest(() => examsApi.my());
 /** 全量记录（仅用于统计卡口径；失败静默，统计区退化为 0） */
 const { data: allRecords } = useRequest(() => recordsApi.my({ page: 1, pageSize: 100 }));
+/** 本人复核申请（用于「复核状态」列；失败静默为空） */
+const { data: myAppeals, refresh: refreshAppeals } = useRequest(() => appealsApi.my({ page: 1, pageSize: 100 }));
 
 const examMap = computed<Record<string, ExamMy>>(() =>
   Object.fromEntries((myExams.value ?? []).map((e) => [e.id, e])),
@@ -121,6 +128,43 @@ function goRetakes(): void {
   void router.push('/exam/retakes');
 }
 
+/* ------------------------------ 页头摘要 / 导出 ------------------------------ */
+/** 页头描述：已参加 N 场 · 平均 X 分 · 及格率 Y%（与统计卡同源） */
+const headerDesc = computed<string>(() => {
+  const { taken, avg, failed } = stats.value;
+  if (taken === 0) return '查看已交卷考试的成绩与明细';
+  const rate = Math.round(((taken - failed) / taken) * 1000) / 10;
+  return `已参加 ${taken} 场考试 · 平均 ${avg} 分 · 及格率 ${rate}%`;
+});
+
+/** 导出我的成绩（客户端 CSV，与统计同源的全量记录） */
+function exportCsv(): void {
+  const list = allRecords.value?.list ?? [];
+  if (list.length === 0) {
+    ElMessage.info('暂无可导出的成绩');
+    return;
+  }
+  const header = ['考试名称', '得分', '是否及格', '作答次数', '交卷时间'];
+  const rows = list.map((r) => [
+    examName(r.examId),
+    String(r.score),
+    isFail(r) ? '未及格' : '及格',
+    `第 ${r.attemptNo} 次`,
+    formatDateTime(r.submittedAt),
+  ]);
+  const csv = [header, ...rows]
+    .map((cols) => cols.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
+    .join('\r\n');
+  // BOM 前缀保证 Excel 正确识别 UTF-8
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `我的成绩-${dayjs().format('YYYYMMDD')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function goDetail(record: ExamRecord): void {
   void router.push(`/score-detail/${record.id}`);
 }
@@ -143,6 +187,30 @@ function openAppeal(record: ExamRecord): void {
   appealVisible.value = true;
 }
 
+/* ------------------------------ 复核状态列 ------------------------------ */
+/** recordId → 复核状态（同一记录只可能有一条申请） */
+const appealStatusMap = computed<Record<string, AppealStatus>>(() => {
+  const map: Record<string, AppealStatus> = {};
+  for (const item of myAppeals.value?.list ?? []) map[item.recordId] = item.status;
+  return map;
+});
+
+const APPEAL_META: Record<AppealStatus, { text: string; tone: 'gray' | 'warn' | 'ok' | 'err' }> = {
+  pending: { text: '待处理', tone: 'warn' },
+  approved: { text: '已通过', tone: 'ok' },
+  rejected: { text: '已驳回', tone: 'err' },
+};
+
+function appealMeta(record: ExamRecord): { text: string; tone: 'gray' | 'warn' | 'ok' | 'err' } | null {
+  const status = appealStatusMap.value[record.id];
+  return status ? APPEAL_META[status] : null;
+}
+
+/** 可申请复核：考试开放复核 且 尚未申请过 */
+function canAppeal(record: ExamRecord): boolean {
+  return appealEnabledOf(record.examId) && !appealStatusMap.value[record.id];
+}
+
 async function submitAppeal(): Promise<void> {
   if (!appealRecord.value) return;
   appealing.value = true;
@@ -150,6 +218,7 @@ async function submitAppeal(): Promise<void> {
     await appealsApi.apply(appealRecord.value.id, appealReason.value.trim());
     ElMessage.success('复核申请已提交，请等待管理员处理');
     appealVisible.value = false;
+    await refreshAppeals();
     void load();
   } catch {
     // 错误已由拦截器提示（如重复申请 1005）
@@ -161,7 +230,13 @@ async function submitAppeal(): Promise<void> {
 
 <template>
   <div class="my-score">
-    <PageHeader title="我的成绩" description="查看已交卷考试的成绩与明细" />
+    <PageHeader title="我的成绩" :description="headerDesc">
+      <template #actions>
+        <el-button :icon="Download" :disabled="(allRecords?.list.length ?? 0) === 0" @click="exportCsv">
+          导出我的成绩
+        </el-button>
+      </template>
+    </PageHeader>
 
     <!-- 统计卡（设计稿 p-exam-scores） -->
     <div class="my-score__stats">
@@ -230,14 +305,22 @@ async function submitAppeal(): Promise<void> {
         <el-table-column label="交卷时间" width="180">
           <template #default="{ row }">{{ formatDateTime(row.submittedAt) }}</template>
         </el-table-column>
+        <el-table-column label="复核状态" width="110" align="center">
+          <template #default="{ row }">
+            <span
+              v-if="appealMeta(row as ExamRecord)"
+              class="my-score__badge"
+              :class="`my-score__badge--${appealMeta(row as ExamRecord)!.tone}`"
+            >
+              {{ appealMeta(row as ExamRecord)!.text }}
+            </span>
+            <span v-else class="my-score__muted">未申请</span>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="goDetail(row as ExamRecord)">成绩明细</el-button>
-            <el-button
-              v-if="appealEnabledOf((row as ExamRecord).examId)"
-              link
-              @click="openAppeal(row as ExamRecord)"
-            >
+            <el-button v-if="canAppeal(row as ExamRecord)" link @click="openAppeal(row as ExamRecord)">
               申请复核
             </el-button>
           </template>
@@ -343,6 +426,52 @@ async function submitAppeal(): Promise<void> {
     display: flex;
     justify-content: flex-end;
     margin-top: 14px;
+  }
+
+  &__muted {
+    font-size: 12.5px;
+    color: $text-secondary;
+  }
+
+  /* 复核状态徽标（设计稿 .bdg：20px / 5px / 11.5px + 5px 圆点） */
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 20px;
+    padding: 0 7px;
+    border-radius: 5px;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+
+    &::before {
+      content: '';
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    &--gray {
+      background: $color-neutral-bg;
+      color: $text-body;
+    }
+
+    &--warn {
+      background: $color-warning-bg;
+      color: $color-warning-text;
+    }
+
+    &--ok {
+      background: $color-success-bg;
+      color: $color-success-text;
+    }
+
+    &--err {
+      background: $color-error-bg;
+      color: $color-error-text;
+    }
   }
 
   &__appeal-alert {
