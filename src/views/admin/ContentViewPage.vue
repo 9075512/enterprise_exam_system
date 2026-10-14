@@ -767,6 +767,107 @@ onMounted(() => {
       </el-tabs>
     </el-card>
 
+    <!--
+      轮播管理 / 新建公告：对齐设计稿 content.html 底部的 g-2-1 栅格独立卡。
+      数据全部复用页面既有状态——轮播管理用 bnList（轮播图 tab 同源），
+      新建公告用 annForm + submitAnnouncement / resetAnnForm（与弹窗同源，不改其校验与保存实现）。
+    -->
+    <div class="content-page__subgrid">
+      <!-- 轮播管理 -->
+      <el-card class="content-page__card" shadow="never">
+        <template #header>
+          <div class="content-page__card-head">
+            <span class="content-page__card-title">轮播管理</span>
+            <span class="content-page__card-sub">考生端首页顶部轮播 · 建议 750 × 320</span>
+            <div class="content-page__card-actions">
+              <el-button size="small" @click="openBnCreate">新增轮播</el-button>
+            </div>
+          </div>
+        </template>
+
+        <el-table v-loading="bnLoading" :data="bnList" row-key="id" size="small">
+          <el-table-column label="图片" width="76">
+            <template #default="{ row }">
+              <el-image v-if="row.imageUrl" class="content-page__thumb-sm" :src="row.imageUrl" fit="cover" />
+              <span v-else class="content-page__muted">—</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="title" label="标题" min-width="150" show-overflow-tooltip />
+          <el-table-column label="跳转" min-width="150" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span class="content-page__muted">{{ row.linkUrl || '不可点击' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="sortOrder" label="排序" width="72" align="center" />
+          <el-table-column label="状态" width="92">
+            <template #default="{ row }">
+              <el-tag size="small" :type="statusOf(row).type" effect="light">{{ statusOf(row).text }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="112" align="right">
+            <template #default="{ row }">
+              <el-button type="primary" link @click="openBnEdit(row as Banner)">编辑</el-button>
+              <el-button type="danger" link @click="removeBanner(row as Banner)">删除</el-button>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <EmptyState text="暂无轮播图" action-text="新增轮播" @action="openBnCreate" />
+          </template>
+        </el-table>
+      </el-card>
+
+      <!-- 新建公告 -->
+      <el-card class="content-page__card" shadow="never">
+        <template #header>
+          <div class="content-page__card-head">
+            <span class="content-page__card-title">新建公告</span>
+            <div class="content-page__card-actions">
+              <el-tag size="small" type="info" effect="plain">表单态</el-tag>
+            </div>
+          </div>
+        </template>
+
+        <el-form class="content-page__quick-form" label-width="76px" label-position="right">
+          <el-form-item label="公告标题" required>
+            <el-input v-model="annForm.title" maxlength="120" show-word-limit placeholder="请输入公告标题" />
+          </el-form-item>
+          <el-form-item label="公告级别">
+            <el-radio-group v-model="annForm.level">
+              <el-radio-button value="normal">普通</el-radio-button>
+              <el-radio-button value="important">重要</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="状态">
+            <el-switch v-model="annForm.enabled" active-text="启用" inactive-text="停用" />
+          </el-form-item>
+          <el-form-item label="发布范围" required>
+            <el-radio-group v-model="annForm.target">
+              <el-radio-button v-for="opt in TARGET_OPTIONS" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="公告内容" required>
+            <RichTextEditor
+              v-model="annForm.content"
+              :max-images="5"
+              :max-image-bytes="1024 * 1024"
+              :min-height="120"
+              placeholder="请输入公告正文（支持加粗、列表与插入图片）"
+            />
+          </el-form-item>
+        </el-form>
+
+        <!-- 说明性文案：设计稿的「同时在考生端首页弹出提示」后端暂无对应字段，本期不提供开关 -->
+        <p class="content-page__note">「同时在考生端首页弹出提示」后端暂未提供对应字段，本期不开放。</p>
+
+        <div class="content-page__card-foot">
+          <el-button @click="resetAnnForm">重置</el-button>
+          <el-button type="primary" :loading="annSubmitting" @click="submitAnnouncement">发布</el-button>
+        </div>
+      </el-card>
+    </div>
+
     <!-- ------------------------------ 公告弹窗 ------------------------------ -->
     <el-dialog v-model="annDialogVisible" :title="annDialogTitle" width="640px" destroy-on-close>
       <el-form label-width="96px" label-position="right">
@@ -1065,6 +1166,75 @@ onMounted(() => {
     margin: 10px 0 0;
     font-size: 12px;
     color: $text-disabled;
+  }
+
+  &__subgrid {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 14px;
+    margin-top: 16px;
+    align-items: start;
+  }
+
+  &__card {
+    border-radius: $radius-lg;
+  }
+
+  &__card-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex-wrap: wrap;
+  }
+
+  &__card-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: $text-primary;
+  }
+
+  &__card-sub {
+    font-size: 11.5px;
+    color: $text-secondary;
+  }
+
+  &__card-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  &__thumb-sm {
+    width: 56px;
+    height: 30px;
+    border: 1px solid $border-color;
+    border-radius: $radius-xs;
+    vertical-align: middle;
+  }
+
+  &__quick-form {
+    :deep(.el-form-item) {
+      margin-bottom: 14px;
+    }
+
+    :deep(.el-form-item:last-child) {
+      margin-bottom: 0;
+    }
+  }
+
+  &__note {
+    margin: 12px 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: $text-secondary;
+  }
+
+  &__card-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
   }
 }
 </style>

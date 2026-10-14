@@ -63,6 +63,32 @@ const openQuestionCount = computed<number>(() =>
 /** 一个题库都没开放 → 练题端空列表（高危状态，页面显著提示） */
 const noOpenBank = computed<boolean>(() => !banksLoading.value && banks.value.length > 0 && openBankCount.value === 0);
 
+/* --------------- v3.2 设计稿区块的派生状态（不新增接口，复用页面已有状态） --------------- */
+
+/** 练题端是否已开放（= 至少一个题库对外开放；「开放策略」卡唯一可推导的状态） */
+const practiceOpen = computed<boolean>(() => openBankCount.value > 0);
+/** 题库列表已加载但为空 → 依赖题库的区块（开放策略 / 关闭态预览）显示空态 */
+const noBanks = computed<boolean>(() => !banksLoading.value && banks.value.length === 0);
+/**
+ * 练题端地址（说明性）：练题端是独立公网实例（见 deploy/nginx-practice.conf，
+ * 静态资源 publicPath = /practice/），管理端没有承载该公网域名的配置项，
+ * 故按当前访问域名拼出 `/practice/` 仅作提示，真实公网域名以部署为准。
+ */
+const practiceUrl = computed<string>(() =>
+  typeof window === 'undefined' ? '' : `${window.location.origin}/practice/`,
+);
+
+/** 复制练题端地址（纯前端剪贴板，未新增后端接口） */
+async function copyPracticeUrl(): Promise<void> {
+  if (!practiceUrl.value) return;
+  try {
+    await navigator.clipboard.writeText(practiceUrl.value);
+    ElMessage.success('练题端地址已复制');
+  } catch {
+    ElMessage.info('浏览器未授权剪贴板，请手动复制');
+  }
+}
+
 onMounted(() => {
   void loadPractice();
   void loadBanks();
@@ -164,6 +190,132 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
         </el-button>
       </template>
     </PageHeader>
+
+    <!-- ============ 0. 开放策略 + 访问链接（设计稿 g-2-1 双栏） ============ -->
+    <el-row :gutter="16">
+      <el-col :xs="24" :md="16">
+        <el-card v-loading="banksLoading" class="practice-settings-page__panel" shadow="never">
+          <template #header>
+            <div class="practice-settings-page__head">
+              <span class="practice-settings-page__head-title">开放策略</span>
+              <el-tag :type="practiceOpen ? 'success' : 'info'" size="small" effect="plain">
+                {{ practiceOpen ? '已开放' : '未开放' }}
+              </el-tag>
+            </div>
+          </template>
+
+          <p v-if="noBanks" class="practice-settings-page__empty">
+            暂无题库数据，请先在「题库管理」创建题库，再来配置练题端开放策略。
+          </p>
+          <template v-else>
+            <div class="practice-settings-page__row">
+              <div class="practice-settings-page__row-main">
+                <span class="practice-settings-page__row-title">对外开放练题</span>
+                <span class="practice-settings-page__row-desc">
+                  由下方「练题题库（对外开放）」逐库开关汇聚：当前开放
+                  <b>{{ openBankCount }}</b>
+                  个题库、可练
+                  <b>{{ openQuestionCount }}</b>
+                  道题；全部关闭时练题端停止服务，已登录学员立即失效。
+                </span>
+              </div>
+              <el-tag :type="practiceOpen ? 'success' : 'info'" size="small" effect="plain">
+                {{ practiceOpen ? '已开放' : '未开放' }}
+              </el-tag>
+            </div>
+
+            <div class="practice-settings-page__row">
+              <div class="practice-settings-page__row-main">
+                <span class="practice-settings-page__row-title">允许游客浏览题库目录</span>
+                <span class="practice-settings-page__row-desc">
+                  未登录用户可查看题库名称与题数，开始答题需登录账号。
+                </span>
+              </div>
+              <span class="practice-settings-page__row-ind">练题端固定</span>
+            </div>
+
+            <div class="practice-settings-page__row">
+              <div class="practice-settings-page__row-main">
+                <span class="practice-settings-page__row-title">答完自动进入下一题</span>
+                <span class="practice-settings-page__row-desc">
+                  关闭后需手动点击「下一题」；属练题端会话内的交互相应。
+                </span>
+              </div>
+              <span class="practice-settings-page__row-ind">练题端固定</span>
+            </div>
+
+            <div class="practice-settings-page__row">
+              <div class="practice-settings-page__row-main">
+                <span class="practice-settings-page__row-title">答错立即显示解析</span>
+                <span class="practice-settings-page__row-desc">
+                  跟随本页「作答后展示解析」开关；关闭则交卷后统一展示。
+                </span>
+              </div>
+              <el-tag :type="practiceForm.showAnalysis ? 'success' : 'info'" size="small" effect="plain">
+                {{ practiceForm.showAnalysis ? '展示' : '隐藏' }}
+              </el-tag>
+            </div>
+
+            <p class="practice-settings-page__footnote">
+              标注「练题端固定」的条目为练题端内置行为，本管理页不提供开关。
+            </p>
+          </template>
+        </el-card>
+      </el-col>
+
+      <el-col :xs="24" :md="8">
+        <el-card class="practice-settings-page__panel" shadow="never">
+          <template #header>
+            <div class="practice-settings-page__head">
+              <span class="practice-settings-page__head-title">访问链接</span>
+            </div>
+          </template>
+
+          <template v-if="practiceUrl">
+            <div class="practice-settings-page__item">
+              <label class="practice-settings-page__label">练题端地址</label>
+              <div class="practice-settings-page__url">
+                <el-input :model-value="practiceUrl" readonly />
+                <el-button @click="copyPracticeUrl">复制</el-button>
+              </div>
+              <p class="practice-settings-page__hint">
+                练题端为独立公网实例，实际公网域名以部署为准（见 deploy/nginx-practice.conf）。
+              </p>
+            </div>
+
+            <div class="practice-settings-page__item">
+              <label class="practice-settings-page__label">免登录时长</label>
+              <div class="practice-settings-page__control">
+                <span class="practice-settings-page__row-ind">
+                  由练题端服务端会话配置决定，本页不提供调整
+                </span>
+              </div>
+            </div>
+
+            <div class="practice-settings-page__item">
+              <label class="practice-settings-page__label">单次练题题量上限</label>
+              <div class="practice-settings-page__control">
+                <span class="practice-settings-page__value">{{ practiceForm.sessionMaxCount }} 题</span>
+                <p class="practice-settings-page__hint">
+                  跟随「练题行为与作答反馈 → 单次练习题量范围」的上限。
+                </p>
+              </div>
+            </div>
+
+            <el-alert
+              class="practice-settings-page__alert"
+              type="info"
+              show-icon
+              :closable="false"
+              title="练题端为独立公网实例，不注册考试域接口"
+              description="公网仅放行 /api/practice/** 与 /practice 静态资源；其可访问的数据表清单维护在 deploy/db-grants-practice.sql。"
+            />
+          </template>
+
+          <p v-else class="practice-settings-page__empty">未取到可用域名，无法拼出练题端地址。</p>
+        </el-card>
+      </el-col>
+    </el-row>
 
     <!-- ============ 1. 练题题库（对外开放） ============ -->
     <el-card v-loading="banksLoading" class="practice-settings-page__panel" shadow="never">
@@ -511,6 +663,95 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
         </el-col>
       </el-row>
     </el-card>
+
+    <!-- ============ 5. 概览 / 关闭态预览 / 配置留痕（设计稿 g3） ============ -->
+    <el-row :gutter="16">
+      <el-col :xs="24" :md="8">
+        <el-card class="practice-settings-page__panel" shadow="never">
+          <template #header>
+            <div class="practice-settings-page__head">
+              <span class="practice-settings-page__head-title">练题端数据概览</span>
+            </div>
+          </template>
+
+          <div class="practice-settings-page__kv">
+            <span class="practice-settings-page__kv-k">累计练题人次</span>
+            <span class="practice-settings-page__kv-v practice-settings-page__kv-v--none">—</span>
+          </div>
+          <div class="practice-settings-page__kv">
+            <span class="practice-settings-page__kv-k">日活跃学员</span>
+            <span class="practice-settings-page__kv-v practice-settings-page__kv-v--none">—</span>
+          </div>
+          <div class="practice-settings-page__kv">
+            <span class="practice-settings-page__kv-k">平均正确率</span>
+            <span class="practice-settings-page__kv-v practice-settings-page__kv-v--none">—</span>
+          </div>
+          <div class="practice-settings-page__kv">
+            <span class="practice-settings-page__kv-k">错题巩固完成率</span>
+            <span class="practice-settings-page__kv-v practice-settings-page__kv-v--none">—</span>
+          </div>
+
+          <p class="practice-settings-page__footnote">
+            练题端学习统计由埋点汇总，管理端暂未接入该数据源，接入后在此展示。
+          </p>
+        </el-card>
+      </el-col>
+
+      <el-col :xs="24" :md="8">
+        <el-card class="practice-settings-page__panel" shadow="never">
+          <template #header>
+            <div class="practice-settings-page__head">
+              <span class="practice-settings-page__head-title">关闭态预览</span>
+              <el-tag :type="practiceOpen ? 'info' : 'danger'" size="small" effect="plain">
+                当前：{{ practiceOpen ? '已开放' : '已关闭' }}
+              </el-tag>
+            </div>
+          </template>
+
+          <p v-if="noBanks" class="practice-settings-page__empty">
+            暂无法预览：未加载到题库数据。
+          </p>
+          <template v-else>
+            <el-alert
+              class="practice-settings-page__alert"
+              type="error"
+              show-icon
+              :closable="false"
+              title="关闭后练题端全部页面返回维护提示，已登录会话立即失效"
+            />
+            <div class="practice-settings-page__row">
+              <div class="practice-settings-page__row-main">
+                <span class="practice-settings-page__row-title">对外开放练题</span>
+                <span class="practice-settings-page__row-desc">
+                  当前：{{ practiceOpen ? '开启（本卡为关闭态预览）' : '关闭' }}
+                </span>
+              </div>
+              <el-tag :type="practiceOpen ? 'info' : 'danger'" size="small" effect="plain">
+                {{ practiceOpen ? '开启' : '关闭' }}
+              </el-tag>
+            </div>
+            <p class="practice-settings-page__footnote">
+              如需重新开放，请在「练题题库（对外开放）」中重新开启题库开关。
+            </p>
+          </template>
+        </el-card>
+      </el-col>
+
+      <el-col :xs="24" :md="8">
+        <el-card class="practice-settings-page__panel" shadow="never">
+          <template #header>
+            <div class="practice-settings-page__head">
+              <span class="practice-settings-page__head-title">配置留痕</span>
+              <span class="practice-settings-page__head-meta">记录谁在何时修改了练题设置</span>
+            </div>
+          </template>
+
+          <p class="practice-settings-page__empty">
+            配置变更留痕（开放 / 关闭题库、调整开关与题量等）将按时间倒序汇总展示；当前管理端暂未接入留痕数据源。
+          </p>
+        </el-card>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
@@ -622,6 +863,119 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
   &__unit {
     font-size: 13px;
     color: $text-secondary;
+  }
+
+  /* ---------- v3.2 设计稿区块（开放策略 / 访问链接 / 概览 / 关闭态 / 留痕） ---------- */
+
+  /** 说明行：左标题 + 描述，右对齐一条状态指示 */
+  &__row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px dashed $border-color;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__row-main {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  &__row-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: $text-body;
+  }
+
+  &__row-desc {
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: $text-secondary;
+
+    b {
+      font-weight: 600;
+      color: $text-body;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  &__row-ind {
+    flex: 0 0 auto;
+    padding-top: 1px;
+    font-size: 12.5px;
+    color: $text-secondary;
+  }
+
+  &__footnote {
+    margin: 10px 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: $text-secondary;
+  }
+
+  /** 简版空态：虚线框 + 中性底 + 一句提醒，不用大插画 */
+  &__empty {
+    margin: 0;
+    padding: 12px 14px;
+    border: 1px dashed $line-strong;
+    border-radius: $radius-sm;
+    background: $color-table-head;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: $text-secondary;
+  }
+
+  /** 访问链接：只读地址 + 复制 */
+  &__url {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /** 只读取值（跟随既有配置） */
+  &__value {
+    font-size: 13px;
+    font-weight: 600;
+    color: $text-body;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /** 概览 kv 行 */
+  &__kv {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px dashed $border-color;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__kv-k {
+    font-size: 12.5px;
+    color: $text-secondary;
+  }
+
+  &__kv-v {
+    font-size: 13px;
+    font-weight: 600;
+    color: $text-body;
+    font-variant-numeric: tabular-nums;
+
+    &--none {
+      font-weight: 400;
+      color: $text-disabled;
+    }
   }
 }
 </style>

@@ -61,6 +61,11 @@ const bankOptions = computed<QuestionBank[]>(() => banks.value.filter((b) => b.a
 /** 至少启用一个快捷入口（后端同口径校验） */
 const enabledCount = computed<number>(() => form.shortcuts.filter((s) => s.enabled).length);
 
+/** 已单独配置（覆盖全局默认）的科室数——「生效说明」卡用 */
+const coveredCount = computed<number>(
+  () => (overview.value?.configs ?? []).filter((c) => !c.isGlobal).length,
+);
+
 /** 预览：服务端实际会下发的快捷入口（含文案覆盖回落） */
 const previewShortcuts = computed<Array<{ key: string; text: string; enabled: boolean }>>(() =>
   catalog.value.map((c) => {
@@ -292,6 +297,39 @@ function formatAt(v: string | null): string {
         :closable="false"
         title="尚未配置全局默认，当前使用内置默认（全部快捷入口启用、无推荐题库）"
       />
+    </el-card>
+
+    <!-- ============ 生效说明（对齐设计稿 home-config.html 的独立卡） ============ -->
+    <el-card class="home-config-page__panel" shadow="never">
+      <template #header>
+        <div class="home-config-page__head">
+          <span class="home-config-page__head-title">生效说明</span>
+          <span class="home-config-page__head-meta">当前范围的落库与继承状态</span>
+        </div>
+      </template>
+
+      <div v-if="configured" class="home-config-page__kv">
+        <div class="home-config-page__kv-row">
+          <span class="home-config-page__kv-key">当前范围</span>
+          <span class="home-config-page__kv-val">{{ currentTargetName() }}</span>
+        </div>
+        <div class="home-config-page__kv-row">
+          <span class="home-config-page__kv-key">最后修改</span>
+          <span class="home-config-page__kv-val">{{ formatAt(configOf?.updatedAt ?? null) }}</span>
+        </div>
+        <div class="home-config-page__kv-row">
+          <span class="home-config-page__kv-key">修改人</span>
+          <span class="home-config-page__kv-val">{{ configOf?.updatedByName || configOf?.updatedBy || '—' }}</span>
+        </div>
+        <div class="home-config-page__kv-row">
+          <span class="home-config-page__kv-key">覆盖科室</span>
+          <span class="home-config-page__kv-val">{{ coveredCount }} 个</span>
+        </div>
+      </div>
+      <!-- 空态：当前范围尚未落库，展示的是继承/内置默认值（文案复用 formatAt 的无值口径） -->
+      <p v-else class="home-config-page__hint">
+        当前范围尚未落库独立配置，展示的是继承值；保存后此处会显示最后修改人与时间。
+      </p>
     </el-card>
 
     <!-- ============ 2. 快捷入口 ============ -->
@@ -582,6 +620,36 @@ function formatAt(v: string | null): string {
     font-size: 12.5px;
     line-height: 1.45;
     color: $text-secondary;
+  }
+
+  &__kv {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__kv-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px dashed $border-color;
+    font-size: 12.5px;
+    color: $text-body;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__kv-key {
+    color: $text-secondary;
+  }
+
+  &__kv-val {
+    color: $text-primary;
+    font-weight: 600;
+    text-align: right;
   }
 
   &__empty {

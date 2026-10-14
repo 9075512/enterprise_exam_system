@@ -21,6 +21,17 @@ const saving = ref(false);
 const catalog = ref<MenuPermission['catalog']>([]);
 const grants = reactive<MenuGrants>({ admin: [], author: [], examinee: [] });
 
+/**
+ * 侧栏「选择角色」的当前选中项——仅用于「当前统计」的展示口径，
+ * 不参与上方矩阵的勾选与保存逻辑（矩阵始终同时编辑三个角色）。
+ */
+const selectedRole = ref<Role>('admin');
+
+/** 所选角色已授权菜单数（复用 grants / catalog 既有状态） */
+const grantedCount = computed<number>(() => grants[selectedRole.value].length);
+/** 所选角色未授权菜单数 */
+const ungrantedCount = computed<number>(() => Math.max(0, catalog.value.length - grantedCount.value));
+
 /** 按分组归类 + 排序后的目录（分组列用 span-method 合并相邻同组单元格） */
 const groupedCatalog = computed(() =>
   [...catalog.value]
@@ -103,38 +114,101 @@ async function handleSave(): Promise<void> {
       </template>
     </PageHeader>
 
-    <el-card v-loading="loading" class="menu-permission-page__panel" shadow="never">
-      <el-alert
-        class="menu-permission-page__alert"
-        type="info"
-        show-icon
-        :closable="false"
-        title="取消勾选后，对应角色的侧边栏与页面入口将即时隐藏；管理员「系统设置」「菜单权限」不可取消，避免自锁"
-      />
+    <div class="menu-permission-page__layout">
+      <!-- 左栏：选择角色 + 当前统计（对齐设计稿 permissions.html 的独立卡） -->
+      <div class="menu-permission-page__aside">
+        <el-card class="menu-permission-page__panel" shadow="never">
+          <template #header>
+            <div class="menu-permission-page__head">
+              <span class="menu-permission-page__head-title">选择角色</span>
+            </div>
+          </template>
 
-      <el-table :data="groupedCatalog" row-key="key" border :span-method="spanMethod">
-        <el-table-column label="分组" width="118">
-          <template #default="{ row }">
-            <span class="menu-permission-page__group">{{ row.groupText }}</span>
+          <ul class="menu-permission-page__roles">
+            <li
+              v-for="role in ROLES"
+              :key="role"
+              class="menu-permission-page__role"
+              :class="{ 'is-active': role === selectedRole }"
+              @click="selectedRole = role"
+            >
+              <span class="menu-permission-page__role-name">{{ ROLE_LABELS[role] }}</span>
+              <span class="menu-permission-page__role-meta">
+                已授权 {{ grants[role].length }} / {{ catalog.length }}
+              </span>
+            </li>
+          </ul>
+        </el-card>
+
+        <el-card class="menu-permission-page__panel" shadow="never">
+          <template #header>
+            <div class="menu-permission-page__head">
+              <span class="menu-permission-page__head-title">当前统计</span>
+              <span class="menu-permission-page__head-meta">{{ ROLE_LABELS[selectedRole] }}</span>
+            </div>
           </template>
-        </el-table-column>
-        <el-table-column label="菜单名称" min-width="160">
-          <template #default="{ row }">
-            <span class="menu-permission-page__name">{{ row.name }}</span>
-            <el-tag v-if="row.adminRequired" size="small" type="danger" effect="plain">必授</el-tag>
+
+          <template v-if="catalog.length">
+            <div class="menu-permission-page__kv">
+              <div class="menu-permission-page__kv-row">
+                <span class="menu-permission-page__kv-key">已授权菜单</span>
+                <span class="menu-permission-page__kv-val">{{ grantedCount }} / {{ catalog.length }}</span>
+              </div>
+              <div class="menu-permission-page__kv-row">
+                <span class="menu-permission-page__kv-key">未授权</span>
+                <span class="menu-permission-page__kv-val">{{ ungrantedCount }}</span>
+              </div>
+              <div class="menu-permission-page__kv-row">
+                <span class="menu-permission-page__kv-key">最后修改</span>
+                <span class="menu-permission-page__kv-val">—</span>
+              </div>
+              <div class="menu-permission-page__kv-row">
+                <span class="menu-permission-page__kv-key">修改人</span>
+                <span class="menu-permission-page__kv-val">—</span>
+              </div>
+            </div>
+            <!-- 说明性文案：菜单权限接口未返回「最后修改时间 / 修改人」，故以 — 占位 -->
+            <p class="menu-permission-page__hint">接口未返回修改记录，「最后修改 / 修改人」暂以 — 占位。</p>
           </template>
-        </el-table-column>
-        <el-table-column v-for="role in ROLES" :key="role" :label="ROLE_LABELS[role]" width="110" align="center">
-          <template #default="{ row }">
-            <el-checkbox
-              :model-value="isChecked(role as Role, row.key)"
-              :disabled="role === 'admin' && row.adminRequired"
-              @change="toggle(role as Role, row.key, row.adminRequired)"
-            />
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+          <!-- 空态：目录缺失（加载失败或尚未配置）时给出简短提醒 -->
+          <p v-else class="menu-permission-page__hint">暂无菜单目录，无法统计授权情况。</p>
+        </el-card>
+      </div>
+
+      <!-- 右栏：菜单权限矩阵 -->
+      <el-card v-loading="loading" class="menu-permission-page__panel menu-permission-page__main" shadow="never">
+        <el-alert
+          class="menu-permission-page__alert"
+          type="info"
+          show-icon
+          :closable="false"
+          title="取消勾选后，对应角色的侧边栏与页面入口将即时隐藏；管理员「系统设置」「菜单权限」不可取消，避免自锁"
+        />
+
+        <el-table :data="groupedCatalog" row-key="key" border :span-method="spanMethod">
+          <el-table-column label="分组" width="118">
+            <template #default="{ row }">
+              <span class="menu-permission-page__group">{{ row.groupText }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="菜单名称" min-width="160">
+            <template #default="{ row }">
+              <span class="menu-permission-page__name">{{ row.name }}</span>
+              <el-tag v-if="row.adminRequired" size="small" type="danger" effect="plain">必授</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column v-for="role in ROLES" :key="role" :label="ROLE_LABELS[role]" width="110" align="center">
+            <template #default="{ row }">
+              <el-checkbox
+                :model-value="isChecked(role as Role, row.key)"
+                :disabled="role === 'admin' && row.adminRequired"
+                @change="toggle(role as Role, row.key, row.adminRequired)"
+              />
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-card>
+    </div>
   </div>
 </template>
 
@@ -142,8 +216,120 @@ async function handleSave(): Promise<void> {
 @use '@/styles/variables.scss' as *;
 
 .menu-permission-page {
+  &__layout {
+    display: grid;
+    grid-template-columns: 236px minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+  }
+
+  &__aside {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  &__main {
+    min-width: 0;
+  }
+
   &__panel {
     border-radius: $radius-lg;
+  }
+
+  &__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  &__head-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: $text-primary;
+  }
+
+  &__head-meta {
+    font-size: 12px;
+    color: $text-secondary;
+  }
+
+  &__roles {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__role {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 7px 8px;
+    border-radius: $radius-sm;
+    font-size: 12.5px;
+    color: $text-body;
+    cursor: pointer;
+
+    &:hover {
+      background: $bg-page;
+    }
+
+    &.is-active {
+      background: $color-primary-soft;
+      color: $color-primary;
+      font-weight: 600;
+    }
+  }
+
+  &__role-name {
+    min-width: 0;
+  }
+
+  &__role-meta {
+    font-size: 11.5px;
+    color: $text-secondary;
+  }
+
+  &__kv {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__kv-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px dashed $border-color;
+    font-size: 12.5px;
+    color: $text-body;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__kv-key {
+    color: $text-secondary;
+  }
+
+  &__kv-val {
+    color: $text-primary;
+    font-weight: 600;
+    text-align: right;
+  }
+
+  &__hint {
+    margin: 10px 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: $text-secondary;
   }
 
   &__alert {

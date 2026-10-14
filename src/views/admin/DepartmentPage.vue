@@ -1,12 +1,16 @@
 <script setup lang="ts">
 /**
  * 科室管理（W3-T2，管理员）。
- * 关键字筛选（客户端）+ 列表 + 页内新建/编辑弹窗 + 删除（有归属用户 → 后端 1005，拦截器已提示）。
+ *
+ * v3.1 方向 C 结构对齐（设计稿 departments.html）：左「科室树」（236px）+ 右「科室列表」双栏。
+ * 树点击切换列表范围（含子树）；列表按层级顺序输出并带缩进，与设计稿的扁平缩进表一致。
+ * 关键字筛选（客户端）+ 页内新建/编辑弹窗 + 删除（有归属用户 → 后端 1005，拦截器已提示）。
  */
 import { computed, reactive, ref } from 'vue';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
-import { Plus, Search, Refresh } from '@element-plus/icons-vue';
+import { OfficeBuilding, Plus, Refresh, Search } from '@element-plus/icons-vue';
 import * as departmentsApi from '@/api/departments';
+import * as usersApi from '@/api/users';
 import { useRequest } from '@/composables/useRequest';
 import { useConfirm } from '@/composables/useConfirm';
 import { validateAndFocus } from '@/composables/useFormFocus';
@@ -20,11 +24,124 @@ import type { Department } from '@/types';
 
 const { confirm } = useConfirm();
 const { data: departments, loading, refresh } = useRequest(() => departmentsApi.list());
+/** 用户全量（用于「人员数」列与树上的计数） */
+const { data: users } = useRequest(() => usersApi.list());
 
 /** 上级科室名称映射（表格回显）。 */
 const departmentNameMap = computed<Record<string, string>>(() =>
   buildDepartmentNameMap(departments.value ?? []),
 );
+
+/* ------------------------------ 人员数 / 层级 ------------------------------ */
+/** 各科室直属人员数 */
+const memberCountMap = computed<Record<string, number>>(() => {
+  const map: Record<string, number> = {};
+  for (const u of users.value ?? []) {
+    if (!u.departmentId) continue;
+    map[u.departmentId] = (map[u.departmentId] ?? 0) + 1;
+  }
+  return map;
+});
+
+/** 在册人员总数（树根「全公司」计数） */
+const totalMembers = computed<number>(() => (users.value ?? []).filter((u) => u.departmentId).length);
+
+/** 科室按层级顺序（DFS）展开 + 层级深度（用于列表缩进） */
+const orderedDepartments = computed<Array<Department & { depth: number }>>(() => {
+  const all = departments.value ?? [];
+  const byParent = new Map<string | null, Department[]>();
+  for (const d of all) {
+    const key = d.parentId ?? null;
+    const arr = byParent.get(key) ?? [];
+    arr.push(d);
+    byParent.set(key, arr);
+  }
+  const out: Array<Department & { depth: number }> = [];
+  const walk = (parentId: string | null, depth: number): void => {
+    for (const d of byParent.get(parentId) ?? []) {
+      out.push({ ...d, depth });
+      walk(d.id, depth + 1);
+    }
+  };
+  walk(null, 0);
+  return out;
+});
+
+/* ------------------------------ 左侧科室树 ------------------------------ */
+interface DeptTreeNode {
+  id: string;
+  name: string;
+  count: number;
+  children: DeptTreeNode[];
+}
+
+const deptTree = computed<DeptTreeNode[]>(() => {
+  const all = departments.value ?? [];
+  const byParent = new Map<string | null, Department[]>();
+  for (const d of all) {
+    const key = d.parentId ?? null;
+    const arr = byParent.get(key) ?? [];
+    arr.push(d);
+    byParent.set(key, arr);
+  }
+  const build = (parentId: string | null): DeptTreeNode[] =>
+    (byParent.get(parentId) ?? []).map((d) => ({
+      id: d.id,
+      name: d.name,
+      count: memberCountMap.value[d.id] ?? 0,
+      children: build(d.id),
+    }));
+  return build(null);
+});
+
+/** 当前列表范围（'' = 全公司） */
+const activeScopeId = ref<string>('');
+const activeScopeName = computed<string>(() =>
+  activeScopeId.value ? departmentNameMap.value[activeScopeId.value] ?? '全公司' : '全公司',
+);
+function selectScope(id: string): void {
+  activeScopeId.value = activeScopeId.value === id ? '' : id;
+}
+
+/* ------------------------------ 筛选（客户端） ------------------------------ */
+const filterKeyword = ref('');
+
+/** 按树范围过滤（含子树） */
+const scopedDepartments = computed<Array<Department & { depth: number }>>(() => {
+  const all = orderedDepartments.value;
+  if (!activeScopeId.value) return all;
+  const ids = new Set([activeScopeId.value, ...getDescendantIds(departments.value ?? [], activeScopeId.value)]);
+  return all.filter((d) => ids.has(d.id));
+});
+
+const filteredDepartments = computed<Array<Department & { depth: number }>>(() => {
+  const kw = filterKeyword.value.trim().toLowerCase();
+  if (!kw) return scopedDepartments.value;
+  return scopedDepartments.value.filter(
+    (d) => d.name.toLowerCase().includes(kw) || d.description.toLowerCase().includes(kw),
+  );
+});
+
+function resetFilter(): void {
+  filterKeyword.value = '';
+}
+
+/** 是否处于筛选态（决定空态口径与是否给「清空筛选」出路，规范 §9.2） */
+const hasFilter = computed<boolean>(() => Boolean(filterKeyword.value.trim()) || Boolean(activeScopeId.value));
+
+/** 页头描述（拼接放脚本里，避免模板内嵌模板字符串） */
+const headerDesc = computed<string>(
+  () => `共 ${departments.value?.length ?? 0} 个科室 · ${totalMembers.value} 名在册人员`,
+);
+
+/** 列表层级缩进（模板内不做表达式计算，便于 TS 推断；el-table row 为 any，这里内部取值） */
+function indentOf(row: unknown): string {
+  return `${depthOf(row) * 20}px`;
+}
+
+function depthOf(row: unknown): number {
+  return (row as { depth?: number }).depth ?? 0;
+}
 
 /** 表单「上级科室」可选项：编辑时排除自身及其子孙（防环）。 */
 const parentTree = computed(() => {
@@ -38,25 +155,6 @@ const parentTree = computed(() => {
       .map((n) => ({ ...n, children: n.children ? filter(n.children) : undefined }));
   return filter(tree);
 });
-
-/* ------------------------------ 筛选（客户端） ------------------------------ */
-const filterKeyword = ref('');
-
-const filteredDepartments = computed<Department[]>(() => {
-  const kw = filterKeyword.value.trim().toLowerCase();
-  const list = departments.value ?? [];
-  if (!kw) return list;
-  return list.filter(
-    (d) => d.name.toLowerCase().includes(kw) || d.description.toLowerCase().includes(kw),
-  );
-});
-
-function resetFilter(): void {
-  filterKeyword.value = '';
-}
-
-/** 是否处于筛选态（决定空态口径与是否给「清空筛选」出路，规范 §9.2） */
-const hasFilter = computed<boolean>(() => Boolean(filterKeyword.value.trim()));
 
 /* ------------------------------ 弹窗 ------------------------------ */
 const dialogVisible = ref(false);
@@ -89,6 +187,12 @@ function openEdit(department: Department): void {
   form.parentId = department.parentId;
   dialogVisible.value = true;
   formRef.value?.clearValidate();
+}
+
+/** 新增下级科室（列表行操作）——以上级为父，直接预填 */
+function openCreateChild(department: Department): void {
+  openCreate();
+  form.parentId = department.id;
 }
 
 async function handleSubmit(): Promise<void> {
@@ -144,7 +248,7 @@ async function handleDelete(department: Department): Promise<void> {
 
 <template>
   <div class="department-page">
-    <PageHeader title="科室管理" description="维护组织科室，用户归属科室">
+    <PageHeader title="科室管理" :description="headerDesc">
       <template #actions>
         <el-button type="primary" :icon="Plus" @click="openCreate">新建科室</el-button>
       </template>
@@ -159,51 +263,125 @@ async function handleDelete(department: Department): Promise<void> {
       @action="openCreate"
     />
 
-    <el-card v-else class="table-card" shadow="never">
-      <div class="table-card__toolbar">
-        <div class="table-card__toolbar-filters">
-          <el-input
-            v-model="filterKeyword"
-            class="department-page__filter-keyword"
-            placeholder="按科室名称 / 描述搜索"
-            clearable
-            :prefix-icon="Search"
-          />
-        </div>
-        <div class="department-page__filter-actions">
-          <el-button :icon="Refresh" @click="resetFilter">重置</el-button>
-          <TableDensityToggle />
-        </div>
-      </div>
-
-      <el-table v-loading="loading" :data="filteredDepartments" row-key="id" stripe>
-        <el-table-column prop="name" label="科室名称" min-width="180" show-overflow-tooltip />
-        <el-table-column label="上级科室" min-width="140">
-          <template #default="{ row }">{{ row.parentId ? departmentNameMap[row.parentId] || '—' : '—' }}</template>
-        </el-table-column>
-        <el-table-column prop="description" label="描述" min-width="240" show-overflow-tooltip>
-          <template #default="{ row }">{{ row.description || '—' }}</template>
-        </el-table-column>
-        <el-table-column label="创建时间" width="170">
-          <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="140" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link @click="openEdit(row as Department)">编辑</el-button>
-            <el-button type="danger" link @click="handleDelete(row as Department)">删除</el-button>
-          </template>
-        </el-table-column>
-        <template #empty>
-          <EmptyState
-            text="没有匹配的科室"
-            filtered
-            action-text="新建科室"
-            @clear="resetFilter"
-            @action="openCreate"
-          />
+    <div v-else class="department-page__wrap">
+      <!-- 左：科室树 -->
+      <el-card class="department-page__tree-card" shadow="never">
+        <template #header>
+          <span class="department-page__tree-title">科室树</span>
         </template>
-      </el-table>
-    </el-card>
+        <div class="department-page__tree">
+          <button
+            type="button"
+            class="department-page__tree-node is-l1"
+            :class="{ 'is-on': activeScopeId === '' }"
+            @click="selectScope('')"
+          >
+            <el-icon class="department-page__tree-ico"><OfficeBuilding /></el-icon>
+            <span class="department-page__tree-name">全公司</span>
+            <span class="department-page__tree-count">{{ totalMembers }}</span>
+          </button>
+          <template v-for="node in deptTree" :key="node.id">
+            <button
+              type="button"
+              class="department-page__tree-node is-l2"
+              :class="{ 'is-on': activeScopeId === node.id }"
+              @click="selectScope(node.id)"
+            >
+              <span class="department-page__tree-name">{{ node.name }}</span>
+              <span class="department-page__tree-count">{{ node.count }}</span>
+            </button>
+            <button
+              v-for="child in node.children"
+              :key="child.id"
+              type="button"
+              class="department-page__tree-node is-l3"
+              :class="{ 'is-on': activeScopeId === child.id }"
+              @click="selectScope(child.id)"
+            >
+              <span class="department-page__tree-name">{{ child.name }}</span>
+              <span class="department-page__tree-count">{{ child.count }}</span>
+            </button>
+          </template>
+        </div>
+        <div class="department-page__tree-foot">
+          <el-button text :icon="Plus" @click="openCreate">新增同级科室</el-button>
+        </div>
+      </el-card>
+
+      <!-- 右：科室列表 -->
+      <el-card class="table-card department-page__list-card" shadow="never">
+        <div class="table-card__toolbar">
+          <div class="department-page__list-head">
+            <span class="department-page__list-title">科室列表</span>
+            <span class="department-page__list-sub">当前范围：{{ activeScopeName }}</span>
+          </div>
+          <div class="table-card__toolbar-filters">
+            <el-input
+              v-model="filterKeyword"
+              class="department-page__filter-keyword"
+              placeholder="搜索科室名称"
+              clearable
+              :prefix-icon="Search"
+            />
+          </div>
+          <div class="department-page__filter-actions">
+            <el-button :icon="Refresh" @click="resetFilter">重置</el-button>
+            <TableDensityToggle />
+          </div>
+        </div>
+
+        <el-table v-loading="loading" :data="filteredDepartments" row-key="id" stripe>
+          <el-table-column label="科室名称" min-width="200" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span class="department-page__name" :style="{ paddingLeft: indentOf(row) }">
+                <span v-if="depthOf(row) > 0" class="department-page__branch">└</span>
+                <span :class="{ 'department-page__name--strong': depthOf(row) === 0 }">
+                  {{ row.name }}
+                </span>
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="上级科室" min-width="140">
+            <template #default="{ row }">
+              <span class="department-page__muted">
+                {{ row.parentId ? departmentNameMap[row.parentId] || '—' : '全公司' }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="description" label="描述" min-width="240" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span class="department-page__muted">{{ row.description || '—' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="人员数" width="100" align="right">
+            <template #default="{ row }">
+              <span class="num department-page__count">{{ memberCountMap[row.id] ?? 0 }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="创建时间" width="170">
+            <template #default="{ row }">
+              <span class="department-page__muted">{{ formatDateTime(row.createdAt) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="190" align="right" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link @click="openCreateChild(row as Department)">新增下级</el-button>
+              <el-button type="primary" link @click="openEdit(row as Department)">编辑</el-button>
+              <el-button type="danger" link @click="handleDelete(row as Department)">删除</el-button>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <EmptyState
+              text="没有匹配的科室"
+              filtered
+              action-text="新建科室"
+              @clear="resetFilter"
+              @action="openCreate"
+            />
+          </template>
+        </el-table>
+      </el-card>
+    </div>
 
     <el-dialog
       v-model="dialogVisible"
@@ -250,8 +428,126 @@ async function handleDelete(department: Department): Promise<void> {
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/variables.scss' as *;
+
+/* 双栏：左科室树（236px，设计稿 departments.html）+ 右列表 */
+.department-page__wrap {
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.department-page__tree-card.el-card {
+  --el-card-padding: 8px;
+}
+
+.department-page__tree-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.department-page__tree {
+  font-size: 12.5px;
+}
+
+/* 树节点：设计稿 .tree__i —— 选中态用主色软底 + 主色字（行焦点语言） */
+.department-page__tree-node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: $radius-xs;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s;
+
+  &:hover {
+    background: $color-table-head;
+  }
+
+  &.is-l1 {
+    padding-left: 8px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &.is-l2 {
+    padding-left: 30px;
+    color: $text-body;
+  }
+
+  &.is-l3 {
+    padding-left: 52px;
+    color: $text-body;
+  }
+
+  &.is-on {
+    background: $color-primary-soft;
+    color: $color-primary;
+    font-weight: 600;
+  }
+}
+
+.department-page__tree-ico {
+  font-size: 14px;
+  color: $text-secondary;
+}
+
+.department-page__tree-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.department-page__tree-count {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: $text-secondary;
+  font-variant-numeric: tabular-nums;
+}
+
+.department-page__tree-foot {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid $border-color;
+
+  .el-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+.department-page__list-card .table-card__toolbar {
+  align-items: center;
+}
+
+.department-page__list-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.department-page__list-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.department-page__list-sub {
+  font-size: 12px;
+  color: $text-secondary;
+}
+
 .department-page__filter-keyword {
-  width: 260px;
+  width: 220px;
 }
 
 .department-page__full {
@@ -262,5 +558,38 @@ async function handleDelete(department: Department): Promise<void> {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* 列表单元：层级缩进 + 主色/弱色分工 */
+.department-page__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.department-page__branch {
+  color: $text-disabled;
+  font-size: 12px;
+}
+
+.department-page__name--strong {
+  color: $text-primary;
+  font-weight: 600;
+}
+
+.department-page__muted {
+  color: $text-body;
+}
+
+.department-page__count {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+@media (max-width: 900px) {
+  .department-page__wrap {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>
