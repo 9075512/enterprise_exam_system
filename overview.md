@@ -44,7 +44,22 @@
 - 签名动作：表格行 hover 左缘 2px 蓝条
 - 落地只需改 3 个文件（variables.scss / element/index.scss / index.scss），见 `DESIGN-C.md`
 
+## 代码落地（v3.1 五批 + 收尾）
+
+已按 `DESIGN-C.md §4` 全量落地到管理端，分五批推进，每批独立跑测试 / 构建 / 实机截图：
+
+| 批次 | 内容 |
+| --- | --- |
+| 一 | token 换肤：`variables.scss` ↔ `element/index.scss` ↔ `index.scss` ↔ `theme.ts` 三层同源 |
+| 二 | 布局骨架（顶栏 52 / 侧栏折叠 60 / 内距 22）+ 表头标签化 + 图表主题 `chartTheme.ts` |
+| 三 | 页面结构：统计卡左缘主色条、科室对比内联进度条、空态 42px 圆图标、批量条对齐 |
+| 四 | 组件刻度：`el-alert` 语义色 AA 修复、PageHeader / 卡片刻度、图例圆点 |
+| 五 | 表单控件族：tabs / pagination / checkbox / radio / switch / steps / progress |
+| 收尾 | 成绩趋势双线收敛为单一主色系（主色实线 + 浅档虚线），弃用 success 绿当数据线 |
+
+- 验证：前端 vitest **197 例全绿**、`vue-tsc` 通过、`vite build` 成功；护栏新增「图表配色」describe 2 条
+- 提交：`d361db4`（设计文档）→ `a8a10e8`（管理端换肤）→ `bb88567`（练题端）→ `eac372a`（README / 依赖）
+
 ## 待确认 / 后续
 
-- 练题端目前沿用 C 方向配色，但工程内是独立 token（`$practice-primary #1d4ed8`），是否跟进换肤需另行评估
-- 代码落地（三文件换肤 + 4 条护栏断言）尚未开始，等确认后执行
+- 练题端沿用 C 方向配色，但工程内是独立 token（`$practice-primary #1d4ed8`），是否跟进换肤需另行评估
