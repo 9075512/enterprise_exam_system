@@ -214,7 +214,7 @@ async function handleSubmit(): Promise<void> {
     }
 
     :deep(.el-input__wrapper.is-focus) {
-      box-shadow: 0 0 0 1px $practice-primary inset, 0 0 0 3px rgba(29, 78, 216, 0.12);
+      box-shadow: 0 0 0 1px $practice-primary inset, 0 0 0 3px rgba($practice-primary, 0.12);
     }
 
     :deep(.el-input__inner) {

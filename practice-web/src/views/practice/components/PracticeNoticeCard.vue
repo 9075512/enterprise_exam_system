@@ -255,9 +255,9 @@ function openDetail(item: Announcement): void {
     line-height: 1;
 
     &.is-important {
-      background: #fef2f2;
-      border-color: #fecaca;
-      color: $color-error;
+      background: $color-error-bg;
+      border-color: $color-error-border;
+      color: $color-error-text;
     }
   }
 
@@ -302,9 +302,9 @@ function openDetail(item: Announcement): void {
     margin-right: 6px;
     padding: 1px 6px;
     border-radius: 3px;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    color: $color-error;
+    background: $color-error-bg;
+    border: 1px solid $color-error-border;
+    color: $color-error-text;
     font-size: 12px;
   }
 

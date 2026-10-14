@@ -200,7 +200,8 @@ function confirm(): void {
   &__empty {
     margin: 0;
     font-size: 13px;
-    color: $color-warning;
+    // v2.2：原为 $color-warning（对白底 2.15:1，不达 AA），改 700 档文本色
+    color: $color-warning-text;
   }
 
   &__tip {

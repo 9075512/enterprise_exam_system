@@ -6,7 +6,8 @@
 @forward 'element-plus/theme-chalk/src/common/var.scss' with (
   $colors: (
     'primary': (
-      'base': #2563eb,
+      // 与 $practice-primary 同源（v2.2 收口：此前误用管理端主色 #2563eb）
+      'base': #1d4ed8,
     ),
     'success': (
       'base': #16a34a,

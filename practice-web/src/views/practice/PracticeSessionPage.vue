@@ -689,7 +689,7 @@ onMounted(init);
   }
 
   &__stat--ok &__num {
-    color: $color-success;
+    color: $color-success-text;
   }
 
   &__stat--rate &__num {
@@ -711,7 +711,7 @@ onMounted(init);
     &::before {
       content: '✓';
       margin-right: 5px;
-      color: $color-success;
+      color: $color-success-text;
       font-weight: 700;
     }
 

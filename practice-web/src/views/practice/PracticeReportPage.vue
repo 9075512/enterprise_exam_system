@@ -338,11 +338,11 @@ onMounted(load);
     font-variant-numeric: tabular-nums;
 
     &--ok {
-      color: $color-success;
+      color: $color-success-text;
     }
 
     &--err {
-      color: $color-error;
+      color: $color-error-text;
     }
   }
 
@@ -502,11 +502,11 @@ onMounted(load);
   &__weak {
     flex: 0 0 auto;
     padding: 1px 6px;
-    border: 1px solid #fecaca;
+    border: 1px solid $color-error-border;
     border-radius: 4px;
-    background: #fef2f2;
+    background: $color-error-bg;
     font-size: 11px;
-    color: $color-error;
+    color: $color-error-text;
   }
 
   &__subject-acc {

@@ -324,11 +324,11 @@ onMounted(load);
     width: 36px;
     height: 36px;
     border-radius: $practice-radius-sm;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
+    background: $color-error-bg;
+    border: 1px solid $color-error-border;
     font-size: 14px;
     font-weight: 700;
-    color: $color-error;
+    color: $color-error-text;
     line-height: 1;
   }
 
@@ -583,7 +583,7 @@ onMounted(load);
     transition: border-color $transition-fast, background-color $transition-fast;
 
     &:active {
-      border-color: rgba(29, 78, 216, 0.45);
+      border-color: rgba($practice-primary, 0.45);
       background: #fafbfd;
     }
   }

@@ -284,11 +284,11 @@ onMounted(loadStats);
     font-variant-numeric: tabular-nums;
 
     &--ok {
-      color: $color-success;
+      color: $color-success-text;
     }
 
     &--err {
-      color: $color-error;
+      color: $color-error-text;
     }
   }
 

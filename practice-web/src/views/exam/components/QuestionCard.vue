@@ -87,14 +87,14 @@ const checkboxValue = computed<number[]>({
     height: 28px;
     padding: 0 14px;
     border-radius: 999px;
-    background: $color-primary-soft;
+    background: $practice-soft;
     font-size: 13px;
     font-weight: 700;
-    color: $color-primary;
+    color: $practice-primary;
     letter-spacing: 0.4px;
   }
 
-  /* 题型徽标配色与答题卡分组色点保持一致（单选蓝 / 多选紫 / 判断橙） */
+  /* 题型徽标配色（单选蓝 / 多选青 / 判断橙）——分类色，只表题型不表状态 */
   &__type {
     display: inline-flex;
     align-items: center;
@@ -105,18 +105,18 @@ const checkboxValue = computed<number[]>({
     font-weight: 600;
 
     &--single {
-      color: $color-primary;
-      background: $color-primary-soft;
+      color: $practice-primary;
+      background: $practice-soft;
     }
 
     &--multiple {
-      color: $color-secondary;
-      background: rgba($color-secondary, 0.08);
+      color: $type-multiple-text;
+      background: $type-multiple-soft;
     }
 
     &--judge {
-      color: $color-warning;
-      background: rgba($color-warning, 0.12);
+      color: $color-warning-text;
+      background: $color-warning-bg;
     }
   }
 
@@ -145,7 +145,7 @@ const checkboxValue = computed<number[]>({
       width: 3px;
       height: 1em;
       border-radius: 3px;
-      background: linear-gradient(180deg, $color-primary, $color-primary-light);
+      background: linear-gradient(180deg, $practice-primary, $practice-primary-light);
     }
   }
 
@@ -172,21 +172,21 @@ const checkboxValue = computed<number[]>({
       box-shadow $transition-fast, transform $transition-fast;
 
     &:hover {
-      border-color: rgba($color-primary, 0.4);
-      background: $color-primary-soft;
+      border-color: rgba($practice-primary, 0.4);
+      background: $practice-soft;
       box-shadow: $shadow-sm;
       transform: translateY(-1px);
     }
 
     &:focus-within {
-      border-color: rgba($color-primary, 0.55);
-      box-shadow: 0 0 0 3px rgba($color-primary, 0.12);
+      border-color: rgba($practice-primary, 0.55);
+      box-shadow: 0 0 0 3px rgba($practice-primary, 0.12);
     }
 
     &.is-checked {
-      border-color: $color-primary;
-      background: $color-primary-soft;
-      box-shadow: 0 0 0 3px rgba($color-primary, 0.1), 0 2px 8px -2px rgba($color-primary, 0.28);
+      border-color: $practice-primary;
+      background: $practice-soft;
+      box-shadow: 0 0 0 3px rgba($practice-primary, 0.1), 0 2px 8px -2px rgba($practice-primary, 0.28);
     }
 
     /* 原生控件视觉隐藏（保留在 DOM 中以维持点击与键盘可达性） */
@@ -216,7 +216,7 @@ const checkboxValue = computed<number[]>({
 
     &.is-checked :deep(.el-radio__label),
     &.is-checked :deep(.el-checkbox__label) {
-      color: $color-primary-dark;
+      color: $practice-primary-dark;
       font-weight: 500;
     }
   }
@@ -243,10 +243,10 @@ const checkboxValue = computed<number[]>({
   }
 
   &__option.is-checked .question-card__letter {
-    border-color: $color-primary;
-    background: $color-primary;
+    border-color: $practice-primary;
+    background: $practice-primary;
     color: #fff;
-    box-shadow: 0 0 0 3px rgba($color-primary, 0.16);
+    box-shadow: 0 0 0 3px rgba($practice-primary, 0.16);
   }
 
   &__text {

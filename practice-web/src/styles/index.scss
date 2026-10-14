@@ -5,13 +5,16 @@
 @use './variables.scss' as *;
 
 :root {
-  --el-color-primary: #2563eb;
-  --el-color-primary-light-3: #60a5fa;
-  --el-color-primary-light-5: #93c5fd;
-  --el-color-primary-light-7: #bfdbfe;
-  --el-color-primary-light-8: #dbeafe;
-  --el-color-primary-light-9: #eff6ff;
-  --el-color-primary-dark-2: #1d4ed8;
+  // Element Plus 主色：与 $practice-primary（#1d4ed8）同源。
+  // v2.2 收口：此前误用管理端主色 #2563eb，令 EP 组件与自定义组件呈现两个蓝。
+  // 浅档为 blue-500…100 阶梯（与主色同族，替代 EP 默认按比例混白的粉蓝）。
+  --el-color-primary: #{$practice-primary};
+  --el-color-primary-light-3: #{$practice-primary-light};
+  --el-color-primary-light-5: #60a5fa;
+  --el-color-primary-light-7: #93c5fd;
+  --el-color-primary-light-8: #bfdbfe;
+  --el-color-primary-light-9: #dbeafe;
+  --el-color-primary-dark-2: #{$practice-primary-dark};
   --el-border-radius-base: 10px;
   --el-bg-color-page: #f5f7fb;
   --el-fill-color-light: #f1f5f9;
@@ -81,8 +84,8 @@ body {
 // =============================================================
 
 ::selection {
-  background: $color-primary-50;
-  color: $color-primary-dark;
+  background: $practice-soft;
+  color: $practice-primary-dark;
 }
 
 // ---------- Element Plus 运行时统一精修 ----------
@@ -108,7 +111,7 @@ body {
   &:hover {
     transform: translateY(-3px);
     box-shadow: $shadow-lg;
-    border-color: $color-primary-light;
+    border-color: $practice-primary-light;
   }
 }
 
@@ -118,10 +121,10 @@ body {
   border-radius: $radius-sm;
 
   &--primary:not(.is-text):not(.is-link) {
-    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.24);
+    box-shadow: 0 1px 2px rgba($practice-primary, 0.24);
 
     &:hover {
-      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+      box-shadow: 0 4px 10px rgba($practice-primary, 0.3);
     }
   }
 
@@ -157,7 +160,7 @@ body {
 }
 
 .el-input__wrapper.is-focus {
-  box-shadow: 0 0 0 1px $color-primary inset, 0 0 0 3px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 0 0 1px $practice-primary inset, 0 0 0 3px rgba($practice-primary, 0.12);
 }
 
 // 对话框：更圆润 + 头部留白

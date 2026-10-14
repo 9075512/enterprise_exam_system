@@ -305,7 +305,7 @@ onMounted(load);
 
   &__wrong {
     font-size: 11px;
-    color: $color-error;
+    color: $color-error-text;
   }
 
   &__stem {

@@ -3,19 +3,33 @@
 // 供业务样式通过 @use '@/styles/variables.scss' as *; 复用
 // =============================================================
 
-// 主色 / 辅助色
-$color-primary: #2563EB;
-$color-primary-light: #60A5FA;
-$color-primary-dark: #1D4ED8;
-$color-primary-50: #EEF2FF;
-$color-secondary: #7C3AED;
+// -----------------------------------------------------------------
+// 主色：练题端只保留「一套」主色家族 —— $practice-*（见文件末尾）。
+// v2.2 去重：原从管理端模板复制来的 $color-primary / -light / -dark / -50 / -soft
+// 与 $color-secondary / -soft 已删除。它们让练题端同时跑着 #2563EB（Element Plus
+// 组件）与 #1d4ed8（自定义组件）两个主色，是「一个工程两套主色」的根源。
+// 题型分类色见文件末尾的 $type-multiple-*。
+// -----------------------------------------------------------------
 
-// 语义色
-$color-success: #16A34A;
-$color-warning: #F59E0B;
-$color-error: #DC2626;
-$color-info: #0EA5E9;
-$color-info-50: #F0F9FF;
+// 语义色（v2.2 补三件套：底 / 描边 / 文本）
+// ⚠️ 原色仅可用于「图形」——圆点 / 图标 / 描边；任何「文字」必须用 -text 档，
+//    原色对白底不达 WCAG AA 4.5:1（实测见管理端规范 §2.4，练题端与之同源）。
+$color-success: #16A34A; // 3.30:1 仅图形
+$color-success-bg: #F0FDF4;
+$color-success-border: #BBF7D0;
+$color-success-text: #15803D; // 5.02:1 ✅
+$color-warning: #F59E0B; // 2.15:1 仅图形
+$color-warning-bg: #FFFBEB;
+$color-warning-border: #FDE68A;
+$color-warning-text: #B45309; // 5.02:1 ✅
+$color-error: #DC2626; // 4.83:1 临界，作正文仍建议用 -text
+$color-error-bg: #FEF2F2;
+$color-error-border: #FECACA;
+$color-error-text: #B91C1C; // 6.47:1 ✅
+$color-info: #0EA5E9; // 2.77:1 仅图形
+$color-info-bg: #F0F9FF;
+$color-info-border: #BAE6FD;
+$color-info-text: #0369A1; // 5.93:1 ✅
 
 // 背景
 $bg-page: #F5F7FB;
@@ -26,11 +40,10 @@ $text-primary: #0F172A;
 $text-secondary: #64748B;
 $text-disabled: #94A3B8;
 
-// 边框 / 圆角 / 阴影
+// 边框 / 圆角
 $border-color: #E2E8F0;
 $radius-base: 10px;
 $radius-sm: 8px;
-$shadow-card: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.1);
 
 // 表格
 $color-table-head: #F8FAFC;
@@ -40,37 +53,16 @@ $color-table-hover: #F1F5F9;
 // 视觉升级扩展 token（v1.2 UI 精修）
 // =============================================================
 
-// 阴影阶梯：sm 常态 / md 悬停 / lg 浮层
+// 阴影阶梯：sm 常态 / lg 浮层
 $shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.06);
-$shadow-md: 0 4px 8px -2px rgba(16, 24, 40, 0.08), 0 2px 4px -2px rgba(16, 24, 40, 0.05);
 $shadow-lg: 0 12px 20px -6px rgba(16, 24, 40, 0.12), 0 4px 8px -4px rgba(16, 24, 40, 0.05);
 
 // 圆角阶梯
 $radius-lg: 14px;
-$radius-xl: 20px;
-
-// 主色浅底（选中/标签/信息块）
-$color-primary-soft: #EFF6FF;
-
-// 品牌渐变（登录页品牌区 / Logo 标记 / 重点按钮）
-$gradient-brand: linear-gradient(135deg, #2563eb 0%, #4f46e5 55%, #7c3aed 100%);
-
-// 深色侧栏配色（v1.2 改为深色侧栏 + 浅色内容区）
-$sidebar-bg: #0f172a;
-$sidebar-bg-end: #1e293b;
-$sidebar-text: #94a3b8;
-$sidebar-text-hover: #e2e8f0;
-$sidebar-text-active: #ffffff;
-$sidebar-hover-bg: rgba(255, 255, 255, 0.06);
-$sidebar-active-bg: rgba(37, 99, 235, 0.28);
-$sidebar-border: rgba(255, 255, 255, 0.08);
 
 // 过渡
 $transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 $transition-base: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-
-// 顶栏
-$header-height: 60px;
 
 // =============================================================
 // 公网练题端视觉 token（v1.7 冷静蓝 · 商务风 · 仅练题端使用）
@@ -82,9 +74,11 @@ $header-height: 60px;
 $practice-bg: #f1f3f7;
 // 顶栏实色（沉稳深蓝）
 $practice-header: #1e40af;
-// 主色（按钮 / 强调 / 选中）
+// 主色（按钮 / 强调 / 选中）—— 练题端唯一主色，Element Plus 亦以此为准
 $practice-primary: #1d4ed8;
 $practice-primary-dark: #1e3a8a;
+// 主色浅档（渐变锚点 / 悬停描边）
+$practice-primary-light: #3b82f6;
 // 浅蓝底（选中态 / 标签 / 信息块）
 $practice-soft: #eef3f9;
 // 描边（浅）
@@ -94,3 +88,11 @@ $practice-border: #dde3ec;
 // 圆角（商务风：小圆角）
 $practice-radius: 8px;
 $practice-radius-sm: 6px;
+
+// -------------------------------------------------------------
+// 分类色 · 题型编码（管理端规范 §2.5：「单一主色」的唯一例外）
+// 只做分类表达，不表达状态，不外溢到列表 / 表单 / 侧栏。
+// v2.2：多选由紫（#7C3AED，属 violet，与练题端「冷静蓝」定位冲突）改为青。
+// -------------------------------------------------------------
+$type-multiple-text: #0E7490; // 青（cyan-700），对白底 5.2:1 ✅
+$type-multiple-soft: #ECFEFF; // 青 50 浅底

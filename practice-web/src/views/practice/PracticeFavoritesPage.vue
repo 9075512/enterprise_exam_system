@@ -365,7 +365,7 @@ onMounted(load);
     border: none;
     background: transparent;
     font-size: 11px;
-    color: $color-error;
+    color: $color-error-text;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
   }

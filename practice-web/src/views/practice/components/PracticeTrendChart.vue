@@ -122,7 +122,7 @@ const hasData = computed<boolean>(() => props.points.some((p) => p.doneCount > 0
         :x2="W - PAD_RIGHT"
         :y1="y"
         :y2="y"
-        stroke="#e5e8ef"
+        class="trend__grid"
         stroke-width="1"
       />
 
@@ -135,16 +135,14 @@ const hasData = computed<boolean>(() => props.points.some((p) => p.doneCount > 0
         :width="bar.w"
         :height="bar.h"
         rx="1.5"
-        fill="#1d4ed8"
-        opacity="0.85"
+        class="trend__bar"
       />
 
       <!-- 折线：当日正确率 -->
       <polyline
         v-if="linePoints"
         :points="linePoints"
-        fill="none"
-        stroke="#64748b"
+        class="trend__line"
         stroke-width="1.6"
         stroke-linejoin="round"
         stroke-linecap="round"
@@ -157,8 +155,7 @@ const hasData = computed<boolean>(() => props.points.some((p) => p.doneCount > 0
         :cx="dot.cx"
         :cy="dot.cy"
         r="2.4"
-        fill="#fff"
-        stroke="#64748b"
+        class="trend__dot"
         stroke-width="1.4"
       />
 
@@ -170,7 +167,7 @@ const hasData = computed<boolean>(() => props.points.some((p) => p.doneCount > 0
         :y="H - 6"
         text-anchor="middle"
         font-size="9"
-        fill="#94a3b8"
+        class="trend__axis-label"
       >
         {{ label.text }}
       </text>
@@ -199,6 +196,30 @@ const hasData = computed<boolean>(() => props.points.some((p) => p.doneCount > 0
     display: block;
     width: 100%;
     height: auto;
+  }
+
+  // SVG 上色走 CSS 类（模板属性无法引用 SCSS 变量）——v2.2 收口硬编码色值
+  &__grid {
+    stroke: $border-soft;
+  }
+
+  &__bar {
+    fill: $practice-primary;
+    opacity: 0.85;
+  }
+
+  &__line {
+    fill: none;
+    stroke: $text-secondary;
+  }
+
+  &__dot {
+    fill: $bg-paper;
+    stroke: $text-secondary;
+  }
+
+  &__axis-label {
+    fill: $text-disabled;
   }
 
   &__legend {
@@ -230,7 +251,7 @@ const hasData = computed<boolean>(() => props.points.some((p) => p.doneCount > 0
     &--line {
       height: 2px;
       border-radius: 1px;
-      background: #64748b;
+      background: $text-secondary;
     }
   }
 

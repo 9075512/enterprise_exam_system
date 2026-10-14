@@ -170,7 +170,7 @@ const analysisVisible = computed<boolean>(() => props.result.analysisVisible !==
     letter-spacing: 0.5px;
 
     &--answer {
-      color: $color-success;
+      color: $color-success-text;
       letter-spacing: 1.5px;
     }
 
