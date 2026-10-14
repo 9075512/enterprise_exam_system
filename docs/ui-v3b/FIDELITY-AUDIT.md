@@ -202,3 +202,31 @@ B/A/A9 类全部修完后，用同一把尺子重跑 `tools/audit-fidelity.mjs`�
 ### 护栏
 
 `practice-web/src/styles/styleGuard.test.ts` 新增 describe「练题端 · 保真度审计修复（B/A9 类）」4 条（body 14px / `$text-body` token / `--el-text-color-regular` 指向 / `.el-input.el-input` 元素级声明）。practice-web 测试 28 → **32**，vue-tsc 0，vite build 成功；根应用测试 215/215 不受影响。
+
+---
+
+## 题目难度（difficulty）全链路落地（2026-10-14 第五轮）
+
+前四轮把 `composer 难度分布` 标为「降级为题型/分值分布」——根因是 **Question 无 difficulty 字段**，属设计稿要求而数据模型缺失的唯一可直接补齐项（其余开放项均需新增后端表或产品定夺语义）。本轮按既有幂等补列范式全链路补齐：
+
+### 落地范围
+
+| 层 | 改动 |
+| --- | --- |
+| **DB** | `questions.difficulty ENUM('low','medium','high') NULL`（NULL = 未标注）：`schema.ts` DDL + `init.ts` 幂等 ALTER（查 information_schema 再补列）+ `schema.sql` 文档副本 |
+| **服务端** | domain `QuestionDifficulty` + DTO；mapper/repo 全字段透传；zod（新建/编辑 nullish、列表查询枚举、批量编辑 nullish）；service 归一（枚举外一律视为未标注）；**列表筛选**（全局池 `/api/questions?difficulty=` 与题库内 `/api/banks/:id/questions?difficulty=`）；**批量编辑**（null = 清除）；**抽题返回** `DrawQuestionItem.difficulty`；题库克隆 / Excel 导入沿用归一化自动携带 |
+| **种子** | 10 道示例题回填难度（低 6 / 中 3 / 高 1）；upsert 对存量库做 `ON DUPLICATE KEY UPDATE difficulty = ?`（仅难度这一列回填，其余仍不覆盖） |
+| **前端** | 类型 + `QUESTION_DIFFICULTY_LABELS/OPTIONS` 常量；试题表单「难度」下拉（可清空）；批量编辑弹窗「修改难度」；题库详情难度列 + 全部难度筛选；组卷题池难度列 + 筛选、已选清单难度徽标、**难度分布卡改真实聚合**（低/中/高恒定 + 未标注仅有值时展示，附「N / M 题已标注难度」口径） |
+| **快照** | `getSnapshot` 经 `mapQuestionRow` 组装，难度自动进入 `paperSnapshot.questions[].question`，无需额外改动 |
+
+### 有意不做（避免编造数据）
+
+- 设计稿的「难度系数 0.74 / 目标 0.72」**未实现**：难度系数（P 值）应由作答正确率统计得出或需要「目标难度」配置项，用固定映射（如低=0.9）伪造会违背「不造数」红线；需产品决策后加配置 + 统计口径。
+- composer 抽题规则未提供「按难度抽题」——设计稿未要求，暂不扩。
+
+### 验证
+
+- 服务端 `tsc --noEmit` 0；vitest **523/523**；`npm run db:init` 幂等补列成功（二次执行「无需变更」）。
+- API 实测：创建带难度 ✅ / 更新改难度 ✅ / `difficulty=high` 过滤仅返回 q-09 ✅ / 批量置难度 ✅ / 非法枚举 **400** ✅ / 临时题已清理。
+- 前端 `vue-tsc` 0；vitest **215/215**；`vite build` 成功（26.1s）。
+- CDP 实测（author 登录）：`/author/papers/composer?paperId=paper-demo` 难度分布卡真实渲染 **低 6题·60% / 中 3题·30% / 高 1题·10%** + 「10/10 题已标注难度」；题库详情难度列与筛选正常。

@@ -148,3 +148,14 @@
 - 不算缺陷的实测差异（工程适配）：TabBar 让位内距 74px / 底栏 flex 居中 / `el-button--small` 无设计对应（r6 vs 控件档 r8 待产品定夺）；业务类文字色实测已符合设计，50 处 `$text-secondary` 不盲迁
 - 护栏：`practice-web/src/styles/styleGuard.test.ts` 新增 4 条，practice-web 测试 **28→32** 全绿、`vue-tsc` 0、`vite build` 成功；根应用 **215/215** 不受影响
 - 提交：`2df89a3`（审计 lane + 报告章节）→ `ab13358`（练题端全局层修复 + 护栏）
+
+## 题目难度（difficulty）全链路（第五轮，commit `fcec548`…`ae1c274`）
+
+前四轮开放项里唯一「设计稿要求 + 数据模型可直接补齐」的是 **Question.difficulty**（composer 难度分布此前降级为题型分布的根因）。本轮按既有幂等补列范式落地：
+
+- **DB**：`questions.difficulty ENUM('low','medium','high') NULL`（NULL = 未标注），schema.ts DDL + init.ts 幂等 ALTER + schema.sql 文档三处同步
+- **服务端**：DTO/mapper/repo/zod/service 全链路透传 + 列表筛选（全局池与题库内）+ 批量编辑（null = 清除）+ 抽题返回 + 种子回填（低6/中3/高1，仅难度列做 ON DUPLICATE KEY UPDATE）
+- **前端**：表单难度下拉 / 批量修改难度 / 题库详情难度列+筛选 / 组卷题池难度列+筛选、已选清单难度徽标、**难度分布卡改真实聚合**
+- **有意不做**：设计稿「难度系数 0.74 / 目标 0.72」需 P 值统计或「目标难度」配置，固定映射伪造违背「不造数」红线，留产品决策
+
+**验证**：服务端 tsc 0 / vitest **523/523** / `db:init` 幂等补列成功；前端 vue-tsc 0 / vitest **215/215** / build 成功；API 实测创建/更新/过滤/批量/非法枚举 400；CDP 实测 paper-demo 组卷页分布卡 **低 6题·60% / 中 3题·30% / 高 1题·10%**。
