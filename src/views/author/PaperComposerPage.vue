@@ -7,7 +7,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Delete, Plus, ArrowLeft, Search, Refresh } from '@element-plus/icons-vue';
+import { Delete, Plus, ArrowLeft, Search, Refresh, CircleCheck } from '@element-plus/icons-vue';
 import * as banksApi from '@/api/banks';
 import * as papersApi from '@/api/papers';
 import * as questionsApi from '@/api/questions';
@@ -286,6 +286,92 @@ function togglePoolQuestion(row: Question, checked: boolean): void {
 }
 
 const totalScore = computed<number>(() => calcTotalScore(selected.value));
+
+/* ---------------- C 类对齐：信息面板（选题范围 / 结构 / 分布 / 发布检查） ----------------
+ * 全部由已选题目的真实数据推导，不引入后端未提供的字段。
+ * 数据缺口：Question 无 difficulty 字段，故「难度分布」降级为「按题型/分值分布」。
+ */
+/** 保留 1 位小数（与 examRules.calcTotalScore 同口径） */
+const round1 = (n: number): number => Math.round(n * 10) / 10;
+
+/** 已选来源题库对象（摘要卡展示题库名与题量） */
+const scopeBanks = computed(() =>
+  (banks.value ?? []).filter((bank) => selectedBankIds.value.includes(bank.id)),
+);
+
+/** 知识点范围：手动模式取当前题池筛选的知识点，抽题模式取已配置的知识点配比规则（均为用户真实选择） */
+const scopeTags = computed<string[]>(() => {
+  if (mode.value === 'manual') return poolTag.value ? [poolTag.value] : [];
+  return drawTagRules.value.map((rule) => rule.tag.trim()).filter((tag) => tag);
+});
+
+/** 单个题型的聚合行（试卷结构 / 分布面板共用） */
+interface TypeAggRow {
+  type: QuestionType;
+  label: string;
+  /** 该题型已选题量 */
+  count: number;
+  /** 该题型分值小计 */
+  total: number;
+  /** 每题分值：一致给单值，否则给区间；无题给 — */
+  scoreText: string;
+  /** 题量占已选总数的百分比 */
+  percent: number;
+}
+
+/** 按题型聚合已选题目（覆盖全部题型，供「题型齐全」判断；展示时再过滤空行） */
+const typeAggRows = computed<TypeAggRow[]>(() => {
+  const total = selected.value.length;
+  return QUESTION_TYPE_OPTIONS.map((opt) => {
+    const items = selected.value.filter((q) => q.type === opt.value);
+    const scores = [...new Set(items.map((q) => q.score))];
+    const scoreText =
+      items.length === 0
+        ? '—'
+        : scores.length === 1
+          ? `${scores[0]}`
+          : `${Math.min(...scores)}–${Math.max(...scores)}`;
+    return {
+      type: opt.value,
+      label: opt.label,
+      count: items.length,
+      total: calcTotalScore(items),
+      scoreText,
+      percent: total > 0 ? round1((items.length / total) * 100) : 0,
+    };
+  });
+});
+
+/** 试卷结构：仅展示有题目的题型 */
+const structureRows = computed<TypeAggRow[]>(() => typeAggRows.value.filter((row) => row.count > 0));
+
+/** 分布面板（难度分布降级）：与试卷结构同源，仅展示有题目的题型 */
+const distributionRows = computed<TypeAggRow[]>(() => structureRows.value);
+
+/** 发布检查项（均可由当前工作态真实算出，与 handleSave 的校验口径一致） */
+interface CheckItem {
+  label: string;
+  pass: boolean;
+}
+
+const QUESTION_TYPE_TOTAL = QUESTION_TYPE_OPTIONS.length;
+
+const publishChecks = computed<CheckItem[]>(() => {
+  const typeCount = new Set(selected.value.map((q) => q.type)).size;
+  return [
+    { label: '试卷名称非空', pass: name.value.trim().length > 0 },
+    { label: '已选择来源题库', pass: selectedBankIds.value.length > 0 },
+    { label: '已选题目数 > 0', pass: selected.value.length > 0 },
+    { label: '试卷总分 > 0', pass: totalScore.value > 0 },
+    {
+      label: '每题分值均为正数',
+      pass: selected.value.length > 0 && selected.value.every((q) => q.score > 0),
+    },
+    { label: `题型齐全（${QUESTION_TYPE_TOTAL} 类）`, pass: typeCount === QUESTION_TYPE_TOTAL },
+  ];
+});
+
+const passedCheckCount = computed(() => publishChecks.value.filter((c) => c.pass).length);
 
 /* ------------------------------ 交互 ------------------------------ */
 function goBack(): void {
@@ -675,6 +761,105 @@ onMounted(async () => {
         </el-button>
       </aside>
     </div>
+
+    <!-- 选题范围摘要（C 类对齐：来源题库 / 知识点范围 / 题型范围） -->
+    <el-card class="composer__panel" shadow="never">
+      <template #header><span class="composer__card-title">选题范围</span></template>
+      <div class="composer__scope">
+        <div class="composer__scope-item">
+          <div class="composer__scope-label">来源题库</div>
+          <div v-if="scopeBanks.length" class="composer__scope-tags">
+            <el-tag v-for="bank in scopeBanks" :key="bank.id" size="small" effect="plain">
+              {{ bank.name }}（{{ bank.questionCount }}）
+            </el-tag>
+          </div>
+          <div v-else class="composer__scope-empty">— 未选择题库</div>
+        </div>
+        <div class="composer__scope-item">
+          <div class="composer__scope-label">知识点范围</div>
+          <div v-if="scopeTags.length" class="composer__scope-tags">
+            <el-tag v-for="tag in scopeTags" :key="tag" size="small" type="info" effect="plain">
+              {{ tag }}
+            </el-tag>
+          </div>
+          <div v-else class="composer__scope-empty">— 未限定知识点</div>
+        </div>
+        <div class="composer__scope-item">
+          <div class="composer__scope-label">题型范围</div>
+          <div v-if="structureRows.length" class="composer__scope-tags">
+            <el-tag v-for="row in structureRows" :key="row.type" size="small" effect="plain">
+              {{ row.label }} {{ row.count }}
+            </el-tag>
+          </div>
+          <div v-else class="composer__scope-empty">— 尚未选题</div>
+        </div>
+      </div>
+      <p class="composer__scope-note">
+        知识点范围取自当前抽题配置，题型范围按已选题目实时统计。
+      </p>
+    </el-card>
+
+    <!-- 信息面板（C 类对齐）：试卷结构 / 难度分布（降级）/ 发布检查 -->
+    <div class="composer__insights">
+      <!-- 试卷结构：按题型聚合的 题量 × 每题分值 × 小计 -->
+      <el-card class="composer__insight" shadow="never">
+        <template #header><span class="composer__card-title">试卷结构</span></template>
+        <template v-if="structureRows.length">
+          <div class="composer__struct-head">
+            <span>题型</span><span>题量</span><span>每题分值</span><span>小计</span>
+          </div>
+          <div v-for="row in structureRows" :key="row.type" class="composer__struct-row">
+            <span class="composer__struct-type">{{ row.label }}</span>
+            <span class="num">{{ row.count }}</span>
+            <span class="num">{{ row.scoreText }}</span>
+            <span class="num">{{ row.total }}</span>
+          </div>
+          <div class="composer__struct-total">
+            <span>合计</span>
+            <span class="num">{{ selected.length }} 题</span>
+            <span class="num">—</span>
+            <span class="num composer__struct-total-score">{{ totalScore }} 分</span>
+          </div>
+          <!-- 数据缺口：试卷无「目标总分」字段，不做分值完成度对比 -->
+        </template>
+        <div v-else class="composer__insight-empty">尚未选择题目</div>
+      </el-card>
+
+      <!-- 难度分布（降级为按题型/分值分布） -->
+      <el-card class="composer__insight" shadow="never">
+        <template #header><span class="composer__card-title">难度分布</span></template>
+        <div v-if="distributionRows.length" class="composer__bars">
+          <div v-for="row in distributionRows" :key="row.type" class="composer__bar">
+            <div class="composer__bar-head">
+              <span>{{ row.label }}</span>
+              <span class="composer__bar-meta num">{{ row.count }} 题 · {{ row.total }} 分</span>
+            </div>
+            <div class="composer__bar-track">
+              <i class="composer__bar-fill" :style="{ width: `${row.percent}%` }" />
+            </div>
+          </div>
+        </div>
+        <div v-else class="composer__insight-empty">尚未选择题目</div>
+        <p class="composer__insight-note">
+          <!-- 数据缺口：Question 无 difficulty 字段，暂以题型/分值分布替代 -->
+          Question 无 difficulty 字段，暂以题型 / 分值分布替代。
+        </p>
+      </el-card>
+
+      <!-- 发布检查：可真实算出的校验项清单 -->
+      <el-card class="composer__insight" shadow="never">
+        <template #header><span class="composer__card-title">发布检查</span></template>
+        <ul class="composer__checks">
+          <li v-for="item in publishChecks" :key="item.label" class="composer__check">
+            <span class="composer__check-mark" :class="{ 'is-pass': item.pass }">
+              <el-icon v-if="item.pass"><CircleCheck /></el-icon>
+            </span>
+            <span class="composer__check-label">{{ item.label }}</span>
+          </li>
+        </ul>
+        <p class="composer__insight-note">{{ passedCheckCount }} / {{ publishChecks.length }} 项通过</p>
+      </el-card>
+    </div>
   </div>
 </template>
 
@@ -912,6 +1097,191 @@ onMounted(async () => {
 
   &__save {
     width: 100%;
+  }
+
+  /* -------------------------- C 类对齐：信息面板 -------------------------- */
+  &__card-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &__scope {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  &__scope-item {
+    min-width: 0;
+  }
+
+  &__scope-label {
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: $text-body;
+  }
+
+  &__scope-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__scope-empty {
+    font-size: 13px;
+    color: $text-secondary;
+  }
+
+  &__scope-note {
+    margin: 12px 0 0;
+    font-size: 12px;
+    color: $text-secondary;
+  }
+
+  &__insights {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  &__insight.el-card {
+    border-radius: $radius-base;
+  }
+
+  &__insight-empty {
+    padding: 16px 0;
+    font-size: 13px;
+    color: $text-secondary;
+  }
+
+  &__insight-note {
+    margin: 12px 0 0;
+    font-size: 12px;
+    color: $text-secondary;
+  }
+
+  &__struct-head,
+  &__struct-row,
+  &__struct-total {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 56px 88px 72px;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__struct-head {
+    padding-bottom: 6px;
+    font-size: 12px;
+    color: $text-secondary;
+    border-bottom: 1px solid $border-color;
+  }
+
+  &__struct-row {
+    padding: 6px 0;
+    font-size: 13px;
+    color: $text-body;
+    border-bottom: 1px dashed $border-color;
+  }
+
+  &__struct-type {
+    color: $text-primary;
+  }
+
+  &__struct-total {
+    margin-top: 4px;
+    padding-top: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: $text-body;
+    border-top: 1px solid $line-strong;
+  }
+
+  &__struct-total-score {
+    font-size: 15px;
+    color: $color-primary;
+  }
+
+  &__bars {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  &__bar-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    font-size: 13px;
+    color: $text-primary;
+  }
+
+  &__bar-meta {
+    font-size: 12px;
+    color: $text-secondary;
+  }
+
+  &__bar-track {
+    height: 6px;
+    border-radius: $radius-xs;
+    background: $color-neutral-bg;
+    overflow: hidden;
+  }
+
+  &__bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: $radius-xs;
+    background: $color-primary;
+  }
+
+  &__checks {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    color: $text-body;
+  }
+
+  &__check-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+
+    /* 未通过：灰点 */
+    &::after {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: $line-strong;
+    }
+
+    /* 已通过：主色系语义绿勾（图形档） */
+    &.is-pass {
+      font-size: 16px;
+      color: $color-success;
+
+      &::after {
+        content: none;
+      }
+    }
   }
 }
 </style>

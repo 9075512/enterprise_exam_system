@@ -53,6 +53,43 @@ watch(banks, (list) => {
   categoryOptions.value = Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
 });
 
+/* ------------------------------ 题库健康度 ------------------------------ */
+/**
+ * 健康度指标（对齐设计稿 banks.html「题库健康度」卡形态）。
+ * 仅统计能由 QuestionBank 列表项真实算出的指标：
+ * 题库总数 / 题目总数 / 未开放练题数 / 无授权出题人数 / 空库数 / 题数分布。
+ *
+ * 数据缺口：① 后端未提供跨题库的全局聚合接口，数值随当前筛选结果集变化；
+ *          ② 设计稿的「缺解析 / 从未被使用 / 正确率 < 30% / 近 12 个月未更新」
+ *             属题目级或作答级指标，列表项目未返回，卡内以「—」占位。
+ */
+const healthSummary = computed(() => {
+  const list = banks.value ?? [];
+  const sizeBuckets = { lt50: 0, mid: 0, gt200: 0 };
+  let totalQuestions = 0;
+  let practiceClosed = 0;
+  let noAuthor = 0;
+  let emptyBanks = 0;
+  for (const bank of list) {
+    const count = bank.questionCount ?? 0;
+    totalQuestions += count;
+    if (!bank.allowPractice) practiceClosed += 1;
+    if (!bank.authorNames || bank.authorNames.length === 0) noAuthor += 1;
+    if (count === 0) emptyBanks += 1;
+    if (count < 50) sizeBuckets.lt50 += 1;
+    else if (count <= 200) sizeBuckets.mid += 1;
+    else sizeBuckets.gt200 += 1;
+  }
+  return {
+    totalBanks: list.length,
+    totalQuestions,
+    practiceClosed,
+    noAuthor,
+    emptyBanks,
+    sizeBuckets,
+  };
+});
+
 function onSearch(): void {
   void refresh();
 }
@@ -226,6 +263,75 @@ async function handleDelete(bank: QuestionBank): Promise<void> {
       </el-card>
     </CardGrid>
 
+    <!-- 题库健康度（对齐设计稿 banks.html「题库健康度」卡：卡头 + kv 行） -->
+    <el-card v-if="banks && banks.length > 0" class="bank-health" shadow="never">
+      <template #header>
+        <h3 class="bank-health__title">题库健康度</h3>
+      </template>
+
+      <div class="bank-health__list">
+        <div class="bank-health__row">
+          <span class="bank-health__k">题库总数</span>
+          <span class="bank-health__v num">{{ healthSummary.totalBanks }} 个</span>
+        </div>
+        <div class="bank-health__row">
+          <span class="bank-health__k">题目总数</span>
+          <span class="bank-health__v num">{{ healthSummary.totalQuestions }} 道</span>
+        </div>
+        <div class="bank-health__row">
+          <span class="bank-health__k">未开放练题的题库</span>
+          <span class="bank-health__v num">{{ healthSummary.practiceClosed }} 个</span>
+        </div>
+        <div class="bank-health__row">
+          <span class="bank-health__k">无授权出题人的题库</span>
+          <span class="bank-health__v num">{{ healthSummary.noAuthor }} 个</span>
+        </div>
+        <div class="bank-health__row">
+          <span class="bank-health__k">空题库（0 题）</span>
+          <span class="bank-health__v num">{{ healthSummary.emptyBanks }} 个</span>
+        </div>
+      </div>
+
+      <p class="bank-health__group">题数分布</p>
+      <div class="bank-health__list">
+        <div class="bank-health__row">
+          <span class="bank-health__k">&lt; 50 题</span>
+          <span class="bank-health__v num">{{ healthSummary.sizeBuckets.lt50 }} 个</span>
+        </div>
+        <div class="bank-health__row">
+          <span class="bank-health__k">50 – 200 题</span>
+          <span class="bank-health__v num">{{ healthSummary.sizeBuckets.mid }} 个</span>
+        </div>
+        <div class="bank-health__row">
+          <span class="bank-health__k">&gt; 200 题</span>
+          <span class="bank-health__v num">{{ healthSummary.sizeBuckets.gt200 }} 个</span>
+        </div>
+      </div>
+
+      <!-- 数据缺口：以下为设计稿行位，属题目级 / 作答级指标，题库列表项未返回，以「—」占位 -->
+      <div class="bank-health__list bank-health__list--muted">
+        <div class="bank-health__row">
+          <span class="bank-health__k">缺解析题目</span>
+          <span class="bank-health__v">—</span>
+        </div>
+        <div class="bank-health__row">
+          <span class="bank-health__k">从未被使用的题目</span>
+          <span class="bank-health__v">—</span>
+        </div>
+        <div class="bank-health__row">
+          <span class="bank-health__k">正确率低于 30%</span>
+          <span class="bank-health__v">—</span>
+        </div>
+        <div class="bank-health__row">
+          <span class="bank-health__k">近 12 个月未更新</span>
+          <span class="bank-health__v">—</span>
+        </div>
+      </div>
+      <p class="bank-health__note">
+        数据缺口：缺解析 / 从未被使用 / 正确率 / 更新时效为题目级或作答级指标，题库列表项未返回，暂无法统计。
+      </p>
+    </el-card>
+
     <!-- 新建 / 编辑弹窗 -->
     <QuestionBankFormDialog v-model:visible="formVisible" :bank="editingBank" @saved="refresh" />
 
@@ -307,6 +413,60 @@ async function handleDelete(bank: QuestionBank): Promise<void> {
     margin-top: 12px;
     border-top: 1px solid $border-color;
     padding-top: 8px;
+  }
+}
+
+.bank-health {
+  margin-top: 16px;
+  border-radius: $radius-lg;
+
+  &__title {
+    margin: 0;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    &--muted .bank-health__v {
+      font-weight: 400;
+      color: $text-disabled;
+    }
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 13px;
+  }
+
+  &__k {
+    color: $text-secondary;
+  }
+
+  &__v {
+    color: $text-primary;
+    font-weight: 600;
+  }
+
+  &__group {
+    margin: 16px 0 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: $text-secondary;
+  }
+
+  &__note {
+    margin: 12px 0 0;
+    font-size: 12px;
+    line-height: 1.6;
+    color: $text-secondary;
   }
 }
 </style>

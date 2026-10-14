@@ -7,7 +7,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Edit, EditPen, Delete, Plus, Upload, Search, Refresh, ArrowLeft, UserFilled } from '@element-plus/icons-vue';
+import { Edit, EditPen, Delete, Plus, Upload, UploadFilled, Search, Refresh, ArrowLeft, UserFilled } from '@element-plus/icons-vue';
 import * as banksApi from '@/api/banks';
 import * as questionsApi from '@/api/questions';
 import { useRequest } from '@/composables/useRequest';
@@ -231,6 +231,40 @@ function goBack(): void {
   void router.push('/author/banks');
 }
 
+/* ------------------------------ 知识点分布 ------------------------------ */
+/**
+ * 知识点分布：由当前页已加载的题目列表（Question[]）聚合。
+ * - tags 多标签：一条题目在每个命中的知识点各计一次（故各知识点题数之和 ≥ 题目数）；
+ * - tags 为空的题目归入「未打标签」并单独统计；
+ * - 占比 = 该知识点题数 / 当前页题目数。
+ *
+ * 数据缺口：后端未提供整库知识点聚合接口，分布仅基于当前页已加载题目（随翻页/筛选变化）。
+ */
+const knowledge = computed(() => {
+  const list = questions.value ?? [];
+  const total = list.length;
+  const counter = new Map<string, number>();
+  let untagged = 0;
+  for (const question of list) {
+    const questionTags = (question.tags ?? []).filter((tag) => tag && tag.trim());
+    if (questionTags.length === 0) {
+      untagged += 1;
+      continue;
+    }
+    for (const tag of questionTags) {
+      counter.set(tag, (counter.get(tag) ?? 0) + 1);
+    }
+  }
+  const percent = (count: number): number => (total > 0 ? Math.round((count / total) * 100) : 0);
+  const rows = Array.from(counter.entries())
+    .map(([name, count]) => ({ name, count, percent: percent(count) }))
+    .sort((a, b) => b.count - a.count);
+  if (untagged > 0) {
+    rows.push({ name: '未打标签', count: untagged, percent: percent(untagged) });
+  }
+  return { rows, total };
+});
+
 /** bankId 变化时重新初始化（同一组件实例内切换路由参数） */
 watch(bankId, () => {
   void refreshBank();
@@ -427,6 +461,55 @@ onMounted(() => {
             />
           </div>
         </el-card>
+
+        <div class="bank-detail__extras">
+          <!-- 知识点分布（对齐设计稿 bank-detail.html「知识点分布」卡：名称 + 题数 + 进度条） -->
+          <el-card class="knowledge-card" shadow="never">
+            <template #header>
+              <div class="card-head">
+                <h3 class="card-head__title">知识点分布</h3>
+                <span class="card-head__sub">基于当前页 {{ knowledge.total }} 道</span>
+              </div>
+            </template>
+            <div v-if="knowledge.rows.length > 0" class="knowledge-card__bars">
+              <div v-for="row in knowledge.rows" :key="row.name" class="knowledge-card__item">
+                <div class="knowledge-card__bar-row">
+                  <span class="knowledge-card__name" :title="row.name">{{ row.name }}</span>
+                  <span class="knowledge-card__count num">{{ row.count }}（{{ row.percent }}%）</span>
+                </div>
+                <div class="knowledge-card__track">
+                  <i class="knowledge-card__fill" :style="{ width: `${row.percent}%` }"></i>
+                </div>
+              </div>
+            </div>
+            <p v-else class="knowledge-card__empty">当前页暂无可统计的题目</p>
+          </el-card>
+
+          <!-- 批量导入模板（对齐设计稿形态：拖拽区 + 说明；点击打开已有导入弹窗，复用其模板下载） -->
+          <el-card class="import-card" shadow="never">
+            <template #header>
+              <h3 class="card-head__title">批量导入模板</h3>
+            </template>
+            <div
+              class="import-card__dropzone"
+              role="button"
+              tabindex="0"
+              @click="openImport"
+              @keyup.enter="openImport"
+            >
+              <el-icon class="import-card__icon"><UploadFilled /></el-icon>
+              <p class="import-card__title">点击打开批量导入，按模板上传 Excel</p>
+              <p class="import-card__hint">
+                支持 .xlsx，单次最多 {{ settingsStore.settings.importMaxRows }} 行 · 单文件 ≤
+                {{ settingsStore.settings.importMaxFileMb }}MB
+              </p>
+            </div>
+            <div class="import-card__actions">
+              <el-button :icon="Upload" @click="openImport">打开批量导入</el-button>
+              <span class="import-card__cols">含题干 / 题型 / 选项 / 答案 / 解析列，弹窗内可下载模板</span>
+            </div>
+          </el-card>
+        </div>
       </section>
     </div>
 
@@ -580,5 +663,136 @@ onMounted(() => {
 // 分页由 .table-card__pagination 统一控制间距，消除封装组件自带 margin 的双重叠加
 .table-card__pagination :deep(.data-table-pagination) {
   margin-top: 0;
+}
+
+.bank-detail__extras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+  &__title {
+    margin: 0;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &__sub {
+    font-size: 12px;
+    color: $text-secondary;
+  }
+}
+
+.knowledge-card {
+  border-radius: $radius-lg;
+
+  &__bars {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  &__bar-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+
+  &__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: $text-primary;
+  }
+
+  &__count {
+    flex: 0 0 auto;
+    color: $text-primary;
+    font-weight: 600;
+  }
+
+  &__track {
+    height: 6px;
+    border-radius: $radius-xs;
+    background: $color-neutral-bg;
+    overflow: hidden;
+  }
+
+  &__fill {
+    display: block;
+    height: 100%;
+    border-radius: $radius-xs;
+    background: $color-primary;
+  }
+
+  &__empty {
+    margin: 0;
+    font-size: 13px;
+    color: $text-secondary;
+  }
+}
+
+.import-card {
+  border-radius: $radius-lg;
+
+  &__dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 24px 16px;
+    text-align: center;
+    cursor: pointer;
+    border: 1px dashed $line-strong;
+    border-radius: $radius-sm;
+    background: $bg-page;
+    transition: border-color $transition-fast;
+
+    &:hover,
+    &:focus-visible {
+      border-color: $color-primary;
+      outline: none;
+    }
+  }
+
+  &__icon {
+    font-size: 26px;
+    color: $color-primary;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 13px;
+    color: $text-primary;
+  }
+
+  &__hint {
+    margin: 0;
+    font-size: 12px;
+    color: $text-secondary;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  &__cols {
+    font-size: 12px;
+    color: $text-secondary;
+  }
 }
 </style>

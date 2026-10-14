@@ -8,6 +8,7 @@ import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { Plus, Search, Refresh, ArrowDown } from '@element-plus/icons-vue';
 import * as papersApi from '@/api/papers';
+import * as examsApi from '@/api/exams';
 import { useRequest } from '@/composables/useRequest';
 import { useConfirm } from '@/composables/useConfirm';
 import { formatDateTime } from '@/utils/datetime';
@@ -16,7 +17,7 @@ import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
-import type { Paper } from '@/types';
+import type { Exam, Paper } from '@/types';
 
 const router = useRouter();
 const { confirm } = useConfirm();
@@ -41,6 +42,50 @@ function resetFilter(): void {
 
 /** 是否处于筛选态（决定空态口径与是否给「清空筛选」出路，规范 §9.2） */
 const hasFilter = computed<boolean>(() => Boolean(filterKeyword.value.trim()));
+
+/* ------------------------------ 试卷引用检查 ------------------------------ */
+/**
+ * 引用关系反查：一次拉取全部考试，按 exam.paperId 归类，避免逐卷请求。
+ * 数据缺口/权限：`GET /exams` 仅 admin 可访问（server .../exams.router.ts requireRole('admin')），
+ * 出题人打开本页会 403 —— 此时引用数展示为 `—`，不臆断为「未被引用」。
+ */
+const { data: exams, loading: examsLoading, error: examsError } = useRequest(() => examsApi.list());
+
+/** 考试列表是否成功加载（决定「—」还是真实判定） */
+const examsReady = computed<boolean>(() => exams.value !== null && examsError.value === null);
+
+const examsByPaper = computed<Map<string, Exam[]>>(() => {
+  const map = new Map<string, Exam[]>();
+  for (const exam of exams.value ?? []) {
+    const bucket = map.get(exam.paperId);
+    if (bucket) bucket.push(exam);
+    else map.set(exam.paperId, [exam]);
+  }
+  return map;
+});
+
+/** 某份试卷的引用考试列表 */
+function refsOf(paperId: string): Exam[] {
+  return examsByPaper.value.get(paperId) ?? [];
+}
+
+/** 展开查看引用考试名的试卷 id */
+const expandedPaperIds = ref<string[]>([]);
+
+function isRefsExpanded(paperId: string): boolean {
+  return expandedPaperIds.value.includes(paperId);
+}
+
+function toggleRefs(paperId: string): void {
+  const index = expandedPaperIds.value.indexOf(paperId);
+  if (index === -1) expandedPaperIds.value.push(paperId);
+  else expandedPaperIds.value.splice(index, 1);
+}
+
+/** 当前列表中被引用的试卷数（用于卡头汇总） */
+const referencedCount = computed<number>(
+  () => filteredPapers.value.filter((p) => refsOf(p.id).length > 0).length,
+);
 
 function goComposer(): void {
   void router.push('/author/papers/composer');
@@ -238,6 +283,58 @@ async function handleDelete(paper: Paper): Promise<void> {
         </template>
       </el-table>
     </el-card>
+
+    <el-card v-if="papers && papers.length" class="reference-card" shadow="never">
+      <template #header>
+        <div class="reference-card__head">
+          <span class="reference-card__title">试卷引用检查</span>
+          <el-tag
+            v-if="examsReady && referencedCount > 0"
+            type="danger"
+            effect="plain"
+            size="small"
+          >
+            {{ referencedCount }} 份被引用 · 不可删除
+          </el-tag>
+        </div>
+      </template>
+
+      <!-- 数据缺口：后端无「按试卷聚合作答记录数」接口，故不展示「涉及作答记录」；
+           亦无试卷归档能力（无归档接口 / 状态字段），故不提供「归档试卷」操作。
+           本卡只呈现可由 exam.paperId 真实反查的「引用考试数 / 考试名」。 -->
+      <p class="reference-card__hint">
+        被考试引用的试卷无法删除，删除会影响历史成绩；未被引用的试卷可安全删除。
+      </p>
+
+      <ul class="reference-card__list">
+        <li v-for="paper in filteredPapers" :key="paper.id" class="reference-card__item">
+          <span class="reference-card__name" :title="paper.name">{{ paper.name }}</span>
+          <span class="reference-card__status">
+            <template v-if="examsLoading && !exams">
+              <span class="reference-card__muted">检查中…</span>
+            </template>
+            <template v-else-if="!examsReady">
+              <!-- 数据缺口：考试列表不可用（无权限 / 请求失败），引用数无法判定 -->
+              <span class="reference-card__muted">—</span>
+            </template>
+            <template v-else-if="refsOf(paper.id).length">
+              <el-tag type="warning" effect="plain" size="small">
+                被 {{ refsOf(paper.id).length }} 场考试引用
+              </el-tag>
+              <el-button link type="primary" @click="toggleRefs(paper.id)">
+                {{ isRefsExpanded(paper.id) ? '收起' : '查看引用考试' }}
+              </el-button>
+            </template>
+            <el-tag v-else type="success" effect="plain" size="small">未被引用</el-tag>
+          </span>
+          <ul v-if="isRefsExpanded(paper.id)" class="reference-card__exams">
+            <li v-for="exam in refsOf(paper.id)" :key="exam.id" class="reference-card__exam">
+              {{ exam.name }}
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </el-card>
   </div>
 </template>
 
@@ -270,5 +367,93 @@ async function handleDelete(paper: Paper): Promise<void> {
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: bottom;
+}
+
+.reference-card {
+  margin-top: 16px;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &__hint {
+    margin: 0 0 4px;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: $text-secondary;
+  }
+
+  &__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    column-gap: 24px;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 9px 0;
+    border-bottom: 1px solid $border-color;
+  }
+
+  &__name {
+    flex: 1 1 140px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    color: $text-body;
+  }
+
+  &__status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  &__muted {
+    font-size: 12.5px;
+    color: $text-secondary;
+  }
+
+  &__exams {
+    flex: 0 0 100%;
+    margin: 0;
+    padding: 0 0 0 14px;
+    list-style: none;
+  }
+
+  &__exam {
+    position: relative;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: $text-secondary;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: -10px;
+      top: 9px;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: $color-primary-border;
+    }
+  }
 }
 </style>
