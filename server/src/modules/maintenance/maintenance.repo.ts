@@ -60,9 +60,9 @@ export async function insertArchive(ids: string[], archivedAt: string, exec?: Sq
     exec,
     `INSERT INTO exam_records_archive
        (id, exam_id, user_id, attempt_no, department_id, paper_snapshot, status, answers,
-        started_at, submitted_at, auto_submitted, score, subjective_scores, cheat_events, archived_at)
+        started_at, submitted_at, auto_submitted, score, subjective_scores, cheat_events, review_notes, archived_at)
      SELECT r.id, r.exam_id, r.user_id, r.attempt_no, r.department_id, r.paper_snapshot, r.status, r.answers,
-            r.started_at, r.submitted_at, r.auto_submitted, r.score, r.subjective_scores, r.cheat_events, ?
+            r.started_at, r.submitted_at, r.auto_submitted, r.score, r.subjective_scores, r.cheat_events, r.review_notes, ?
        FROM exam_records r
       WHERE r.id IN (${placeholders})`,
     [archivedAt, ...ids],

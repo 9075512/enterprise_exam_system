@@ -29,6 +29,8 @@ import type {
   CheatEvent,
   ExamRecordDto,
   Page,
+  ReviewNote,
+  ReviewNotes,
   Role,
 } from '../../types/domain.js';
 
@@ -222,12 +224,14 @@ export async function getById(recordId: string, user: { id: string; role: Role }
   if (!row) throw notFound('考试记录不存在');
   if (user.role === 'examinee' && row.user_id !== user.id) throw forbidden('无权查看他人的考试记录');
   const dto = mapRecordDetailRow(row);
+  // 考生视角：仅暴露「勾选同步」的评语，隐藏存疑等内部标记（服务端强制，不依赖前端过滤）
+  const reviewNotes = user.role === 'examinee' ? candidateReviewNotes(dto.reviewNotes) : dto.reviewNotes;
   // 特殊安排：加时（供答题页倒计时使用）
   const exception = await exceptionsRepo.findByExamAndUser(row.exam_id, row.user_id);
   const extraMinutes = exception ? Number(exception.extra_minutes) : 0;
   // 成绩复核申请状态（考生查看本人复核进度）
   const appeal = await appealsRepo.findByRecordId(recordId);
-  return { ...dto, extraMinutes, appealStatus: appeal ? (appeal.status as AppealStatus) : null };
+  return { ...dto, reviewNotes, extraMinutes, appealStatus: appeal ? (appeal.status as AppealStatus) : null };
 }
 
 /** 我的成绩（仅已交卷，分页；可选按考试名称关键字筛选）。 */
@@ -243,7 +247,15 @@ export async function listMy(
     repo.listMySubmitted(userId, paging, kw),
     repo.countMySubmitted(userId, kw),
   ]);
-  return buildPage(rows.map(mapRecordRow), total, paging.page, paging.pageSize);
+  return buildPage(
+    rows.map((row) => {
+      const dto = mapRecordRow(row);
+      return { ...dto, reviewNotes: candidateReviewNotes(dto.reviewNotes) };
+    }),
+    total,
+    paging.page,
+    paging.pageSize,
+  );
 }
 
 /** 某场考试全部记录（admin，分页）。 */
@@ -280,10 +292,40 @@ export async function listPending(
   return buildPage(rows.map(mapRecordDetailRow), total, paging.page, paging.pageSize);
 }
 
-/** 人工阅卷：提交逐题主观分，重算总分（客观分 + 主观分），状态转 submitted。 */
+/** 归一化逐题阅卷备注：校验归属、裁剪评语、剔除空条目（评语空则不带「考生可见」）。 */
+function normalizeReviewNotes(raw: ReviewNotes, validQuestionIds: Set<string>): ReviewNotes {
+  const out: ReviewNotes = {};
+  for (const [questionId, note] of Object.entries(raw)) {
+    if (!validQuestionIds.has(questionId)) {
+      throw badRequest('评语 / 存疑标记指向了不属于该卷的主观题');
+    }
+    const comment = (note.comment ?? '').trim();
+    if (comment.length > 500) throw badRequest('评语长度不能超过 500 个字符');
+    const next: ReviewNote = {};
+    if (comment) {
+      next.comment = comment;
+      next.commentVisible = note.commentVisible === true;
+    }
+    if (note.doubtful === true) next.doubtful = true;
+    if (Object.keys(next).length > 0) out[questionId] = next;
+  }
+  return out;
+}
+
+/** 考生视角的阅卷备注：仅保留「勾选同步给考生」的评语，剔除存疑等内部标记（服务端强制）。 */
+function candidateReviewNotes(notes: ReviewNotes): ReviewNotes {
+  const out: ReviewNotes = {};
+  for (const [questionId, note] of Object.entries(notes)) {
+    if (note.comment && note.commentVisible) out[questionId] = { comment: note.comment };
+  }
+  return out;
+}
+
+/** 人工阅卷：提交逐题主观分与逐题备注，重算总分（客观分 + 主观分），状态转 submitted。 */
 export async function review(
   recordId: string,
   subjectiveScores: Record<string, number>,
+  reviewNotes: ReviewNotes = {},
 ): Promise<ExamRecordDto> {
   const row = await repo.findDetailById(recordId);
   if (!row) throw notFound('考试记录不存在');
@@ -293,8 +335,10 @@ export async function review(
 
   // 校验：仅简答题可给分，且 0 ≤ 分 ≤ 该题分值
   let subjectiveTotal = 0;
+  const shortIds = new Set<string>();
   for (const sq of record.paperSnapshot.questions) {
     if (sq.question.type !== 'short') continue;
+    shortIds.add(sq.questionId);
     const given = subjectiveScores[sq.questionId];
     if (given === undefined) throw badRequest('请为所有简答题打分');
     if (!Number.isFinite(given) || given < 0 || given > sq.score) {
@@ -302,6 +346,9 @@ export async function review(
     }
     subjectiveTotal += given;
   }
+
+  // 逐题备注（评语 / 存疑）：仅允许落在本卷简答题上，空条目剔除
+  const notes = normalizeReviewNotes(reviewNotes, shortIds);
 
   // 客观分（单选/多选/判断/填空自动判）
   let objectiveTotal = 0;
@@ -311,7 +358,7 @@ export async function review(
   }
   const finalScore = round1(objectiveTotal + subjectiveTotal);
 
-  await repo.updateReview(recordId, { subjectiveScores, score: finalScore });
+  await repo.updateReview(recordId, { subjectiveScores, score: finalScore, reviewNotes: notes });
   const updated = await repo.findById(recordId);
   const dto = mapRecordRow(updated!);
 

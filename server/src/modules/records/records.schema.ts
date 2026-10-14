@@ -19,9 +19,17 @@ export const submitSchema = z.object({
   auto: z.boolean().optional().default(false),
 });
 
-/** 人工阅卷入参（逐题主观分）。 */
+/** 单题阅卷备注（评语可选、评语可见开关、标记存疑）。 */
+const reviewNoteSchema = z.object({
+  comment: z.string().max(500, '评语长度不能超过 500 个字符').optional(),
+  commentVisible: z.boolean().optional(),
+  doubtful: z.boolean().optional(),
+});
+
+/** 人工阅卷入参（逐题主观分 + 逐题备注，备注可省略）。 */
 export const reviewSchema = z.object({
   subjectiveScores: z.record(z.string(), z.number()),
+  reviewNotes: z.record(z.string(), reviewNoteSchema).optional().default({}),
 });
 
 /** 我的成绩列表入参（可选按考试名称关键字筛选）。 */

@@ -4,6 +4,7 @@
 import type { RowDataPacket } from 'mysql2/promise';
 import { query, runQuery, type SqlExecutor } from '../../db/pool.js';
 import { RECORD_FULL_COLUMNS, RECORD_FULL_COLUMNS_R, RECORD_SOURCE } from '../../db/recordSource.js';
+import type { ReviewNotes } from '../../types/domain.js';
 import type { ExamRecordDetailRow, ExamRecordRow } from './records.mapper.js';
 
 export type { ExamRecordRow } from './records.mapper.js';
@@ -38,7 +39,7 @@ export async function findDetailById(id: string, exec?: SqlExecutor): Promise<Ex
   const rows = await runQuery<ExamRecordDetailRow[]>(
     exec,
     `SELECT r.id, r.exam_id, r.user_id, r.attempt_no, r.department_id, r.paper_snapshot, r.status, r.answers,
-            r.started_at, r.submitted_at, r.auto_submitted, r.score, r.subjective_scores, r.cheat_events,
+            r.started_at, r.submitted_at, r.auto_submitted, r.score, r.subjective_scores, r.cheat_events, r.review_notes,
             e.name AS exam_name, e.pass_score AS pass_score,
             u.name AS user_name, COALESCE(d.name, du.name, '') AS department_name
        FROM ${RECORD_SOURCE}
@@ -186,7 +187,7 @@ export async function countByExam(examId: string): Promise<number> {
 export async function listCheatByExam(examId: string): Promise<ExamRecordDetailRow[]> {
   return query<ExamRecordDetailRow[]>(
     `SELECT r.id, r.exam_id, r.user_id, r.attempt_no, r.department_id, r.paper_snapshot, r.status, r.answers,
-            r.started_at, r.submitted_at, r.auto_submitted, r.score, r.subjective_scores, r.cheat_events,
+            r.started_at, r.submitted_at, r.auto_submitted, r.score, r.subjective_scores, r.cheat_events, r.review_notes,
             e.name AS exam_name, e.pass_score AS pass_score,
             u.name AS user_name, COALESCE(d.name, du.name, '') AS department_name
        FROM ${RECORD_SOURCE}
@@ -272,7 +273,7 @@ export async function listPending(
   }
   return query<ExamRecordDetailRow[]>(
     `SELECT r.id, r.exam_id, r.user_id, r.attempt_no, r.department_id, r.paper_snapshot, r.status, r.answers,
-            r.started_at, r.submitted_at, r.auto_submitted, r.score, r.subjective_scores, r.cheat_events,
+            r.started_at, r.submitted_at, r.auto_submitted, r.score, r.subjective_scores, r.cheat_events, r.review_notes,
             e.name AS exam_name, e.pass_score AS pass_score,
             u.name AS user_name, COALESCE(d.name, du.name, '') AS department_name
        FROM ${RECORD_SOURCE}
@@ -302,16 +303,16 @@ export async function countPending(examId?: string): Promise<number> {
   return Number(rows[0]?.c ?? 0);
 }
 
-/** 提交阅卷结果：写主观分、重算总分、状态转 submitted。 */
+/** 提交阅卷结果：写主观分与逐题备注、重算总分、状态转 submitted。 */
 export async function updateReview(
   id: string,
-  data: { subjectiveScores: Record<string, number>; score: number },
+  data: { subjectiveScores: Record<string, number>; score: number; reviewNotes: ReviewNotes },
   exec?: SqlExecutor,
 ): Promise<void> {
   await runQuery(
     exec,
-    `UPDATE exam_records SET subjective_scores = ?, score = ?, status = 'submitted' WHERE id = ?`,
-    [JSON.stringify(data.subjectiveScores), data.score, id],
+    `UPDATE exam_records SET subjective_scores = ?, score = ?, review_notes = ?, status = 'submitted' WHERE id = ?`,
+    [JSON.stringify(data.subjectiveScores), data.score, JSON.stringify(data.reviewNotes), id],
   );
 }
 

@@ -423,6 +423,22 @@ export interface CheatEvent {
   awaySeconds: number;
 }
 
+/**
+ * 阅卷逐题备注（v3.3）：评语 / 评语是否对考生可见 / 是否标记存疑。
+ * 仅人工阅卷的主观题会产生；未填写的字段省略（不写空串）。
+ */
+export interface ReviewNote {
+  /** 给考生的评语（可选） */
+  comment?: string;
+  /** 评语是否同步展示给考生（未勾选则不展示） */
+  commentVisible?: boolean;
+  /** 标记存疑（阅卷内部标记，不对考生展示） */
+  doubtful?: boolean;
+}
+
+/** 阅卷逐题备注集合：Record<questionId, ReviewNote>（未阅卷为空对象） */
+export type ReviewNotes = Record<string, ReviewNote>;
+
 /** 试卷快照中的题目：题目内容冻结副本 + 分值 */
 export interface PaperSnapshotQuestion {
   questionId: string;
@@ -459,6 +475,8 @@ export interface ExamRecordDto {
   answers: Record<string, number[] | string[]>;
   /** 主观题阅卷得分：Record<questionId, number>（未阅卷为空对象） */
   subjectiveScores: Record<string, number>;
+  /** 阅卷逐题备注（评语 / 存疑）：Record<questionId, ReviewNote>（未阅卷为空对象） */
+  reviewNotes: ReviewNotes;
   /** 开考时刻 ISO 8601 */
   startedAt: string;
   /** 交卷时刻 ISO 8601，未交卷为 null */

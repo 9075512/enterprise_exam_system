@@ -19,6 +19,7 @@ import {
   pendingQuerySchema,
 } from './records.schema.js';
 import * as recordsService from './records.service.js';
+import type { ReviewNotes } from '../../types/domain.js';
 
 export const recordsRouter = Router();
 
@@ -118,7 +119,10 @@ recordsRouter.put(
   requireRole('admin', 'author'),
   validate(reviewSchema, 'body'),
   asyncHandler(async (req, res) => {
-    const { subjectiveScores } = req.body as { subjectiveScores: Record<string, number> };
-    return ok(res, await recordsService.review(req.params.id, subjectiveScores));
+    const { subjectiveScores, reviewNotes } = req.body as {
+      subjectiveScores: Record<string, number>;
+      reviewNotes: ReviewNotes;
+    };
+    return ok(res, await recordsService.review(req.params.id, subjectiveScores, reviewNotes));
   }),
 );

@@ -73,6 +73,7 @@ async function indexExists(conn: mysql.Connection, table: string, index: string)
  *      每日一练当日统计用（二期增量）；旧库需原地补建，新库已含在 CREATE TABLE 中。
  *      注：二期 3 张 practice_* 新表（favorites / daily_tasks / settings）同样由 DDL 幂等创建。
  *   6) questions.difficulty（题目难度 low/medium/high，NULL = 未标注；组卷「难度分布」与题库列筛选用）。
+ *   7) exam_records.review_notes / exam_records_archive.review_notes（阅卷逐题评语与标记存疑 JSON，NULL = 无）。
  */
 async function applyMigrations(conn: mysql.Connection): Promise<void> {
   const changes: string[] = [];
@@ -197,6 +198,15 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
   if (!(await columnExists(conn, 'exam_records', 'subjective_scores'))) {
     await conn.query(`ALTER TABLE exam_records ADD COLUMN subjective_scores JSON NOT NULL AFTER score`);
     changes.push('exam_records.subjective_scores');
+  }
+
+  // v3.3：阅卷评语与标记存疑（逐题 JSON：{ [questionId]: { comment, commentVisible, doubtful } }；NULL = 无）。
+  // 业务表与归档表共用 RECORD_FULL_COLUMNS，两表必须同列，否则归档后的 UNION ALL 查询报缺列。
+  for (const table of ['exam_records', 'exam_records_archive'] as const) {
+    if (!(await columnExists(conn, table, 'review_notes'))) {
+      await conn.query(`ALTER TABLE ${table} ADD COLUMN review_notes JSON NULL AFTER cheat_events`);
+      changes.push(`${table}.review_notes`);
+    }
   }
 
   // v1.6③：科室树（parent_id 自引用；仅补列与索引，自引用外键由新建库 DDL 保证，
