@@ -1,0 +1,73 @@
+审计页数 7，有差异页 7，元素级差异合计 45
+
+### p-login  (/practice)
+路由落地: /practice  | 元素级差异 4 处
+  结构: 设计[cards=undefined tables=undefined btns=undefined]  工程[cards=undefined tables=undefined btns=undefined]
+  设计稿区块: (无)
+    · body: lineHeight: 21.7px → normal
+    · 输入框: height: 42px → 46px ; boxShadow: none → rgb(217, 222, 231) 0px 0px 0px 1px inset
+    · 主按钮: fontSize: 14px → 15px
+
+### p-home  (/practice/home)
+路由落地: /practice/home  | 元素级差异 7 处
+  结构: 设计[cards=undefined tables=undefined btns=undefined]  工程[cards=undefined tables=undefined btns=undefined]
+  设计稿区块: (无)
+    · body: lineHeight: 21.7px → normal
+    · 内容区: padding: 14px → 14px 14px 74px
+    · 底栏Tab: height: 56px → 57px
+    · Tab项: paddingTop: 6px → 0px
+    · 主按钮: —: 设计无此元素 → 工程有
+    · 次按钮: —: 设计无此元素 → 工程有
+    · 空态图标: —: 设计有 → 工程无此元素
+
+### p-session  (/practice/banks/bank-culture)
+路由落地: /practice/banks/bank-culture  | 元素级差异 4 处
+  结构: 设计[cards=undefined tables=undefined btns=undefined]  工程[cards=undefined tables=undefined btns=undefined]
+  设计稿区块: (无)
+    · body: lineHeight: 21.7px → normal
+    · 主按钮: color: rgb(13, 18, 32) → rgb(255, 255, 255) ; backgroundColor: rgb(255, 255, 255) → rgb(11, 91, 255)
+    · 次按钮: —: 设计有 → 工程无此元素
+
+### p-wrongbook  (/practice/wrong-book)
+路由落地: /practice/wrong-book  | 元素级差异 10 处
+  结构: 设计[cards=undefined tables=undefined btns=undefined]  工程[cards=undefined tables=undefined btns=undefined]
+  设计稿区块: (无)
+    · body: lineHeight: 21.7px → normal
+    · 内容区: padding: 14px → 14px 14px 74px
+    · 底栏Tab: height: 56px → 57px
+    · Tab项: paddingTop: 6px → 0px
+    · 主按钮: fontSize: 13px → 14px ; fontWeight: 580 → 500 ; borderRadius: 8px → 6px ; height: 34px → 32px
+    · 次按钮: —: 设计有 → 工程无此元素
+    · 空态图标: —: 设计有 → 工程无此元素
+
+### p-report  (/practice/report)
+路由落地: /practice/report  | 元素级差异 6 处
+  结构: 设计[cards=undefined tables=undefined btns=undefined]  工程[cards=undefined tables=undefined btns=undefined]
+  设计稿区块: (无)
+    · body: lineHeight: 21.7px → normal
+    · 内容区: padding: 14px → 14px 14px 74px
+    · 底栏Tab: height: 56px → 57px
+    · Tab项: paddingTop: 6px → 0px
+    · 主按钮: fontWeight: 580 → 500
+    · 空态图标: —: 设计有 → 工程无此元素
+
+### p-favorites  (/practice/favorites)
+路由落地: /practice/favorites  | 元素级差异 10 处
+  结构: 设计[cards=undefined tables=undefined btns=undefined]  工程[cards=undefined tables=undefined btns=undefined]
+  设计稿区块: (无)
+    · body: lineHeight: 21.7px → normal
+    · 内容区: padding: 14px → 14px 14px 74px
+    · 底栏Tab: height: 56px → 57px
+    · Tab项: paddingTop: 6px → 0px
+    · 主按钮: fontSize: 13px → 14px ; fontWeight: 580 → 500 ; borderRadius: 8px → 6px ; height: 34px → 32px
+    · 次按钮: —: 设计有 → 工程无此元素
+    · 空态图标: —: 设计有 → 工程无此元素
+
+### p-profile  (/practice/profile)
+路由落地: /practice/profile  | 元素级差异 4 处
+  结构: 设计[cards=undefined tables=undefined btns=undefined]  工程[cards=undefined tables=undefined btns=undefined]
+  设计稿区块: (无)
+    · body: lineHeight: 21.7px → normal
+    · 内容区: padding: 14px → 14px 14px 74px
+    · 底栏Tab: height: 56px → 57px
+    · Tab项: paddingTop: 6px → 0px

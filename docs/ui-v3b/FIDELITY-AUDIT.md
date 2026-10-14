@@ -371,3 +371,53 @@ C 类收尾与第五轮后，开放项里唯一「数据源已存在、无需产
 ### 仍开放的缺口（需产品决策）
 
 阅卷 SLA（超时 N 小时）与告警工单表（需新表 + 语义）、表格列集合差异（信息架构不同）、练题端小按钮 r6 vs r8、难度系数目标值配置化（如需按科室/考试类型配，走配置域双份同步范式）。**设计稿 38 页与工程的区块级差异至此已全部对齐或有据可依。**
+
+---
+
+## 逐页全量重审（2026-10-14 第十轮）
+
+第九轮后用户要求「检查每一个页面」。本轮用 CDP 把**全部 37 页设计稿**重跑一遍审计工具（30 页根应用 `audit-fidelity.mjs` + 7 页练题端 `audit-practice.mjs`，第二轮后首次全量重跑），另人工核对了 `dialogs.html`（14 个弹窗）。逐页 diff 输出见 `audit-analysis.txt` / `audit-practice-analysis.txt`（同目录），原始数据 `audit-full.json` / `audit-practice-full.json`。
+
+### 结论结构
+
+30 页共 564 处元素级差异，**绝大多数为已知 D 类或探针语义盲区**，真实缺陷 4 项（已修）：
+
+| 类别 | 占比 | 说明 |
+| --- | --- | --- |
+| **D 类已知偏差** | ~60% | 字重取整（660/620/580/670→600/700）、表头 12px/.05em/38px、按钮 padding 由 8px 12px 撑 32px 高（设计 height+0 12px 等效）、输入框 box-shadow vs 真 border（结构差异）、表格单元水平内距在 `.cell`（12px vs 设计 14px） |
+| **探针盲区** | ~35% | 「标题未匹配」多为：设计稿把弹窗/空态示例画进页面（工程弹窗默认不在 DOM）、工程用非 `el-card__header` 结构（如 `.table-card__toolbar`、`.monitor__card`）、措辞差异（成绩趋势/我的成绩趋势） |
+| **真实缺陷** | 4 项 | 见下表，全部修复并 CDP 实测 |
+
+### 修复的 4 项真实缺陷
+
+| # | 缺陷 | 根因 | 修法 | 实测 |
+| --- | --- | --- | --- | --- |
+| 1 | **卡片带 EP 默认投影**（banks 题库卡 `rgba(0,0,0,.12) 0 0 12px`），违反「卡片零投影」铁律 | 全局 `.el-card.el-card` 只改了圆角/描边；EP 的 `.el-card.is-always-shadow` 同为 (0,2,0) 且懒加载后注入胜出——113 处卡片靠逐个写 `shadow="never"` 兜着，漏 1 处即露馅 | **三写类名 (0,3,0) 全局禁用** `.el-card.el-card.is-always-shadow / .is-hover-shadow` 的 box-shadow + 该卡补 `shadow="never"`；护栏 1 条 | is-always-shadow 卡实测 `boxShadow: none` |
+| 2 | **body 缺 line-height**（两端同病）：B1 修了字号漏了行距，自然文本取浏览器 normal（≈1.2），全站正文行距比设计稿（13.5px/1.55、14px/1.55）紧一档 | B1 只补了 `font-size` | 两端 body 补 `line-height: 1.55`；护栏 2 条 | admin 20.925px（=13.5×1.55）、practice 21.7px（=14×1.55） |
+| 3 | **状态徽标 9999px 胶囊且无圆点**：设计稿 `.bdg` 是 5px 方角 + 5px 圆点（75 处 ok/34 warn/28 err 全带圆点） | `StatusTag` 写了 EP 的 `round` 属性——`.el-tag.is-round` 与全局 `.el-tag.el-tag{border-radius:5px}` 同优先级，EP 后注入胜出，**是 A6 修复的唯一漏网点** | 去 `round` + 组件内补 `.bdg` 形态（gap 5px + `::before` 5px 圆点 currentColor） | borderRadius 5px / height 20px / 11.5px / 圆点 5px 50% ✓ |
+| 4 | **登录页主按钮 46px/15px/字距 .2em**，设计稿 login.html 内联显式 `height:38px;font-size:13.5px` | 工程自定放大 | 改 38px / 13.5px / 500 / 去字距 | 实测 38px/13.5px/500/normal ✓ |
+
+### 人工核对的判定记录（探针盲区复原）
+
+- **exam-monitor「考试概况」**：工程有 7 张自定义概况卡（应考/作答中/未开始/已交卷/待阅卷/切屏异常/平均分），非 el-card 结构故探针采不到——**已实现**；
+- **exam-home「快捷入口」**：工程 2×2 竖排图标块（div 实现），探针把设计稿 `.btn--s`（66px）对到了工程的另一个 el-button——**误报**；
+- **departments「科室列表」/ appeals「成绩变更史」/ practice-settings「题库开放清单」**：工程均用非 `el-card__header` 结构承载标题——**已实现**；
+- **dialogs.html 14 个弹窗**：工程全部有对应实现；仅 2 处标题措辞不同（「批量导入账号」vs「批量导入用户」、「批量导入试题」vs「批量导入题目」，工程更精确）；
+- **`设计稿 cards 多于工程`**（users 5/1、exams 4/1、papers 9/2、banks 9/3 等）：设计稿画的是「弹窗合集 + 空态示例」，非同屏结构。
+
+### 仍开放（需产品决策）
+
+- **桌面端 `.btn--sm` 小按钮档**（28px/r4/12px）：设计稿在操作列与卡片小按钮大量使用，工程统一 32px/r6/12.5px（ exam-my/exam-taking/exam-scores/content/home-config 实测命中）——是「单档收敛」的合理延伸还是漏实现，需产品定夺；
+- 练题端小按钮 34px/r8 vs 工程 32px/r6（既有开放项）；
+- `settings` 页签 vs 设计稿「每域一卡」、`banks` 卡片网格 vs 设计稿表格（信息架构不同）；
+- 登录输入框 40px（EP large 标准档）vs `.inp--lg` 38px——2px 差异，工程有意用 large 档。
+
+### 视觉回归抽查（body line-height 影响面）
+
+`_shot/_reg-{dashboard,settings,exams,examhome,phome}.png` 五张全页截图确认行距变化未破坏任何布局。
+
+### 验证汇总
+
+- 根应用：vue-tsc 0 / vitest **233/233**（+2）/ build ✅；
+- 练题端：vue-tsc 0 / vitest **25/25**（+1）/ build ✅（1 个沙箱 temp 文件 EPERM 噪声，与代码无关）；
+- 服务端零改动。

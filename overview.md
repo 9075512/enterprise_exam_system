@@ -200,3 +200,14 @@
 - **验证**：CDP 实测（考生视角）4 条时间线倒序、三态圆点与提示条计算值全中（`$color-success`/`$color-error`/`$line-strong`/warning 三件套），与列表「复核状态」列同源联动；验证数据带标记直插 `score_appeals`（不改任何成绩）实测后精确清理。前端 225 → **231/231**、vue-tsc 0、build ✅；服务端零改动。截图 `_shot/exam-scores-appeal-log.png`
 
 **至此设计稿 38 页与工程的区块级差异已全部对齐或有据可依**；仍开放项均需产品决策（阅卷 SLA 与告警工单表、表格列集合信息架构、练题端小按钮圆角、难度目标值配置化）。
+
+## 逐页全量重审（第十轮）
+
+用户要求「检查每一个页面」。CDP 重跑全部 37 页设计稿审计（30 页根应用 + 7 页练题端，第二轮后首次全量重跑）+ 人工核对 dialogs.html 14 弹窗，逐页 diff 564 处。绝大多数为已文档化 D 类与探针语义盲区（exam-monitor 概况 7 卡、exam-home 快捷入口、departments/appeals 标题结构等均人工复核为已实现）；**真实缺陷 4 项全部修复**：
+
+1. **卡片投影残留**（铁律违反）：全局三写类名 `.el-card.el-card.is-always-shadow` 禁投影兜底 + banks 卡补 `shadow="never"`——113 处卡片此前靠逐个属性兜，漏 1 处即露馅；
+2. **body 行距缺失**（两端同病）：B1 修了字号漏了行距，补 `line-height: 1.55`（admin 20.925px / practice 21.7px 实测对齐）；
+3. **状态徽标胶囊化**：StatusTag 的 EP `round` 属性绕过了 A6 的 5px 圆角修复（同优先级被懒加载覆盖），去 round + 补 `.bdg` 形态（方角 + 5px 圆点）；
+4. **登录按钮 46px→38px**（设计稿内联显式刻度）。
+
+护栏 +3（零投影兜底 / 两端 body 行距）；回归抽查 5 张全页截图无布局破坏。根应用 **233/233**（+2）、练题端 **25/25**（+1）、vue-tsc 0、build ✅。逐页清单见 `docs/ui-v3b/PAGE-BY-PAGE.md`，逐页 diff 见 `audit-analysis.txt`。开放项：桌面端 `.btn--sm` 小按钮档、settings 页签 vs 卡片、练题端 r6/r8（均需产品决策）。
