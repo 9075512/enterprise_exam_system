@@ -8,14 +8,20 @@
  *                  + 数字给分 + 「本题评分」确认
  *   ③ 总分汇总 —— 右栏，客观题得分 + 主观题得分 = 合计；未评完时提示剩余题数
  *
- * 数据与提交契约均未改动：
- *   - 队列数据仍走 recordsApi.listPending(...)（分页沿用 usePagination）；
- *   - 逐题给分汇总后仍走 recordsApi.review(id, subjectiveScores)。
+ * 数据与提交契约：
+ *   - 队列数据走 recordsApi.listPending(...)（分页沿用 usePagination）；
+ *   - 提交走 recordsApi.review(id, subjectiveScores, reviewNotes)（v3.3 起附逐题评语 / 存疑）。
+ *
+ * v3.3 补齐设计稿的阅卷三件套：
+ *   - 逐题「评语」（可选，勾选后同步给考生）+ 「标记存疑」（内部标记）；
+ *   - 键盘快捷键：1–9 采纳第 N 档评分细则 · ← → 切换题目 · Enter 提交并下一份
+ *     （光标处于输入框 / 按钮内不触发，避免误伤）。
  *
  * v1.9④：支持按考试收窄（`?examId=`，与「考试管理」行操作直达链接打通）。
  */
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
+import { Flag, InfoFilled } from '@element-plus/icons-vue';
 import * as recordsApi from '@/api/records';
 import { useExamScope } from '@/composables/useExamScope';
 import { usePagination } from '@/composables/usePagination';
@@ -25,7 +31,7 @@ import { formatScore } from '@/utils/format';
 import EmptyState from '@/components/common/EmptyState.vue';
 import ExamScopeSelect from '@/components/common/ExamScopeSelect.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
-import type { ExamRecord, PaperSnapshotQuestion, RubricBand } from '@/types';
+import type { ExamRecord, PaperSnapshotQuestion, ReviewNote, ReviewNotes, RubricBand } from '@/types';
 
 const settingsStore = useSettingsStore();
 
@@ -73,7 +79,7 @@ function shortReference(sq: PaperSnapshotQuestion): string {
   return (sq.question.answer as string[])[0] ?? '';
 }
 
-/* ------------------------------ 给分状态 ------------------------------ */
+/* ------------------------------ 给分与备注状态 ------------------------------ */
 
 /** 已填得分：Record<questionId, number>（提交时原样交给 recordsApi.review） */
 const scores = ref<Record<string, number>>({});
@@ -81,16 +87,39 @@ const scores = ref<Record<string, number>>({});
 /** 已点「本题评分」确认的题（本地状态，用于汇总进度提示；不改变提交契约） */
 const rated = ref<Record<string, boolean>>({});
 
+/** 逐题评语文本：Record<questionId, string> */
+const comments = ref<Record<string, string>>({});
+
+/** 逐题评语是否同步给考生：Record<questionId, boolean>（默认勾选） */
+const commentVisible = ref<Record<string, boolean>>({});
+
+/** 逐题「标记存疑」：Record<questionId, boolean>（内部标记，不对考生展示） */
+const doubtful = ref<Record<string, boolean>>({});
+
+/** 当前聚焦题目 id（快捷键 1–9 / 高亮作用对象） */
+const activeId = ref('');
+
+/** 组件根节点（滚动定位当前题目用） */
+const rootRef = ref<HTMLElement | null>(null);
+
 /** 为当前记录初始化给分：默认取评分细则最高档，否则 0 分（沿用既有默认） */
 function resetScores(): void {
   scores.value = {};
   rated.value = {};
+  comments.value = {};
+  commentVisible.value = {};
+  doubtful.value = {};
+  activeId.value = '';
   const record = current.value;
   if (!record) return;
-  for (const sq of shortQuestions(record)) {
+  const shorts = shortQuestions(record);
+  for (const sq of shorts) {
     const bands = rubricBands(sq);
     scores.value[sq.questionId] = bands.length > 0 ? bands[0].score : 0;
+    comments.value[sq.questionId] = '';
+    commentVisible.value[sq.questionId] = true;
   }
+  activeId.value = shorts[0]?.questionId ?? '';
 }
 
 /** 选中队列项 → 成为当前记录 */
@@ -116,6 +145,11 @@ async function refresh(): Promise<void> {
 onMounted(() => {
   void settingsStore.load();
   void refresh();
+  window.addEventListener('keydown', onKeydown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown);
 });
 
 /** 考试范围变化 → 回到第 1 页重查 */
@@ -227,36 +261,135 @@ function rateQuestion(sq: PaperSnapshotQuestion): void {
   rated.value[sq.questionId] = true;
 }
 
+/* ------------------------------ 备注（评语 / 存疑） ------------------------------ */
+
+/** 切换「标记存疑」 */
+function toggleDoubtful(questionId: string): void {
+  doubtful.value[questionId] = !doubtful.value[questionId];
+}
+
+/** 组装提交备注：剔除空评语条目（与后端归一化口径一致，避免提交无用键） */
+function buildReviewNotes(): ReviewNotes {
+  const record = current.value;
+  const out: ReviewNotes = {};
+  if (!record) return out;
+  for (const sq of shortQuestions(record)) {
+    const note: ReviewNote = {};
+    const comment = (comments.value[sq.questionId] ?? '').trim();
+    if (comment) {
+      note.comment = comment;
+      note.commentVisible = commentVisible.value[sq.questionId] === true;
+    }
+    if (doubtful.value[sq.questionId]) note.doubtful = true;
+    if (Object.keys(note).length > 0) out[sq.questionId] = note;
+  }
+  return out;
+}
+
+/* ------------------------------ 当前题目与快捷键 ------------------------------ */
+
+/** 点击题目卡片 → 设为当前题目 */
+function setActive(questionId: string): void {
+  activeId.value = questionId;
+}
+
+/** ← → 切换当前题目，并把目标题滚动到可视区 */
+function moveActive(delta: number): void {
+  const record = current.value;
+  if (!record) return;
+  const shorts = shortQuestions(record);
+  if (shorts.length === 0) return;
+  const cur = shorts.findIndex((sq) => sq.questionId === activeId.value);
+  const nextIndex = Math.min(Math.max((cur < 0 ? 0 : cur) + delta, 0), shorts.length - 1);
+  const target = shorts[nextIndex];
+  activeId.value = target.questionId;
+  void nextTick(() => {
+    const el = rootRef.value?.querySelector<HTMLElement>(`[data-qid="${target.questionId}"]`);
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
+}
+
+/**
+ * 键盘快捷键（对齐设计稿 reviews.html）：
+ *   1–9 采纳当前题目第 N 档评分细则 · ← → 切换题目 · Enter 提交并下一份。
+ * 光标处于输入框 / 文本域 / 下拉 / 按钮内时不触发（避免与原生交互冲突）。
+ */
+function onKeydown(event: KeyboardEvent): void {
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  const el = event.target as HTMLElement | null;
+  if (el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(el.tagName))) return;
+  if (!current.value) return;
+
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault();
+    moveActive(-1);
+    return;
+  }
+  if (event.key === 'ArrowRight') {
+    event.preventDefault();
+    moveActive(1);
+    return;
+  }
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    void submitAndAdvance();
+    return;
+  }
+  if (/^[1-9]$/.test(event.key)) {
+    const active = shortQuestions(current.value).find((sq) => sq.questionId === activeId.value);
+    if (!active) return;
+    const band = rubricBands(active)[Number(event.key) - 1];
+    if (band) {
+      event.preventDefault();
+      applyBand(active.questionId, band.score);
+    }
+  }
+}
+
 const submittingReview = ref(false);
 
 /**
- * 提交阅卷：契约未改动 —— 汇总各题得分后交给 recordsApi.review(id, subjectiveScores)。
+ * 提交阅卷：汇总各题得分与备注后交给 recordsApi.review(id, subjectiveScores, reviewNotes)。
+ * 返回是否成功（Enter 快捷键据此决定是否推进到下一份）。
  */
-async function handleSubmitReview(): Promise<void> {
+async function handleSubmitReview(): Promise<boolean> {
   const record = current.value;
-  if (!record) return;
+  if (!record) return false;
   for (const sq of shortQuestions(record)) {
     const given = scores.value[sq.questionId];
     if (!Number.isFinite(given) || given < 0 || given > sq.score) {
       ElMessage.warning(`请为所有简答题填写 0 ~ ${formatScore(sq.score)} 之间的得分`);
-      return;
+      return false;
     }
   }
   submittingReview.value = true;
   try {
-    await recordsApi.review(record.id, scores.value);
+    await recordsApi.review(record.id, { ...scores.value }, buildReviewNotes());
     ElMessage.success('阅卷完成，最终成绩已生成');
     await refresh();
+    return true;
   } catch {
     // 错误已由拦截器提示
+    return false;
   } finally {
     submittingReview.value = false;
+  }
+}
+
+/** 提交阅卷并推进到队列中的下一份（Enter 快捷键） */
+async function submitAndAdvance(): Promise<void> {
+  const idx = list.value.findIndex((row) => row.id === currentId.value);
+  const ok = await handleSubmitReview();
+  if (!ok) return;
+  if (idx >= 0 && list.value.length > 0) {
+    const next = list.value[Math.min(idx, list.value.length - 1)];
+    if (next && next.id !== currentId.value) selectRecord(next);
   }
 }
 </script>
 
 <template>
-  <div class="review-page">
+  <div ref="rootRef" class="review-page">
     <PageHeader title="人工阅卷" :description="headerText">
       <template #actions>
         <ExamScopeSelect v-model="examId" />
@@ -359,18 +492,31 @@ async function handleSubmitReview(): Promise<void> {
             v-for="(sq, i) in shortQuestions(current)"
             :key="sq.questionId"
             class="review-page__question"
+            :class="{ 'is-active': sq.questionId === activeId }"
+            :data-qid="sq.questionId"
             shadow="never"
+            @click="setActive(sq.questionId)"
           >
             <div class="review-page__qhead">
               <span class="review-page__qtag">简答</span>
               <span class="review-page__qindex">第 {{ i + 1 }} 题</span>
               <span class="review-page__qmax num">满分 {{ formatScore(sq.score) }} 分</span>
+              <span class="review-page__qhead-spacer" />
               <span
                 v-if="rated[sq.questionId]"
-                class="review-page__badge review-page__badge--primary review-page__qhead-badge"
+                class="review-page__badge review-page__badge--primary"
               >
                 已评分
               </span>
+              <button
+                type="button"
+                class="review-page__flag"
+                :class="{ 'is-on': doubtful[sq.questionId] }"
+                @click.stop="toggleDoubtful(sq.questionId)"
+              >
+                <el-icon><Flag /></el-icon>
+                {{ doubtful[sq.questionId] ? '已标记存疑' : '标记存疑' }}
+              </button>
             </div>
 
             <p class="review-page__stem">{{ sq.question.stem }}</p>
@@ -431,6 +577,24 @@ async function handleSubmitReview(): Promise<void> {
               <el-button size="small" @click="setZero(sq)">零分</el-button>
               <span class="review-page__score-spacer" />
               <el-button size="small" type="primary" @click="rateQuestion(sq)">本题评分</el-button>
+            </div>
+
+            <div class="review-page__note">
+              <span class="review-page__note-label">评语</span>
+              <div class="review-page__note-body">
+                <el-input
+                  v-model="comments[sq.questionId]"
+                  type="textarea"
+                  :rows="2"
+                  :maxlength="500"
+                  show-word-limit
+                  resize="none"
+                  placeholder="填写给考生的评语（可选）…"
+                />
+                <el-checkbox v-model="commentVisible[sq.questionId]" size="small">
+                  评语同步展示给考生
+                </el-checkbox>
+              </div>
             </div>
           </el-card>
 
@@ -494,9 +658,13 @@ async function handleSubmitReview(): Promise<void> {
           <EmptyState v-else text="请选择待阅答卷" />
         </el-card>
 
-        <div class="review-page__tip">
-          <!-- 数据缺口：设计稿的「评语 / 标记存疑 / 快捷键」后端无对应字段与接口，暂不提供 -->
-          评语、标记存疑、快捷键：当前版本暂未开放。
+        <div class="review-page__tip review-page__tip--info">
+          <el-icon class="review-page__tip-icon"><InfoFilled /></el-icon>
+          <div>
+            快捷键：<kbd class="review-page__kbd">1</kbd>–<kbd class="review-page__kbd">9</kbd> 采纳第 N 档评分细则 ·
+            <kbd class="review-page__kbd">Enter</kbd> 提交并下一份 ·
+            <kbd class="review-page__kbd">←</kbd> <kbd class="review-page__kbd">→</kbd> 切换题目
+          </div>
         </div>
       </div>
     </div>
@@ -698,6 +866,12 @@ async function handleSubmitReview(): Promise<void> {
 
   &__question {
     border-radius: $radius-base;
+
+    /* 键盘 / 点击聚焦的当前题目：主色描边 + 软底（方向 C 的行焦点语言，无投影） */
+    &.is-active {
+      border-color: $color-primary;
+      background: $color-primary-soft;
+    }
   }
 
   &__qhead {
@@ -728,8 +902,61 @@ async function handleSubmitReview(): Promise<void> {
     color: $text-secondary;
   }
 
-  &__qhead-badge {
-    margin-left: auto;
+  &__qhead-spacer {
+    flex: 1;
+  }
+
+  /* 「标记存疑」小按钮：常态弱描边，开启后走 warning 三件套（文字用深字档） */
+  &__flag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+    padding: 3px 9px;
+    border: 1px solid $border-color;
+    border-radius: $radius-xs;
+    background: $bg-paper;
+    font-size: 12px;
+    color: $text-secondary;
+    cursor: pointer;
+    transition: color $transition-fast, border-color $transition-fast, background-color $transition-fast;
+
+    &:hover {
+      border-color: $color-primary-border;
+      color: $color-primary;
+    }
+
+    &.is-on {
+      border-color: $color-warning-border;
+      background: $color-warning-bg;
+      color: $color-warning-text;
+    }
+  }
+
+  /* 评语区：与给分行同宽，左侧标签对齐 */
+  &__note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed $border-color;
+  }
+
+  &__note-label {
+    flex: 0 0 60px;
+    padding-top: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: $text-secondary;
+  }
+
+  &__note-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
   }
 
   &__stem {
@@ -926,6 +1153,34 @@ async function handleSubmitReview(): Promise<void> {
     font-size: 12px;
     line-height: 1.6;
     color: $text-secondary;
+
+    /* info 三件套（语义原色只作底/描边，文字走深字档） */
+    &--info {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      border-color: $color-info-border;
+      background: $color-info-bg;
+      color: $color-info-text;
+    }
+  }
+
+  &__tip-icon {
+    flex: 0 0 auto;
+    margin-top: 2px;
+    color: $color-info;
+  }
+
+  &__kbd {
+    display: inline-block;
+    padding: 0 4px;
+    border: 1px solid $border-color;
+    border-radius: $radius-xs;
+    background: $bg-paper;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    color: $text-primary;
   }
 
   &__placeholder :deep(.el-card__body) {

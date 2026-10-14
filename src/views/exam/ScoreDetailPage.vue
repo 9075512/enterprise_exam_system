@@ -28,7 +28,7 @@ import { formatScore, optionLetter } from '@/utils/format';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
-import type { ExamRecord, PaperSnapshotQuestion, Question, QuestionType } from '@/types';
+import type { ExamRecord, PaperSnapshotQuestion, Question, QuestionType, ReviewNote } from '@/types';
 
 const route = useRoute();
 const router = useRouter();
@@ -188,6 +188,15 @@ function qStatus(q: PaperSnapshotQuestion): QStatus {
 function subjectiveScore(questionId: string): number | null {
   const s = record.value?.subjectiveScores?.[questionId];
   return typeof s === 'number' ? s : null;
+}
+
+/**
+ * 该题阅卷备注（评语 / 存疑）。
+ * 注意：**服务端按角色过滤**——考生视角只返回「勾选同步给考生」的评语，存疑等内部标记被剔除，
+ * 因此考生端 `reviewNote().doubtful` 永远为 undefined；管理员查看时才可见。
+ */
+function reviewNote(questionId: string): ReviewNote | undefined {
+  return record.value?.reviewNotes?.[questionId];
 }
 
 /* --------------------------- 知识点掌握（纯前端聚合） --------------------------- */
@@ -471,6 +480,13 @@ onMounted(async () => {
                 <span v-else class="sd__bdg sd__bdg--ok">
                   得分 {{ formatScore(subjectiveScore(item.questionId) ?? 0) }} / {{ formatScore(item.score) }}
                 </span>
+                <!-- 存疑为阅卷内部标记，仅管理员可见（考生视角接口已过滤掉该字段） -->
+                <span
+                  v-if="isAdmin && reviewNote(item.questionId)?.doubtful"
+                  class="sd__bdg sd__bdg--warn"
+                >
+                  阅卷存疑
+                </span>
               </div>
 
               <p class="sd__q-stem">{{ item.question.stem }}</p>
@@ -535,6 +551,13 @@ onMounted(async () => {
                     <strong class="sd__short-score">
                       {{ formatScore(subjectiveScore(item.questionId)!) }} / {{ formatScore(item.score) }}
                     </strong>
+                  </div>
+                  <!-- 阅卷评语（考生可见的评语由服务端按「是否勾选同步」过滤后下发） -->
+                  <div v-if="reviewNote(item.questionId)?.comment" class="sd__short-row">
+                    <span class="sd__kicker">阅卷评语</span>
+                    <span class="sd__short-text sd__short-text--comment">
+                      {{ reviewNote(item.questionId)?.comment }}
+                    </span>
                   </div>
                 </div>
               </template>
@@ -1078,6 +1101,13 @@ onMounted(async () => {
     &--empty {
       border-left-color: $border-color;
       color: $text-secondary;
+    }
+
+    /* 阅卷评语：info 三件套（底 + 描边 + 深字档），区别于考生作答/参考答案 */
+    &--comment {
+      border-left-color: $color-info;
+      background: $color-info-bg;
+      color: $color-info-text;
     }
   }
 

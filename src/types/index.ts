@@ -344,6 +344,19 @@ export interface CheatEvent {
   awaySeconds: number;
 }
 
+/** 阅卷逐题备注（评语 / 评语是否对考生可见 / 标记存疑） */
+export interface ReviewNote {
+  /** 给考生的评语（可选） */
+  comment?: string;
+  /** 评语是否同步展示给考生（考生视角接口只返回勾选过的评语） */
+  commentVisible?: boolean;
+  /** 标记存疑（阅卷内部标记，仅管理端可见） */
+  doubtful?: boolean;
+}
+
+/** 阅卷逐题备注集合：Record<questionId, ReviewNote>（未阅卷为空对象） */
+export type ReviewNotes = Record<string, ReviewNote>;
+
 /** 试卷快照中的题目：题目内容冻结副本 + 分值 */
 export interface PaperSnapshotQuestion {
   questionId: string;
@@ -373,6 +386,8 @@ export interface ExamRecord {
   answers: Record<string, number[] | string[]>;
   /** 主观题阅卷得分：Record<questionId, number>（未阅卷为空对象） */
   subjectiveScores: Record<string, number>;
+  /** 阅卷逐题备注（评语 / 存疑）：Record<questionId, ReviewNote>。考生视角接口做服务端过滤，仅返回勾选同步的评语 */
+  reviewNotes: ReviewNotes;
   /** 开考时刻 ISO 8601（倒计时基准，刷新不重置） */
   startedAt: string;
   /** 交卷时刻 ISO 8601，未交卷为 null */

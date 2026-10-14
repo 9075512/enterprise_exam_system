@@ -1,6 +1,6 @@
 /** 考试记录 API（§4.5 考试 / 记录 / 报表） */
 import { get, post, put } from './http';
-import type { ExamRecord, Page } from '@/types';
+import type { ExamRecord, Page, ReviewNotes } from '@/types';
 
 /** 我的成绩（已交卷，分页；keyword 可选，按考试名称模糊匹配） */
 export function my(
@@ -47,9 +47,13 @@ export function listPending(
   });
 }
 
-/** 提交人工阅卷（逐题主观分） */
-export function review(id: string, subjectiveScores: Record<string, number>): Promise<ExamRecord> {
-  return put<ExamRecord>(`/records/${id}/review`, { subjectiveScores });
+/** 提交人工阅卷（逐题主观分 + 逐题评语 / 存疑备注） */
+export function review(
+  id: string,
+  subjectiveScores: Record<string, number>,
+  reviewNotes: ReviewNotes = {},
+): Promise<ExamRecord> {
+  return put<ExamRecord>(`/records/${id}/review`, { subjectiveScores, reviewNotes });
 }
 
 /** 暂存答案 */
