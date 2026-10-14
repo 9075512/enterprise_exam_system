@@ -4,6 +4,7 @@ import type {
   BankAuthorBatchResult,
   BankCloneResult,
   BankDetail,
+  BankQuestionStats,
   QuestionBank,
   Question,
   QuestionDifficulty,
@@ -84,6 +85,14 @@ export function migrate(
   payload: { targetBankId: string; questionIds: string[] },
 ): Promise<{ moved: number }> {
   return post<{ moved: number }>(`/banks/${bankId}/questions/migrate`, payload);
+}
+
+/**
+ * 题库题目健康度统计（v3.3；题型分布 / 平均正确率 / 待完善口径）。
+ * 全部实时聚合，无缓存列；无练题作答时 `avgCorrectRate` 为 null。
+ */
+export function questionStats(bankId: string): Promise<BankQuestionStats> {
+  return get<BankQuestionStats>(`/banks/${bankId}/question-stats`);
 }
 
 /** 题库授权批量维护入参（v1.7③ S2；三种选择器可组合） */

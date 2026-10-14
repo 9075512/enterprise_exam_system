@@ -7,7 +7,23 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Edit, EditPen, Delete, Plus, Upload, UploadFilled, Search, Refresh, ArrowLeft, UserFilled } from '@element-plus/icons-vue';
+import {
+  Edit,
+  EditPen,
+  Delete,
+  Plus,
+  Upload,
+  UploadFilled,
+  Search,
+  Refresh,
+  ArrowLeft,
+  UserFilled,
+  Collection,
+  List as ListIcon,
+  CircleCheck,
+  TrendCharts,
+  WarningFilled,
+} from '@element-plus/icons-vue';
 import * as banksApi from '@/api/banks';
 import * as questionsApi from '@/api/questions';
 import { useRequest } from '@/composables/useRequest';
@@ -25,6 +41,7 @@ import { useAuthStore } from '@/stores/auth';
 import { formatDateTime } from '@/utils/datetime';
 import { formatScore } from '@/utils/format';
 import BatchActionBar from '@/components/common/BatchActionBar.vue';
+import StatCard from '@/components/common/StatCard.vue';
 import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
 import DataTablePagination from '@/components/common/DataTablePagination.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
@@ -35,7 +52,7 @@ import QuestionBankFormDialog from './QuestionBankFormDialog.vue';
 import QuestionImportDialog from './QuestionImportDialog.vue';
 import QuestionBatchEditDialog from './QuestionBatchEditDialog.vue';
 import BankAuthorBatchDialog from './BankAuthorBatchDialog.vue';
-import type { Question, QuestionDifficulty, QuestionType } from '@/types';
+import type { BankQuestionStats, Question, QuestionDifficulty, QuestionType } from '@/types';
 
 const route = useRoute();
 const router = useRouter();
@@ -51,6 +68,35 @@ const bankId = computed<string>(() => String(route.params.bankId ?? ''));
 const { data: bank, loading: bankLoading, refresh: refreshBank } = useRequest(() =>
   banksApi.detail(bankId.value),
 );
+
+/* ------------------------------ 题目健康度统计（v3.3） ------------------------------ */
+/**
+ * 顶部统计卡数据源（题型分布 / 平均正确率 / 待完善），全部由后端实时聚合。
+ * 口径：平均正确率 = 该题库全部练题作答记录的正确占比；无任何作答 → null（前端显示「—」）。
+ */
+const { data: stats, refresh: refreshStats } = useRequest(() =>
+  banksApi.questionStats(bankId.value),
+);
+
+/** 题型分布（未加载时给全 0，避免模板判空） */
+const typeCount = computed(
+  (): Record<QuestionType, number> =>
+    stats.value?.byType ?? { single: 0, multiple: 0, judge: 0, fill: 0, short: 0 },
+);
+
+/** 平均正确率数值文案（不带 %，% 由 StatCard 的 unit 承担）；无作答 → 「—」，不造数 */
+const avgRateText = computed<string>(() => {
+  const v = stats.value?.avgCorrectRate;
+  if (v == null) return '—';
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+});
+
+/** 待完善口径脚注（拆分「缺解析 / 未设知识点」，供统计卡 foot 使用） */
+const incompleteFoot = computed<string>(() => {
+  const s = stats.value;
+  if (!s) return '';
+  return `缺解析 ${s.missingAnalysisCount} · 未设知识点 ${s.missingTagsCount}`;
+});
 
 /* ------------------------------ 试题筛选 ------------------------------ */
 const filterType = ref<QuestionType | ''>('');
@@ -130,6 +176,7 @@ function onResetFilters(): void {
 /** 新建/编辑/导入后统一刷新 */
 function reloadAll(): void {
   void refreshBank();
+  void refreshStats();
   void load();
   void loadSubjects();
   void loadTags();
@@ -242,6 +289,33 @@ function goBack(): void {
   void router.push('/author/banks');
 }
 
+/* ------------------------------ 正确率展示（v3.3） ------------------------------ */
+/** 正确率文案（整数不带小数，非整数保留 1 位） */
+function formatRate(rate: number): string {
+  return `${Number.isInteger(rate) ? rate : rate.toFixed(1)}%`;
+}
+
+/**
+ * 正确率分档色调：≥80 主色 / 60–79 警示 / <60 错误。
+ * 说明：设计稿示例色（61% 标红、48% 标琥珀）非单调，本实现按单调阈值工程化。
+ * 文字一律走 `-text` 档（700），原色仅作进度条填充，符合 DESIGN-C 语义色铁律。
+ */
+function rateTone(rate: number): 'primary' | 'warn' | 'err' {
+  if (rate >= 80) return 'primary';
+  if (rate >= 60) return 'warn';
+  return 'err';
+}
+
+/** 待完善判定：缺解析 或 未设置知识点（与后端 incompleteCount 同口径） */
+function isIncomplete(question: Question): boolean {
+  return !question.analysis?.trim() || !(question.tags?.length);
+}
+
+/** 待完善行高亮 */
+function rowClassName({ row }: { row: Question }): string {
+  return isIncomplete(row) ? 'row--incomplete' : '';
+}
+
 /* ------------------------------ 知识点分布 ------------------------------ */
 /**
  * 知识点分布：由当前页已加载的题目列表（Question[]）聚合。
@@ -279,6 +353,7 @@ const knowledge = computed(() => {
 /** bankId 变化时重新初始化（同一组件实例内切换路由参数） */
 watch(bankId, () => {
   void refreshBank();
+  void refreshStats();
   loadSubjects();
   loadTags();
   reset();
@@ -286,6 +361,7 @@ watch(bankId, () => {
 
 onMounted(() => {
   void settingsStore.load();
+  void refreshStats();
   loadSubjects();
   loadTags();
   void load();
@@ -299,6 +375,42 @@ onMounted(() => {
         <el-button :icon="ArrowLeft" @click="goBack">返回列表</el-button>
       </template>
     </PageHeader>
+
+    <!-- 题目健康度统计（v3.3；对齐设计稿 bank-detail.html 顶部五张卡：题型分布 / 平均正确率 / 待完善） -->
+    <div class="bank-detail__stats">
+      <StatCard label="题目总数" :value="stats?.total ?? 0" unit="道" :icon="Collection" />
+      <StatCard
+        label="单选 / 多选"
+        :value="`${typeCount.single} / ${typeCount.multiple}`"
+        :icon="ListIcon"
+      />
+      <StatCard
+        label="判断 / 简答"
+        :value="`${typeCount.judge} / ${typeCount.short}`"
+        :icon="CircleCheck"
+      >
+        <template v-if="typeCount.fill > 0" #foot>含填空 {{ typeCount.fill }} 道</template>
+      </StatCard>
+      <StatCard
+        label="平均正确率"
+        :value="avgRateText"
+        :unit="stats?.avgCorrectRate != null ? '%' : ''"
+        :icon="TrendCharts"
+      >
+        <template #foot>
+          {{ stats && stats.answeredCount > 0 ? `${stats.answeredCount} 道有练题作答` : '暂无练题作答' }}
+        </template>
+      </StatCard>
+      <StatCard
+        label="待完善"
+        :value="stats?.incompleteCount ?? 0"
+        unit="道"
+        tone="warning"
+        :icon="WarningFilled"
+      >
+        <template #foot>{{ incompleteFoot }}</template>
+      </StatCard>
+    </div>
 
     <div class="bank-detail__body">
       <!-- 左列：题库信息卡 -->
@@ -418,6 +530,7 @@ onMounted(() => {
             :data="questions"
             row-key="id"
             stripe
+            :row-class-name="rowClassName"
             @selection-change="onSelectionChange"
           >
             <el-table-column type="selection" width="46" reserve-selection />
@@ -458,18 +571,38 @@ onMounted(() => {
                     {{ tag }}
                   </el-tag>
                 </template>
-                <span v-else class="cell-tag--empty">—</span>
+                <span v-else class="cell-tag--empty">未设置</span>
               </template>
             </el-table-column>
             <el-table-column label="默认分值" width="90" align="center">
               <template #default="{ row }">{{ formatScore(row.defaultScore) }}</template>
+            </el-table-column>
+            <!-- 正确率（v3.3）：数值 + 内联进度条，三档单调着色；无作答 → 「—」 -->
+            <el-table-column label="正确率" width="130" align="center">
+              <template #default="{ row }">
+                <div v-if="row.correctRate != null" class="rate-cell">
+                  <span class="rate-cell__num" :class="`is-${rateTone(row.correctRate as number)}`">
+                    {{ formatRate(row.correctRate as number) }}
+                  </span>
+                  <span class="rate-cell__track">
+                    <i
+                      class="rate-cell__fill"
+                      :class="`is-${rateTone(row.correctRate as number)}`"
+                      :style="{ width: `${Math.min(row.correctRate as number, 100)}%` }"
+                    ></i>
+                  </span>
+                </div>
+                <span v-else class="bank-detail__muted">—</span>
+              </template>
             </el-table-column>
             <el-table-column label="创建时间" width="160">
               <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
             </el-table-column>
             <el-table-column label="操作" width="120" fixed="right">
               <template #default="{ row }">
-                <el-button type="primary" link @click="openEditQuestion(row as Question)">编辑</el-button>
+                <el-button type="primary" link @click="openEditQuestion(row as Question)">
+                  {{ isIncomplete(row as Question) ? '补齐' : '编辑' }}
+                </el-button>
                 <el-button type="danger" link @click="handleDeleteQuestion(row as Question)">删除</el-button>
               </template>
             </el-table-column>
@@ -623,6 +756,22 @@ onMounted(() => {
   &__filter-keyword {
     width: 220px;
   }
+
+  // 顶部五张健康度统计卡（对齐设计稿 .grid.g5）
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+
+    @media (max-width: 1400px) {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    @media (max-width: 900px) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
 }
 
 .bank-info {
@@ -689,7 +838,8 @@ onMounted(() => {
   margin: 0 4px 2px 0;
 
   &--empty {
-    color: $text-secondary;
+    // 未设置知识点 → 待完善信号，用警示文本档（700，非原色）
+    color: $color-warning-text;
   }
 }
 
@@ -830,6 +980,69 @@ onMounted(() => {
   &__cols {
     font-size: 12px;
     color: $text-secondary;
+  }
+}
+
+// 正确率单元格（v3.3）：数值 + 42px 内联进度条，三档单调着色
+.rate-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  &__num {
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+
+    &.is-primary {
+      color: $text-primary;
+    }
+
+    &.is-warn {
+      color: $color-warning-text;
+    }
+
+    &.is-err {
+      color: $color-error-text;
+    }
+  }
+
+  &__track {
+    display: inline-block;
+    width: 42px;
+    height: 5px;
+    border-radius: $radius-xs;
+    background: $color-neutral-bg;
+    overflow: hidden;
+  }
+
+  &__fill {
+    display: block;
+    height: 100%;
+    border-radius: $radius-xs;
+
+    &.is-primary {
+      background: $color-primary;
+    }
+
+    &.is-warn {
+      background: $color-warning;
+    }
+
+    &.is-err {
+      background: $color-error;
+    }
+  }
+}
+
+// 待完善行高亮（对齐设计稿 table 行 background: var(--warn-s)）。
+// 双写类名 + 抬一级选择器压过 EP 斑马纹背景（EP 组件 CSS 懒加载、后于全局样式注入）。
+.bank-detail__main {
+  :deep(.el-table.el-table .row--incomplete > td.el-table__cell) {
+    background: $color-warning-bg;
+  }
+
+  :deep(.el-table.el-table--striped .el-table__body tr.row--incomplete > td.el-table__cell) {
+    background: $color-warning-bg;
   }
 }
 </style>

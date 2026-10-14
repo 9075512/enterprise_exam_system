@@ -222,6 +222,32 @@ export interface Question {
   createdBy: string;
   /** ISO 8601 */
   createdAt: string;
+  /**
+   * 作答正确率百分比（0-100，保留 1 位小数，v3.3）。
+   * `null` / 缺省 = 从未被练题作答（题库详情列表接口返回；其余接口可不返回）。
+   */
+  correctRate?: number | null;
+}
+
+/**
+ * 题库题目健康度统计（v3.3，题库详情页顶部统计卡数据源）。
+ * 与后端 `BankQuestionStatsDto` 一一对应，全部由题表 + 练题作答明细实时聚合。
+ */
+export interface BankQuestionStats {
+  /** 题库存题总数 */
+  total: number;
+  /** 按题型分布计数（五种题型恒有键） */
+  byType: Record<QuestionType, number>;
+  /** 有练题作答记录的题数 */
+  answeredCount: number;
+  /** 全库加权平均正确率百分比（0-100，保留 1 位小数）；无任何作答 → null */
+  avgCorrectRate: number | null;
+  /** 「待完善」题数 = 缺解析 或 未设置知识点（并集） */
+  incompleteCount: number;
+  /** 缺解析题数 */
+  missingAnalysisCount: number;
+  /** 未设置知识点题数 */
+  missingTagsCount: number;
 }
 
 /** 试卷中的题目引用（题目内容 + 分值） */
