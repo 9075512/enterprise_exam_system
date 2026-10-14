@@ -190,6 +190,91 @@ function subjectiveScore(questionId: string): number | null {
   return typeof s === 'number' ? s : null;
 }
 
+/* --------------------------- 知识点掌握（纯前端聚合） --------------------------- */
+
+/** tags 为空时的知识点归口 */
+const UNLABELED_KNOWLEDGE = '未标注';
+/** 主观题「得分」判定线：≥ 满分 × 0.6 记得分（口径说明见 masteryMark） */
+const SUBJECTIVE_PASS_RATIO = 0.6;
+/** 掌握率达标线：≥ 0.8 用主色，低于此档用 warning（图形档） */
+const MASTERY_GOOD_RATE = 0.8;
+
+/** 单题掌握标记：得分 / 未得分 / 未评 */
+type MasteryMark = 'correct' | 'wrong' | 'unrated';
+
+/**
+ * 逐题「得分 / 未得分」判定（兼容全部题型）：
+ * - 单选 / 多选 / 判断：走 isAnswerCorrect（多选排序后逐项相等，单选/判断单值相等）；
+ * - 填空：走 isAnswerCorrect（逐空 trim + 忽略大小写，与后端 grading.ts 同口径）；
+ * - 简答：以 subjectiveScores[questionId] ≥ 满分 × 0.6 记「得分」，否则「未得分」；
+ *   无 subjectiveScores 记录（未阅卷）视为「未评」，不计入掌握率分母（单列说明）。
+ */
+function masteryMark(item: PaperSnapshotQuestion): MasteryMark {
+  if (item.question.type === 'short') {
+    const s = subjectiveScore(item.questionId);
+    if (s === null) return 'unrated';
+    return s >= item.score * SUBJECTIVE_PASS_RATIO ? 'correct' : 'wrong';
+  }
+  return questionCorrect(item.question) ? 'correct' : 'wrong';
+}
+
+interface KnowledgeStat {
+  name: string;
+  correct: number;
+  total: number;
+  rate: number;
+}
+
+/**
+ * 知识点掌握聚合。
+ * 口径：以题目 question.tags（知识点标签，v1.7② 起为多标签）为知识点维度——
+ * tags 比 subject（科目）更细，能落到「安全生产法 / 隐患排查」这类知识点级别。
+ * 多标签题目分别计入各自知识点（故各组题数之和可能大于总题数）；tags 为空归「未标注」。
+ * 掌握率 = 该知识点下「得分」题数 / 已判定题数；「未评」题（未阅卷简答）不计入分母。
+ */
+const knowledgeStats = computed<KnowledgeStat[]>(() => {
+  const map = new Map<string, { correct: number; total: number }>();
+  for (const item of record.value?.paperSnapshot.questions ?? []) {
+    const mark = masteryMark(item);
+    if (mark === 'unrated') continue;
+    const tags = (item.question.tags ?? []).map((t) => t.trim()).filter(Boolean);
+    const points = tags.length > 0 ? tags : [UNLABELED_KNOWLEDGE];
+    for (const name of points) {
+      const cur = map.get(name) ?? { correct: 0, total: 0 };
+      cur.total += 1;
+      if (mark === 'correct') cur.correct += 1;
+      map.set(name, cur);
+    }
+  }
+  return [...map.entries()]
+    .map(([name, s]) => ({
+      name,
+      correct: s.correct,
+      total: s.total,
+      rate: s.total === 0 ? 0 : s.correct / s.total,
+    }))
+    .sort((a, b) => b.rate - a.rate || a.name.localeCompare(b.name, 'zh'));
+});
+
+/** 未评题数（无阅卷记录的主观题），> 0 时在卡内说明 */
+const knowledgeUnratedCount = computed<number>(
+  () => (record.value?.paperSnapshot.questions ?? []).filter((q) => masteryMark(q) === 'unrated').length,
+);
+
+/** 掌握偏低（< 达标线）的知识点，用于「建议专项巩固」提示；「未标注」不参与建议 */
+const weakKnowledge = computed<KnowledgeStat[]>(() =>
+  knowledgeStats.value.filter((k) => k.rate < MASTERY_GOOD_RATE && k.name !== UNLABELED_KNOWLEDGE),
+);
+
+function masteryPercent(rate: number): number {
+  return Math.round(rate * 100);
+}
+
+/** 掌握率档位（仅决定进度条图形色：主色 / warning，不承载文字色） */
+function masteryTone(rate: number): 'ok' | 'warn' {
+  return rate >= MASTERY_GOOD_RATE ? 'ok' : 'warn';
+}
+
 /** 选项字母串（如 A、C） */
 function lettersOf(indexes: number[]): string {
   return indexes.map((i) => optionLetter(i)).join('、');
@@ -517,6 +602,39 @@ onMounted(async () => {
 
           <div v-if="cheatCount > 0" class="sd__tip sd__tip--inline" :class="{ 'sd__tip--err': cheatAbnormal }">
             累计 <b>{{ cheatTotalSeconds }} 秒</b>，{{ cheatAbnormal ? '已超过阈值' : '未超过阈值，不影响成绩' }}。
+          </div>
+        </el-card>
+
+        <el-card class="sd__side-card" shadow="never">
+          <template #header>
+            <h3 class="sd__card-title">知识点掌握</h3>
+          </template>
+
+          <EmptyState v-if="knowledgeStats.length === 0" text="暂无知识点数据" :image-size="42" />
+
+          <div v-else class="sd__kbar">
+            <div v-for="k in knowledgeStats" :key="k.name" class="sd__kbar-item">
+              <div class="sd__kbar-head">
+                <span class="sd__kbar-name" :title="k.name">{{ k.name }}</span>
+                <span class="sd__kbar-val">{{ masteryPercent(k.rate) }}%</span>
+              </div>
+              <div class="sd__kbar-track">
+                <i
+                  class="sd__kbar-fill"
+                  :class="`is-${masteryTone(k.rate)}`"
+                  :style="{ width: `${masteryPercent(k.rate)}%` }"
+                />
+              </div>
+              <div class="sd__kbar-sub">得分 {{ k.correct }} / 共 {{ k.total }} 题</div>
+            </div>
+          </div>
+
+          <!-- 数据缺口：未阅卷主观题无 subjectiveScores 记录，无法判定得分，未计入掌握率 -->
+          <div v-if="knowledgeUnratedCount > 0" class="sd__tip sd__tip--inline">
+            本卷含 <b>{{ knowledgeUnratedCount }}</b> 道主观题尚未阅卷，暂无得分记录，未计入上述掌握率。
+          </div>
+          <div v-else-if="weakKnowledge.length > 0" class="sd__tip sd__tip--inline">
+            「{{ weakKnowledge.map((k) => k.name).join('」「') }}」掌握偏低，建议到练题端专项巩固。
           </div>
         </el-card>
       </aside>
@@ -1086,6 +1204,71 @@ onMounted(async () => {
     margin-top: 2px;
     font-size: 11.5px;
     color: $text-secondary;
+  }
+
+  /* 知识点掌握（设计稿 .bars / .bar-row / .bar-track） */
+  &__kbar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  &__kbar-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  &__kbar-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  &__kbar-name {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 12.5px;
+    color: $text-body;
+  }
+
+  &__kbar-val {
+    flex: 0 0 auto;
+    font-size: 12.5px;
+    font-weight: 620;
+    color: $text-primary;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__kbar-track {
+    height: 6px;
+    border-radius: $radius-xs;
+    background: $color-neutral-bg;
+    overflow: hidden;
+  }
+
+  &__kbar-fill {
+    display: block;
+    height: 100%;
+    border-radius: $radius-xs;
+
+    /* 语义色仅作图形（进度条填充），不承载文字色（DESIGN-C §2.5） */
+    &.is-ok {
+      background: $color-primary;
+    }
+
+    &.is-warn {
+      background: $color-warning;
+    }
+  }
+
+  &__kbar-sub {
+    font-size: 11px;
+    color: $text-secondary;
+    font-variant-numeric: tabular-nums;
   }
 
   @media (max-width: 1080px) {
