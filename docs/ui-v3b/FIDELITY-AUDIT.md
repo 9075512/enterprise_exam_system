@@ -170,3 +170,35 @@ B/A/A9 类全部修完后，用同一把尺子重跑 `tools/audit-fidelity.mjs`�
 
 **仍开放的缺口（后端无对应字段/接口，前端已 `—` + 注释标注，需产品决策是否加后端）**：
 题目级健康度指标（缺解析 / 从未被使用 / 正确率<30% / 近 12 个月未更新）；题目 `difficulty` 字段；阅卷 SLA（超时 N 小时）与告警工单表；阅卷评语 / 标记存疑 / 快捷键；表格列集合差异（信息架构不同）。
+
+---
+
+## 练题端（practice-web）专项审计（2026-10-14 第四轮）
+
+> 前三轮的审计 lane 只覆盖根应用（30 页同源 5173）；**练题端是独立构建、独立端口（5174）、独立 token（`practice.token`）、独立 styles/**，从未过 computed-style 审计。本轮新增 `tools/audit-practice.mjs`（探针换成移动端 kit `kit/m.css` 的 `.m-*` ↔ 练题端工程选择器，移动视口 390×844），对 7 页设计稿逐页实测。
+
+### 结论：与根应用同源的 B / A9 类缺陷
+
+| 项 | 设计（kit/m.css） | 练题端实测（改前） | 修法 |
+| --- | --- | --- | --- |
+| **B1 同类 · body 基准字号** | **14px** | **16px**（7/7 页）——EP 浮层 teleport 到 body 继承浏览器默认 | `body { font-size: 14px }` |
+| **B2 同类 · 输入框描边** | `--line-strong` **#D9DEE7** | `:root` 写了 #D9DEE7，但 `.el-input` 元素作用域实测 **#e9ecf1**（EP 在元素作用域重定义同名变量，按作用域规则必胜；登录页只是本地 box-shadow 兜了底，其余 el-input 全中招） | `:root` 保留 + 新增 `.el-input.el-input / .el-textarea.el-textarea` 元素级声明 |
+| **A9 同类 · 文字档** | text-1/2/3/icon 四档，text-2 = **#3D4657** | 只有三档，`--el-text-color-regular` = **#5a6474**（text-3），EP 默认正文整体「灰一档」 | token 补 `$text-body: #3D4657`，`--el-text-color-regular` 指向它 |
+
+### 修复后复验（同尺子重跑）
+
+- `body`：16px → **14px**（7/7 页，与设计一致）；
+- `--el-text-color-regular`：#5a6474 → **#3D4657**（`:root` 与 `.el-input` 作用域实测一致）；
+- `.el-input` 元素作用域 `--el-input-border-color`：#e9ecf1 → **#D9DEE7**（登录页实测 box-shadow inset 同步）；
+- 截图复核 p-home / p-report / p-profile：14px 基准未破坏版式。
+
+### 不算缺陷的实测差异（工程适配 / D 类）
+
+- 内容区 `padding: 14px 14px 74px`（设计 14px）—— 底部 74px 是给固定 TabBar 让位，属移动端适配；
+- 底栏 Tab 高 57px（设计 56px）、Tab 项 `padding-top 0`（设计 6px）—— 用 flex 居中的等效实现；
+- 列表页主按钮为 `el-button--small`（24–31px / r6），设计 kit 只定义大号 `.m-btn`（42px / r8），无对应设计元素可比 —— 小按钮 r6 vs 控件档 r8 待产品定夺是否统一；
+- 业务类文字色实测已符合设计（选项 = text-2、列表副标 = text-3），无需盲迁 50 处 `$text-secondary`。
+
+### 护栏
+
+`practice-web/src/styles/styleGuard.test.ts` 新增 describe「练题端 · 保真度审计修复（B/A9 类）」4 条（body 14px / `$text-body` token / `--el-text-color-regular` 指向 / `.el-input.el-input` 元素级声明）。practice-web 测试 28 → **32**，vue-tsc 0，vite build 成功；根应用测试 215/215 不受影响。
