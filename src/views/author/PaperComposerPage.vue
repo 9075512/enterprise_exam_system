@@ -702,8 +702,7 @@ onMounted(async () => {
   }
 
   &__panel.el-card {
-    border-radius: $radius-lg;
-    box-shadow: $shadow-sm;
+    border-radius: $radius-base;
     margin-bottom: 16px;
   }
 
@@ -739,8 +738,7 @@ onMounted(async () => {
     min-width: 0;
     background: $bg-paper;
     border: 1px solid $border-color;
-    border-radius: $radius-lg;
-    box-shadow: $shadow-sm;
+    border-radius: $radius-base;
     padding: 16px;
   }
 
@@ -842,8 +840,7 @@ onMounted(async () => {
     top: 80px;
     background: $bg-paper;
     border: 1px solid $border-color;
-    border-radius: $radius-lg;
-    box-shadow: $shadow-sm;
+    border-radius: $radius-base;
     padding: 16px;
   }
 

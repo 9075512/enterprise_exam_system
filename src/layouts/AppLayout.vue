@@ -401,7 +401,8 @@ async function submitPassword(): Promise<void> {
       }
     }
 
-    // 选中项：整块圆角高亮 + 左侧指示条（两种状态视觉一致）
+    // 选中项：主色软底 + 右缘 5px 主色圆点
+    // （v3.1 方向 C：对齐设计稿 .nav__i.is-on；v2.x 的左缘 3px 指示条已废弃）
     :deep(.el-menu-item) {
       position: relative;
 
@@ -410,15 +411,15 @@ async function submitPassword(): Promise<void> {
         color: $sidebar-text-active;
         font-weight: 600;
 
-        &::before {
+        &::after {
           content: '';
           position: absolute;
-          left: 0;
           top: 50%;
-          width: 3px;
-          height: 18px;
-          border-radius: 0 3px 3px 0;
-          background: $color-primary-light;
+          right: 10px;
+          width: 5px;
+          height: 5px;
+          border-radius: 50%;
+          background: $color-primary;
           transform: translateY(-50%);
         }
       }

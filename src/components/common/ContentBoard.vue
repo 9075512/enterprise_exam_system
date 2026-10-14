@@ -131,9 +131,9 @@ function openDetail(item: Announcement): void {
 
     <!-- 公告 -->
     <el-card v-if="announcements.length > 0" class="content-board__notice" shadow="never">
-      <div class="content-board__head">
+      <template #header>
         <span class="content-board__head-title">公告通知</span>
-      </div>
+      </template>
       <ul class="content-board__list">
         <li
           v-for="item in announcements"
@@ -230,29 +230,12 @@ function openDetail(item: Announcement): void {
     }
   }
 
-  &__head {
-    padding: 12px 16px;
-    border-bottom: 1px solid $border-color;
-  }
-
+  /* 卡头走全局 `.el-card__header` 刻度（12px 16px / 46px / 13.5px），
+     此处只补件内布局；不再使用 v2.x 的 3px 左缘强调条（方向 C 已废弃）。 */
   &__head-title {
-    position: relative;
-    padding-left: 10px;
-    font-size: 14px;
-    font-weight: 700;
+    font-size: 13.5px;
+    font-weight: 600;
     color: $text-primary;
-
-    &::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 0;
-      width: 3px;
-      height: 14px;
-      margin-top: -7px;
-      border-radius: 2px;
-      background: $color-primary;
-    }
   }
 
   &__list {
@@ -275,7 +258,12 @@ function openDetail(item: Announcement): void {
     }
 
     &:hover {
-      background: $bg-page;
+      background: $color-table-hover;
+    }
+
+    /* 重要公告用「左缘 2px 警示条」表达（语义色只作图形，作文字已用 error-text） */
+    &.is-important {
+      box-shadow: inset 2px 0 0 $color-error;
     }
   }
 

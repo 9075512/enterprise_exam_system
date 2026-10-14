@@ -1200,8 +1200,7 @@ async function handleReset(): Promise<void> {
     padding: 12px 18px;
     background: $bg-paper;
     border: 1px solid $border-color;
-    border-radius: $radius-lg;
-    box-shadow: $shadow-md;
+    border-radius: $radius-base;
   }
 
   &__actionbar-tip {
@@ -1224,26 +1223,24 @@ async function handleReset(): Promise<void> {
        此处不再局部覆盖，避免与全局规则冲突。 */
   }
 
-  /* 每个标签页顶部的一句话说明 */
+  /* 每个标签页顶部的一句话说明 —— 走设计稿 .tip--info 形态（浅底无边框 + 6px 圆角），
+     v2.x 的 3px 左缘强调条在方向 C 已废弃。 */
   &__desc {
     margin: 0 0 18px;
-    padding: 9px 12px;
+    padding: 10px 12px;
     font-size: 12.5px;
     line-height: 1.6;
-    color: $text-secondary;
-    background: $color-primary-soft;
-    border-left: 3px solid $color-primary;
-    border-radius: 0 $radius-sm $radius-sm 0;
+    color: $color-info-text;
+    background: $color-info-bg;
+    border-radius: $radius-sm;
   }
 
-  /* 页内分组小标题（同一标签页内的业务子域） */
+  /* 页内分组小标题（同一标签页内的业务子域）—— 对齐设计稿 .card__hd h3，纯标题不加左条 */
   &__section {
     display: flex;
     align-items: baseline;
     gap: 10px;
     margin: 4px 0 14px;
-    padding-left: 9px;
-    border-left: 3px solid $color-primary;
     flex-wrap: wrap;
 
     & + .el-row {
@@ -1252,7 +1249,7 @@ async function handleReset(): Promise<void> {
   }
 
   &__section-title {
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 600;
     color: $text-primary;
   }

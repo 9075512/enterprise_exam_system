@@ -76,12 +76,14 @@ const OPTIONS: ReadonlyArray<{ value: TableDensity; label: string; hint: string 
     outline-offset: 1px;
   }
 
-  // 选中态用「白底 + 主色字 + 微阴影」，不靠纯色块表达，避免与主按钮抢视线
+  // 选中态用「白底 + 主色字 + 1px 内描边内嵌」，不用投影：
+  // 方向 C 的层次一律交给发丝线（DESIGN-C §2.1 / §4.4 卡片零投影）；
+  // 用 inset 描边而非 border，避免选中切换时按钮尺寸抖动。
   &.is-active {
     background-color: $bg-paper;
     color: $color-primary-dark;
     font-weight: 500;
-    box-shadow: $shadow-sm;
+    box-shadow: inset 0 0 0 1px $line-strong;
   }
 }
 </style>
