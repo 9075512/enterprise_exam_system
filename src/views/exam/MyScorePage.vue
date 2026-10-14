@@ -22,6 +22,7 @@ import * as appealsApi from '@/api/appeals';
 import { useRequest } from '@/composables/useRequest';
 import { usePagination } from '@/composables/usePagination';
 import { useSettingsStore } from '@/stores/settings';
+import { buildAppealTimeline } from '@/services/appealTimeline';
 import { formatDateTime } from '@/utils/datetime';
 import { formatScore } from '@/utils/format';
 import EmptyState from '@/components/common/EmptyState.vue';
@@ -206,6 +207,9 @@ function appealMeta(record: ExamRecord): { text: string; tone: 'gray' | 'warn' |
   return status ? APPEAL_META[status] : null;
 }
 
+/** 复核记录时间线（设计稿 exam-scores.html「复核记录」卡） */
+const appealTimeline = computed(() => buildAppealTimeline(myAppeals.value?.list ?? []));
+
 /** 可申请复核：考试开放复核 且 尚未申请过 */
 function canAppeal(record: ExamRecord): boolean {
   return appealEnabledOf(record.examId) && !appealStatusMap.value[record.id];
@@ -340,6 +344,35 @@ async function submitAppeal(): Promise<void> {
         />
       </div>
     </el-card>
+
+    <template v-if="!loading">
+      <!-- 复核记录（设计稿 exam-scores.html「复核记录」卡）：本人复核申请时间线 -->
+      <el-card class="my-score__panel my-score__appeal-log" shadow="never">
+        <template #header>
+          <h3 class="my-score__panel-title">复核记录</h3>
+        </template>
+        <div v-if="appealTimeline.length > 0" class="my-score__timeline">
+          <div
+            v-for="item in appealTimeline"
+            :key="item.id"
+            class="my-score__tl"
+            :class="item.tone"
+          >
+            <div class="my-score__tl-title">{{ item.title }}</div>
+            <div class="my-score__tl-desc">{{ item.detail }}</div>
+          </div>
+        </div>
+        <p v-else class="my-score__timeline-empty">暂无复核记录</p>
+      </el-card>
+
+      <el-alert
+        class="my-score__appeal-tip"
+        type="warning"
+        :closable="false"
+        show-icon
+        title="同一场考试只能申请一次复核，请确认理由后再提交。"
+      />
+    </template>
 
     <el-dialog v-model="appealVisible" title="申请成绩复核" width="460px">
       <el-alert
@@ -476,6 +509,81 @@ async function submitAppeal(): Promise<void> {
 
   &__appeal-alert {
     margin-bottom: 16px;
+  }
+
+  /* ---------------- 复核记录时间线（设计稿 .timeline / .tl） ---------------- */
+  &__appeal-log {
+    margin-top: 16px;
+  }
+
+  &__timeline {
+    position: relative;
+    padding-left: 20px;
+
+    /* 左侧竖线：1.5px 发丝线 */
+    &::before {
+      content: '';
+      position: absolute;
+      left: 5px;
+      top: 5px;
+      bottom: 5px;
+      width: 1.5px;
+      background: $line-strong;
+    }
+  }
+
+  &__tl {
+    position: relative;
+    padding-bottom: 14px;
+
+    &:last-child {
+      padding-bottom: 0;
+    }
+
+    /* 圆点：默认中性空白圈；通过/驳回用语义原色（仅图形，非文字色） */
+    &::before {
+      content: '';
+      position: absolute;
+      left: -20px;
+      top: 3px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: $bg-paper;
+      border: 2px solid $line-strong;
+    }
+
+    &.is-done::before {
+      background: $color-success;
+      border-color: $color-success;
+    }
+
+    &.is-err::before {
+      background: $color-error;
+      border-color: $color-error;
+    }
+  }
+
+  &__tl-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &__tl-desc {
+    margin-top: 2px;
+    font-size: 11.5px;
+    color: $text-secondary;
+  }
+
+  &__timeline-empty {
+    margin: 0;
+    font-size: 12.5px;
+    color: $text-secondary;
+  }
+
+  &__appeal-tip {
+    margin-top: 12px;
   }
 }
 </style>
