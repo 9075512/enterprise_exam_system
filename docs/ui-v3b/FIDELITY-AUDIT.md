@@ -266,3 +266,41 @@ C 类收尾与第五轮后，开放项里唯一「数据源已存在、无需产
 ### 仍开放的缺口（需产品决策）
 
 难度系数（P 值）与目标配置、阅卷 SLA（超时 N 小时）与告警工单表、阅卷评语 / 标记存疑 / 快捷键、表格列集合差异（信息架构不同）、练题端小按钮 r6 vs r8。
+
+---
+
+## 阅卷「评语 + 标记存疑 + 快捷键」落地（2026-10-14 第七轮）
+
+第六轮后，开放项里唯一「不需产品定夺语义、且设计稿明确要求」的是 **阅卷三件套**——`pages/reviews.html` 的「本题评分」区含「评语（可选，考生可见）」「标记存疑」，页脚含快捷键提示条。此前阅卷页以占位提示（`数据缺口：…暂不提供`）标注，本轮全链路补齐并移除占位。
+
+### 落地范围
+
+| 层 | 改动 |
+| --- | --- |
+| **DB** | `exam_records.review_notes JSON NULL` + `exam_records_archive.review_notes`（业务表与归档表同列，`RECORD_FULL_COLUMNS` 共用）；`schema.ts` 两表 DDL + `init.ts` 幂等 ALTER（for-of 覆盖两表）+ `schema.sql` 文档副本三处同步；归档搬移 `INSERT…SELECT` 显式列清单同步补列（否则归档丢备注） |
+| **存储结构** | `Record<questionId, { comment?, commentVisible?, doubtful? }>`；未填字段省略（不写空串 / false），空条目整条剔除 |
+| **服务端** | `ReviewNote`/`ReviewNotes` 领域类型；mapper 映射（`parseJsonColumn` 默认 `{}`）；`repo.updateReview` 写 `review_notes`；`service.review(id, subjectiveScores, reviewNotes)` 归一化（归属校验 + 评语 ≤ 500 + 空条目剔除）；zod `reviewSchema` 加可选 `reviewNotes`；router 透传 |
+| **考生可见性（服务端强制）** | `candidateReviewNotes()`：仅保留 `comment && commentVisible` 的评语，**剔除存疑等内部标记**；`getById`（examinee 视角）与 `listMy` 走该过滤，管理员视角返回完整备注 |
+| **前端阅卷页** | 逐题「评语」textarea（500 字计数）+「评语同步展示给考生」勾选；「标记存疑」开关按钮（warning 三件套）；快捷键 **1–9 采纳第 N 档评分细则 / ← → 切换题目（含滚动定位）/ Enter 提交并下一份**，光标在输入框/按钮内不触发；当前题目主色描边高亮；页脚快捷键提示条替换原占位 |
+| **前端成绩明细** | 简答区新增「阅卷评语」info 软底块（考生可见评语由服务端过滤后下发）；管理员额外见「阅卷存疑」warn 徽标（考生视角该字段已被剔除，天然不可见） |
+| **测试** | 新增 `server/src/test/v33.review-notes.test.ts` 10 条（长度上限 1001 / 归属校验 1001 / 空条目剔除 / 评语存疑入库 / 管理员完整视角 / 考生过滤 / 我的成绩列表过滤 / 归档表列存在性），服务端 527 → **537** |
+
+### 设计差异的工程化决策
+
+- **评语位置**：设计稿把「评语」放在右栏「本题评分」卡（对应「当前题」）；本工程中栏逐题纵向堆叠、无「当前题」单卡，故**内联到每题得分行下方**，语义等价且避免右栏与当前题失联。
+- **「Enter 提交并下一份」**：本工程提交粒度是「整份答卷」，实现为提交后推进到队列中下一份（原条目离开待阅队列），与设计意图一致。
+- **快捷键「采纳第 N 条评分要点」**：本工程评分模型是**互斥分档 rubric**（非设计稿的累加要点），故按键语义实现为「采纳第 N 档」，提示条按实际模型措辞（工程诚实）。
+- **存疑的语义消费点**：提交后记录离队，存疑若无消费点即死数据；故在**管理员成绩明细**以「阅卷存疑」徽标呈现（考生不可见），给该标记一个真实去处。
+
+### 验证（CDP 实测计算值 + 真实键盘事件）
+
+- **阅卷页**（截图 `_shot/review-notes.png`）：2 题卡片；`ArrowRight/ArrowLeft` 实测切换 `activeId`；按键 `2` 实测采纳第 2 档（`20 分 基本 缺时限` 高亮）；评语 textarea `input` 实测 `30/500` 计数与 `v-model` 同步；「评语同步展示给考生」默认勾选；「标记存疑」实测 `标记存疑 → 已标记存疑`，按钮 `background #FFFAEB / color #B54708 / border #FEDF89`（warning 三件套，文字走深字档）；当前题高亮 `border #0B5BFF / background #EDF3FF`；提示条 `color #175CD3 / background #EFF8FF` + 5 个 `kbd`。
+- **提交接线**：CDP 抓包确认请求体 `{"subjectiveScores":{…},"reviewNotes":{"…":{"comment":"…","commentVisible":true,"doubtful":true}}}`；DB/API 双向核对 `review_notes` 落库。
+- **成绩明细**（截图 `_shot/score-detail-admin.png`）：管理员视角实测「阅卷存疑」warn 徽标 + 评语 info 软底块（`color #175CD3 / background #EFF8FF`）；**考生视角实测同一记录 `doubtBadges: []`、仅有评语**——服务端过滤端到端生效。
+- 前端 vue-tsc 0 / vitest **215/215** / `vite build` 成功；服务端 tsc 0 / vitest **537/537**；`npm run db:init` 幂等补列（二次执行「无需变更」），`information_schema` 直查确认两表 `review_notes` 就位。
+- **环境坑（复用注意）**：长期运行的 vite dev server 会缓存 `src/api/*` 模块（本次表现为新参数被吞、请求体缺字段）；**验证改动请另起独立 dev server（如 `npx vite --port 5180`）**，勿依赖常驻实例。另：`scrollIntoView` 会滚动布局**内层**滚动容器，截图前需遍历归零 `scrollTop`（`window.scrollTo` 无效）。
+- 验证数据按名称标记（`CDP 验证`）精确清理，演示库 `exam_records` 归零新增、`questions` 简答题归零；临时脚本全部删除。
+
+### 仍开放的缺口（需产品决策）
+
+难度系数（P 值）与目标配置、阅卷 SLA（超时 N 小时）与告警工单表、表格列集合差异（信息架构不同）、练题端小按钮 r6 vs r8。
