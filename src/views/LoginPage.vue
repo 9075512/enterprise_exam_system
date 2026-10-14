@@ -11,6 +11,7 @@ import { Checked, Collection, Lock, TrendCharts, User } from '@element-plus/icon
 import { useAuthStore } from '@/stores/auth';
 import { useSettingsStore } from '@/stores/settings';
 import { ApiError } from '@/api/http';
+import { validateAndFocus } from '@/composables/useFormFocus';
 import CaptchaImage from '@/components/common/CaptchaImage.vue';
 import type { TwoFactorChallenge, User as UserDto } from '@/types';
 
@@ -93,7 +94,7 @@ async function goHome(user: UserDto, passwordExpired?: boolean): Promise<void> {
 /** 第一步：账号密码（+ 必要时图形验证码）。 */
 async function handleSubmit(): Promise<void> {
   if (!formRef.value) return;
-  const valid = await formRef.value.validate().catch(() => false);
+  const valid = await validateAndFocus(formRef.value);
   if (!valid) return;
 
   loading.value = true;

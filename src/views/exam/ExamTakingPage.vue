@@ -487,11 +487,11 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
     gap: 5px;
     padding: 5px 12px;
     border-radius: 999px;
-    background: rgba($color-error, 0.08);
-    border: 1px solid rgba($color-error, 0.22);
+    background: $color-error-bg;
+    border: 1px solid $color-error-border;
     font-size: 12px;
     font-weight: 500;
-    color: $color-error;
+    color: $color-error-text;
   }
 
   &__extra {
@@ -575,7 +575,7 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
     }
 
     &--muted b {
-      color: $color-warning;
+      color: $color-warning-text;
     }
   }
 
@@ -606,14 +606,14 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
     letter-spacing: 3px;
     border: none;
     background: $gradient-brand;
-    box-shadow: 0 8px 18px -8px rgba(37, 99, 235, 0.75);
+    box-shadow: 0 8px 18px -8px rgba($color-primary, 0.75);
     transition: box-shadow $transition-base, transform $transition-fast, filter $transition-fast;
 
     &:hover,
     &:focus {
       background: $gradient-brand;
       filter: brightness(1.06);
-      box-shadow: 0 10px 22px -8px rgba(37, 99, 235, 0.85);
+      box-shadow: 0 10px 22px -8px rgba($color-primary, 0.85);
     }
 
     &:active {

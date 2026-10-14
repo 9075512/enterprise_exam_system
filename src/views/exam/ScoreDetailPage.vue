@@ -542,11 +542,19 @@ onMounted(async () => {
     overflow: hidden;
 
     &--pass {
-      background: linear-gradient(135deg, rgba(22, 163, 74, 0.06) 0%, rgba(37, 99, 235, 0.03) 100%);
+      background: linear-gradient(
+        135deg,
+        rgba($color-success, 0.06) 0%,
+        rgba($color-primary, 0.03) 100%
+      );
     }
 
     &--fail {
-      background: linear-gradient(135deg, rgba(220, 38, 38, 0.06) 0%, rgba(37, 99, 235, 0.03) 100%);
+      background: linear-gradient(
+        135deg,
+        rgba($color-error, 0.06) 0%,
+        rgba($color-primary, 0.03) 100%
+      );
     }
   }
 
@@ -582,11 +590,11 @@ onMounted(async () => {
     color: $color-primary;
 
     &.is-pass {
-      color: $color-success;
+      color: $color-success-text;
     }
 
     &.is-fail {
-      color: $color-error;
+      color: $color-error-text;
     }
   }
 
@@ -638,11 +646,11 @@ onMounted(async () => {
     color: $text-primary;
 
     &--ok {
-      color: $color-success;
+      color: $color-success-text;
     }
 
     &--bad {
-      color: $color-error;
+      color: $color-error-text;
     }
   }
 
@@ -732,13 +740,13 @@ onMounted(async () => {
     color: $text-secondary;
 
     &--ok {
-      color: $color-success;
-      border-color: rgba(22, 163, 74, 0.3);
+      color: $color-success-text;
+      border-color: $color-success-border;
     }
 
     &--bad {
-      color: $color-error;
-      border-color: rgba(220, 38, 38, 0.3);
+      color: $color-error-text;
+      border-color: $color-error-border;
     }
   }
 
@@ -811,7 +819,7 @@ onMounted(async () => {
     color: $text-primary;
 
     &--correct {
-      background: rgba($color-success, 0.08);
+      background: $color-success-bg;
     }
 
     &--chosen {
@@ -867,7 +875,7 @@ onMounted(async () => {
       word-break: break-word;
 
       &--correct {
-        background: rgba($color-success, 0.08);
+        background: $color-success-bg;
       }
     }
   }

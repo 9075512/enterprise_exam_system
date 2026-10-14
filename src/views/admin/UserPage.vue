@@ -10,6 +10,7 @@ import * as departmentsApi from '@/api/departments';
 import * as usersApi from '@/api/users';
 import { useRequest } from '@/composables/useRequest';
 import { useConfirm } from '@/composables/useConfirm';
+import { validateAndFocus } from '@/composables/useFormFocus';
 import { useSettingsStore } from '@/stores/settings';
 import { ROLE_LABELS } from '@/constants';
 import { formatDateTime } from '@/utils/datetime';
@@ -17,6 +18,7 @@ import { buildDepartmentNameMap, buildDepartmentTree } from '@/utils/departmentT
 import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
+import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
 import UserImportDialog from '@/views/admin/UserImportDialog.vue';
 import type { Role, User } from '@/types';
 
@@ -41,6 +43,9 @@ const departmentTree = computed(() => buildDepartmentTree(departments.value ?? [
 /* ------------------------------ 列表 ------------------------------ */
 const filterRole = ref<Role | ''>('');
 const filterKeyword = ref('');
+
+/** 是否处于筛选态（决定空态口径与是否给「清空筛选」出路，规范 §9.2） */
+const hasFilter = computed<boolean>(() => Boolean(filterRole.value || filterKeyword.value.trim()));
 
 const {
   data: users,
@@ -139,7 +144,7 @@ function openEdit(user: User): void {
 
 async function handleSubmit(): Promise<void> {
   if (!formRef.value) return;
-  const valid = await formRef.value.validate().catch(() => false);
+  const valid = await validateAndFocus(formRef.value);
   if (!valid) return;
 
   if (form.role === 'examinee' && !form.departmentId) {
@@ -304,12 +309,20 @@ async function handleDelete(user: User): Promise<void> {
         <div class="user-page__filter-actions">
           <el-button type="primary" :icon="Search" @click="onSearch">查询</el-button>
           <el-button :icon="Refresh" @click="onReset">重置</el-button>
+          <TableDensityToggle />
         </div>
       </div>
 
       <LoadingSkeleton v-if="loading && !users" :rows="5" />
 
-      <EmptyState v-else-if="!users || users.length === 0" text="没有匹配的用户" />
+      <EmptyState
+        v-else-if="!users || users.length === 0"
+        :text="hasFilter ? '没有匹配的用户' : '暂无用户，点击「新建用户」添加第一个账号'"
+        :filtered="hasFilter"
+        action-text="新建用户"
+        @clear="onReset"
+        @action="openCreate"
+      />
 
       <el-table v-else v-loading="loading" :data="users" row-key="id" stripe>
         <el-table-column prop="username" label="用户名" width="140" show-overflow-tooltip />
@@ -350,7 +363,13 @@ async function handleDelete(user: User): Promise<void> {
           </template>
         </el-table-column>
         <template #empty>
-          <EmptyState text="暂无用户" />
+          <EmptyState
+            text="没有匹配的用户"
+            filtered
+            action-text="新建用户"
+            @clear="onReset"
+            @action="openCreate"
+          />
         </template>
       </el-table>
     </el-card>

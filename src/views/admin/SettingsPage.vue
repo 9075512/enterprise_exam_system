@@ -30,6 +30,8 @@ import {
 } from 'element-plus';
 import { NOTIFY_TEMPLATES_DEFAULT, NOTIFY_TEMPLATE_META } from '@/constants';
 import { useSettingsStore } from '@/stores/settings';
+import { focusFirstFormError } from '@/composables/useFormFocus';
+import { useStickyActionBar } from '@/composables/useStickyActionBar';
 import PageHeader from '@/components/common/PageHeader.vue';
 import type { NotifyTemplateKey, SystemSettings } from '@/types';
 
@@ -143,6 +145,9 @@ const form = reactive<SystemSettings>({
 });
 const formRef = ref<FormInstance>();
 const saving = ref(false);
+
+/** 页头操作区滚出视野后，显示贴底的 sticky 操作条（设计规范 §9.3） */
+const { sentinelRef, revealed: showActionBar } = useStickyActionBar();
 
 /** 数值型字段校验：范围 + 整数（按需） */
 function numRules(
@@ -290,6 +295,8 @@ async function handleSave(): Promise<void> {
     } else {
       ElMessage.warning('存在待修正项，请检查标红字段');
     }
+    // 切换到出错标签页并渲染后，滚动到并聚焦第一个错误项（设计规范 §9.3）
+    await focusFirstFormError();
     return;
   }
 
@@ -328,6 +335,9 @@ async function handleReset(): Promise<void> {
         <el-button type="primary" :loading="saving" @click="handleSave">保存设置</el-button>
       </template>
     </PageHeader>
+
+    <!-- 哨兵：滚出视野说明页头操作区已不可见，此时改用贴底操作条 -->
+    <div ref="sentinelRef" class="settings-page__sentinel" aria-hidden="true" />
 
     <div class="settings-page__panel">
       <el-form
@@ -1144,6 +1154,17 @@ async function handleReset(): Promise<void> {
         </el-tabs>
       </el-form>
     </div>
+
+    <!-- sticky 底部操作条：页头操作区滚出视野后出现，长表单无需滚回顶部 -->
+    <transition name="settings-actionbar">
+      <div v-if="showActionBar" class="settings-page__actionbar">
+        <span class="settings-page__actionbar-tip">修改后需点击「保存设置」方可全局生效</span>
+        <div class="settings-page__actionbar-actions">
+          <el-button @click="handleReset">恢复默认</el-button>
+          <el-button type="primary" :loading="saving" @click="handleSave">保存设置</el-button>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -1159,19 +1180,48 @@ async function handleReset(): Promise<void> {
     border-radius: $radius-lg;
   }
 
+  /* 观测哨兵：不占视觉空间，仅用于探知页头操作区是否滚出视野 */
+  &__sentinel {
+    height: 0;
+    margin: 0;
+    pointer-events: none;
+  }
+
+  /* sticky 底部操作条（设计规范 §9.3）：长表单滚到底部也能直接保存 */
+  &__actionbar {
+    position: sticky;
+    bottom: 0;
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 16px;
+    padding: 12px 18px;
+    background: $bg-paper;
+    border: 1px solid $border-color;
+    border-radius: $radius-lg;
+    box-shadow: $shadow-md;
+  }
+
+  &__actionbar-tip {
+    font-size: 12.5px;
+    color: $text-secondary;
+  }
+
+  &__actionbar-actions {
+    display: flex;
+    flex-shrink: 0;
+    gap: 10px;
+  }
+
   &__tabs {
     :deep(.el-tabs__header) {
       margin-bottom: 16px;
     }
 
-    :deep(.el-tabs__item) {
-      font-weight: 600;
-    }
-
-    /* 标签栏下划线跟随主题主色（与内网整体商务风一致） */
-    :deep(.el-tabs__active-bar) {
-      height: 2px;
-    }
+    /* 页签刻度（13px / 33px 高 / 非选中弱色 / 选中主色）由全局 index.scss 统一承担，
+       此处不再局部覆盖，避免与全局规则冲突。 */
   }
 
   /* 每个标签页顶部的一句话说明 */
@@ -1253,5 +1303,17 @@ async function handleReset(): Promise<void> {
   &__form :deep(.el-form-item) {
     margin-bottom: 18px;
   }
+}
+
+/* sticky 操作条入场/退场（页头操作区滚出视野时出现） */
+.settings-actionbar-enter-active,
+.settings-actionbar-leave-active {
+  transition: opacity $transition-base, transform $transition-base;
+}
+
+.settings-actionbar-enter-from,
+.settings-actionbar-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 </style>

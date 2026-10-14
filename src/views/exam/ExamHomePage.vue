@@ -302,11 +302,11 @@ onMounted(load);
     border-radius: 6px;
 
     &.is-warning {
-      border-top-color: #f59e0b;
+      border-top-color: $color-warning;
     }
 
     &.is-success {
-      border-top-color: #16a34a;
+      border-top-color: $color-success;
     }
 
     &.is-info {
@@ -400,11 +400,11 @@ onMounted(load);
     flex: 0 0 auto;
     font-size: 13px;
     font-weight: 700;
-    color: #16a34a;
+    color: $color-success-text;
     font-variant-numeric: tabular-nums;
 
     &.is-fail {
-      color: $color-error;
+      color: $color-error-text;
     }
   }
 
@@ -426,7 +426,7 @@ onMounted(load);
     display: block;
     height: 100%;
     border-radius: 3px;
-    background: #16a34a;
+    background: $color-success;
 
     &.is-fail {
       background: $color-error;
@@ -459,7 +459,7 @@ onMounted(load);
     transition: border-color 0.15s, background-color 0.15s;
 
     &:hover {
-      border-color: rgba(37, 99, 235, 0.45);
+      border-color: rgba($color-primary, 0.45);
       background: $bg-page;
     }
   }

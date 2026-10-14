@@ -526,7 +526,7 @@ function formatAt(v: string | null): string {
 
   &__dirty {
     font-size: 12.5px;
-    color: $color-warning;
+    color: $color-warning-text;
   }
 
   &__row {

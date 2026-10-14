@@ -358,7 +358,7 @@ const tableRows = computed(() => stats.value?.tables ?? []);
   }
 
   &__error {
-    color: $color-error;
+    color: $color-error-text;
   }
 
   &__alert {

@@ -10,6 +10,7 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import * as banksApi from '@/api/banks';
 import * as usersApi from '@/api/users';
 import { useAuthStore } from '@/stores/auth';
+import { validateAndFocus } from '@/composables/useFormFocus';
 import { BANK_CATEGORY_DEFAULT } from '@/constants';
 import type { QuestionBank } from '@/types';
 
@@ -87,7 +88,7 @@ watch(
 /** 提交（新建 / 编辑自动分流） */
 async function handleSubmit(): Promise<void> {
   if (!formRef.value) return;
-  const valid = await formRef.value.validate().catch(() => false);
+  const valid = await validateAndFocus(formRef.value);
   if (!valid) return;
 
   submitting.value = true;

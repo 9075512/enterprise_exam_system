@@ -14,6 +14,7 @@ import { formatDateTime } from '@/utils/datetime';
 import { formatScore } from '@/utils/format';
 import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
+import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import type { Paper } from '@/types';
 
@@ -37,6 +38,9 @@ const filteredPapers = computed<Paper[]>(() => {
 function resetFilter(): void {
   filterKeyword.value = '';
 }
+
+/** 是否处于筛选态（决定空态口径与是否给「清空筛选」出路，规范 §9.2） */
+const hasFilter = computed<boolean>(() => Boolean(filterKeyword.value.trim()));
 
 function goComposer(): void {
   void router.push('/author/papers/composer');
@@ -133,7 +137,12 @@ async function handleDelete(paper: Paper): Promise<void> {
 
     <LoadingSkeleton v-if="loading && !papers" :rows="5" />
 
-    <EmptyState v-else-if="!papers || papers.length === 0" text="还没有试卷，点击右上角「新建试卷」开始组卷" />
+    <EmptyState
+      v-else-if="!papers || papers.length === 0"
+      text="还没有试卷，从题库组一份卷子试试"
+      action-text="新建试卷"
+      @action="goComposer"
+    />
 
     <el-card v-else class="table-card" shadow="never">
       <div class="table-card__toolbar">
@@ -148,6 +157,7 @@ async function handleDelete(paper: Paper): Promise<void> {
         </div>
         <div class="paper-page__filter-actions">
           <el-button :icon="Refresh" @click="resetFilter">重置</el-button>
+          <TableDensityToggle />
         </div>
       </div>
 
@@ -218,7 +228,13 @@ async function handleDelete(paper: Paper): Promise<void> {
           </template>
         </el-table-column>
         <template #empty>
-          <EmptyState text="没有匹配的试卷" />
+          <EmptyState
+            text="没有匹配的试卷"
+            filtered
+            action-text="新建试卷"
+            @clear="resetFilter"
+            @action="goComposer"
+          />
         </template>
       </el-table>
     </el-card>

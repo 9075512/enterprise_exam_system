@@ -1,23 +1,38 @@
 // =============================================================
 // 全局样式 + 运行时 CSS 变量覆盖（§5.9③）
 // 入口：src/main.ts -> import './styles/index.scss'
+//
+// ⚠️ 覆盖 Element Plus 组件内部样式时，选择器必须「抬一级优先级」
+//    （本项目惯用双写类名，如 `.el-card.el-card`）：
+//    EP 大量组件把圆角/底色挂在自己的 `--el-*` 变量或同名类规则上，
+//    与本文件的全局规则同为 (0,1,0) 优先级时，胜负取决于样式注入顺序——
+//    懒加载分包的 CSS 会后到，表现为「写了但没生效」。v3.1 换肤踩过此坑。
 // =============================================================
 @use './variables.scss' as *;
 
 :root {
-  --el-color-primary: #2563eb;
-  --el-color-primary-light-3: #60a5fa;
-  --el-color-primary-light-5: #93c5fd;
-  --el-color-primary-light-7: #bfdbfe;
-  --el-color-primary-light-8: #dbeafe;
-  --el-color-primary-light-9: #eff6ff;
-  --el-color-primary-dark-2: #1d4ed8;
-  --el-border-radius-base: 10px;
-  --el-bg-color-page: #f5f7fb;
-  --el-fill-color-light: #f1f5f9;
-  --el-text-color-primary: #0f172a;
-  --el-text-color-regular: #64748b;
-  --el-border-color: #e2e8f0;
+  // v3.1 方向 C「精密蓝」主色阶梯（= mix(white, base, 30/50/70/80/90%)）
+  --el-color-primary: #0b5bff;
+  --el-color-primary-light-3: #548cff;
+  --el-color-primary-light-5: #85adff;
+  --el-color-primary-light-7: #b6ceff;
+  --el-color-primary-light-8: #cedeff;
+  --el-color-primary-light-9: #e7efff;
+  --el-color-primary-dark-2: #0949cc;
+  --el-border-radius-base: 8px;
+  --el-bg-color-page: #f7f8fa;
+  --el-fill-color-light: #f1f3f6;
+  --el-text-color-primary: #0d1220;
+  --el-text-color-regular: #5a6474;
+  --el-border-color: #e9ecf1;
+  // 表单控件用「强发丝线」：比卡片/行线更明确，但不引入阴影（DESIGN-C §2.1）
+  --el-input-border-color: #{$line-strong};
+
+  // 表格单元格纵向内距（密度切换的唯一调节点，规范 §8.3）
+  // 舒适 7px ≈ 行高 38（v3.1 方向 C：一屏多看 20% 的行）；紧凑 4px ≈ 行高 32。
+  // 实测方法见 docs/ui-v2.1/迁移清单进度.md —— 注意该值必须落成「高优先级选择器」，
+  // 否则会被 Element Plus 的 .el-table .el-table__cell 覆盖（同优先级时取决于样式注入顺序）。
+  --table-cell-padding-y: 7px;
 }
 
 * {
@@ -40,21 +55,37 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-// 卡片：圆角 + 阴影
-.el-card {
+// 卡片：圆角 + 发丝线（v3.1 方向 C：零投影，层次交给线条）
+.el-card.el-card {
   border-radius: $radius-base;
   border-color: $border-color;
 }
 
-// 表格：表头底色 + 行 hover
-.el-table th.el-table__cell {
+// 表格：表头「标签化」+ 行 hover
+// v3.1 方向 C：表头不再是一条加重底色，而是一枚「小号、加字距、弱色」的标签
+// （DESIGN-C §2.3；设计稿为 11px/.06em/大写，正文 13.5px 下折算取 12px，
+//  并保留 uppercase —— 对中文无副作用、对英文与数字列生效）。
+// 分隔线用强发丝线，与行线拉开一档，表头自然浮起来而不靠投影。
+// ⚠️ 双写 `.el-table.el-table` 抬一级优先级，见文件头说明。
+.el-table.el-table th.el-table__cell {
   background-color: $color-table-head;
-  color: $text-primary;
+  color: $text-secondary;
   font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-bottom: 1px solid $line-strong;
 }
 
 .el-table .el-table__body tr:hover > td.el-table__cell {
   background-color: $color-table-hover;
+}
+
+// C 方向签名动作：行级焦点用「左缘 2px 主色条」表达，
+// 替代单纯的背景色变化，扫读时定位更准。
+// ⚠️ 只画首列——逐列 inset 会在每列左缘都出现竖线，视觉上变成网格。
+.el-table .el-table__body tr:hover > td.el-table__cell:first-child {
+  box-shadow: inset 2px 0 0 $color-primary;
 }
 
 // 滚动条
@@ -64,12 +95,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: $text-disabled;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: darken($text-disabled, 12%);
 }
 
 ::-webkit-scrollbar-track {
@@ -87,43 +118,42 @@ body {
 
 // ---------- Element Plus 运行时统一精修 ----------
 
-// 卡片：圆角 + 细边框 + 常态极浅阴影（避免整屏"灰底白块"过重）
-.el-card {
-  border-radius: $radius-lg;
+// 卡片：圆角 + 细边框（v3.1 方向 C：零投影；需要强调层次时加深线条，不加阴影）
+.el-card.el-card {
+  // 卡片内容内距：对齐设计稿 .card__bd 的 16px（EP 默认 20px，偏松）
+  --el-card-padding: 16px;
+  border-radius: $radius-base;
   border-color: $border-color;
-  box-shadow: $shadow-sm;
-  transition: box-shadow $transition-base, transform $transition-base, border-color $transition-base;
+  transition: border-color $transition-base;
 
+  // 卡头：12px 16px + 46px 最小高 + 13.5px 标题（设计稿 .card__hd）
   > .el-card__header {
-    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    min-height: 46px;
+    padding: 12px 16px;
     border-bottom-color: $border-color;
+    font-size: 13.5px;
     font-weight: 600;
   }
 }
 
-// 可交互卡片：悬停轻微上浮 + 阴影加深（由页面按需挂载）
+// 可交互卡片：悬停用「左缘主色条 + 描边加深」表达可点，不做上浮与投影
 .hover-lift {
   cursor: pointer;
+  transition: border-color $transition-base, box-shadow $transition-base;
 
   &:hover {
-    transform: translateY(-3px);
-    box-shadow: $shadow-lg;
-    border-color: $color-primary-light;
+    border-color: $color-primary-border;
+    box-shadow: inset 2px 0 0 $color-primary;
   }
 }
 
-// 按钮：统一圆角、字重与主按钮层次
-.el-button {
+// 按钮：统一圆角、字重与扁平化（v3.1 去投影；hover 层次由 EP dark-2 承担）
+// ⚠️ 双写类名 = 抬高一级优先级，见文件头「EP 覆盖优先级」说明。
+.el-button.el-button {
   font-weight: 500;
   border-radius: $radius-sm;
-
-  &--primary:not(.is-text):not(.is-link) {
-    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.24);
-
-    &:hover {
-      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
-    }
-  }
 
   &.is-text,
   &.is-link {
@@ -140,28 +170,35 @@ body {
 
   font-size: 13.5px;
 
+  // 纵向内距走变量：密度切换只需改 --table-cell-padding-y（见下方 html[data-density]）。
+  // ⚠️ 必须用 `td/th.el-table__cell` 提高一级优先级 —— 仅写 `.el-table .el-table__cell` 时
+  //    与 Element Plus 自带规则同优先级，实际会被对方按注入顺序覆盖，导致密度切换点了没反应。
+  td.el-table__cell,
   th.el-table__cell {
-    font-weight: 600;
-    letter-spacing: 0.02em;
-  }
-
-  .el-table__cell {
-    padding: 11px 0;
+    padding: var(--table-cell-padding-y, 7px) 0;
   }
 }
 
-// 输入框：聚焦时用主色描边 + 柔和外发光
-.el-input__wrapper,
-.el-textarea__inner {
+// ---------- 表格密度（规范 §8.3 / §9.2） ----------
+// 由 app store 写入 <html data-density="compact">，跨会话记忆。
+// 只调「行高节奏」这一件事：不动字号档位、表头底色与悬停底色，
+// 避免用户以为切换了主题。默认（舒适）不设 data-density，即 --table-cell-padding-y: 8px。
+html[data-density='compact'] {
+  --table-cell-padding-y: 4px;
+}
+
+// 输入框：聚焦时用主色描边 + 柔和外发光（双写类名抬优先级，同上）
+.el-input__wrapper.el-input__wrapper,
+.el-textarea__inner.el-textarea__inner {
   border-radius: $radius-sm;
 }
 
-.el-input__wrapper.is-focus {
-  box-shadow: 0 0 0 1px $color-primary inset, 0 0 0 3px rgba(37, 99, 235, 0.12);
+.el-input__wrapper.is-focus.is-focus {
+  box-shadow: 0 0 0 1px $color-primary inset, 0 0 0 3px rgba($color-primary, 0.12);
 }
 
-// 对话框：更圆润 + 头部留白
-.el-dialog {
+// 对话框：更圆润 + 头部留白（双写类名抬优先级，同上）
+.el-dialog.el-dialog {
   border-radius: $radius-lg;
   overflow: hidden;
 
@@ -187,23 +224,182 @@ body {
   }
 }
 
-// 分页：圆角按钮
-.el-pagination {
+// 分页：方形小页码 + 选中主色实底（设计稿 .pager/.pg）
+// 与 EP 默认的差异：EP 选中态只把「文字」染主色，设计稿是主色实底 + 白字。
+.el-pagination.el-pagination {
+  --el-pagination-button-height: 27px;
+  --el-pagination-button-width: 27px;
+  --el-pagination-font-size: 12px;
+
   .el-pager li,
   button.btn-prev,
   button.btn-next {
-    border-radius: $radius-sm;
+    border-radius: $radius-xs;
+    color: $text-secondary;
+    font-weight: 500;
+  }
+
+  .el-pager li:hover,
+  button.btn-prev:hover,
+  button.btn-next:hover {
+    background-color: $color-neutral-bg;
+    color: $text-primary;
   }
 
   .el-pager li.is-active {
+    background-color: $color-primary;
+    color: #fff;
     font-weight: 600;
+
+    &:hover {
+      background-color: $color-primary;
+      color: #fff;
+    }
   }
 }
 
-// 标签：圆润、去下划线噪音
-.el-tag {
-  border-radius: 999px;
+// 标签：小圆角（v3.1：小件 4px，去胶囊形）
+.el-tag.el-tag {
+  border-radius: $radius-xs;
   font-weight: 500;
+}
+
+// =============================================================
+// 表单控件族 —— v3.1 方向 C 的 .tabs / .cb / .rd / .switch / .step / .prog 形态
+// 覆盖点走 CSS 变量或双写类名（EP 组件 CSS 懒加载分包、后于全局样式注入，
+// 同优先级必输；双写类名 (0,2,0) 稳胜 (0,1,0)）。
+// =============================================================
+
+// 页签：下划线式（设计稿 .tabs）—— 13px / 高 33px / 非选中弱色 / 选中主色加粗
+.el-tabs.el-tabs {
+  --el-tabs-header-height: 33px;
+
+  .el-tabs__item {
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 500;
+    color: $text-secondary;
+
+    &:hover {
+      color: $text-primary;
+    }
+
+    &.is-active {
+      color: $color-primary;
+      font-weight: 600;
+    }
+  }
+
+  // 底部通栏分隔线：EP 默认 2px 浅灰 → 1px 发丝线（设计稿 --line）
+  .el-tabs__nav-wrap::after {
+    height: 1px;
+    background-color: $border-color;
+  }
+}
+
+// 复选 / 单选：15px 方框（圆角 3.5px）+ 1.5px 发丝描边 + 12.5px 标签（设计稿 .cb/.rd）
+.el-checkbox.el-checkbox {
+  --el-checkbox-input-height: 15px;
+  --el-checkbox-input-width: 15px;
+  --el-checkbox-border-radius: 3.5px;
+  --el-checkbox-font-size: 12.5px;
+  --el-checkbox-input-border: 1.5px solid #{$line-strong};
+}
+
+.el-radio.el-radio {
+  --el-radio-input-height: 15px;
+  --el-radio-input-width: 15px;
+  --el-radio-font-size: 12.5px;
+  --el-radio-input-border: 1.5px solid #{$line-strong};
+}
+
+// 开关：轨道与设计稿同源（开=主色、关=强发丝线；EP 默认关色 #DCDFE6 偏浅）
+.el-switch.el-switch {
+  --el-switch-on-color: #{$color-primary};
+  --el-switch-off-color: #{$line-strong};
+}
+
+// 步骤条：21px 圆形序号 + 12.5px 标签 + 细连接线（设计稿 .step）
+.el-steps.el-steps {
+  .el-step__icon {
+    width: 21px;
+    height: 21px;
+    font-size: 11px;
+  }
+
+  .el-step__icon.is-text {
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .el-step__title {
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+
+  .el-step__line {
+    height: 1.5px;
+  }
+}
+
+// 进度条：轨道用中性底（设计稿 .prog 的 --surface-3）
+// 注意 EP 的轨道色不是 CSS 变量（硬编码 border-color-lighter），必须直接覆盖。
+.el-progress.el-progress .el-progress-bar__outer {
+  background-color: $color-neutral-bg;
+}
+
+// =============================================================
+// 提示条 el-alert —— v3.1 方向 C 的 .tip 形态 + 一对真实合规修复
+// ① 形态：无边框浅底 + 6px 圆角 + 12.5px 正文（对齐设计稿 .tip 的刻度）
+// ② 合规：EP 默认把「语义原色」直接当文字色——
+//    .el-alert--warning.is-light { color: var(--el-color-warning) } = #F79009（2.03:1）
+//    success #12B76A（2.24:1）/ error #F04438（3.44:1）/ info #2E90FA（3.29:1）全部不达 AA。
+//    这里统一换成三件套的深字档 $color-*-text（≥4.5:1），底色同步换成项目浅底（同源）。
+//    双写类名抬优先级：EP 组件 CSS 走懒加载分包、后于全局样式注入，同优先级必输。
+// =============================================================
+.el-alert.el-alert {
+  --el-alert-padding: 10px 12px;
+  --el-alert-border-radius-base: #{$radius-sm};
+  --el-alert-title-font-size: 12.5px;
+  --el-alert-description-font-size: 12px;
+  --el-alert-icon-size: 15px;
+  --el-alert-close-font-size: 13px;
+}
+
+.el-alert.el-alert--info.is-light {
+  background-color: $color-info-bg;
+  color: $color-info-text;
+
+  .el-alert__description {
+    color: $color-info-text;
+  }
+}
+
+.el-alert.el-alert--success.is-light {
+  background-color: $color-success-bg;
+  color: $color-success-text;
+
+  .el-alert__description {
+    color: $color-success-text;
+  }
+}
+
+.el-alert.el-alert--warning.is-light {
+  background-color: $color-warning-bg;
+  color: $color-warning-text;
+
+  .el-alert__description {
+    color: $color-warning-text;
+  }
+}
+
+.el-alert.el-alert--error.is-light {
+  background-color: $color-error-bg;
+  color: $color-error-text;
+
+  .el-alert__description {
+    color: $color-error-text;
+  }
 }
 
 // 空状态更紧凑
@@ -215,7 +411,7 @@ body {
 
 // 列表容器卡：统一「工具栏 / 表格 / 分页」的承载面
 .table-card {
-  border-radius: $radius-lg;
+  border-radius: $radius-base;
 
   .table-card__toolbar {
     display: flex;
@@ -275,7 +471,30 @@ body {
   gap: 16px;
 }
 
-// 数字/等宽
+// =============================================================
+// 数字等宽（tabular-nums）系统化覆盖 —— 设计规范 §3 / §8.3 / §12
+//
+// 目的：分数、条数、时长、时间、页码等数字在刷新/翻页/倒计时时保持
+//       同宽，避免数字宽度变化导致的整行「跳动」与对齐错位。
+// 说明：该属性只改变数字字形宽度（等宽数字），对中文/英文字符无影响，
+//       故可安全地按「数字承载组件」整块覆盖，无需逐处补 class。
+//       图形类数字（如图表）由 ECharts 自行处理，不在此列。
+// =============================================================
+.el-table,
+.el-pagination,
+.el-progress__text,
+.el-statistic__number,
+.el-input-number,
+.el-date-editor,
+.el-time-picker,
+.el-date-picker,
+.el-time-select,
+.el-badge__content,
+.el-descriptions__content {
+  font-variant-numeric: tabular-nums;
+}
+
+// 数字/等宽（业务自定义数字元素的显式工具类）
 .num {
   font-variant-numeric: tabular-nums;
 }
@@ -292,6 +511,20 @@ body {
 .fade-slide-leave-to {
   opacity: 0;
   transform: translateY(-4px);
+}
+
+// 无障碍：尊重系统「减少动态效果」偏好（设计规范 §10 验收项）。
+// 用 0.001ms 而非 0，保留 transitionend/animationend 事件的照常触发，
+// 避免依赖过渡结束的组件逻辑失效。
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 // =============================================================

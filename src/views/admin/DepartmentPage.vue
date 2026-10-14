@@ -9,10 +9,12 @@ import { Plus, Search, Refresh } from '@element-plus/icons-vue';
 import * as departmentsApi from '@/api/departments';
 import { useRequest } from '@/composables/useRequest';
 import { useConfirm } from '@/composables/useConfirm';
+import { validateAndFocus } from '@/composables/useFormFocus';
 import { formatDateTime } from '@/utils/datetime';
 import { buildDepartmentNameMap, buildDepartmentTree, getDescendantIds } from '@/utils/departmentTree';
 import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
+import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import type { Department } from '@/types';
 
@@ -53,6 +55,9 @@ function resetFilter(): void {
   filterKeyword.value = '';
 }
 
+/** 是否处于筛选态（决定空态口径与是否给「清空筛选」出路，规范 §9.2） */
+const hasFilter = computed<boolean>(() => Boolean(filterKeyword.value.trim()));
+
 /* ------------------------------ 弹窗 ------------------------------ */
 const dialogVisible = ref(false);
 const editingId = ref<string>('');
@@ -88,7 +93,7 @@ function openEdit(department: Department): void {
 
 async function handleSubmit(): Promise<void> {
   if (!formRef.value) return;
-  const valid = await formRef.value.validate().catch(() => false);
+  const valid = await validateAndFocus(formRef.value);
   if (!valid) return;
 
   submitting.value = true;
@@ -147,7 +152,12 @@ async function handleDelete(department: Department): Promise<void> {
 
     <LoadingSkeleton v-if="loading && !departments" :rows="5" />
 
-    <EmptyState v-else-if="!departments || departments.length === 0" text="还没有科室，点击右上角新建科室" />
+    <EmptyState
+      v-else-if="!departments || departments.length === 0"
+      text="还没有科室，先建立组织架构"
+      action-text="新建科室"
+      @action="openCreate"
+    />
 
     <el-card v-else class="table-card" shadow="never">
       <div class="table-card__toolbar">
@@ -162,6 +172,7 @@ async function handleDelete(department: Department): Promise<void> {
         </div>
         <div class="department-page__filter-actions">
           <el-button :icon="Refresh" @click="resetFilter">重置</el-button>
+          <TableDensityToggle />
         </div>
       </div>
 
@@ -183,7 +194,13 @@ async function handleDelete(department: Department): Promise<void> {
           </template>
         </el-table-column>
         <template #empty>
-          <EmptyState text="没有匹配的科室" />
+          <EmptyState
+            text="没有匹配的科室"
+            filtered
+            action-text="新建科室"
+            @clear="resetFilter"
+            @action="openCreate"
+          />
         </template>
       </el-table>
     </el-card>

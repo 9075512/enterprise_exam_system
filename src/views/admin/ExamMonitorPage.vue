@@ -473,11 +473,11 @@ function goBack(): void {
     }
 
     &--success {
-      color: $color-success;
+      color: $color-success-text;
     }
 
     &--danger {
-      color: $color-error;
+      color: $color-error-text;
     }
   }
 
@@ -486,11 +486,11 @@ function goBack(): void {
     font-weight: 600;
 
     &--warn {
-      color: $color-warning;
+      color: $color-warning-text;
     }
 
     &--danger {
-      color: $color-error;
+      color: $color-error-text;
     }
   }
 
@@ -500,7 +500,7 @@ function goBack(): void {
 
   &__warn-text {
     font-weight: 600;
-    color: $color-error;
+    color: $color-error-text;
   }
 
   &__muted {

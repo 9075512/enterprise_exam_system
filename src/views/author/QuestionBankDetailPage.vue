@@ -22,6 +22,8 @@ import { useSettingsStore } from '@/stores/settings';
 import { useAuthStore } from '@/stores/auth';
 import { formatDateTime } from '@/utils/datetime';
 import { formatScore } from '@/utils/format';
+import BatchActionBar from '@/components/common/BatchActionBar.vue';
+import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
 import DataTablePagination from '@/components/common/DataTablePagination.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
@@ -97,6 +99,11 @@ const {
   settingsStore.settings.defaultPageSize,
 );
 
+/** 是否处于筛选态（决定空态口径与是否给「清空筛选」出路） */
+const hasFilter = computed<boolean>(() =>
+  Boolean(filterType.value || filterSubject.value || filterTag.value || filterKeyword.value.trim()),
+);
+
 function onSearch(): void {
   reset();
 }
@@ -136,10 +143,15 @@ function openBatchEdit(): void {
   batchVisible.value = true;
 }
 
-/** 批量编辑完成后清空勾选并刷新 */
-function onBatchSaved(): void {
+/** 清空勾选（批量条「取消选择」/ 批量编辑完成后复用） */
+function clearSelection(): void {
   tableRef.value?.clearSelection();
   selectedRows.value = [];
+}
+
+/** 批量编辑完成后清空勾选并刷新 */
+function onBatchSaved(): void {
+  clearSelection();
   reloadAll();
 }
 
@@ -290,9 +302,6 @@ onMounted(() => {
           <div class="table-card__toolbar">
             <h3 class="bank-detail__title">试题（{{ total }}）</h3>
             <div class="bank-detail__toolbar-actions">
-              <el-button :icon="EditPen" :disabled="selectedRows.length === 0" @click="openBatchEdit">
-                批量编辑{{ selectedRows.length > 0 ? `（${selectedRows.length}）` : '' }}
-              </el-button>
               <el-button type="primary" :icon="Plus" @click="openCreate">手动新增</el-button>
               <el-button :icon="Upload" @click="openImport">批量导入 Excel</el-button>
             </div>
@@ -337,7 +346,12 @@ onMounted(() => {
             />
             <el-button type="primary" :icon="Search" @click="onSearch">查询</el-button>
             <el-button :icon="Refresh" @click="onResetFilters">重置</el-button>
+            <TableDensityToggle />
           </div>
+
+          <BatchActionBar :count="selectedRows.length" noun="道试题" @clear="clearSelection">
+            <el-button :icon="EditPen" @click="openBatchEdit">批量编辑</el-button>
+          </BatchActionBar>
 
           <el-table
             ref="tableRef"
@@ -393,7 +407,13 @@ onMounted(() => {
               </template>
             </el-table-column>
             <template #empty>
-              <EmptyState :text="BANK_TEXT.EMPTY_QUESTIONS" />
+              <EmptyState
+                :text="hasFilter ? '没有符合条件的试题' : BANK_TEXT.EMPTY_QUESTIONS"
+                :filtered="hasFilter"
+                action-text="手动新增"
+                @clear="onResetFilters"
+                @action="openCreate"
+              />
             </template>
           </el-table>
 

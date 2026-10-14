@@ -19,6 +19,14 @@ import { useRequest } from '@/composables/useRequest';
 import { usePagination } from '@/composables/usePagination';
 import { useSettingsStore } from '@/stores/settings';
 import { THEME } from '@/constants/theme';
+import {
+  CHART_AXIS_LABEL,
+  CHART_AXIS_LINE,
+  CHART_SPLIT_LINE,
+  CHART_TOOLTIP,
+  peakIndex,
+  softBars,
+} from '@/utils/chartTheme';
 import { formatDateTime } from '@/utils/datetime';
 import { formatPercent, formatScore } from '@/utils/format';
 import PageHeader from '@/components/common/PageHeader.vue';
@@ -29,6 +37,13 @@ import ScoreExportDialog from './ScoreExportDialog.vue';
 import type { Exam, ExamRecord, Report } from '@/types';
 
 use([BarChart, GridComponent, TooltipComponent, TitleComponent, LegendComponent, CanvasRenderer]);
+
+/**
+ * 科室及格率的「需关注」阈值（图形语义，非业务规则）：
+ * 低于该值的科室在科室对比表里用 warning 色进度条标出，便于一眼定位薄弱科室。
+ * 只影响进度条配色，不参与任何及格判定（及格判定一律走考试自身的 passScore）。
+ */
+const DEPARTMENT_PASS_RATE_WARN = 0.9;
 
 const settingsStore = useSettingsStore();
 
@@ -131,72 +146,48 @@ watch(selectedExamId, (examId) => {
 // 图表挂载在 el-tab-pane 内，初始 tab 隐藏时容器宽度为 0；
 // 通过 lazy（首次显示才挂载）+ autoresize（ResizeObserver 跟随容器尺寸）修复。
 // 再对 tab 切换做一次显式 resize() 兜底，规避部分场景下 ResizeObserver 不触发。
+// 注：科室对比自 v3.1 起改为「表格 + 内联进度条」（DESIGN-C §2.3），不再是图表。
 const bandChartRef = ref<InstanceType<typeof VChart> | null>(null);
-const departmentChartRef = ref<InstanceType<typeof VChart> | null>(null);
 
 function onTabChange(name: string | number): void {
   void nextTick(() => {
     if (name === 'bands') {
       bandChartRef.value?.resize();
-    } else if (name === 'departments') {
-      departmentChartRef.value?.resize();
     }
   });
 }
 
 /* ------------------------------ 图表 option ------------------------------ */
-const bandOption = computed(() => ({
-  tooltip: { trigger: 'axis' },
-  grid: { left: 40, right: 20, top: 30, bottom: 40 },
-  xAxis: {
-    type: 'category',
-    data: (report.value?.bands ?? []).map((b) => b.label),
-    axisLabel: { interval: 0, fontSize: 11 },
-  },
-  yAxis: { type: 'value', minInterval: 1 },
-  series: [
-    {
-      type: 'bar',
-      name: '人数',
-      barMaxWidth: 48,
-      itemStyle: { color: THEME.primary },
-      data: (report.value?.bands ?? []).map((b) => b.count),
+// 分数段分布：浅柱打底 + 人数最多的那一段用主色高亮（设计稿 .ch-bar / .ch-bar--on）
+const bandOption = computed(() => {
+  const counts = (report.value?.bands ?? []).map((b) => b.count);
+  return {
+    tooltip: { trigger: 'axis', ...CHART_TOOLTIP },
+    grid: { left: 44, right: 24, top: 34, bottom: 44 },
+    xAxis: {
+      type: 'category',
+      data: (report.value?.bands ?? []).map((b) => b.label),
+      axisLabel: { interval: 0, ...CHART_AXIS_LABEL },
+      axisLine: CHART_AXIS_LINE,
+      axisTick: { show: false },
     },
-  ],
-}));
-
-const departmentOption = computed(() => ({
-  tooltip: { trigger: 'axis' },
-  legend: { data: ['人数', '平均分'], top: 0 },
-  grid: { left: 40, right: 40, top: 40, bottom: 40 },
-  xAxis: {
-    type: 'category',
-    data: (report.value?.departments ?? []).map((d) => d.departmentName),
-  },
-  // 人数（个位数）与平均分（几十分）量级差异大，使用双 y 轴避免柱状比例失真。
-  yAxis: [
-    { type: 'value', name: '人数', minInterval: 1 },
-    { type: 'value', name: '平均分' },
-  ],
-  series: [
-    {
-      type: 'bar',
-      name: '人数',
-      yAxisIndex: 0,
-      barMaxWidth: 36,
-      itemStyle: { color: THEME.primary },
-      data: (report.value?.departments ?? []).map((d) => d.count),
+    yAxis: {
+      type: 'value',
+      minInterval: 1,
+      axisLabel: CHART_AXIS_LABEL,
+      splitLine: CHART_SPLIT_LINE,
     },
-    {
-      type: 'bar',
-      name: '平均分',
-      yAxisIndex: 1,
-      barMaxWidth: 36,
-      itemStyle: { color: THEME.success },
-      data: (report.value?.departments ?? []).map((d) => d.avgScore),
-    },
-  ],
-}));
+    series: [
+      {
+        type: 'bar',
+        name: '人数',
+        barMaxWidth: 48,
+        itemStyle: { borderRadius: [3, 3, 0, 0] },
+        data: softBars(counts, peakIndex(counts)),
+      },
+    ],
+  };
+});
 
 /* ------------------------------ 工具 ------------------------------ */
 function isCheat(record: ExamRecord): boolean {
@@ -309,22 +300,32 @@ function cheatSummary(record: ExamRecord): string {
         </div>
       </el-tab-pane>
 
-      <!-- 3. 科室对比 -->
+      <!-- 3. 科室对比（v3.1：表格 + 内联进度条，取代双轴柱状图——同屏即可横向比较，无需读图） -->
       <el-tab-pane label="科室对比" name="departments" lazy>
         <div class="report-page__stack">
-          <el-card v-if="report && report.departments.length > 0" class="report-page__chart-card" shadow="never">
-            <VChart ref="departmentChartRef" :option="departmentOption" autoresize style="height: 320px" />
-          </el-card>
-          <EmptyState v-else text="暂无科室数据" />
-          <el-card v-if="report && report.departments.length > 0" class="table-card" shadow="never">
+          <EmptyState v-if="!report || report.departments.length === 0" text="暂无科室数据" />
+          <el-card v-else class="table-card" shadow="never">
             <el-table :data="report.departments" stripe>
               <el-table-column prop="departmentName" label="科室" min-width="160" />
               <el-table-column prop="count" label="人数" width="100" align="center" />
               <el-table-column label="平均分" width="120" align="center">
-                <template #default="{ row }">{{ formatScore(row.avgScore) }}</template>
+                <template #default="{ row }">
+                  <span class="num">{{ formatScore(row.avgScore) }}</span>
+                </template>
               </el-table-column>
-              <el-table-column label="及格率" width="120" align="center">
-                <template #default="{ row }">{{ formatPercent(row.passRate) }}</template>
+              <el-table-column label="及格率" min-width="200">
+                <template #default="{ row }">
+                  <div class="report-page__rate">
+                    <span class="report-page__rate-num num">{{ formatPercent(row.passRate) }}</span>
+                    <el-progress
+                      class="report-page__rate-bar"
+                      :percentage="Math.round(row.passRate * 100)"
+                      :stroke-width="6"
+                      :show-text="false"
+                      :color="row.passRate >= DEPARTMENT_PASS_RATE_WARN ? THEME.primary : THEME.warning"
+                    />
+                  </div>
+                </template>
               </el-table-column>
             </el-table>
           </el-card>
@@ -462,6 +463,25 @@ function cheatSummary(record: ExamRecord): string {
   &__muted {
     color: $text-secondary;
     font-size: 13px;
+  }
+
+  /** 科室对比：及格率 = 数值 + 内联进度条（DESIGN-C §2.3），一屏内即可横向比较 */
+  &__rate {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__rate-num {
+    flex: 0 0 auto;
+    font-size: 12.5px;
+    color: $text-primary;
+  }
+
+  &__rate-bar {
+    flex: 1;
+    min-width: 0;
+    max-width: 120px;
   }
 
   &__stem {

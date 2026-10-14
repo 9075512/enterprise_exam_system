@@ -8,6 +8,7 @@ import dayjs from 'dayjs';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import * as examsApi from '@/api/exams';
 import { useSettingsStore } from '@/stores/settings';
+import { validateAndFocus } from '@/composables/useFormFocus';
 import { buildDepartmentTree } from '@/utils/departmentTree';
 import type { Department, Exam, Paper } from '@/types';
 
@@ -114,7 +115,7 @@ watch(
 
 async function handleSubmit(): Promise<void> {
   if (!formRef.value) return;
-  const valid = await formRef.value.validate().catch(() => false);
+  const valid = await validateAndFocus(formRef.value);
   if (!valid) return;
 
   const start = new Date(form.startTime).getTime();

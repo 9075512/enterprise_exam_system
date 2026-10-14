@@ -63,6 +63,9 @@ function onReset(): void {
   void refresh();
 }
 
+/** 是否处于筛选态（决定空态口径与是否给「清空筛选」出路，规范 §9.2） */
+const hasFilter = computed<boolean>(() => Boolean(keyword.value.trim() || filterCategory.value.trim()));
+
 /** 表单弹窗状态 */
 const formVisible = ref(false);
 const editingBank = ref<QuestionBank | null>(null);
@@ -183,8 +186,15 @@ async function handleDelete(bank: QuestionBank): Promise<void> {
     <!-- 加载中 -->
     <LoadingSkeleton v-if="loading && !banks" :rows="4" />
 
-    <!-- 空态 -->
-    <EmptyState v-else-if="!banks || banks.length === 0" :text="BANK_TEXT.EMPTY_LIST" />
+    <!-- 空态：筛选无结果 → 清空筛选 + 新建；真无数据 → 新建 -->
+    <EmptyState
+      v-else-if="!banks || banks.length === 0"
+      :text="hasFilter ? '没有匹配的题库' : BANK_TEXT.EMPTY_LIST"
+      :filtered="hasFilter"
+      action-text="新建题库"
+      @clear="onReset"
+      @action="openCreate"
+    />
 
     <!-- 卡片网格 -->
     <CardGrid v-else>

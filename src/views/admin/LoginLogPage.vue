@@ -3,13 +3,14 @@
  * 登录日志（v1.7③，管理员）。
  * 登录成功/失败/锁定均可查：账号 / 结果 / 来源 / 时间范围过滤 + 分页。
  */
-import { onMounted, reactive } from 'vue';
+import { computed, onMounted, reactive } from 'vue';
 import { Refresh, Search } from '@element-plus/icons-vue';
 import * as loginLogsApi from '@/api/loginLogs';
 import { usePagination } from '@/composables/usePagination';
 import { formatDateTime } from '@/utils/datetime';
 import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
+import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
 import DataTablePagination from '@/components/common/DataTablePagination.vue';
 import type { LoginLog } from '@/types';
 
@@ -49,6 +50,11 @@ function handleReset(): void {
   filters.dateRange = null;
   load();
 }
+
+/** 是否处于筛选态（决定空态口径与是否给「清空筛选」出路，规范 §9.2） */
+const hasFilter = computed<boolean>(() =>
+  Boolean(filters.username.trim() || filters.success || filters.source || filters.dateRange),
+);
 
 /** 失败原因文案。 */
 const REASON_LABELS: Record<string, string> = {
@@ -104,6 +110,7 @@ onMounted(load);
         />
         <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
         <el-button :icon="Refresh" @click="handleReset">重置</el-button>
+        <TableDensityToggle />
       </div>
     </el-card>
 
@@ -131,7 +138,11 @@ onMounted(load);
           <template #default="{ row }">{{ row.userAgent || '—' }}</template>
         </el-table-column>
         <template #empty>
-          <EmptyState text="暂无登录记录" />
+          <EmptyState
+            :text="hasFilter ? '没有符合条件的登录记录' : '暂无登录记录'"
+            :filtered="hasFilter"
+            @clear="handleReset"
+          />
         </template>
       </el-table>
 

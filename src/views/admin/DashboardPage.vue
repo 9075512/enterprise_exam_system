@@ -24,6 +24,16 @@ import * as papersApi from '@/api/papers';
 import * as reportsApi from '@/api/reports';
 import * as usersApi from '@/api/users';
 import { THEME } from '@/constants/theme';
+import {
+  CHART_AXIS_LABEL,
+  CHART_AXIS_LINE,
+  CHART_AXIS_NAME,
+  CHART_LEGEND,
+  CHART_SPLIT_LINE,
+  CHART_TOOLTIP,
+  peakIndex,
+  softBars,
+} from '@/utils/chartTheme';
 import { formatRange } from '@/utils/datetime';
 import { formatPercent } from '@/utils/format';
 import { getExamStatus } from '@/utils/examStatus';
@@ -88,11 +98,13 @@ function resetFilters(): void {
   void loadDashboard();
 }
 
+// 统计卡：v3.1 方向 C 统一主色（分类色不外溢到统计卡，见 DESIGN-C §2.1），
+// 卡片自身无 color 字段，图标色由 .stat-card__icon 的 token 决定。
 const cards = [
-  { key: 'departments', label: '科室数', icon: OfficeBuilding, color: THEME.primary },
-  { key: 'users', label: '用户数', icon: User, color: THEME.secondary },
-  { key: 'banks', label: '题库 / 题目', icon: Collection, color: THEME.info },
-  { key: 'papers', label: '试卷数', icon: Document, color: THEME.success },
+  { key: 'departments', label: '科室数', icon: OfficeBuilding },
+  { key: 'users', label: '用户数', icon: User },
+  { key: 'banks', label: '题库 / 题目', icon: Collection },
+  { key: 'papers', label: '试卷数', icon: Document },
 ] as const;
 
 function cardValue(key: (typeof cards)[number]['key']): string {
@@ -138,20 +150,40 @@ async function load(): Promise<void> {
 onMounted(load);
 
 /* ------------------------------ 图表 option ------------------------------ */
+/**
+ * 成绩趋势（双线，单主色系）：及格率 = 主色实线，平均分 = 主色浅档虚线。
+ * 两条线度量不同（比率 % / 分值），用「实线+虚线」而非第二色区分——
+ * 语义色是状态语言，不得降格当数据线用（DESIGN-C §2.5 单一主色）。
+ */
 const trendOption = computed(() => {
   const trend = dashboardData.value?.examTrend ?? [];
   return {
-    tooltip: { trigger: 'axis' },
-    legend: { data: ['及格率', '平均分'], top: 0 },
-    grid: { left: 40, right: 40, top: 40, bottom: 40 },
+    tooltip: { trigger: 'axis', ...CHART_TOOLTIP },
+    legend: { data: ['及格率', '平均分'], top: 0, ...CHART_LEGEND },
+    grid: { left: 44, right: 44, top: 44, bottom: 40 },
     xAxis: {
       type: 'category',
       data: trend.map((p) => shortName(p.examName)),
-      axisLabel: { interval: 'auto', fontSize: 11 },
+      axisLabel: { interval: 'auto', ...CHART_AXIS_LABEL },
+      axisLine: CHART_AXIS_LINE,
+      axisTick: { show: false },
     },
     yAxis: [
-      { type: 'value', name: '及格率', max: 100, axisLabel: { formatter: '{value}%' } },
-      { type: 'value', name: '平均分' },
+      {
+        type: 'value',
+        name: '及格率',
+        max: 100,
+        nameTextStyle: CHART_AXIS_NAME,
+        axisLabel: { formatter: '{value}%', ...CHART_AXIS_LABEL },
+        splitLine: CHART_SPLIT_LINE,
+      },
+      {
+        type: 'value',
+        name: '平均分',
+        nameTextStyle: CHART_AXIS_NAME,
+        axisLabel: CHART_AXIS_LABEL,
+        splitLine: { show: false },
+      },
     ],
     series: [
       {
@@ -159,6 +191,8 @@ const trendOption = computed(() => {
         type: 'line',
         yAxisIndex: 0,
         smooth: true,
+        symbolSize: 6,
+        lineStyle: { width: 2 },
         itemStyle: { color: THEME.primary },
         data: trend.map((p) => Math.round(p.passRate * 100)),
       },
@@ -167,18 +201,22 @@ const trendOption = computed(() => {
         type: 'line',
         yAxisIndex: 1,
         smooth: true,
-        itemStyle: { color: THEME.success },
+        symbolSize: 6,
+        lineStyle: { width: 2, type: 'dashed' },
+        itemStyle: { color: THEME.primaryLight },
         data: trend.map((p) => p.avgScore),
       },
     ],
   };
 });
 
-/** 错题率横向柱状图（科目 / 知识点共用） */
+/** 错题率柱状图（科目 / 知识点共用）：浅柱打底 + 峰值主色，一眼定位最该补救的那一项 */
 function wrongRateOption(items: SubjectWrongItem[], name: string) {
+  const rates = items.map((s) => Math.round(s.wrongRate * 100));
   return {
     tooltip: {
       trigger: 'axis',
+      ...CHART_TOOLTIP,
       formatter: (params: unknown) => {
         const arr = Array.isArray(params) ? params : [params];
         const p = arr[0] as { dataIndex: number };
@@ -187,20 +225,29 @@ function wrongRateOption(items: SubjectWrongItem[], name: string) {
         return `${item.subject}<br/>错题率：${formatPercent(item.wrongRate)}<br/>答错 ${item.wrongCount} / ${item.totalAnswered} 人次`;
       },
     },
-    grid: { left: 40, right: 20, top: 30, bottom: 60 },
+    grid: { left: 44, right: 24, top: 34, bottom: 64 },
     xAxis: {
       type: 'category',
       data: items.map((s) => s.subject),
-      axisLabel: { interval: 0, fontSize: 11, rotate: 30 },
+      axisLabel: { interval: 0, rotate: 30, ...CHART_AXIS_LABEL },
+      axisLine: CHART_AXIS_LINE,
+      axisTick: { show: false },
     },
-    yAxis: { type: 'value', name, max: 100, axisLabel: { formatter: '{value}%' } },
+    yAxis: {
+      type: 'value',
+      name,
+      max: 100,
+      nameTextStyle: CHART_AXIS_NAME,
+      axisLabel: { formatter: '{value}%', ...CHART_AXIS_LABEL },
+      splitLine: CHART_SPLIT_LINE,
+    },
     series: [
       {
         name,
         type: 'bar',
         barMaxWidth: 36,
-        itemStyle: { color: THEME.error },
-        data: items.map((s) => Math.round(s.wrongRate * 100)),
+        itemStyle: { borderRadius: [3, 3, 0, 0] },
+        data: softBars(rates, peakIndex(rates)),
       },
     ],
   };
@@ -257,16 +304,13 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
 
       <el-row :gutter="16" class="dashboard__cards">
         <el-col v-for="card in cards" :key="card.key" :xs="12" :sm="12" :md="6">
-          <el-card class="stat-card" shadow="hover">
-            <div class="stat-card__body">
-              <el-icon class="stat-card__icon" :style="{ color: card.color, backgroundColor: `${card.color}1A` }">
-                <component :is="card.icon" />
-              </el-icon>
-              <div class="stat-card__text">
-                <div class="stat-card__label">{{ card.label }}</div>
-                <div class="stat-card__value num">{{ cardValue(card.key) }}</div>
-              </div>
+          <el-card class="stat-card" shadow="never">
+            <span class="stat-card__rule" aria-hidden="true" />
+            <div class="stat-card__top">
+              <el-icon class="stat-card__icon"><component :is="card.icon" /></el-icon>
+              <span class="stat-card__label">{{ card.label }}</span>
             </div>
+            <div class="stat-card__value num">{{ cardValue(card.key) }}</div>
           </el-card>
         </el-col>
       </el-row>
@@ -381,36 +425,51 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
   border-radius: $radius-lg;
 }
 
+// 统计卡（DESIGN-C §2.4）：左缘 2px 主色条 + 26px 主色软底图标 + 纵向层级。
+// 图标统一主色——分类色不外溢到统计卡，四色图标是 v2.2 的旧语言。
 .stat-card {
-  border-radius: $radius-lg;
+  position: relative;
+  overflow: hidden;
+  border-radius: $radius-base;
 
-  &__body {
+  &__rule {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 2px;
+    background: $color-primary;
+  }
+
+  &__top {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
   }
 
   &__icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 48px;
-    height: 48px;
-    border-radius: $radius-sm;
-    font-size: 24px;
+    display: grid;
+    flex: 0 0 26px;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: $radius-xs;
+    background: $color-primary-soft;
+    color: $color-primary;
+    font-size: 15px;
   }
 
   &__label {
-    font-size: 13px;
+    font-size: 12px;
+    font-weight: 600;
     color: $text-secondary;
   }
 
   &__value {
-    margin-top: 4px;
+    margin-top: 8px;
     font-size: 26px;
     font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
     color: $text-primary;
-    line-height: 1.2;
   }
 }
 </style>

@@ -3,7 +3,7 @@
  * 审计日志（v1.6④，管理员；v1.7② 支持导出 xlsx/csv 与按保留策略清理）。
  * 关键操作留痕可查：动作 / 目标类型 / 关键字 / 时间范围过滤 + 分页。
  */
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { ArrowDown, Delete, Refresh, Search, Setting } from '@element-plus/icons-vue';
 import * as auditApi from '@/api/audit';
@@ -20,6 +20,7 @@ import {
 import { formatDateTime } from '@/utils/datetime';
 import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
+import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
 import DataTablePagination from '@/components/common/DataTablePagination.vue';
 import type { AuditAction, AuditLog, AuditTargetType } from '@/types';
 
@@ -72,6 +73,11 @@ function handleReset(): void {
   filters.dateRange = null;
   load();
 }
+
+/** 是否处于筛选态（决定空态口径与是否给「清空筛选」出路，规范 §9.2） */
+const hasFilter = computed<boolean>(() =>
+  Boolean(filters.action || filters.targetType || filters.keyword.trim() || filters.dateRange),
+);
 
 function detailText(detail: Record<string, unknown>): string {
   const keys = Object.keys(detail);
@@ -220,6 +226,7 @@ onMounted(loadRetention);
 
         <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
         <el-button :icon="Refresh" @click="handleReset">重置</el-button>
+        <TableDensityToggle />
       </div>
     </el-card>
 
@@ -252,7 +259,11 @@ onMounted(loadRetention);
           <template #default="{ row }">{{ detailText(row.detail) }}</template>
         </el-table-column>
         <template #empty>
-          <EmptyState text="暂无审计日志" />
+          <EmptyState
+            :text="hasFilter ? '没有符合条件的日志' : '暂无审计日志'"
+            :filtered="hasFilter"
+            @clear="handleReset"
+          />
         </template>
       </el-table>
       <DataTablePagination

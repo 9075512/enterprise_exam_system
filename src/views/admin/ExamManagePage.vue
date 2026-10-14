@@ -20,6 +20,7 @@ import { formatDateTime, formatRange } from '@/utils/datetime';
 import { getExamStatus } from '@/utils/examStatus';
 import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
+import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import StatusTag from '@/components/common/StatusTag.vue';
 import ExamFormDialog from './ExamFormDialog.vue';
@@ -51,6 +52,9 @@ function resetFilter(): void {
   filterKeyword.value = '';
   filterStatus.value = '';
 }
+
+/** 是否处于筛选态（决定空态口径与是否给「清空筛选」出路，规范 §9.2） */
+const hasFilter = computed<boolean>(() => Boolean(filterKeyword.value.trim() || filterStatus.value));
 
 const paperNameMap = computed<Record<string, string>>(() =>
   Object.fromEntries((papers.value ?? []).map((p) => [p.id, p.name])),
@@ -134,7 +138,12 @@ async function handleDelete(exam: Exam): Promise<void> {
 
     <LoadingSkeleton v-if="loading && !exams" :rows="5" />
 
-    <EmptyState v-else-if="!exams || exams.length === 0" text="还没有考试，点击右上角新建考试" />
+    <EmptyState
+      v-else-if="!exams || exams.length === 0"
+      text="还没有考试，先创建一场考试"
+      action-text="新建考试"
+      @action="openCreate"
+    />
 
     <el-card v-else class="table-card" shadow="never">
       <div class="table-card__toolbar">
@@ -155,6 +164,7 @@ async function handleDelete(exam: Exam): Promise<void> {
         </div>
         <div class="exam-page__filter-actions">
           <el-button :icon="Refresh" @click="resetFilter">重置</el-button>
+          <TableDensityToggle />
         </div>
       </div>
 
@@ -216,7 +226,13 @@ async function handleDelete(exam: Exam): Promise<void> {
           </template>
         </el-table-column>
         <template #empty>
-          <EmptyState text="没有匹配的考试" />
+          <EmptyState
+            :text="hasFilter ? '没有匹配的考试' : '暂无可展示的考试'"
+            :filtered="hasFilter"
+            action-text="新建考试"
+            @clear="resetFilter"
+            @action="openCreate"
+          />
         </template>
       </el-table>
     </el-card>

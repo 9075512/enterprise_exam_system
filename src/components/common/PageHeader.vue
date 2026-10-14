@@ -20,22 +20,22 @@ defineProps<{ title: string; description?: string }>();
 
 .page-header {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 16px;
 
   &__title {
     margin: 0;
-    font-size: 20px;
-    font-weight: 700;
-    letter-spacing: 0.01em;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
     color: $text-primary;
   }
 
   &__desc {
-    margin: 6px 0 0;
-    font-size: 13px;
+    margin: 4px 0 0;
+    font-size: 12.5px;
     color: $text-secondary;
   }
 

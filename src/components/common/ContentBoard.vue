@@ -294,7 +294,7 @@ function openDetail(item: Announcement): void {
 
     .content-board__item.is-important & {
       font-weight: 700;
-      color: $color-error;
+      color: $color-error-text;
     }
   }
 
@@ -315,9 +315,9 @@ function openDetail(item: Announcement): void {
     margin-right: 8px;
     padding: 1px 6px;
     border-radius: 3px;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    color: $color-error;
+    background: $color-error-bg;
+    border: 1px solid $color-error-border;
+    color: $color-error-text;
     font-size: 12px;
   }
 

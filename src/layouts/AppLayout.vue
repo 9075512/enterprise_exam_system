@@ -166,7 +166,7 @@ async function submitPassword(): Promise<void> {
     <aside class="layout__aside" :class="{ 'is-collapsed': app.sidebarCollapsed }">
       <div class="layout__brand">
         <span class="layout__brand-mark">考</span>
-        <span v-if="!app.sidebarCollapsed" class="layout__brand-name">{{ brandName }}</span>
+        <span class="layout__brand-name">{{ brandName }}</span>
       </div>
       <el-menu
         ref="menuRef"
@@ -202,7 +202,13 @@ async function submitPassword(): Promise<void> {
 
     <div class="layout__main">
       <header class="layout__header">
-        <el-button text class="layout__collapse" @click="app.toggleSidebar()">
+        <el-button
+          text
+          class="layout__collapse"
+          :title="app.sidebarCollapsed ? '展开侧栏' : '收起侧栏'"
+          :aria-label="app.sidebarCollapsed ? '展开侧栏' : '收起侧栏'"
+          @click="app.toggleSidebar()"
+        >
           <el-icon :size="18"><component :is="app.sidebarCollapsed ? Expand : Fold" /></el-icon>
         </el-button>
         <el-breadcrumb separator="/">
@@ -277,17 +283,29 @@ async function submitPassword(): Promise<void> {
   min-width: 1280px;
   overflow: hidden;
 
-  // ---------- 深色侧栏 ----------
+  // ---------- 深色侧栏（v2.1：实色无渐变，尺寸与选中态统一） ----------
   &__aside {
-    width: 232px;
+    width: $sidebar-width;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    background: linear-gradient(180deg, $sidebar-bg 0%, $sidebar-bg-end 100%);
+    background: $sidebar-bg;
+    border-right: 1px solid $sidebar-border;
     transition: width $transition-base;
 
     &.is-collapsed {
-      width: 64px;
+      width: $sidebar-width-collapsed;
+
+      .layout__brand {
+        justify-content: center;
+        padding: 0;
+      }
+
+      .layout__brand-name {
+        max-width: 0;
+        opacity: 0;
+        transform: translateX(-8px);
+      }
     }
   }
 
@@ -296,11 +314,10 @@ async function submitPassword(): Promise<void> {
     flex-shrink: 0;
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: 10px;
-    padding: 0 14px;
+    padding: 0 16px;
     border-bottom: 1px solid $sidebar-border;
-    white-space: nowrap;
+    overflow: hidden;
   }
 
   &__brand-mark {
@@ -309,44 +326,67 @@ async function submitPassword(): Promise<void> {
     flex-shrink: 0;
     display: grid;
     place-items: center;
-    border-radius: 9px;
-    background: $gradient-brand;
+    border-radius: 8px;
+    background: $color-primary;
     color: #fff;
     font-size: 15px;
     font-weight: 700;
-    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.45);
   }
 
   &__brand-name {
     min-width: 0;
+    max-width: 160px;
     overflow: hidden;
     font-size: 15px;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.03em;
     color: #fff;
     white-space: nowrap;
     text-overflow: ellipsis;
+    transition: opacity $transition-fast, transform $transition-fast;
   }
 
   &__menu {
     flex: 1;
+    min-height: 0;
     border-right: none;
     overflow-y: auto;
     overflow-x: hidden;
     background: transparent;
-    padding: 10px;
+    padding: 10px 10px 16px;
 
     --el-menu-bg-color: transparent;
     --el-menu-hover-bg-color: #{$sidebar-hover-bg};
     --el-menu-active-color: #{$sidebar-text-active};
     --el-menu-text-color: #{$sidebar-text};
-    --el-menu-item-height: 42px;
-    --el-menu-sub-item-height: 38px;
+    --el-menu-item-height: 40px;
+    --el-menu-sub-item-height: 36px;
+
+    // 深色底细滚动条（覆盖全局浅色规则）
+    scrollbar-width: thin;
+    scrollbar-color: $sidebar-scrollbar transparent;
+
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: $sidebar-scrollbar;
+      border-radius: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.28);
+    }
+
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
 
     // 一级菜单项 + 分组标题共用外观
     :deep(.el-menu-item),
     :deep(.el-sub-menu__title) {
-      margin-bottom: 3px;
+      margin-bottom: 2px;
       border-radius: $radius-sm;
       color: $sidebar-text;
       transition: background-color $transition-fast, color $transition-fast;
@@ -361,16 +401,30 @@ async function submitPassword(): Promise<void> {
       }
     }
 
+    // 选中项：整块圆角高亮 + 左侧指示条（两种状态视觉一致）
     :deep(.el-menu-item) {
+      position: relative;
+
       &.is-active {
         background: $sidebar-active-bg;
         color: $sidebar-text-active;
         font-weight: 600;
-        box-shadow: inset 3px 0 0 $color-primary-light;
+
+        &::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 50%;
+          width: 3px;
+          height: 18px;
+          border-radius: 0 3px 3px 0;
+          background: $color-primary-light;
+          transform: translateY(-50%);
+        }
       }
     }
 
-    // 分组标题：当前组内有高亮项时也作弱高亮，便于定位所在分组
+    // 分组标题：当前组内有高亮项时弱高亮，便于定位所在分组
     :deep(.el-sub-menu) {
       &.is-active > .el-sub-menu__title {
         color: $sidebar-text-active;
@@ -378,38 +432,65 @@ async function submitPassword(): Promise<void> {
       }
     }
 
-    // 二级菜单：左侧缩进引导线，视觉从属于分组标题
+    // 二级菜单：显式缩进（43px = 菜单内边距 10 + 一级内边距 20 + 图标 18 + 间距 5），
+    // 使二级图标与一级标题文字左对齐；不再手写引导线，避免缩进错位
     :deep(.el-menu--inline) {
-      border-left: 1px solid $sidebar-border;
-      margin: 0 0 3px 17px;
-      padding-left: 0;
+      margin: 2px 0 4px;
 
       .el-menu-item {
-        padding-left: 15px !important;
+        padding-left: 43px !important;
+        height: 36px;
+        line-height: 36px;
         font-size: 13px;
-      }
 
-      .el-icon {
-        font-size: 15px;
+        .el-icon {
+          font-size: 15px;
+        }
+
+        &.is-active::before {
+          height: 16px;
+        }
       }
     }
 
-    // 折叠态：菜单铺满窄侧栏、图标居中。
+    // 折叠态：菜单铺满窄侧栏、图标居中、整块高亮（无窄指示条）。
     // ⚠️ `.el-menu--collapse` 与 `.layout__menu` 落在**同一个元素**上，
     //    必须用 `&` 连接；写成后代选择器（`:deep(.el-menu--collapse)`）永不命中，
     //    这正是此前「菜单收回后显示异常」的根因。
     &.el-menu--collapse {
       width: 100%;
-      padding: 8px;
+      padding: 10px 8px 16px;
 
       :deep(.el-menu-item),
       :deep(.el-sub-menu__title) {
         padding: 0 !important;
+        height: 40px;
         justify-content: center;
+        border-radius: $radius-sm;
+        margin-bottom: 4px;
 
         .el-icon {
           margin: 0;
+          font-size: 18px;
         }
+      }
+
+      // 折叠态下 el-menu-item 的内容被包进 tooltip 触发层（绝对定位 + 自带 20px 内边距），
+      // 不重置它图标就会整体右偏、无法真正居中
+      :deep(.el-menu-tooltip__trigger) {
+        width: 100%;
+        padding: 0 !important;
+        justify-content: center;
+      }
+
+      :deep(.el-menu-item.is-active) {
+        &::before {
+          display: none;
+        }
+      }
+
+      :deep(.el-sub-menu.is-active > .el-sub-menu__title) {
+        background: $sidebar-hover-bg;
       }
 
       :deep(.el-sub-menu__icon-arrow) {
@@ -433,14 +514,18 @@ async function submitPassword(): Promise<void> {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 0 20px;
+    padding: 0 $page-padding;
     background: $bg-paper;
     border-bottom: 1px solid $border-color;
   }
 
   &__collapse {
-    padding: 4px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: $radius-sm;
     color: $text-secondary;
+    transition: color $transition-fast, background-color $transition-fast;
 
     &:hover {
       color: $color-primary;
@@ -494,7 +579,8 @@ async function submitPassword(): Promise<void> {
     display: grid;
     place-items: center;
     border-radius: 50%;
-    background: $gradient-brand;
+    // v2.2：由品牌渐变改为实色（规范 §7「logo 实色 blue-600，无光晕无渐变」）
+    background: $color-primary;
     color: #fff;
     font-size: 14px;
     font-weight: 700;
@@ -524,7 +610,9 @@ async function submitPassword(): Promise<void> {
   &__content {
     flex: 1;
     overflow: auto;
-    padding: 22px 24px 28px;
+    // 四边同距（DESIGN-C §2.2 --pad-page）：顶栏内距与之对齐，
+    // 面包屑与页面标题因此落在同一条竖轴上。
+    padding: $page-padding;
     background: $bg-page;
   }
 }
@@ -542,19 +630,27 @@ async function submitPassword(): Promise<void> {
   --el-menu-hover-bg-color: #{$sidebar-hover-bg};
   --el-menu-active-color: #{$sidebar-text-active};
   --el-menu-text-color: #{$sidebar-text};
-  --el-menu-item-height: 38px;
+  --el-menu-item-height: 36px;
 
   .el-menu {
     background: $sidebar-bg;
     border: 1px solid $sidebar-border;
-    border-radius: $radius-sm;
+    border-radius: $radius-base;
     padding: 6px;
-    min-width: 156px;
+    min-width: 168px;
+    box-shadow: $shadow-lg;
   }
 
   .el-menu-item {
     border-radius: $radius-sm;
     color: $sidebar-text;
+    font-size: 13px;
+    margin-bottom: 2px;
+
+    .el-icon {
+      font-size: 15px;
+      color: inherit;
+    }
 
     &:hover {
       background: $sidebar-hover-bg;

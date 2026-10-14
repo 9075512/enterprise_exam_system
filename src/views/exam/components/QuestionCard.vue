@@ -150,7 +150,7 @@ const shortValue = computed<string>({
     letter-spacing: 0.4px;
   }
 
-  /* 题型徽标配色与答题卡分组色点保持一致（单选蓝 / 多选紫 / 判断橙 / 填空青 / 简答灰） */
+  /* 题型徽标配色与答题卡分组色点保持一致（单选蓝 / 多选紫 / 判断橙 / 填空绿 / 简答灰） */
   &__type {
     display: inline-flex;
     align-items: center;
@@ -167,17 +167,17 @@ const shortValue = computed<string>({
 
     &--multiple {
       color: $color-secondary;
-      background: rgba($color-secondary, 0.08);
+      background: $color-secondary-soft;
     }
 
     &--judge {
-      color: $color-warning;
-      background: rgba($color-warning, 0.12);
+      color: $color-warning-text;
+      background: $color-warning-bg;
     }
 
     &--fill {
-      color: $color-success;
-      background: rgba($color-success, 0.1);
+      color: $color-success-text;
+      background: $color-success-bg;
     }
 
     &--short {

@@ -8,6 +8,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AccountSecurityDialog: typeof import('./components/account/AccountSecurityDialog.vue')['default']
+    BatchActionBar: typeof import('./components/common/BatchActionBar.vue')['default']
     CaptchaImage: typeof import('./components/common/CaptchaImage.vue')['default']
     CardGrid: typeof import('./components/common/CardGrid.vue')['default']
     ConfirmDialog: typeof import('./components/common/ConfirmDialog.vue')['default']
@@ -70,6 +71,7 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     StatusTag: typeof import('./components/common/StatusTag.vue')['default']
+    TableDensityToggle: typeof import('./components/common/TableDensityToggle.vue')['default']
   }
   export interface ComponentCustomProperties {
     vLoading: typeof import('element-plus/es')['ElLoadingDirective']

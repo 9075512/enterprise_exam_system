@@ -5,6 +5,7 @@
  */
 import { computed } from 'vue';
 import { QUESTION_TYPE_LABELS } from '@/constants';
+import { THEME } from '@/constants/theme';
 import type { QuestionType } from '@/types';
 
 const props = defineProps<{
@@ -93,7 +94,7 @@ function onJump(index: number): void {
         :percentage="progress"
         :stroke-width="6"
         :show-text="false"
-        :color="progress === 100 ? '#16A34A' : '#2563EB'"
+        :color="progress === 100 ? THEME.success : THEME.primary"
       />
     </div>
 
@@ -203,7 +204,7 @@ function onJump(index: number): void {
 
     &--active {
       background: $color-primary-soft;
-      border-color: rgba(37, 99, 235, 0.24);
+      border-color: rgba($color-primary, 0.24);
     }
   }
 
@@ -295,7 +296,7 @@ function onJump(index: number): void {
       border-color: $color-primary;
       border-width: 2px;
       font-weight: 700;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+      box-shadow: 0 0 0 3px rgba($color-primary, 0.18);
     }
   }
 
@@ -336,7 +337,7 @@ function onJump(index: number): void {
     &--current {
       background: $bg-paper;
       border-color: $color-primary;
-      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+      box-shadow: 0 0 0 2px rgba($color-primary, 0.18);
     }
   }
 }

@@ -554,11 +554,11 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
   &__danger {
     margin-bottom: 14px;
     padding: 10px 12px;
-    border: 1px solid $color-error;
+    border: 1px solid $color-error-border;
     border-radius: $radius-sm;
-    background: #fef2f2;
+    background: $color-error-bg;
     font-size: 13px;
-    color: $color-error;
+    color: $color-error-text;
   }
 
   &__bulk {

@@ -400,11 +400,11 @@ function handleHistoryPageChange(p: number): void {
     font-weight: 600;
 
     &--success {
-      color: $color-success;
+      color: $color-success-text;
     }
 
     &--fail {
-      color: $color-error;
+      color: $color-error-text;
     }
   }
 

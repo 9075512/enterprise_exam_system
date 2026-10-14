@@ -27,6 +27,8 @@ import {
 import { uploadImage } from '@/api/attachments';
 import { formatRange } from '@/utils/datetime';
 import PageHeader from '@/components/common/PageHeader.vue';
+import BatchActionBar from '@/components/common/BatchActionBar.vue';
+import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import RichTextEditor from '@/components/common/RichTextEditor.vue';
 import type { Announcement, AnnouncementLevel, Banner, ContentTarget, ContentTouchStats } from '@/types';
@@ -112,9 +114,11 @@ const annFilter = reactive<{ target: '' | ContentTarget; enabled: '' | 'on' | 'o
   enabled: '',
   keyword: '',
 });
-const annEmptyText = computed<string>(() =>
-  annFilter.keyword || annFilter.target || annFilter.enabled ? '没有符合条件的内容' : '暂无公告',
+/** 是否处于筛选态（决定空态口径与是否给「清空筛选」出路） */
+const annHasFilter = computed<boolean>(() =>
+  Boolean(annFilter.keyword.trim() || annFilter.target || annFilter.enabled),
 );
+const annEmptyText = computed<string>(() => (annHasFilter.value ? '没有符合条件的内容' : '暂无公告'));
 
 async function loadAnnouncements(): Promise<void> {
   annLoading.value = true;
@@ -144,9 +148,25 @@ function searchAnnouncements(): void {
 /* ------------------------------ 公告批量操作（v2.0④） ------------------------------ */
 
 const annSelection = ref<Announcement[]>([]);
+/** 公告表格实例（仅用于「取消选择」清空勾选） */
+const annTableRef = ref<{ clearSelection: () => void } | null>(null);
 
 function onAnnSelectionChange(rows: Announcement[]): void {
   annSelection.value = rows;
+}
+
+/** 清空公告勾选 */
+function clearAnnSelection(): void {
+  annTableRef.value?.clearSelection();
+  annSelection.value = [];
+}
+
+/** 清空公告筛选并回到第一页 */
+function resetAnnFilter(): void {
+  annFilter.target = '';
+  annFilter.enabled = '';
+  annFilter.keyword = '';
+  searchAnnouncements();
 }
 
 async function runAnnBatch(action: ContentBatchAction): Promise<void> {
@@ -303,7 +323,9 @@ const bnFilter = reactive<{ target: '' | ContentTarget; enabled: '' | 'on' | 'of
   target: '',
   enabled: '',
 });
-const bnEmptyText = computed<string>(() => (bnFilter.target || bnFilter.enabled ? '没有符合条件的轮播图' : '暂无轮播图'));
+/** 是否处于筛选态（决定空态口径与是否给「清空筛选」出路） */
+const bnHasFilter = computed<boolean>(() => Boolean(bnFilter.target || bnFilter.enabled));
+const bnEmptyText = computed<string>(() => (bnHasFilter.value ? '没有符合条件的轮播图' : '暂无轮播图'));
 
 async function loadBanners(): Promise<void> {
   bnLoading.value = true;
@@ -332,9 +354,24 @@ function searchBanners(): void {
 /* ------------------------------ 轮播批量操作（v2.0④） ------------------------------ */
 
 const bnSelection = ref<Banner[]>([]);
+/** 轮播表格实例（仅用于「取消选择」清空勾选） */
+const bnTableRef = ref<{ clearSelection: () => void } | null>(null);
 
 function onBnSelectionChange(rows: Banner[]): void {
   bnSelection.value = rows;
+}
+
+/** 清空轮播勾选 */
+function clearBnSelection(): void {
+  bnTableRef.value?.clearSelection();
+  bnSelection.value = [];
+}
+
+/** 清空轮播筛选并回到第一页 */
+function resetBnFilter(): void {
+  bnFilter.target = '';
+  bnFilter.enabled = '';
+  searchBanners();
 }
 
 async function runBnBatch(action: ContentBatchAction): Promise<void> {
@@ -543,15 +580,18 @@ onMounted(() => {
             />
             <el-button @click="searchAnnouncements">查询</el-button>
             <div class="content-page__spacer" />
-            <el-button :disabled="annSelection.length === 0" @click="runAnnBatch('enable')">批量上线</el-button>
-            <el-button :disabled="annSelection.length === 0" @click="runAnnBatch('disable')">批量下线</el-button>
-            <el-button type="danger" plain :disabled="annSelection.length === 0" @click="runAnnBatch('delete')">
-              批量删除
-            </el-button>
+            <TableDensityToggle />
             <el-button type="primary" @click="openAnnCreate">新建公告</el-button>
           </div>
 
+          <BatchActionBar :count="annSelection.length" noun="条公告" @clear="clearAnnSelection">
+            <el-button @click="runAnnBatch('enable')">批量上线</el-button>
+            <el-button @click="runAnnBatch('disable')">批量下线</el-button>
+            <el-button type="danger" plain @click="runAnnBatch('delete')">批量删除</el-button>
+          </BatchActionBar>
+
           <el-table
+            ref="annTableRef"
             v-loading="annLoading"
             :data="annList"
             row-key="id"
@@ -598,7 +638,13 @@ onMounted(() => {
               </template>
             </el-table-column>
             <template #empty>
-              <EmptyState :text="annEmptyText" />
+              <EmptyState
+                :text="annEmptyText"
+                :filtered="annHasFilter"
+                action-text="新建公告"
+                @clear="resetAnnFilter"
+                @action="openAnnCreate"
+              />
             </template>
           </el-table>
 
@@ -630,15 +676,18 @@ onMounted(() => {
             </el-select>
             <el-button @click="searchBanners">查询</el-button>
             <div class="content-page__spacer" />
-            <el-button :disabled="bnSelection.length === 0" @click="runBnBatch('enable')">批量上线</el-button>
-            <el-button :disabled="bnSelection.length === 0" @click="runBnBatch('disable')">批量下线</el-button>
-            <el-button type="danger" plain :disabled="bnSelection.length === 0" @click="runBnBatch('delete')">
-              批量删除
-            </el-button>
+            <TableDensityToggle />
             <el-button type="primary" @click="openBnCreate">新建轮播图</el-button>
           </div>
 
+          <BatchActionBar :count="bnSelection.length" noun="张轮播图" @clear="clearBnSelection">
+            <el-button @click="runBnBatch('enable')">批量上线</el-button>
+            <el-button @click="runBnBatch('disable')">批量下线</el-button>
+            <el-button type="danger" plain @click="runBnBatch('delete')">批量删除</el-button>
+          </BatchActionBar>
+
           <el-table
+            ref="bnTableRef"
             v-loading="bnLoading"
             :data="bnList"
             row-key="id"
@@ -692,7 +741,13 @@ onMounted(() => {
               </template>
             </el-table-column>
             <template #empty>
-              <EmptyState :text="bnEmptyText" />
+              <EmptyState
+                :text="bnEmptyText"
+                :filtered="bnHasFilter"
+                action-text="新建轮播图"
+                @clear="resetBnFilter"
+                @action="openBnCreate"
+              />
             </template>
           </el-table>
 
@@ -920,7 +975,7 @@ onMounted(() => {
 
   &__important {
     font-weight: 700;
-    color: $color-error;
+    color: $color-error-text;
   }
 
   &__muted {

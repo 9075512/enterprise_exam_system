@@ -6,27 +6,33 @@
 @forward 'element-plus/theme-chalk/src/common/var.scss' with (
   $colors: (
     'primary': (
-      'base': #2563eb,
+      'base': #0b5bff,
     ),
+    // ⚠️ 语义色基准一律取「700 档」（对应 variables.scss 的 $color-*-text）。
+    // 原因：EP 把 base 直接当作文字色——el-tag plain / el-button plain·link·text /
+    // el-tag dark 的对比度全部由 base 决定；用原色（#12b76a 等）作 base 时
+    // 对白底仅 2.0–3.4:1，不达 WCAG AA。改这里会让 EP 全量派生的
+    // light-3/5/7/8/9 与 dark-2 一并按新 base 重算，单点修复覆盖全站。
+    // 不变量：EP base === variables.scss 的 $color-*-text，两边必须同改。
     'success': (
-      'base': #16a34a,
+      'base': #027a48,
     ),
     'warning': (
-      'base': #f59e0b,
+      'base': #b54708,
     ),
     'danger': (
-      'base': #dc2626,
+      'base': #b42318,
     ),
     'error': (
-      'base': #dc2626,
+      'base': #b42318,
     ),
     'info': (
-      'base': #0ea5e9,
+      'base': #175cd3,
     ),
   ),
   $border-radius: (
-    'base': 10px,
-    'small': 8px,
+    'base': 8px,
+    'small': 6px,
     'round': 20px,
     'circle': 100%,
   ),

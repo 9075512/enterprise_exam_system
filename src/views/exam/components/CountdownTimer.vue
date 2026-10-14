@@ -64,13 +64,13 @@ const text = computed<string>(() => formatClock(props.remainingSeconds));
   }
 
   &--warning {
-    background: rgba($color-error, 0.08);
-    border-color: rgba($color-error, 0.3);
-    color: $color-error;
+    background: $color-error-bg;
+    border-color: $color-error-border;
+    color: $color-error-text;
     animation: countdown-pulse 1s ease-in-out infinite;
 
     .countdown__label {
-      color: rgba($color-error, 0.75);
+      color: $color-error-text;
     }
   }
 }
