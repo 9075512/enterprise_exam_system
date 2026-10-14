@@ -2,10 +2,10 @@
 /**
  * 应用主布局（W2-T6）：可折叠侧栏 + 白色顶栏（面包屑 + 用户下拉）+ 卡片化内容区。
  */
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
-import { ArrowDown, Bell, Expand, Fold, Key, Lock, SwitchButton } from '@element-plus/icons-vue';
+import { ArrowDown, Bell, Expand, Fold, Key, Lock, QuestionFilled, Search, SwitchButton } from '@element-plus/icons-vue';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
 import { useSettingsStore } from '@/stores/settings';
@@ -13,7 +13,7 @@ import { usePermissionsStore } from '@/stores/permissions';
 import { getUnreadCount } from '@/api/notifications';
 import { ROLE_LABELS } from '@/constants';
 import AccountSecurityDialog from '@/components/account/AccountSecurityDialog.vue';
-import { getMenuGroups, getMenuItems } from './menuConfig';
+import { MENU_GROUP_DEFS, getMenuGroups, getMenuItems } from './menuConfig';
 
 /** el-menu 实例（用于跨分组导航时同步展开态） */
 interface MenuExposed {
@@ -53,6 +53,63 @@ async function refreshUnread(): Promise<void> {
 function openNotifications(): void {
   void router.push('/notifications');
 }
+
+/* ------------------------------ 顶栏：全局搜索（⌘K） ------------------------------ */
+/** 设计稿 .search：顶栏中部的全局菜单搜索 + ⌘K 快捷键提示 */
+const searchVisible = ref(false);
+const searchKeyword = ref('');
+const searchInputRef = ref<{ focus: () => void }>();
+
+/** 分组名映射（搜索结果里显示「数据中心 / 数据看板」这类面包屑） */
+const groupTextMap = computed<Record<string, string>>(() =>
+  Object.fromEntries(MENU_GROUP_DEFS.map((g) => [g.key, g.text])),
+);
+
+const searchResults = computed(() => {
+  const kw = searchKeyword.value.trim().toLowerCase();
+  if (!kw) return menuItems.value;
+  return menuItems.value.filter(
+    (m) => m.text.toLowerCase().includes(kw) || m.path.toLowerCase().includes(kw),
+  );
+});
+
+function groupOf(path: string): string {
+  const hit = menuItems.value.find((m) => m.path === path);
+  return hit ? groupTextMap.value[hit.group] ?? '' : '';
+}
+
+function openSearch(): void {
+  searchVisible.value = true;
+  void nextTick(() => searchInputRef.value?.focus());
+}
+
+function gotoSearch(path: string): void {
+  searchVisible.value = false;
+  searchKeyword.value = '';
+  void router.push(path);
+}
+
+/** ⌘K / Ctrl+K 唤起搜索（与浏览器默认行为冲突时阻止默认） */
+function onGlobalKey(event: KeyboardEvent): void {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+    event.preventDefault();
+    openSearch();
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', onGlobalKey));
+onUnmounted(() => window.removeEventListener('keydown', onGlobalKey));
+
+/* ------------------------------ 顶栏：帮助 ------------------------------ */
+const helpVisible = ref(false);
+
+/** 帮助面板条目（静态速查，不引入文档依赖） */
+const HELP_ITEMS = [
+  { title: '快捷键', desc: '⌘K / Ctrl+K 唤起全局搜索，回车即可跳转菜单。' },
+  { title: '菜单权限', desc: '菜单可见范围由「组织与系统 · 菜单权限」按角色授权，改后需重新登录生效。' },
+  { title: '成绩与复核', desc: '考生可在「我的成绩」申请成绩复核，管理员在「成绩复核」中处理。' },
+  { title: '遇到问题', desc: '请联系系统管理员，或在「审计日志」中核对操作记录。' },
+] as const;
 
 /** 当前角色可见菜单（扁平，用于高亮 / 面包屑辅助判断） */
 const menuItems = computed(() =>
@@ -166,7 +223,10 @@ async function submitPassword(): Promise<void> {
     <aside class="layout__aside" :class="{ 'is-collapsed': app.sidebarCollapsed }">
       <div class="layout__brand">
         <span class="layout__brand-mark">考</span>
-        <span class="layout__brand-name">{{ brandName }}</span>
+        <span class="layout__brand-name">
+          {{ brandName }}
+          <small>EXAM CENTER</small>
+        </span>
       </div>
       <el-menu
         ref="menuRef"
@@ -198,6 +258,33 @@ async function submitPassword(): Promise<void> {
           </el-sub-menu>
         </template>
       </el-menu>
+
+      <!-- 侧栏底部用户块（设计稿 .side__foot / .side__user；折叠态只留头像） -->
+      <div class="layout__side-foot">
+        <el-dropdown trigger="click" placement="top-start" @command="handleCommand">
+          <span class="layout__side-user">
+            <span class="layout__avatar layout__avatar--side">{{ userName.slice(0, 1) }}</span>
+            <span class="layout__side-user-meta">
+              <span class="layout__side-user-name">{{ userName }}</span>
+              <span class="layout__side-user-role">{{ roleLabel }}</span>
+            </span>
+            <el-icon class="layout__side-user-arrow"><ArrowDown /></el-icon>
+          </span>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="password">
+                <el-icon><Key /></el-icon> 修改密码
+              </el-dropdown-item>
+              <el-dropdown-item command="security">
+                <el-icon><Lock /></el-icon> 账号安全
+              </el-dropdown-item>
+              <el-dropdown-item command="logout" divided>
+                <el-icon><SwitchButton /></el-icon> 退出登录
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
     </aside>
 
     <div class="layout__main">
@@ -217,34 +304,21 @@ async function submitPassword(): Promise<void> {
           </el-breadcrumb-item>
         </el-breadcrumb>
         <div class="layout__spacer" />
+        <!-- 全局搜索（设计稿 .search + ⌘K 提示） -->
+        <button type="button" class="layout__search" @click="openSearch">
+          <el-icon class="layout__search-ic"><Search /></el-icon>
+          <span class="layout__search-ph">搜索菜单与功能</span>
+          <kbd class="layout__kbd">⌘K</kbd>
+        </button>
         <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99" class="layout__bell">
-          <el-button text class="layout__bell-btn" @click="openNotifications">
+          <el-button text class="layout__bell-btn" aria-label="消息中心" @click="openNotifications">
             <el-icon :size="18"><Bell /></el-icon>
           </el-button>
         </el-badge>
-        <el-dropdown @command="handleCommand">
-          <span class="layout__user">
-            <span class="layout__avatar">{{ userName.slice(0, 1) }}</span>
-            <span class="layout__user-meta">
-              <span class="layout__user-name">{{ userName }}</span>
-              <span class="layout__user-role">{{ roleLabel }}</span>
-            </span>
-            <el-icon class="layout__user-arrow"><ArrowDown /></el-icon>
-          </span>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item command="password">
-                <el-icon><Key /></el-icon> 修改密码
-              </el-dropdown-item>
-              <el-dropdown-item command="security">
-                <el-icon><Lock /></el-icon> 账号安全
-              </el-dropdown-item>
-              <el-dropdown-item command="logout" divided>
-                <el-icon><SwitchButton /></el-icon> 退出登录
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
+        <!-- 帮助（设计稿 .iconbtn title="帮助"） -->
+        <button type="button" class="layout__iconbtn" title="帮助" aria-label="帮助" @click="helpVisible = true">
+          <el-icon :size="18"><QuestionFilled /></el-icon>
+        </button>
       </header>
 
       <main class="layout__content">
@@ -268,6 +342,40 @@ async function submitPassword(): Promise<void> {
         <el-button @click="pwdVisible = false">取消</el-button>
         <el-button type="primary" :loading="pwdLoading" @click="submitPassword">确定</el-button>
       </template>
+    </el-dialog>
+
+    <!-- 全局搜索面板（⌘K） -->
+    <el-dialog v-model="searchVisible" width="520px" append-to-body class="layout__search-dialog">
+      <template #header>
+        <span class="layout__search-title">搜索</span>
+      </template>
+      <el-input
+        ref="searchInputRef"
+        v-model="searchKeyword"
+        placeholder="输入菜单名称或路径…"
+        clearable
+        :prefix-icon="Search"
+      />
+      <ul class="layout__search-list">
+        <li v-for="item in searchResults" :key="item.path">
+          <button type="button" class="layout__search-item" @click="gotoSearch(item.path)">
+            <el-icon class="layout__search-item-ic"><component :is="item.icon" /></el-icon>
+            <span class="layout__search-item-text">{{ item.text }}</span>
+            <span class="layout__search-item-group">{{ groupOf(item.path) }}</span>
+          </button>
+        </li>
+        <li v-if="searchResults.length === 0" class="layout__search-empty">没有匹配的菜单</li>
+      </ul>
+    </el-dialog>
+
+    <!-- 帮助面板 -->
+    <el-dialog v-model="helpVisible" title="使用帮助" width="520px" append-to-body>
+      <ul class="layout__help-list">
+        <li v-for="h in HELP_ITEMS" :key="h.title" class="layout__help-item">
+          <p class="layout__help-title">{{ h.title }}</p>
+          <p class="layout__help-desc">{{ h.desc }}</p>
+        </li>
+      </ul>
     </el-dialog>
 
     <AccountSecurityDialog v-model="securityVisible" />
@@ -306,6 +414,18 @@ async function submitPassword(): Promise<void> {
         opacity: 0;
         transform: translateX(-8px);
       }
+
+      // 折叠态用户块：只留头像居中（设计稿侧栏底部用户块的收窄形态）
+      .layout__side-user {
+        justify-content: center;
+        gap: 0;
+        padding: 6px 0;
+      }
+
+      .layout__side-user-meta,
+      .layout__side-user-arrow {
+        display: none;
+      }
     }
   }
 
@@ -320,16 +440,17 @@ async function submitPassword(): Promise<void> {
     overflow: hidden;
   }
 
+  // 品牌区：对齐设计稿 .side__brand / .side__mark / .side__name（保真度审计 A8）
   &__brand-mark {
-    width: 30px;
-    height: 30px;
+    width: 24px;
+    height: 24px;
     flex-shrink: 0;
     display: grid;
     place-items: center;
-    border-radius: 8px;
+    border-radius: 6px;
     background: $color-primary;
     color: #fff;
-    font-size: 15px;
+    font-size: 11.5px;
     font-weight: 700;
   }
 
@@ -337,13 +458,22 @@ async function submitPassword(): Promise<void> {
     min-width: 0;
     max-width: 160px;
     overflow: hidden;
-    font-size: 15px;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    color: #fff;
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: $sidebar-text-active;
     white-space: nowrap;
     text-overflow: ellipsis;
     transition: opacity $transition-fast, transform $transition-fast;
+
+    // 英文副标题（设计稿 .side__name small）
+    small {
+      display: block;
+      font-size: 9.5px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      color: $sidebar-text;
+    }
   }
 
   &__menu {
@@ -446,10 +576,6 @@ async function submitPassword(): Promise<void> {
 
         .el-icon {
           font-size: 15px;
-        }
-
-        &.is-active::before {
-          height: 16px;
         }
       }
     }
@@ -557,20 +683,116 @@ async function submitPassword(): Promise<void> {
     }
   }
 
-  &__user {
+  // 全局搜索（设计稿 .search：白底输入框 + ⌘K 提示）
+  &__search {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 5px 10px 5px 5px;
-    border-radius: 999px;
+    gap: 7px;
+    min-width: 240px;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid $line-strong;
+    border-radius: $radius-sm;
+    background: $color-table-head;
+    color: $text-disabled;
+    font: inherit;
     cursor: pointer;
-    color: $text-primary;
+    transition: border-color $transition-fast, background-color $transition-fast;
+
+    &:hover {
+      border-color: $color-primary-border;
+      background: $bg-paper;
+    }
+  }
+
+  &__search-ic {
+    font-size: 14px;
+  }
+
+  &__search-ph {
+    flex: 1;
+    text-align: left;
+    font-size: 12.5px;
+    color: $text-secondary;
+  }
+
+  &__kbd {
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    color: $text-secondary;
+    background: $bg-paper;
+    border: 1px solid $line-strong;
+    border-radius: 3px;
+    padding: 1px 4px;
+  }
+
+  // 顶栏图标按钮（设计稿 .iconbtn）
+  &__iconbtn {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border: 1px solid transparent;
+    border-radius: $radius-sm;
+    background: transparent;
+    color: $text-body;
+    cursor: pointer;
+    transition: color $transition-fast, background-color $transition-fast;
+
+    &:hover {
+      color: $color-primary;
+      background: $color-primary-50;
+    }
+  }
+
+  // 侧栏底部用户块（设计稿 .side__foot / .side__user）
+  &__side-foot {
+    flex-shrink: 0;
+    padding: 8px 10px;
+    border-top: 1px solid $sidebar-border;
+  }
+
+  &__side-user {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 6px 8px;
+    border-radius: $radius-sm;
+    cursor: pointer;
     outline: none;
     transition: background-color $transition-fast;
 
     &:hover {
-      background: $color-primary-50;
+      background: $sidebar-hover-bg;
     }
+  }
+
+  &__side-user-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.25;
+  }
+
+  &__side-user-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: $sidebar-text-active;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__side-user-role {
+    font-size: 10.5px;
+    color: $sidebar-text;
+  }
+
+  &__side-user-arrow {
+    margin-left: auto;
+    font-size: 12px;
+    color: $sidebar-text;
   }
 
   &__avatar {
@@ -587,25 +809,11 @@ async function submitPassword(): Promise<void> {
     font-weight: 700;
   }
 
-  &__user-meta {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.2;
-  }
-
-  &__user-name {
-    font-size: 13.5px;
-    font-weight: 600;
-  }
-
-  &__user-role {
-    font-size: 11.5px;
-    color: $text-secondary;
-  }
-
-  &__user-arrow {
-    color: $text-secondary;
-    font-size: 13px;
+  // 侧栏头像小一号（设计稿 .av--sm）
+  &__avatar--side {
+    width: 26px;
+    height: 26px;
+    font-size: 11px;
   }
 
   &__content {
@@ -664,5 +872,95 @@ async function submitPassword(): Promise<void> {
       font-weight: 600;
     }
   }
+}
+
+/* =============================================================
+   全局搜索面板 / 帮助面板（el-dialog append-to-body，故独立于 .layout 书写）
+   ============================================================= */
+.layout__search-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.layout__search-list {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.layout__search-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: $radius-xs;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s;
+
+  &:hover {
+    background: $color-primary-soft;
+  }
+}
+
+.layout__search-item-ic {
+  font-size: 15px;
+  color: $text-secondary;
+}
+
+.layout__search-item-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: $text-primary;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.layout__search-item-group {
+  flex: 0 0 auto;
+  font-size: 11.5px;
+  color: $text-secondary;
+}
+
+.layout__search-empty {
+  padding: 20px 0;
+  text-align: center;
+  font-size: 12.5px;
+  color: $text-secondary;
+}
+
+.layout__help-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.layout__help-item + .layout__help-item {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid $border-color;
+}
+
+.layout__help-title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.layout__help-desc {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: $text-body;
 }
 </style>
