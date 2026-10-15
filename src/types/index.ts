@@ -288,6 +288,9 @@ export interface PaperDetail extends Omit<Paper, 'questions'> {
   questions: PaperDetailQuestion[];
 }
 
+/** 考试形式：开卷 / 闭卷 */
+export type ExamMode = 'open' | 'closed';
+
 /** 考试 */
 export interface Exam {
   id: string;
@@ -309,10 +312,12 @@ export interface Exam {
   shuffleEnabled: boolean | null;
   /** 选项乱序开关；null=继承全局默认 */
   shuffleOptions: boolean | null;
-  /** 补考申请开关；null=继承全局默认（仅 maxAttempts=1 时生效） */
+  /** 补考申请开关；null=继承全局默认 */
   allowRetake: boolean | null;
   /** 成绩复核开关；null=继承全局默认 */
   allowAppeal: boolean | null;
+  /** 考试形式：开卷 / 闭卷（展示用） */
+  examMode: ExamMode;
   createdBy: string;
   /** ISO 8601 */
   createdAt: string;
@@ -610,6 +615,8 @@ export interface ExamSaveInput {
   allowRetake?: boolean | null;
   /** 成绩复核开关；null=继承全局默认 */
   allowAppeal?: boolean | null;
+  /** 考试形式：开卷 / 闭卷（缺省闭卷） */
+  examMode?: ExamMode;
 }
 
 /** 单场考试统计摘要（passRate 为 0~1 小数） */
@@ -965,6 +972,8 @@ export interface SystemSettings {
   examDefaultPassScore: number;
   /** 新建考试默认答题次数上限（每人） */
   examDefaultMaxAttempts: number;
+  /** 组卷页难度系数目标值（P 值，0~1，越高越易） */
+  paperTargetDifficulty: number;
   /** 切屏异常判定：次数阈值（≥ 该值判为异常） */
   cheatCountThreshold: number;
   /** 切屏异常判定：累计离开秒数阈值（≥ 该值判为异常） */

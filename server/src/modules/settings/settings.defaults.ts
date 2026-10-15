@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   examDefaultDuration: 60,
   examDefaultPassScore: 60,
   examDefaultMaxAttempts: 1,
+  paperTargetDifficulty: 0.72,
   cheatCountThreshold: 3,
   cheatSecondsThreshold: 120,
   cheatAutoSubmitEnabled: false,

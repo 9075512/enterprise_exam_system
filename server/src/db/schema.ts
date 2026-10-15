@@ -138,6 +138,7 @@ export const DDL_STATEMENTS: readonly string[] = [
     shuffle_options  TINYINT(1)   NULL,
     allow_retake     TINYINT(1)   NULL,
     allow_appeal     TINYINT(1)   NULL,
+    exam_mode        ENUM('open','closed') NOT NULL DEFAULT 'closed',
     created_by       VARCHAR(64)  NOT NULL,
     created_at       DATETIME(3)  NOT NULL,
     PRIMARY KEY (id),

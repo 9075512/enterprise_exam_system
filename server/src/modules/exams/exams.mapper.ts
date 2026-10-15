@@ -21,6 +21,7 @@ export interface ExamRow extends RowDataPacket {
   shuffle_options: number | boolean | null;
   allow_retake: number | boolean | null;
   allow_appeal: number | boolean | null;
+  exam_mode: string;
   created_by: string;
   created_at: string;
 }
@@ -47,6 +48,8 @@ export function mapExamRow(row: ExamRow): ExamDto {
     shuffleOptions: nullableBool(row.shuffle_options),
     allowRetake: nullableBool(row.allow_retake),
     allowAppeal: nullableBool(row.allow_appeal),
+    // 未选到该列（旧查询）时兜底闭卷，与 DDL 默认值一致
+    examMode: row.exam_mode === 'open' ? 'open' : 'closed',
     createdBy: row.created_by,
     createdAt: fromDbDateSafe(row.created_at),
   };

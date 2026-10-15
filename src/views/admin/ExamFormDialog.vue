@@ -10,7 +10,7 @@ import * as examsApi from '@/api/exams';
 import { useSettingsStore } from '@/stores/settings';
 import { validateAndFocus } from '@/composables/useFormFocus';
 import { buildDepartmentTree } from '@/utils/departmentTree';
-import type { Department, Exam, Paper } from '@/types';
+import type { Department, Exam, ExamMode, Paper } from '@/types';
 
 const props = defineProps<{
   visible: boolean;
@@ -49,6 +49,7 @@ const form = reactive({
   durationMinutes: 60,
   passScore: 60,
   maxAttempts: 1,
+  examMode: 'closed' as ExamMode,
 });
 
 /** 人手一卷 / 选项乱序 / 补考申请 / 成绩复核：三态（inherit=跟随全局默认，on=开启，off=关闭） */
@@ -83,6 +84,7 @@ function resetForm(): void {
     form.durationMinutes = exam.durationMinutes;
     form.passScore = exam.passScore;
     form.maxAttempts = exam.maxAttempts;
+    form.examMode = exam.examMode ?? 'closed';
     shuffleMode.value = toTri(exam.shuffleEnabled);
     shuffleOptionsMode.value = toTri(exam.shuffleOptions);
     allowRetakeMode.value = toTri(exam.allowRetake);
@@ -96,6 +98,7 @@ function resetForm(): void {
     form.durationMinutes = settingsStore.settings.examDefaultDuration;
     form.passScore = settingsStore.settings.examDefaultPassScore;
     form.maxAttempts = settingsStore.settings.examDefaultMaxAttempts;
+    form.examMode = 'closed';
     shuffleMode.value = 'inherit';
     shuffleOptionsMode.value = 'inherit';
     allowRetakeMode.value = 'inherit';
@@ -136,6 +139,7 @@ async function handleSubmit(): Promise<void> {
       durationMinutes: form.durationMinutes,
       passScore: form.passScore,
       maxAttempts: form.maxAttempts,
+      examMode: form.examMode,
       shuffleEnabled: shuffleMode.value === 'inherit' ? null : shuffleMode.value === 'on',
       shuffleOptions: shuffleOptionsMode.value === 'inherit' ? null : shuffleOptionsMode.value === 'on',
       allowRetake: allowRetakeMode.value === 'inherit' ? null : allowRetakeMode.value === 'on',
@@ -240,9 +244,23 @@ function handleCancel(): void {
         </el-col>
       </el-row>
 
-      <el-form-item label="答题次数（每人最多）" prop="maxAttempts">
-        <el-input-number v-model="form.maxAttempts" :min="1" :max="10" />
-        <span class="exam-form__hint">同一考生可重复作答的最大次数</span>
+      <el-row :gutter="12">
+        <el-col :span="12">
+          <el-form-item label="考试形式">
+            <el-radio-group v-model="form.examMode">
+              <el-radio value="closed">闭卷</el-radio>
+              <el-radio value="open">开卷</el-radio>
+            </el-radio-group>
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="答题次数（每人最多）" prop="maxAttempts">
+            <el-input-number v-model="form.maxAttempts" :min="1" :max="10" />
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-form-item label-width="0">
+        <span class="exam-form__hint">考试形式仅作标注展示；同一考生可重复作答的最大次数见「答题次数」</span>
       </el-form-item>
 
       <el-form-item label="人手一卷">

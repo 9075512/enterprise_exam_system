@@ -46,6 +46,7 @@ async function validateExamInput(input: {
   shuffleOptions?: boolean | null;
   allowRetake?: boolean | null;
   allowAppeal?: boolean | null;
+  examMode?: 'open' | 'closed';
 }): Promise<{
   name: string;
   paperId: string;
@@ -59,6 +60,7 @@ async function validateExamInput(input: {
   shuffleOptions: boolean | null;
   allowRetake: boolean | null;
   allowAppeal: boolean | null;
+  examMode: 'open' | 'closed';
 }> {
   const name = input.name.trim();
   if (!name) throw badRequest('考试名称不能为空');
@@ -97,6 +99,7 @@ async function validateExamInput(input: {
     shuffleOptions: input.shuffleOptions ?? null,
     allowRetake: input.allowRetake ?? null,
     allowAppeal: input.allowAppeal ?? null,
+    examMode: input.examMode ?? 'closed',
   };
 }
 

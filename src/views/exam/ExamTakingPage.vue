@@ -278,9 +278,8 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
           <div class="taking__brand-text">
             <span class="taking__name" :title="exam.name">{{ exam.name }}</span>
             <span class="taking__sub">
-              共 {{ questions.length }} 题 · 满分 {{ formatScore(record.paperSnapshot.totalScore) }} 分<template
-                v-if="attemptNo > 1"
-              >
+              {{ exam.examMode === 'open' ? '开卷' : '闭卷' }} · 共 {{ questions.length }} 题 · 满分
+              {{ formatScore(record.paperSnapshot.totalScore) }} 分<template v-if="attemptNo > 1">
                 · 第 {{ attemptNo }} 次作答</template
               >
             </span>

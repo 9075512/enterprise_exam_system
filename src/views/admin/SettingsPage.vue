@@ -91,6 +91,7 @@ const FIELD_TAB: Record<string, SettingsTab> = {
   examDefaultDuration: 'exam',
   examDefaultPassScore: 'exam',
   examDefaultMaxAttempts: 'exam',
+  paperTargetDifficulty: 'exam',
   // 作答与防作弊
   cheatCountThreshold: 'anti',
   cheatSecondsThreshold: 'anti',
@@ -222,6 +223,7 @@ const rules: FormRules = {
   examDefaultDuration: numRules('考试默认时长', 1, 600, { unit: ' 分钟' }),
   examDefaultPassScore: numRules('考试默认及格线', 1, 1000, { integer: false }),
   examDefaultMaxAttempts: numRules('考试默认答题次数', 1, 10, { unit: ' 次' }),
+  paperTargetDifficulty: numRules('难度系数目标值', 0.01, 1, { integer: false }),
   // 作答与防作弊
   cheatCountThreshold: numRules('切屏次数阈值', 1, 99, { unit: ' 次' }),
   cheatSecondsThreshold: numRules('切屏累计离开时长阈值', 5, 3600, { unit: ' 秒' }),
@@ -1079,9 +1081,23 @@ async function handleReset(): Promise<void> {
                   :step="1"
                   class="settings-page__num"
                 />
-                <p class="settings-page__hint">
-                  新建考试时预设的每人最多作答次数；为 1 次的考试才允许申请补考。
-                </p>
+                <p class="settings-page__hint">新建考试时预设的每人最多作答次数；次数用尽后仍不及格可申请补考。</p>
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="24">
+          <el-col :xs="24" :sm="24" :md="12">
+            <el-form-item label="组卷难度系数目标值" prop="paperTargetDifficulty">
+              <div class="settings-page__control">
+                <el-input-number
+                  v-model="form.paperTargetDifficulty"
+                  :min="0.01"
+                  :max="1"
+                  :step="0.01"
+                  class="settings-page__num"
+                />
+                <p class="settings-page__hint">组卷页评估试卷难度时的对标目标（P 值，越高越易）。</p>
               </div>
             </el-form-item>
           </el-col>

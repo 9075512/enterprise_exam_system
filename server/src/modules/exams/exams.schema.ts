@@ -23,6 +23,10 @@ export const examSchema = z.object({
   shuffleOptions: z.boolean({ invalid_type_error: '选项乱序开关必须为布尔值' }).nullable().optional().default(null),
   allowRetake: z.boolean({ invalid_type_error: '补考申请开关必须为布尔值' }).nullable().optional().default(null),
   allowAppeal: z.boolean({ invalid_type_error: '成绩复核开关必须为布尔值' }).nullable().optional().default(null),
+  examMode: z
+    .enum(['open', 'closed'], { errorMap: () => ({ message: '考试形式只能为开卷或闭卷' }) })
+    .optional()
+    .default('closed'),
 });
 
 export type ExamInput = z.infer<typeof examSchema>;

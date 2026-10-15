@@ -62,6 +62,17 @@ const examStatusLabel = computed(() =>
   monitor.value ? EXAM_STATUS_LABELS[getExamStatus(monitor.value.exam)] : '',
 );
 
+/** 考试是否已结束（时间窗终点已过） */
+const examEnded = computed(() => !!monitor.value && getExamStatus(monitor.value.exam) === 'ended');
+
+/**
+ * 缺考判定（展示层派生，不改记录状态枚举）：考试时间窗已结束、
+ * 该考生却从未开考（not_started）→ 视为缺考。开考后放弃 / 中途退出仍按原状态展示。
+ */
+function isAbsent(row: ExamMonitorRow): boolean {
+  return examEnded.value && row.status === 'not_started';
+}
+
 /** 刷新方式徽标（自动刷新关闭时不展示）。 */
 const modeBadge = computed<{ label: string; type: 'success' | 'warning' | 'info' | 'danger' } | null>(() => {
   if (!autoRefresh.value) return null;
@@ -371,6 +382,7 @@ function goBack(): void {
           时间窗：{{ formatDateTime(monitor.exam.startTime) }} ~ {{ formatDateTime(monitor.exam.endTime) }}
         </span>
         <span class="monitor__meta-item">时长：{{ monitor.exam.durationMinutes }} 分钟</span>
+        <span class="monitor__meta-item">形式：{{ monitor.exam.examMode === 'open' ? '开卷' : '闭卷' }}</span>
         <span class="monitor__meta-item monitor__meta-item--muted">
           数据时间：{{ formatDateTime(monitor.generatedAt) }}
         </span>
@@ -390,7 +402,7 @@ function goBack(): void {
           <div class="monitor__card-value monitor__card-value--primary">{{ summary?.inProgress ?? 0 }}</div>
         </div>
         <div class="monitor__card">
-          <div class="monitor__card-label">未开始</div>
+          <div class="monitor__card-label">{{ examEnded ? '缺考' : '未开始' }}</div>
           <div class="monitor__card-value">{{ summary?.notStarted ?? 0 }}</div>
         </div>
         <div class="monitor__card">
@@ -456,14 +468,16 @@ function goBack(): void {
                 size="small"
                 effect="plain"
                 :type="
-                  (row as ExamMonitorRow).status === 'in_progress'
-                    ? 'primary'
-                    : (row as ExamMonitorRow).status === 'submitted'
-                      ? 'success'
-                      : 'info'
+                  isAbsent(row as ExamMonitorRow)
+                    ? 'danger'
+                    : (row as ExamMonitorRow).status === 'in_progress'
+                      ? 'primary'
+                      : (row as ExamMonitorRow).status === 'submitted'
+                        ? 'success'
+                        : 'info'
                 "
               >
-                {{ STATUS_LABELS[(row as ExamMonitorRow).status] }}
+                {{ isAbsent(row as ExamMonitorRow) ? '缺考' : STATUS_LABELS[(row as ExamMonitorRow).status] }}
               </el-tag>
             </template>
           </el-table-column>

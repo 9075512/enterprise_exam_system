@@ -105,6 +105,14 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     changes.push('exams.allow_appeal');
   }
 
+  // v3.2：考试形式（开卷 / 闭卷，展示用；默认闭卷，与设计稿默认一致）
+  if (!(await columnExists(conn, 'exams', 'exam_mode'))) {
+    await conn.query(
+      `ALTER TABLE exams ADD COLUMN exam_mode ENUM('open','closed') NOT NULL DEFAULT 'closed' AFTER allow_appeal`,
+    );
+    changes.push('exams.exam_mode');
+  }
+
   // v1.7②：题目标签（知识点，JSON 数组；NULL = 无标签）
   if (!(await columnExists(conn, 'questions', 'tags'))) {
     await conn.query(`ALTER TABLE questions ADD COLUMN tags JSON NULL AFTER subject`);

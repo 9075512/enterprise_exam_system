@@ -4,6 +4,7 @@
  * 范围与文案与前端 `src/constants/settings.ts` 的校验口径保持一致；
  * 范围口径（越界 → 1001）：
  *   examDefaultDuration 1~600 / examDefaultPassScore 1~1000 / examDefaultMaxAttempts 1~10
+ *   paperTargetDifficulty 0.01~1
  *   cheatCountThreshold 1~99 / cheatSecondsThreshold 5~3600 / countdownWarningMinutes 1~60
  *   defaultPassword 6~64 / minPasswordLength 6~32 / defaultPageSize 1~100
  *   importMaxRows 1~50000 / importMaxFileMb 1~50
@@ -29,6 +30,11 @@ export const settingsSchema = z.object({
     .int('考试默认答题次数必须为 1~10')
     .min(1, '考试默认答题次数必须为 1~10')
     .max(10, '考试默认答题次数必须为 1~10'),
+
+  paperTargetDifficulty: z
+    .number({ invalid_type_error: '难度系数目标值必须为 0.01~1' })
+    .min(0.01, '难度系数目标值必须为 0.01~1')
+    .max(1, '难度系数目标值必须为 0.01~1'),
 
   cheatCountThreshold: z
     .number({ invalid_type_error: '切屏次数阈值必须为 1~99' })

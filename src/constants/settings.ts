@@ -15,6 +15,7 @@ import {
   IMPORT_MAX_ROWS,
   NOTIFY_TEMPLATES_DEFAULT,
   PAGE_SIZE_DEFAULT,
+  PAPER_TARGET_DIFFICULTY,
 } from './index';
 
 /** 全部设置的默认值（数值类直接复用既有常量，保证单一来源） */
@@ -22,6 +23,7 @@ export const SETTINGS_DEFAULTS: SystemSettings = {
   examDefaultDuration: 60,
   examDefaultPassScore: 60,
   examDefaultMaxAttempts: 1,
+  paperTargetDifficulty: PAPER_TARGET_DIFFICULTY,
   cheatCountThreshold: CHEAT_COUNT_THRESHOLD,
   cheatSecondsThreshold: CHEAT_SECONDS_THRESHOLD,
   cheatAutoSubmitEnabled: false,

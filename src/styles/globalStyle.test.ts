@@ -460,6 +460,14 @@ describe('全站样式 · v3.1 方向 C 组件刻度护栏', () => {
   it('图表图例标记是圆点（ECharts 默认方块/菱形与设计稿不符）', () => {
     expect(chartTheme).toMatch(/icon:\s*'circle'/);
   });
+
+  it('小按钮档对齐设计稿 .btn--sm：28px 高 / 12px / 4px 圆角（EP 的 small 只有 24px）', () => {
+    const block = /\.el-button\.el-button--small\s*\{([^}]*)\}/.exec(scss)?.[1] ?? '';
+    expect(block).not.toBe('');
+    expect(block).toMatch(/height:\s*28px/);
+    expect(block).toMatch(/font-size:\s*12px/);
+    expect(block).toMatch(/border-radius:\s*\$radius-xs/);
+  });
 });
 
 /**

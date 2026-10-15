@@ -314,7 +314,8 @@ onMounted(load);
                     </span>
                   </div>
                   <div class="exam-home__exam-meta">
-                    共 {{ attemptChances(exam) }} 次机会 · 及格线 {{ exam.passScore }} 分
+                    {{ exam.examMode === 'open' ? '开卷' : '闭卷' }} · 共 {{ attemptChances(exam) }} 次机会 · 及格线
+                    {{ exam.passScore }} 分
                   </div>
                 </div>
                 <el-button

@@ -204,6 +204,24 @@ body {
   --el-button-hover-bg-color: #{$color-table-head};
 }
 
+// 小按钮档（设计稿 .btn--sm）：28px 高 / 12px / 圆角 4px（$radius-xs）/ 内距 0 10px。
+// EP 的 small 只有 24px，比设计稿矮一档；此处把 `size="small"` 统一抬到 28px
+// （表格操作列、卡头动作、弹窗底部等）。⚠️ 必须写在 `.el-button.el-button` 之后——
+// 两者同为 (0,2,0)，靠源码顺序取胜。
+.el-button.el-button--small {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  border-radius: $radius-xs;
+
+  // 图标按钮（圆形/正方形）同步收窄
+  &.is-circle,
+  &.el-button--icon {
+    width: 28px;
+    padding: 0;
+  }
+}
+
 // 表格：表头更轻盈、行高更舒展、去默认边框噪音
 // ⚠️ 双写类名 + 保留 `td/th.el-table__cell` —— EP 的 `.el-table--default` 与
 //    `.el-table` 都是 (0,1,0)，字号/边框只在同优先级下被 EP 的注入顺序吃掉（审计 B3/B5）。

@@ -111,24 +111,31 @@ export function calcDifficultyIndex(items: readonly DifficultyInput[]): number |
   return weight > 0 ? Math.round((weighted / weight) * 100) / 100 : null;
 }
 
-/** 对标目标值的结论态（无数据 → none；|Δ| ≤ 容差 → near；高于目标 → easy；低于 → hard） */
-export function difficultyVerdict(current: number | null): DifficultyVerdict {
+/** 对标目标值的结论态（无数据 → none；|Δ| ≤ 容差 → near；高于目标 → easy；低于 → hard）。
+ *  target 缺省用内置常量（可传入 settingsStore 的 paperTargetDifficulty 覆盖）。 */
+export function difficultyVerdict(
+  current: number | null,
+  target: number = PAPER_TARGET_DIFFICULTY,
+): DifficultyVerdict {
   if (current === null) return 'none';
   // 千分位取整后再比，消除浮点误差（0.77 − 0.72 = 0.050000000000000044，会误判为偏易）
-  const delta = Math.round((current - PAPER_TARGET_DIFFICULTY) * 1000) / 1000;
+  const delta = Math.round((current - target) * 1000) / 1000;
   if (Math.abs(delta) <= PAPER_DIFFICULTY_TOLERANCE) return 'near';
   return delta > 0 ? 'easy' : 'hard';
 }
 
 /** 结论提示文案（供组卷页 tip 展示） */
-export function difficultyVerdictText(current: number | null): string {
-  const target = PAPER_TARGET_DIFFICULTY.toFixed(2);
-  const verdict = difficultyVerdict(current);
+export function difficultyVerdictText(
+  current: number | null,
+  target: number = PAPER_TARGET_DIFFICULTY,
+): string {
+  const t = target.toFixed(2);
+  const verdict = difficultyVerdict(current, target);
   if (verdict === 'none' || current === null) {
     return '已选题目暂无难度数据（未标注难度且无练题作答），无法评估难度系数。';
   }
   const cur = current.toFixed(2);
-  if (verdict === 'near') return `当前难度系数 ${cur}，接近目标值 ${target}，可直接发布。`;
-  if (verdict === 'easy') return `当前难度系数 ${cur}，偏易（目标 ${target}），建议补充高难度题目。`;
-  return `当前难度系数 ${cur}，偏难（目标 ${target}），建议补充低难度题目。`;
+  if (verdict === 'near') return `当前难度系数 ${cur}，接近目标值 ${t}，可直接发布。`;
+  if (verdict === 'easy') return `当前难度系数 ${cur}，偏易（目标 ${t}），建议补充高难度题目。`;
+  return `当前难度系数 ${cur}，偏难（目标 ${t}），建议补充低难度题目。`;
 }

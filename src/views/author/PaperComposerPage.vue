@@ -438,13 +438,19 @@ const visibleDifficultyRows = computed<DifficultyAggRow[]>(() =>
 /** 当前难度系数（无可用数据 → null，不造数） */
 const currentDifficulty = computed<number | null>(() => calcDifficultyIndex(selected.value));
 
+/** 组卷难度目标值（管理员设置 paperTargetDifficulty；后端不可用时回退内置常量，不阻断评估） */
+const paperTarget = computed<number>(() => {
+  const t = settingsStore.settings.paperTargetDifficulty;
+  return typeof t === 'number' && t > 0 ? t : PAPER_TARGET_DIFFICULTY;
+});
+
 /** 难度系数对标结论态（none / near / easy / hard） */
 const difficultyIndicator = computed<DifficultyVerdict>(() =>
-  difficultyVerdict(currentDifficulty.value),
+  difficultyVerdict(currentDifficulty.value, paperTarget.value),
 );
 
 /** 难度系数结论提示文案 */
-const difficultyTip = computed<string>(() => difficultyVerdictText(currentDifficulty.value));
+const difficultyTip = computed<string>(() => difficultyVerdictText(currentDifficulty.value, paperTarget.value));
 
 /** 发布检查项（均可由当前工作态真实算出，与 handleSave 的校验口径一致） */
 interface CheckItem {
@@ -961,9 +967,7 @@ onMounted(async () => {
         <template #header>
           <div class="composer__card-head">
             <span class="composer__card-title">难度分布</span>
-            <el-tag size="small" effect="plain" type="info">
-              目标 {{ PAPER_TARGET_DIFFICULTY.toFixed(2) }}
-            </el-tag>
+            <el-tag size="small" effect="plain" type="info">目标 {{ paperTarget.toFixed(2) }}</el-tag>
           </div>
         </template>
         <div v-if="selected.length" class="composer__bars">
