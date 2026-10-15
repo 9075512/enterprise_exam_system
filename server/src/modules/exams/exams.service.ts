@@ -169,17 +169,21 @@ export async function listForExaminee(userId: string, departmentId: string): Pro
     const latestScore = latestSubmitted.get(dto.id);
     const failed = latestScore !== undefined && latestScore < Number(dto.passScore);
     const exception = exceptionMap.get(dto.id);
-    // 未及格即可申请补考（不限定该考试是否为单次作答）
+    const attemptsUsed = usedMap.get(dto.id) ?? 0;
+    // 次数上限口径与 startExam 一致：maxAttempts + 特殊安排额外次数（补考未通过时不含授予的 +1）
+    const maxAllowed = Number(dto.maxAttempts) + (exception?.extraAttempts ?? 0);
+    // 未及格且答题次数已用尽，才可以申请补考（不限定该考试是否为单次作答）
     const canApplyRetake =
       allowRetake &&
       failed &&
+      attemptsUsed >= maxAllowed &&
       retakeStatus !== 'approved' &&
       retakeStatus !== 'pending' &&
       !inProgressSet.has(dto.id);
     return {
       ...dto,
       recordStatus: statusMap.get(dto.id) ?? null,
-      attemptsUsed: usedMap.get(dto.id) ?? 0,
+      attemptsUsed,
       retakeStatus,
       canApplyRetake,
       extraMinutes: exception?.extraMinutes ?? 0,

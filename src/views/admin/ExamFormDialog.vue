@@ -270,7 +270,7 @@ function handleCancel(): void {
           <el-radio value="off">关闭</el-radio>
         </el-radio-group>
         <span class="exam-form__hint">
-          不及格考生可申请补考，经管理员审批通过后追加一次答题机会
+          不及格且答题次数用完后可申请补考，经管理员审批通过后追加一次答题机会
         </span>
       </el-form-item>
 

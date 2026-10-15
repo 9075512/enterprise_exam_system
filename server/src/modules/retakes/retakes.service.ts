@@ -2,7 +2,7 @@
  * 补考 —— 业务逻辑层（申请-审批流）。
  *
  * 规则：
- * - `allowRetake`（单场覆盖全局默认）的考试且考生未及格即可补考，不限定考试是否为单次作答；
+ * - `allowRetake`（单场覆盖全局默认）的考试、考生未及格、且答题次数已用尽（maxAttempts + 特殊安排额外次数）方可补考；
  * - 仅「已交卷且不及格」的考生可申请；存在进行中作答时不可申请；
  * - 一名考生对一场考试至多一条申请（被拒后可重新申请，重置为待审批）；
  * - 审批通过后，`startExam` 授予额外 1 次答题机会（详见 records.service）。
@@ -12,6 +12,7 @@ import type { RetakeRow } from './retakes.repo.js';
 import * as examsRepo from '../exams/exams.repo.js';
 import { mapExamRow } from '../exams/exams.mapper.js';
 import * as recordsRepo from '../records/records.repo.js';
+import * as exceptionsRepo from '../exams/examExceptions.repo.js';
 import { getSettings } from '../settings/settings.service.js';
 import { badRequest, conflict, notFound } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
@@ -55,6 +56,14 @@ export async function apply(userId: string, input: { examId: string; reason: str
   const latest = await recordsRepo.findLatestByExamAndUser(input.examId, userId);
   if (!latest || latest.status !== 'submitted') throw badRequest('暂无可申请补考的成绩');
   if (Number(latest.score) >= Number(exam.passScore)) throw badRequest('成绩已及格，无需补考');
+
+  // 须答题次数已用尽（口径与 startExam 一致：maxAttempts + 特殊安排额外次数）
+  const used = await recordsRepo.countSubmittedByExamAndUser(input.examId, userId);
+  const exception = await exceptionsRepo.findByExamAndUser(input.examId, userId);
+  const extraAttempts = exception ? Number(exception.extra_attempts) : 0;
+  if (used < exam.maxAttempts + extraAttempts) {
+    throw badRequest('答题次数尚未用完，请直接继续作答，无需申请补考');
+  }
 
   const inProgress = await recordsRepo.findInProgressByExamAndUser(input.examId, userId);
   if (inProgress) throw badRequest('存在进行中的作答，无法申请补考');
