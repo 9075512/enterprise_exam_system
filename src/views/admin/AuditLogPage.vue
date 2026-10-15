@@ -94,9 +94,12 @@ function detailText(detail: Record<string, unknown>): string {
  * 故渲染为说明性文案（见模板），待接口补充后再落值。
  */
 const selectedLog = ref<AuditLog | null>(null);
+/** 详情弹窗（点击行打开，替代旧版右侧常驻详情卡） */
+const detailVisible = ref(false);
 
 function handleRowClick(row: AuditLog): void {
   selectedLog.value = row;
+  detailVisible.value = true;
 }
 
 /* ------------------------------ 导出（v1.7②） ------------------------------ */
@@ -185,7 +188,10 @@ async function handleCleanup(): Promise<void> {
   }
 }
 
-onMounted(loadRetention);
+onMounted(() => {
+  void loadRetention();
+  void load(); // 默认展示最新一页日志，无需先点查询
+});
 </script>
 
 <template>
@@ -244,14 +250,12 @@ onMounted(loadRetention);
       </div>
     </el-card>
 
-    <div class="audit-page__body">
-      <el-card class="table-card" shadow="never">
+    <el-card class="table-card" shadow="never">
         <el-table
           v-loading="loading"
           :data="logs"
           row-key="id"
           stripe
-          highlight-current-row
           @row-click="handleRowClick"
         >
           <el-table-column type="expand">
@@ -297,71 +301,66 @@ onMounted(loadRetention);
         />
       </el-card>
 
-      <!-- 日志详情（对齐设计稿 audit.html 右侧卡）：点选任一行后展示该条完整字段 -->
-      <aside class="audit-page__side">
-        <el-card class="audit-page__detail-card" shadow="never">
-          <template #header>
-            <div class="audit-page__detail-head">
-              <span class="audit-page__detail-heading">日志详情</span>
-              <el-tag v-if="selectedLog" size="small" type="info" effect="plain">
-                {{ AUDIT_ACTION_LABELS[selectedLog.action] || selectedLog.action }}
-              </el-tag>
-            </div>
-          </template>
+<!-- 日志详情弹窗：点击行打开（替代旧版右侧常驻详情卡） -->
+    <el-dialog v-model="detailVisible" width="560px" append-to-body class="audit-page__dialog">
+      <template #header>
+        <div class="audit-page__detail-head">
+          <span class="audit-page__detail-heading">日志详情</span>
+          <el-tag v-if="selectedLog" size="small" type="info" effect="plain">
+            {{ AUDIT_ACTION_LABELS[selectedLog.action] || selectedLog.action }}
+          </el-tag>
+        </div>
+      </template>
 
-          <template v-if="selectedLog">
-            <div class="audit-page__desc">
-              <div class="audit-page__desc-row">
-                <span class="audit-page__desc-k">日志 ID</span>
-                <span class="audit-page__desc-v audit-page__mono">{{ selectedLog.id }}</span>
-              </div>
-              <div class="audit-page__desc-row">
-                <span class="audit-page__desc-k">操作者</span>
-                <span class="audit-page__desc-v">
-                  {{ selectedLog.actorName || '—' }}<template v-if="selectedLog.actorId">（{{ selectedLog.actorId }}）</template>
-                </span>
-              </div>
-              <div class="audit-page__desc-row">
-                <span class="audit-page__desc-k">动作</span>
-                <span class="audit-page__desc-v">
-                  {{ AUDIT_ACTION_LABELS[selectedLog.action] || selectedLog.action }} / {{ selectedLog.action }}
-                </span>
-              </div>
-              <div class="audit-page__desc-row">
-                <span class="audit-page__desc-k">目标类型</span>
-                <span class="audit-page__desc-v">
-                  {{ AUDIT_TARGET_TYPE_LABELS[selectedLog.targetType] || selectedLog.targetType }}
-                </span>
-              </div>
-              <div class="audit-page__desc-row">
-                <span class="audit-page__desc-k">目标</span>
-                <span class="audit-page__desc-v audit-page__mono">
-                  {{ selectedLog.targetName || selectedLog.targetId || '—' }}
-                </span>
-              </div>
-              <div class="audit-page__desc-row">
-                <span class="audit-page__desc-k">时间</span>
-                <span class="audit-page__desc-v">{{ formatDateTime(selectedLog.createdAt) }}</span>
-              </div>
-              <!-- AuditLog 模型暂无 IP / 客户端字段，按说明性文案渲染 -->
-              <div class="audit-page__desc-row">
-                <span class="audit-page__desc-k">IP</span>
-                <span class="audit-page__desc-v audit-page__desc-v--muted">当前日志模型未记录来源 IP</span>
-              </div>
-              <div class="audit-page__desc-row">
-                <span class="audit-page__desc-k">客户端</span>
-                <span class="audit-page__desc-v audit-page__desc-v--muted">当前日志模型未记录客户端信息</span>
-              </div>
-            </div>
+      <template v-if="selectedLog">
+        <div class="audit-page__desc">
+          <div class="audit-page__desc-row">
+            <span class="audit-page__desc-k">日志 ID</span>
+            <span class="audit-page__desc-v audit-page__mono">{{ selectedLog.id }}</span>
+          </div>
+          <div class="audit-page__desc-row">
+            <span class="audit-page__desc-k">操作者</span>
+            <span class="audit-page__desc-v">
+              {{ selectedLog.actorName || '—' }}<template v-if="selectedLog.actorId">（{{ selectedLog.actorId }}）</template>
+            </span>
+          </div>
+          <div class="audit-page__desc-row">
+            <span class="audit-page__desc-k">动作</span>
+            <span class="audit-page__desc-v">
+              {{ AUDIT_ACTION_LABELS[selectedLog.action] || selectedLog.action }} / {{ selectedLog.action }}
+            </span>
+          </div>
+          <div class="audit-page__desc-row">
+            <span class="audit-page__desc-k">目标类型</span>
+            <span class="audit-page__desc-v">
+              {{ AUDIT_TARGET_TYPE_LABELS[selectedLog.targetType] || selectedLog.targetType }}
+            </span>
+          </div>
+          <div class="audit-page__desc-row">
+            <span class="audit-page__desc-k">目标</span>
+            <span class="audit-page__desc-v audit-page__mono">
+              {{ selectedLog.targetName || selectedLog.targetId || '—' }}
+            </span>
+          </div>
+          <div class="audit-page__desc-row">
+            <span class="audit-page__desc-k">时间</span>
+            <span class="audit-page__desc-v">{{ formatDateTime(selectedLog.createdAt) }}</span>
+          </div>
+          <!-- AuditLog 模型暂无 IP / 客户端字段，按说明性文案渲染 -->
+          <div class="audit-page__desc-row">
+            <span class="audit-page__desc-k">IP</span>
+            <span class="audit-page__desc-v audit-page__desc-v--muted">当前日志模型未记录来源 IP</span>
+          </div>
+          <div class="audit-page__desc-row">
+            <span class="audit-page__desc-k">客户端</span>
+            <span class="audit-page__desc-v audit-page__desc-v--muted">当前日志模型未记录客户端信息</span>
+          </div>
+        </div>
 
-            <p class="audit-page__micro">变更前 → 变更后</p>
-            <pre class="audit-page__detail-json">{{ JSON.stringify(selectedLog.detail, null, 2) }}</pre>
-          </template>
-
-          <p v-else class="audit-page__detail-empty">点选左侧任一日志行，可在此查看该条操作的完整字段。</p>
-        </el-card>
-      </aside>
-    </div>
+        <p class="audit-page__micro">变更前 → 变更后</p>
+        <pre class="audit-page__detail-json">{{ JSON.stringify(selectedLog.detail, null, 2) }}</pre>
+      </template>
+    </el-dialog>
 
     <!-- 导出字段勾选 -->
     <el-dialog v-model="columnDialogVisible" title="选择导出字段" width="480px" append-to-body>
@@ -462,23 +461,7 @@ onMounted(loadRetention);
     word-break: break-all;
   }
 
-  /* ---------------- 日志详情卡（对齐设计稿右栏 340px + 表格自适应） ---------------- */
-  &__body {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 340px;
-    align-items: start;
-    gap: 14px;
-  }
-
-  &__side {
-    position: sticky;
-    top: 12px;
-  }
-
-  &__detail-card {
-    border: 1px solid $border-color;
-  }
-
+  /* ---------------- 日志详情弹窗 ---------------- */
   &__detail-head {
     display: flex;
     align-items: center;
@@ -537,24 +520,5 @@ onMounted(loadRetention);
     color: $text-secondary;
   }
 
-  &__detail-empty {
-    margin: 0;
-    padding: 20px 4px;
-    text-align: center;
-    font-size: 12.5px;
-    line-height: 1.6;
-    color: $text-secondary;
-  }
-}
-
-/* 窄屏（含分栏折叠）：详情卡回到表格下方，取消粘性定位 */
-@media (max-width: 1200px) {
-  .audit-page__body {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .audit-page__side {
-    position: static;
-  }
 }
 </style>

@@ -7,7 +7,7 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
-import { Checked, Collection, Lock, TrendCharts, User } from '@element-plus/icons-vue';
+import { Collection, Lock, TrendCharts, User } from '@element-plus/icons-vue';
 import { useAuthStore } from '@/stores/auth';
 import { useSettingsStore } from '@/stores/settings';
 import { ApiError } from '@/api/http';
@@ -55,11 +55,11 @@ const rules = computed<FormRules>(() => ({
     : [],
 }));
 
-/** 品牌能力清单 */
+/** 品牌能力点（设计稿 .login__pt：单行短句） */
 const features = [
-  { icon: Collection, title: '题库与组卷', desc: 'Excel 批量导入，多题库组合生成试卷' },
-  { icon: Checked, title: '在线答题', desc: '倒计时防切屏，断点续答自动暂存' },
-  { icon: TrendCharts, title: '成绩报表', desc: '自动判分，多维度统计分析' },
+  { icon: Collection, desc: '题库集中管理，智能组卷秒级成卷' },
+  { icon: Lock, desc: '防切屏、随机抽题、全程留痕' },
+  { icon: TrendCharts, desc: '成绩分析到人到题，短板一目了然' },
 ];
 
 /** 演示账号（点击自动填充） */
@@ -78,7 +78,7 @@ function fillDemo(d: { username: string; password: string }): void {
 function homePath(role: string): string {
   if (role === 'admin') return '/admin/dashboard';
   if (role === 'author') return '/author/banks';
-  return '/exam/my';
+  return '/exam/home'; // 考生默认落「首页」（与 menuConfig.getHomePath 一致）
 }
 
 /** 登录成功后的跳转与提示 */
@@ -157,28 +157,28 @@ function backToCredentials(): void {
 
 <template>
   <div class="login">
-    <!-- 左：品牌区 -->
+    <!-- 左：品牌区（设计稿 .login__brand：深底 + 主色辐光） -->
     <section class="login__brand">
       <div class="login__brand-inner">
         <div class="login__logo">
           <span class="login__logo-mark">考</span>
-          <span class="login__logo-name">{{ settingsStore.publicSettings.systemName }}</span>
+          <span class="login__logo-name">
+            {{ settingsStore.publicSettings.systemShortName || '考试中心' }}
+            <small>EXAM CENTER</small>
+          </span>
         </div>
 
         <h1 v-if="settingsStore.publicSettings.loginSlogan" class="login__headline">
           {{ settingsStore.publicSettings.loginSlogan }}
         </h1>
-        <p class="login__tagline">题库组卷 · 在线答题 · 自动判分 · 成绩报表，一体化闭环</p>
+        <p class="login__tagline">题库、组卷、监考、阅卷、成绩分析，考试全流程一套系统完成，数据随时可追溯。</p>
 
         <ul class="login__features">
-          <li v-for="f in features" :key="f.title" class="login__feature">
+          <li v-for="(f, i) in features" :key="i" class="login__feature">
             <span class="login__feature-icon">
-              <el-icon :size="18"><component :is="f.icon" /></el-icon>
+              <el-icon :size="12"><component :is="f.icon" /></el-icon>
             </span>
-            <span class="login__feature-text">
-              <strong>{{ f.title }}</strong>
-              <small>{{ f.desc }}</small>
-            </span>
+            <span class="login__feature-text">{{ f.desc }}</span>
           </li>
         </ul>
 
@@ -186,18 +186,14 @@ function backToCredentials(): void {
           {{ settingsStore.publicSettings.copyright }}
         </p>
       </div>
-
-      <span class="login__deco login__deco--a" aria-hidden="true"></span>
-      <span class="login__deco login__deco--b" aria-hidden="true"></span>
-      <span class="login__deco login__deco--c" aria-hidden="true"></span>
     </section>
 
     <!-- 右：表单区 -->
     <section class="login__panel">
       <div class="login__form-wrap">
-        <h2 class="login__title">{{ step === 'twofa' ? '两步验证' : '欢迎登录' }}</h2>
+        <h2 class="login__title">{{ step === 'twofa' ? '两步验证' : '欢迎回来' }}</h2>
         <p class="login__subtitle">
-          {{ step === 'twofa' ? '请输入验证器 App 中的 6 位动态验证码，或使用恢复码' : '请使用企业账号登录系统' }}
+          {{ step === 'twofa' ? '请输入验证器 App 中的 6 位动态验证码，或使用恢复码' : '请使用企业统一账号登录' }}
         </p>
 
         <el-form
@@ -209,23 +205,23 @@ function backToCredentials(): void {
           size="large"
           @submit.prevent="handleSubmit"
         >
-          <el-form-item label="用户名" prop="username">
+          <el-form-item label="账号 / 工号" prop="username">
             <el-input
               v-model="form.username"
               :prefix-icon="User"
-              placeholder="请输入用户名"
+              placeholder="请输入账号或工号"
               clearable
               autocomplete="username"
               @input="clearError"
               @keyup.enter="handleSubmit"
             />
           </el-form-item>
-          <el-form-item label="密码" prop="password">
+          <el-form-item label="登录密码" prop="password">
             <el-input
               v-model="form.password"
               type="password"
               :prefix-icon="Lock"
-              placeholder="请输入密码"
+              placeholder="请输入登录密码"
               show-password
               autocomplete="current-password"
               @input="clearError"
@@ -303,6 +299,10 @@ function backToCredentials(): void {
           <el-button class="login__back" text @click="backToCredentials">返回重新输入账号</el-button>
         </el-form>
 
+        <p class="login__hint">
+          首次登录请使用初始密码，登录后需立即修改。<br />如账号被锁定，请联系所在部门管理员。
+        </p>
+
         <div v-if="step === 'credentials'" class="login__demo">
           <span class="login__demo-label">演示账号 · 点击自动填充</span>
           <div class="login__demo-list">
@@ -330,23 +330,28 @@ function backToCredentials(): void {
   display: flex;
   min-height: 100vh;
 
-  // ---------- 左：品牌区 ----------
+  // ---------- 左：品牌区（设计稿 .login__brand：深底 #0B0F19 + 右下主色辐光） ----------
   &__brand {
     position: relative;
     flex: 1 1 54%;
     display: flex;
-    align-items: center;
-    padding: 48px 6vw;
+    align-items: stretch;
+    padding: 44px 48px;
     overflow: hidden;
-    background: $gradient-brand;
+    background: $sidebar-bg;
+    color: #fff;
 
+    /* 右下主色辐光（设计稿 ::after） */
     &::after {
       content: '';
       position: absolute;
-      inset: 0;
-      background:
-        radial-gradient(1200px 420px at 12% 8%, rgba(255, 255, 255, 0.16), transparent 60%),
-        radial-gradient(900px 500px at 92% 96%, rgba(15, 23, 42, 0.28), transparent 62%);
+      right: -90px;
+      bottom: -120px;
+      width: 380px;
+      height: 380px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, $color-primary, transparent 62%);
+      opacity: 0.3;
       pointer-events: none;
     }
   }
@@ -354,159 +359,122 @@ function backToCredentials(): void {
   &__brand-inner {
     position: relative;
     z-index: 1;
+    display: flex;
+    flex-direction: column;
     max-width: 460px;
-    color: #fff;
-    // 预留版权行空间：版权行绝对定位于容器底部，避免与能力清单重叠
-    padding-bottom: 64px;
+    width: 100%;
   }
 
   &__logo {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 46px;
+    gap: 11px;
   }
 
   &__logo-mark {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     display: grid;
     place-items: center;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.16);
-    border: 1px solid rgba(255, 255, 255, 0.28);
-    backdrop-filter: blur(4px);
-    font-size: 19px;
+    border-radius: 9px;
+    background: $color-primary;
+    font-size: 15px;
     font-weight: 700;
   }
 
   &__logo-name {
-    font-size: 15.5px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    opacity: 0.94;
+    display: flex;
+    flex-direction: column;
+    font-size: 14px;
+    font-weight: 620;
+    color: $sidebar-text-hover;
+
+    small {
+      font-size: 10px;
+      letter-spacing: 0.11em;
+      color: $sidebar-text;
+    }
   }
 
   &__headline {
-    margin: 0 0 14px;
-    font-size: 38px;
-    line-height: 1.28;
-    font-weight: 700;
-    letter-spacing: 0.01em;
+    // 设计稿 .login__ttl：28px / 660 / -0.02em / margin:auto 0 0（沉底对齐）
+    margin: auto 0 0;
+    font-size: 28px;
+    line-height: 1.32;
+    font-weight: 660;
+    letter-spacing: -0.02em;
   }
 
   &__tagline {
-    margin: 0 0 40px;
-    font-size: 14.5px;
-    opacity: 0.84;
+    margin: 11px 0 0;
+    max-width: 410px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: $sidebar-text;
   }
 
   &__features {
     list-style: none;
-    margin: 0;
+    margin: 26px 0 0;
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 10px;
   }
 
   &__feature {
     display: flex;
-    align-items: flex-start;
-    gap: 14px;
+    align-items: center;
+    gap: 9px;
+    font-size: 12.5px;
+    color: $sidebar-text;
   }
 
   &__feature-icon {
-    width: 38px;
-    height: 38px;
-    flex-shrink: 0;
+    width: 19px;
+    height: 19px;
+    flex: 0 0 19px;
     display: grid;
     place-items: center;
-    border-radius: 11px;
-    background: rgba(255, 255, 255, 0.14);
-    border: 1px solid rgba(255, 255, 255, 0.22);
-  }
-
-  &__feature-text {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-
-    strong {
-      font-size: 14.5px;
-      font-weight: 600;
-    }
-
-    small {
-      font-size: 12.5px;
-      opacity: 0.8;
-    }
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #7fb0ff;
   }
 
   &__copyright {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 26px;
-    margin: 0;
-    font-size: 12px;
-    opacity: 0.6;
-    text-align: center;
+    margin: auto 0 0;
+    padding-top: 30px;
+    font-size: 11px;
+    color: $sidebar-text;
+    opacity: 0.75;
   }
 
-  &__deco {
-    position: absolute;
-    border-radius: 50%;
-    pointer-events: none;
-
-    &--a {
-      width: 300px;
-      height: 300px;
-      right: -90px;
-      top: -110px;
-      background: rgba(255, 255, 255, 0.09);
-    }
-    &--b {
-      width: 190px;
-      height: 190px;
-      right: 130px;
-      bottom: -70px;
-      background: rgba(255, 255, 255, 0.07);
-    }
-    &--c {
-      width: 90px;
-      height: 90px;
-      right: 42%;
-      top: 58%;
-      background: rgba(255, 255, 255, 0.06);
-    }
-  }
-
-  // ---------- 右：表单区 ----------
+  // ---------- 右：表单区（设计稿白底居中 340px 栏） ----------
   &__panel {
     flex: 1 1 46%;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 48px 40px;
-    background: $bg-paper;
+    padding: 38px;
+    background: #fff;
   }
 
   &__form-wrap {
     width: 100%;
-    max-width: 352px;
+    max-width: 340px;
   }
 
   &__title {
-    margin: 0 0 8px;
-    font-size: 25px;
-    font-weight: 700;
+    margin: 0;
+    font-size: 21px;
+    font-weight: 650;
+    letter-spacing: -0.02em;
     color: $text-primary;
   }
 
   &__subtitle {
-    margin: 0 0 30px;
-    font-size: 13.5px;
+    margin: 6px 0 22px;
+    font-size: 12.5px;
     color: $text-secondary;
   }
 
@@ -555,9 +523,16 @@ function backToCredentials(): void {
     }
   }
 
+  &__hint {
+    margin: 20px 0 0;
+    font-size: 11.5px;
+    line-height: 1.65;
+    color: $text-secondary;
+  }
+
   &__demo {
-    margin-top: 30px;
-    padding-top: 22px;
+    margin-top: 22px;
+    padding-top: 18px;
     border-top: 1px dashed $border-color;
   }
 

@@ -1,12 +1,10 @@
 <script setup lang="ts">
 /**
- * 答题卡（W3-T1）。题号网格：已答 / 未答 / 当前题三种态；点击题号 emit jump（传全局索引）。
+ * 答题卡组件。题号网格：已答 / 未答 / 当前题三种态；点击题号 emit jump（传全局索引）。
  *
- * v3.1 方向 C（设计稿 p-exam-taking aside）：
- * 头部改为「答题卡」微标签 + 题型构成汇总 + 已答计数标签，不再按题型分组渲染多段网格
- * （设计稿是一张平铺网格，题号顺序即试卷顺序，跳转语义不变）；
- * 单元格改为 4px 圆角方片（已答=主色实底白字 / 当前=主色 2px 描边 / 未答=发丝线），
- * 图例沿用设计稿的色块行。进度条已上移到作答页顶栏，此处不再重复。
+ * 2026-10-15 改（用户需求）：题号按**题型分类分段**展示（单选 / 多选 / 判断 / 填空 / 简答），
+ * 每段小标题「单选题 · 20 题」+ 该段独立网格；题号仍为全卷连续编号，跳转语义不变。
+ * 考生信息块由父级（作答页 aside）渲染在本组件上方。
  */
 import { computed } from 'vue';
 import { QUESTION_TYPE_LABELS } from '@/constants';
@@ -20,23 +18,25 @@ const props = defineProps<{
 
 const emit = defineEmits<{ (e: 'jump', index: number): void }>();
 
-/** 题型固定顺序（与后端组卷展示顺序一致），仅用于汇总行文案 */
+/** 题型固定顺序（与后端组卷展示顺序一致） */
 const TYPE_ORDER: QuestionType[] = ['single', 'multiple', 'judge', 'fill', 'short'];
+
+/** 按题型分段的题号组（题号为全卷连续编号，跳转传全局索引） */
+const groups = computed<Array<{ type: QuestionType; items: Array<{ id: string; index: number }> }>>(() => {
+  const buckets = new Map<QuestionType, Array<{ id: string; index: number }>>();
+  props.questions.forEach((q, index) => {
+    const list = buckets.get(q.type) ?? [];
+    list.push({ id: q.id, index });
+    buckets.set(q.type, list);
+  });
+  return TYPE_ORDER.filter((t) => buckets.get(t)?.length).map((type) => ({ type, items: buckets.get(type)! }));
+});
 
 const answeredCount = computed<number>(
   () => props.questions.filter((q) => (props.answers[q.id]?.length ?? 0) > 0).length,
 );
 
 const unansweredCount = computed<number>(() => props.questions.length - answeredCount.value);
-
-/** 题型构成汇总（如「单选 20 · 多选 10 · 判断 10」），空卷返回空串 */
-const composition = computed<string>(() => {
-  const buckets = new Map<QuestionType, number>();
-  props.questions.forEach((q) => buckets.set(q.type, (buckets.get(q.type) ?? 0) + 1));
-  return TYPE_ORDER.filter((t) => buckets.get(t))
-    .map((t) => `${QUESTION_TYPE_LABELS[t]} ${buckets.get(t)}`)
-    .join(' · ');
-});
 
 function answered(id: string): boolean {
   return (props.answers[id]?.length ?? 0) > 0;
@@ -52,28 +52,35 @@ function cellTitle(no: number, id: string): string {
     <div class="answer-sheet__head">
       <div class="answer-sheet__title">
         <span class="answer-sheet__kicker">答题卡</span>
-        <span v-if="composition" class="answer-sheet__comp">{{ composition }}</span>
+        <span class="answer-sheet__comp">共 {{ questions.length }} 题</span>
       </div>
       <span class="answer-sheet__tag">已答 {{ answeredCount }}</span>
     </div>
 
-    <div class="answer-sheet__grid">
-      <button
-        v-for="(item, index) in questions"
-        :key="item.id"
-        type="button"
-        class="answer-sheet__cell"
-        :class="{
-          'answer-sheet__cell--answered': answered(item.id),
-          'answer-sheet__cell--current': index === currentIndex,
-        }"
-        :title="cellTitle(index + 1, item.id)"
-        :aria-label="cellTitle(index + 1, item.id)"
-        :aria-current="index === currentIndex ? 'true' : undefined"
-        @click="emit('jump', index)"
-      >
-        {{ index + 1 }}
-      </button>
+    <!-- 按题型分段（设计稿每段一组网格） -->
+    <div v-for="group in groups" :key="group.type" class="answer-sheet__section">
+      <div class="answer-sheet__sec-title">
+        {{ QUESTION_TYPE_LABELS[group.type] }}
+        <span class="answer-sheet__sec-count">{{ group.items.length }} 题</span>
+      </div>
+      <div class="answer-sheet__grid">
+        <button
+          v-for="item in group.items"
+          :key="item.id"
+          type="button"
+          class="answer-sheet__cell"
+          :class="{
+            'answer-sheet__cell--answered': answered(item.id),
+            'answer-sheet__cell--current': item.index === currentIndex,
+          }"
+          :title="cellTitle(item.index + 1, item.id)"
+          :aria-label="cellTitle(item.index + 1, item.id)"
+          :aria-current="item.index === currentIndex ? 'true' : undefined"
+          @click="emit('jump', item.index)"
+        >
+          {{ item.index + 1 }}
+        </button>
+      </div>
     </div>
 
     <!-- 图例（设计稿 .lg） -->
@@ -128,6 +135,24 @@ function cellTitle(no: number, id: string): string {
     color: $text-primary;
   }
 
+  &__section {
+    margin-top: 12px;
+  }
+
+  &__sec-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: $text-primary;
+    margin-bottom: 6px;
+  }
+
+  &__sec-count {
+    margin-left: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    color: $text-secondary;
+  }
+
   &__tag {
     flex: 0 0 auto;
     display: inline-flex;
@@ -145,7 +170,7 @@ function cellTitle(no: number, id: string): string {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 6px;
-    max-height: calc(100vh - 300px);
+    max-height: 220px;
     overflow-y: auto;
   }
 

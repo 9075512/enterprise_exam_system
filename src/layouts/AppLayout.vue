@@ -154,7 +154,17 @@ watch(activeGroupKey, (key) => {
   if (group && group.items.length > 1) menuRef.value?.open(key);
 });
 const userName = computed(() => auth.currentUser?.name ?? '');
-const roleLabel = computed(() => (auth.currentUser ? ROLE_LABELS[auth.currentUser.role] : ''));
+/** 侧栏角色行（设计稿考生显示「考生 · 科室」，其余角色仅职称） */
+const roleLabel = computed(() => {
+  const u = auth.currentUser;
+  if (!u) return '';
+  const base = ROLE_LABELS[u.role];
+  if (u.role === 'examinee' && u.departmentName) return `${base} · ${u.departmentName}`;
+  return base;
+});
+
+/** 考生端侧栏扁平化（设计稿 examinee 导航无折叠子菜单，全部一级项平铺） */
+const flatMenu = computed(() => auth.currentUser?.role === 'examinee');
 const breadcrumbs = computed(() =>
   route.matched.filter((r) => r.meta && r.meta.title).map((r) => String(r.meta.title)),
 );
@@ -240,22 +250,32 @@ async function submitPassword(): Promise<void> {
         class="layout__menu"
       >
         <template v-for="group in menuGroups" :key="group.key">
-          <!-- 组内只有 1 项 → 直接渲染为顶层菜单项，不套一层折叠 -->
-          <el-menu-item v-if="group.items.length === 1" :index="group.items[0].path">
-            <el-icon><component :is="group.items[0].icon" /></el-icon>
-            <template #title>{{ group.items[0].text }}</template>
-          </el-menu-item>
-
-          <el-sub-menu v-else :index="group.key" popper-class="layout__menu-popper">
-            <template #title>
-              <el-icon><component :is="group.icon" /></el-icon>
-              <span>{{ group.text }}</span>
-            </template>
+          <!-- 考生端：全部一级平铺，不套折叠 -->
+          <template v-if="flatMenu">
             <el-menu-item v-for="item in group.items" :key="item.path" :index="item.path">
               <el-icon><component :is="item.icon" /></el-icon>
               <template #title>{{ item.text }}</template>
             </el-menu-item>
-          </el-sub-menu>
+          </template>
+
+          <template v-else>
+            <!-- 组内只有 1 项 → 直接渲染为顶层菜单项，不套一层折叠 -->
+            <el-menu-item v-if="group.items.length === 1" :index="group.items[0].path">
+              <el-icon><component :is="group.items[0].icon" /></el-icon>
+              <template #title>{{ group.items[0].text }}</template>
+            </el-menu-item>
+
+            <el-sub-menu v-else :index="group.key" popper-class="layout__menu-popper">
+              <template #title>
+                <el-icon><component :is="group.icon" /></el-icon>
+                <span>{{ group.text }}</span>
+              </template>
+              <el-menu-item v-for="item in group.items" :key="item.path" :index="item.path">
+                <el-icon><component :is="item.icon" /></el-icon>
+                <template #title>{{ item.text }}</template>
+              </el-menu-item>
+            </el-sub-menu>
+          </template>
         </template>
       </el-menu>
 
@@ -811,9 +831,10 @@ async function submitPassword(): Promise<void> {
 
   // 侧栏头像小一号（设计稿 .av--sm）
   &__avatar--side {
-    width: 26px;
-    height: 26px;
-    font-size: 11px;
+    // 设计稿 .av--sm：22px / 9.5px
+    width: 22px;
+    height: 22px;
+    font-size: 9.5px;
   }
 
   &__content {

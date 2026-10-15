@@ -974,6 +974,8 @@ export interface SystemSettings {
   examDefaultMaxAttempts: number;
   /** 组卷页难度系数目标值（P 值，0~1，越高越易） */
   paperTargetDifficulty: number;
+  /** 组织架构树根节点名称（默认「全公司」，科室管理页展示与编辑） */
+  companyName: string;
   /** 切屏异常判定：次数阈值（≥ 该值判为异常） */
   cheatCountThreshold: number;
   /** 切屏异常判定：累计离开秒数阈值（≥ 该值判为异常） */

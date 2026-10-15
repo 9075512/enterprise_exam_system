@@ -6,11 +6,12 @@
  * 树点击切换列表范围（含子树）；列表按层级顺序输出并带缩进，与设计稿的扁平缩进表一致。
  * 关键字筛选（客户端）+ 页内新建/编辑弹窗 + 删除（有归属用户 → 后端 1005，拦截器已提示）。
  */
-import { computed, reactive, ref } from 'vue';
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
-import { OfficeBuilding, Plus, Refresh, Search } from '@element-plus/icons-vue';
+import { computed, onMounted, reactive, ref } from 'vue';
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus';
+import { EditPen, Expand, Fold, OfficeBuilding, Plus, Refresh, Search } from '@element-plus/icons-vue';
 import * as departmentsApi from '@/api/departments';
 import * as usersApi from '@/api/users';
+import { useSettingsStore } from '@/stores/settings';
 import { useRequest } from '@/composables/useRequest';
 import { useConfirm } from '@/composables/useConfirm';
 import { validateAndFocus } from '@/composables/useFormFocus';
@@ -26,6 +27,36 @@ const { confirm } = useConfirm();
 const { data: departments, loading, refresh } = useRequest(() => departmentsApi.list());
 /** 用户全量（用于「人员数」列与树上的计数） */
 const { data: users } = useRequest(() => usersApi.list());
+const settingsStore = useSettingsStore();
+
+onMounted(() => {
+  void settingsStore.load();
+});
+
+/** 组织树根节点名（设置项 companyName，默认「全公司」） */
+const companyName = computed<string>(() => settingsStore.settings.companyName || '全公司');
+
+/** 树根改名：写回设置项 companyName（仅管理员；保存后全站生效） */
+async function renameCompany(): Promise<void> {
+  try {
+    const { value } = await ElMessageBox.prompt('修改后科室树根节点与相关文案将同步更新。', '修改组织根节点名称', {
+      confirmButtonText: '保存',
+      cancelButtonText: '取消',
+      inputPattern: /^\S.{0,39}$/,
+      inputErrorMessage: '名称不能为空且不超过 40 个字符',
+      inputValue: companyName.value,
+    });
+    const name = value.trim();
+    if (!name || name === companyName.value) return;
+    await settingsStore.save({ ...settingsStore.settings, companyName: name });
+    ElMessage.success('组织根节点名称已更新');
+  } catch {
+    /* 用户取消 */
+  }
+}
+
+/** 左树收起/展开（收起后左栏收窄为窄条） */
+const treeCollapsed = ref(false);
 
 /** 上级科室名称映射（表格回显）。 */
 const departmentNameMap = computed<Record<string, string>>(() =>
@@ -97,7 +128,7 @@ const deptTree = computed<DeptTreeNode[]>(() => {
 /** 当前列表范围（'' = 全公司） */
 const activeScopeId = ref<string>('');
 const activeScopeName = computed<string>(() =>
-  activeScopeId.value ? departmentNameMap.value[activeScopeId.value] ?? '全公司' : '全公司',
+  activeScopeId.value ? departmentNameMap.value[activeScopeId.value] ?? companyName.value : companyName.value,
 );
 function selectScope(id: string): void {
   activeScopeId.value = activeScopeId.value === id ? '' : id;
@@ -264,21 +295,43 @@ async function handleDelete(department: Department): Promise<void> {
     />
 
     <div v-else class="department-page__wrap">
-      <!-- 左：科室树 -->
-      <el-card class="department-page__tree-card" shadow="never">
+      <!-- 左：科室树（可收起；根节点可改名） -->
+      <el-card
+        class="department-page__tree-card"
+        :class="{ 'is-collapsed': treeCollapsed }"
+        shadow="never"
+      >
         <template #header>
-          <span class="department-page__tree-title">科室树</span>
+          <div class="department-page__tree-head">
+            <span class="department-page__tree-title">科室树</span>
+            <el-button
+              text
+              size="small"
+              :icon="treeCollapsed ? Expand : Fold"
+              :aria-label="treeCollapsed ? '展开科室树' : '收起科室树'"
+              @click="treeCollapsed = !treeCollapsed"
+            />
+          </div>
         </template>
+        <template v-if="!treeCollapsed">
         <div class="department-page__tree">
           <button
             type="button"
             class="department-page__tree-node is-l1"
             :class="{ 'is-on': activeScopeId === '' }"
+            :title="`${companyName}（点击改名）`"
             @click="selectScope('')"
           >
             <el-icon class="department-page__tree-ico"><OfficeBuilding /></el-icon>
-            <span class="department-page__tree-name">全公司</span>
+            <span class="department-page__tree-name">{{ companyName }}</span>
             <span class="department-page__tree-count">{{ totalMembers }}</span>
+            <el-icon
+              class="department-page__tree-edit"
+              title="修改根节点名称"
+              @click.stop="renameCompany"
+            >
+              <EditPen />
+            </el-icon>
           </button>
           <template v-for="node in deptTree" :key="node.id">
             <button
@@ -306,6 +359,7 @@ async function handleDelete(department: Department): Promise<void> {
         <div class="department-page__tree-foot">
           <el-button text :icon="Plus" @click="openCreate">新增同级科室</el-button>
         </div>
+        </template>
       </el-card>
 
       <!-- 右：科室列表 -->
@@ -430,16 +484,61 @@ async function handleDelete(department: Department): Promise<void> {
 <style scoped lang="scss">
 @use '@/styles/variables.scss' as *;
 
-/* 双栏：左科室树（236px，设计稿 departments.html）+ 右列表 */
+/* 双栏：左科室树（236px，设计稿 departments.html；收起态收窄为窄条）+ 右列表 */
 .department-page__wrap {
   display: grid;
   grid-template-columns: 236px minmax(0, 1fr);
   gap: 16px;
   align-items: start;
+
+  &:has(.department-page__tree-card.is-collapsed) {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
 }
 
 .department-page__tree-card.el-card {
   --el-card-padding: 8px;
+}
+
+/* 卡头：标题 + 收起/展开按钮 */
+.department-page__tree-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+/* 收起态：隐藏头部文字，只留切换按钮 */
+.department-page__tree-card.is-collapsed {
+  :deep(.el-card__header) {
+    padding: 10px 6px;
+  }
+
+  .department-page__tree-title {
+    display: none;
+  }
+
+  .department-page__tree-head {
+    justify-content: center;
+  }
+}
+
+/* 根节点改名铅笔：hover 时浮现 */
+.department-page__tree-edit {
+  flex: 0 0 auto;
+  margin-left: 2px;
+  font-size: 12px;
+  color: $text-disabled;
+  opacity: 0;
+  transition: opacity 0.12s;
+
+  .department-page__tree-node:hover & {
+    opacity: 1;
+  }
+
+  &:hover {
+    color: $color-primary;
+  }
 }
 
 .department-page__tree-title {

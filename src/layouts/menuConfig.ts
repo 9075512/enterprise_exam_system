@@ -102,6 +102,8 @@ const ALL_MENUS: MenuItem[] = [
   { key: 'home', text: '首页', path: '/exam/home', icon: HomeFilled, roles: ['examinee'], group: 'examinee' },
   { key: 'my-exams', text: '我的考试', path: '/exam/my', icon: AlarmClock, roles: ['examinee'], group: 'examinee' },
   { key: 'my-scores', text: '我的成绩', path: '/exam/scores', icon: TrendCharts, roles: ['examinee'], group: 'examinee' },
+  { key: 'my-retakes', text: '我的补考', path: '/exam/retakes', icon: Refresh, roles: ['examinee'], group: 'examinee' },
+  { key: 'exam-messages', text: '消息中心', path: '/notifications', icon: Bell, roles: ['examinee'], group: 'examinee' },
 ];
 
 /** 内置默认授权：角色 → 菜单 key 列表（与后端 menuCatalog.defaultGrants 一致）。 */

@@ -11,7 +11,7 @@
  *   7) 网站与品牌     —— 品牌信息
  *
  * 设计约定（v3.1 方向 C）：
- * - 顶部是「域内锚点导航」（点击滚动到对应卡片），下面每域一张 `<el-card shadow="never">`；
+ * - 顶部用 el-tabs 真实页签切换 7 个配置域（2026-10-15 由锚点滚动改为 tab，用户决策）；
  * - 每张卡顶部有一句话说明，避免「不知道这块管什么」；
  * - 同一域内超过 6 项的字段按业务子域再分组（分组小标题 + 一句话补充）；
  * - 控件宽度、间距、提示文案统一（`settings-page__*`），不再混装。
@@ -21,7 +21,7 @@
  *
  * 注：练题端配置已拆为独立菜单「练题端设置」（独立单行表 practice_settings）。
  */
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref } from 'vue';
 import {
   ElMessage,
   ElMessageBox,
@@ -42,8 +42,8 @@ const settingsStore = useSettingsStore();
 
 type SettingsTab = 'exam' | 'anti' | 'grading' | 'account' | 'notify' | 'data' | 'brand';
 
-/** 当前激活域（顶部锚点导航高亮 & 保存校验失败时定位到出错域） */
-const activeTab = ref<SettingsTab>('notify');
+/** 当前激活页签（真实 tab 切换；保存校验失败时自动定位到出错域） */
+const activeTab = ref<SettingsTab>('exam');
 
 /** 配置域名称（卡头文案 + 定位错误提示用） */
 const TAB_LABEL: Record<SettingsTab, string> = {
@@ -66,24 +66,6 @@ const TAB_DESC: Record<SettingsTab, string> = {
   data: '列表分页与 Excel 导入上限，以及审计日志清理、成绩归档的保留策略与自动执行时点。',
   brand: '登录页与侧边栏展示的品牌信息，保存后对所有用户即时生效。',
 };
-
-/** 卡片锚点 id 前缀（顶部导航点击后滚动到对应卡片） */
-const ANCHOR_PREFIX = 'settings-domain-';
-
-/** 域 → 卡片锚点 id */
-function anchorId(name: SettingsTab): string {
-  return `${ANCHOR_PREFIX}${name}`;
-}
-
-/** 滚动到指定配置域卡片 */
-function scrollToDomain(name: SettingsTab): void {
-  document.getElementById(anchorId(name))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-/** 点击顶部域导航 → 滚动到对应卡片 */
-function handleAnchorChange(name: string | number): void {
-  scrollToDomain(name as SettingsTab);
-}
 
 /** 表单字段 → 所属配置域（保存校验失败时自动定位到出错卡片） */
 const FIELD_TAB: Record<string, SettingsTab> = {
@@ -144,6 +126,7 @@ const FIELD_TAB: Record<string, SettingsTab> = {
   archiveAutoEnabled: 'data',
   archiveAutoHour: 'data',
   // 网站与品牌
+  companyName: 'brand',
   systemName: 'brand',
   systemShortName: 'brand',
   loginSlogan: 'brand',
@@ -256,6 +239,7 @@ const rules: FormRules = {
   // 网站与品牌
   systemName: strRules('系统全称', 1, 40),
   systemShortName: strRules('系统简称', 1, 40),
+  companyName: strRules('组织根节点名称', 1, 40),
   loginSlogan: strRules('登录页标语', 0, 80),
   copyright: strRules('版权/页脚', 0, 120),
   // 通知模板（v1.7④ S3：标题 ≤120、正文 ≤500；逐事件校验）
@@ -316,7 +300,8 @@ async function handleSave(): Promise<void> {
     } else {
       ElMessage.warning('存在待修正项，请检查标红字段');
     }
-    // 定位到出错配置域后，滚动到并聚焦第一个错误项（设计规范 §9.3）
+    // 定位到出错页签后，等 tab 内容渲染完成再聚焦第一个错误项（设计规范 §9.3）
+    await nextTick();
     await focusFirstFormError();
     return;
   }
@@ -367,26 +352,10 @@ async function handleReset(): Promise<void> {
       label-position="top"
       class="settings-page__form"
     >
-      <!-- ===================== 域内锚点导航 =====================
-           用 el-tabs 承担锚点导航（点击滚动到对应卡片），页面主体不再分页签。 -->
-      <div class="settings-page__anchors">
-        <el-tabs
-          v-model="activeTab"
-          class="settings-page__anchors-tabs"
-          @tab-change="handleAnchorChange"
-        >
-          <el-tab-pane label="通知与模板" name="notify" />
-          <el-tab-pane label="作答与防作弊" name="anti" />
-          <el-tab-pane label="数据与归档" name="data" />
-          <el-tab-pane label="账号与安全" name="account" />
-          <el-tab-pane label="考试默认值" name="exam" />
-          <el-tab-pane label="阅卷与复核" name="grading" />
-          <el-tab-pane label="网站与品牌" name="brand" />
-        </el-tabs>
-      </div>
-
+      <el-tabs v-model="activeTab" class="settings-page__tabs">
+        <el-tab-pane label="通知与模板" name="notify">
       <!-- ===================== 1. 通知与模板 ===================== -->
-      <el-card :id="anchorId('notify')" shadow="never" class="settings-page__card">
+      <el-card shadow="never" class="settings-page__card">
         <template #header>
           <h3 class="settings-page__card-title">通知与模板</h3>
         </template>
@@ -556,7 +525,9 @@ async function handleReset(): Promise<void> {
       </el-card>
 
       <!-- ===================== 2. 作答与防作弊 ===================== -->
-      <el-card :id="anchorId('anti')" shadow="never" class="settings-page__card">
+        </el-tab-pane>
+        <el-tab-pane label="作答与防作弊" name="anti">
+      <el-card shadow="never" class="settings-page__card">
         <template #header>
           <h3 class="settings-page__card-title">作答与防作弊</h3>
         </template>
@@ -758,7 +729,9 @@ async function handleReset(): Promise<void> {
       </el-card>
 
       <!-- ===================== 3. 数据与归档 ===================== -->
-      <el-card :id="anchorId('data')" shadow="never" class="settings-page__card">
+        </el-tab-pane>
+        <el-tab-pane label="数据与归档" name="data">
+      <el-card shadow="never" class="settings-page__card">
         <template #header>
           <h3 class="settings-page__card-title">数据与归档</h3>
         </template>
@@ -886,7 +859,9 @@ async function handleReset(): Promise<void> {
       </el-card>
 
       <!-- ===================== 4. 账号与安全 ===================== -->
-      <el-card :id="anchorId('account')" shadow="never" class="settings-page__card">
+        </el-tab-pane>
+        <el-tab-pane label="账号与安全" name="account">
+      <el-card shadow="never" class="settings-page__card">
         <template #header>
           <h3 class="settings-page__card-title">账号与安全</h3>
         </template>
@@ -1035,7 +1010,9 @@ async function handleReset(): Promise<void> {
       </el-card>
 
       <!-- ===================== 5. 考试默认值 ===================== -->
-      <el-card :id="anchorId('exam')" shadow="never" class="settings-page__card">
+        </el-tab-pane>
+        <el-tab-pane label="考试默认值" name="exam">
+      <el-card shadow="never" class="settings-page__card">
         <template #header>
           <h3 class="settings-page__card-title">考试默认值</h3>
         </template>
@@ -1105,7 +1082,9 @@ async function handleReset(): Promise<void> {
       </el-card>
 
       <!-- ===================== 6. 阅卷与复核 ===================== -->
-      <el-card :id="anchorId('grading')" shadow="never" class="settings-page__card">
+        </el-tab-pane>
+        <el-tab-pane label="阅卷与复核" name="grading">
+      <el-card shadow="never" class="settings-page__card">
         <template #header>
           <h3 class="settings-page__card-title">阅卷与复核</h3>
         </template>
@@ -1164,7 +1143,9 @@ async function handleReset(): Promise<void> {
       </el-card>
 
       <!-- ===================== 7. 网站与品牌 ===================== -->
-      <el-card :id="anchorId('brand')" shadow="never" class="settings-page__card">
+        </el-tab-pane>
+        <el-tab-pane label="网站与品牌" name="brand">
+      <el-card shadow="never" class="settings-page__card">
         <template #header>
           <h3 class="settings-page__card-title">网站与品牌</h3>
         </template>
@@ -1203,6 +1184,19 @@ async function handleReset(): Promise<void> {
             </el-form-item>
           </el-col>
           <el-col :xs="24" :sm="24" :md="12">
+            <el-form-item label="组织根节点名称" prop="companyName">
+              <div class="settings-page__control">
+                <el-input
+                  v-model="form.companyName"
+                  maxlength="40"
+                  show-word-limit
+                  class="settings-page__input"
+                />
+                <p class="settings-page__hint">科室管理页组织树的根节点名（默认「全公司」），也可在科室树中直接改名。</p>
+              </div>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="登录页标语" prop="loginSlogan">
               <div class="settings-page__control">
                 <el-input
@@ -1230,6 +1224,9 @@ async function handleReset(): Promise<void> {
           </el-col>
         </el-row>
       </el-card>
+        </el-tab-pane>
+      </el-tabs>
+
     </el-form>
 
     <!-- sticky 底部操作条：页头操作区滚出视野后出现，长表单无需滚回顶部 -->
@@ -1259,26 +1256,15 @@ async function handleReset(): Promise<void> {
     pointer-events: none;
   }
 
-  /* 配置域锚点导航：贴顶吸附，点击滚动到对应卡片 */
-  &__anchors {
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    margin-bottom: 16px;
-    padding: 0 8px;
-    background: $bg-paper;
-    border: 1px solid $border-color;
-    border-radius: $radius-base;
-  }
-
-  &__anchors-tabs {
-    /* 锚点导航只借壳（刻度由全局 index.scss 统一承担），故压掉页签底距与内容区 */
-    :deep(.el-tabs__header) {
-      margin-bottom: 0;
+  /* 配置域页签（真实 tab 切换，刻度由全局 index.scss 统一承担） */
+  &__tabs {
+    :deep(.el-tabs__content) {
+      padding-top: 16px;
     }
 
-    :deep(.el-tabs__content) {
-      display: none;
+    /* pane 内卡片沿用纵向堆叠距 */
+    :deep(.el-tab-pane) > .settings-page__card + .settings-page__card {
+      margin-top: 16px;
     }
   }
 

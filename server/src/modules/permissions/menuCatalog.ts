@@ -38,6 +38,8 @@ export const MENU_CATALOG: readonly MenuDef[] = [
   { key: 'home', name: '首页', defaultRoles: ['examinee'], adminRequired: false },
   { key: 'my-exams', name: '我的考试', defaultRoles: ['examinee'], adminRequired: false },
   { key: 'my-scores', name: '我的成绩', defaultRoles: ['examinee'], adminRequired: false },
+  { key: 'my-retakes', name: '我的补考', defaultRoles: ['examinee'], adminRequired: false },
+  { key: 'exam-messages', name: '消息中心', defaultRoles: ['examinee'], adminRequired: false },
 ];
 
 /** 全部合法菜单 key。 */

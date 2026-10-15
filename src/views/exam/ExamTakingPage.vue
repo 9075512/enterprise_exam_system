@@ -65,6 +65,10 @@ const progressPercent = computed<number>(() => {
 /** 姓名首字（头像占位，暂存退出确认文案用） */
 const avatarText = computed<string>(() => (auth.currentUser?.name ?? '').trim().slice(0, 1) || '考');
 
+/** 答题卡上方考生信息 */
+const userName = computed<string>(() => auth.currentUser?.name ?? '考生');
+const userDepartment = computed<string>(() => auth.currentUser?.departmentName ?? '');
+
 /** 防作弊：答题页浮水印 / 复制限制（读系统设置，响应式） */
 const watermarkEnabled = computed<boolean>(() => settingsStore.settings.cheatWatermarkEnabled);
 const watermarkText = computed<string>(() => {
@@ -231,13 +235,33 @@ async function doSubmit(auto: boolean): Promise<void> {
     const res = await recordsApi.submit(recordId, auto);
     submitted.value = true;
     if (tickTimer) window.clearInterval(tickTimer);
-    ElMessage.success(`交卷成功，得分 ${res.score} 分`);
-    void router.replace(`/score-detail/${recordId}`);
+    // 弹窗展示考试结果（成绩明细由用户点击按钮后再看）
+    result.value = res;
+    resultVisible.value = true;
   } catch {
     // 错误提示已由 http.ts 响应拦截器统一弹出
   } finally {
     submitting.value = false;
   }
+}
+
+/* ------------------------------ 交卷结果弹窗 ------------------------------ */
+const resultVisible = ref(false);
+const result = ref<ExamRecord | null>(null);
+
+/** 是否及格（以当前考试及格线为准；考试信息缺失时不标色） */
+const resultPassed = computed(() =>
+  result.value && exam.value ? result.value.score >= exam.value.passScore : null,
+);
+
+function gotoScoreDetail(): void {
+  resultVisible.value = false;
+  void router.replace(`/score-detail/${recordId}`);
+}
+
+function gotoMyExams(): void {
+  resultVisible.value = false;
+  void router.replace('/exam/my');
 }
 
 /* ------------------------------ 其它 ------------------------------ */
@@ -338,6 +362,17 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
         </div>
 
         <aside class="taking__aside">
+          <!-- 考生信息卡（答题卡上方） -->
+          <el-card class="taking__who" shadow="never">
+            <span class="taking__who-av">{{ userName.slice(0, 1) }}</span>
+            <span class="taking__who-meta">
+              <span class="taking__who-name">{{ userName }}</span>
+              <span class="taking__who-sub">
+                {{ userDepartment || '考生' }}<template v-if="userDepartment"> · 考生</template>
+              </span>
+            </span>
+          </el-card>
+
           <el-card class="taking__sheet" shadow="never">
             <AnswerSheet
               :questions="questions.map((q) => ({ id: q.questionId, type: q.question.type }))"
@@ -356,6 +391,36 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
 
       <VisibilityGuard :disabled="submitted" @away="onAway" />
     </template>
+
+    <!-- 交卷结果弹窗：展示得分与及格态，成绩明细由用户点击后进入 -->
+    <el-dialog
+      v-model="resultVisible"
+      width="420px"
+      align-center
+      :close-on-click-modal="false"
+      class="taking__result"
+    >
+      <template #header>
+        <div class="taking__result-hd">
+          <h3>考试结果</h3>
+          <span v-if="resultPassed !== null" class="taking__result-bdg" :class="resultPassed ? 'is-ok' : 'is-bad'">
+            {{ resultPassed ? '及格' : '未及格' }}
+          </span>
+        </div>
+      </template>
+      <div class="taking__result-score">
+        <span class="taking__result-num">{{ formatScore(result?.score ?? 0) }}</span>
+        <span class="taking__result-unit">/ {{ formatScore(record?.paperSnapshot.totalScore ?? 0) }} 分</span>
+      </div>
+      <p class="taking__result-tip">
+        交卷成功<template v-if="result?.autoSubmitted">（考试时间到，系统自动交卷）</template>。
+        可在「我的成绩」中随时查看成绩明细与逐题解析。
+      </p>
+      <template #footer>
+        <el-button @click="gotoMyExams">返回我的考试</el-button>
+        <el-button type="primary" @click="gotoScoreDetail">查看成绩明细</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -568,6 +633,52 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
     top: 76px;
   }
 
+  // 答题卡上方的考生信息卡
+  &__who {
+    --el-card-padding: 10px 14px;
+    margin-bottom: 10px;
+
+    :deep(.el-card__body) {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+  }
+
+  &__who-av {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: $color-primary;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  &__who-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.3;
+  }
+
+  &__who-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: $text-primary;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__who-sub {
+    font-size: 11px;
+    color: $text-secondary;
+  }
+
   &__sheet {
     --el-card-padding: 14px;
   }
@@ -606,5 +717,68 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
       position: static;
     }
   }
+}
+</style>
+
+<!-- 交卷结果弹窗：el-dialog teleport 到 body，scoped 选择器不生效，故用 :global -->
+<style scoped lang="scss">
+@use '@/styles/variables.scss' as *;
+
+:global(.taking__result-hd) {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 620;
+  }
+}
+
+:global(.taking__result-bdg) {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+
+  &.is-ok {
+    color: $color-success-text;
+    background: $color-success-bg;
+  }
+
+  &.is-bad {
+    color: $color-error-text;
+    background: $color-error-bg;
+  }
+}
+
+:global(.taking__result-score) {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  justify-content: center;
+  padding: 6px 0 2px;
+}
+
+:global(.taking__result-num) {
+  font-size: 40px;
+  font-weight: 680;
+  line-height: 1;
+  color: $color-primary;
+  font-variant-numeric: tabular-nums;
+}
+
+:global(.taking__result-unit) {
+  font-size: 13px;
+  color: $text-secondary;
+}
+
+:global(.taking__result-tip) {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: $text-secondary;
+  text-align: center;
 }
 </style>

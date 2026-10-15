@@ -6,11 +6,11 @@
 import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Plus, Search, Refresh } from '@element-plus/icons-vue';
+import dayjs from 'dayjs';
+import { Delete, EditPen, Plus, Refresh, Search } from '@element-plus/icons-vue';
 import * as banksApi from '@/api/banks';
 import { useRequest } from '@/composables/useRequest';
 import { useConfirm } from '@/composables/useConfirm';
-import { formatDateTime } from '@/utils/datetime';
 import { BANK_TEXT } from '@/constants';
 import { useAuthStore } from '@/stores/auth';
 import PageHeader from '@/components/common/PageHeader.vue';
@@ -98,6 +98,18 @@ function onReset(): void {
   keyword.value = '';
   filterCategory.value = '';
   void refresh();
+}
+
+/** 点击分类 chip：切换筛选并立即应用（服务端过滤） */
+function pickCategory(category: string): void {
+  if (filterCategory.value === category) return;
+  filterCategory.value = category;
+  void refresh();
+}
+
+/** 去组卷（携带题库预选） */
+function goComposer(): void {
+  void router.push('/author/papers');
 }
 
 /** 是否处于筛选态（决定空态口径与是否给「清空筛选」出路，规范 §9.2） */
@@ -197,17 +209,28 @@ async function handleDelete(bank: QuestionBank): Promise<void> {
       </template>
     </PageHeader>
 
-    <!-- 筛选行 -->
+    <!-- 筛选行（设计稿 banks.html：分类 chips + 搜索） -->
     <div class="bank-list__filter">
-      <el-select
-        v-model="filterCategory"
-        class="bank-list__category"
-        placeholder="全部分类"
-        clearable
-      >
-        <el-option label="全部分类" value="" />
-        <el-option v-for="category in categoryOptions" :key="category" :label="category" :value="category" />
-      </el-select>
+      <div class="bank-list__chips">
+        <button
+          type="button"
+          class="bank-list__chip"
+          :class="{ 'is-on': filterCategory === '' }"
+          @click="pickCategory('')"
+        >
+          全部分类
+        </button>
+        <button
+          v-for="category in categoryOptions"
+          :key="category"
+          type="button"
+          class="bank-list__chip"
+          :class="{ 'is-on': filterCategory === category }"
+          @click="pickCategory(category)"
+        >
+          {{ category }}
+        </button>
+      </div>
       <el-input
         v-model="keyword"
         class="bank-list__keyword"
@@ -233,7 +256,7 @@ async function handleDelete(bank: QuestionBank): Promise<void> {
       @action="openCreate"
     />
 
-    <!-- 卡片网格 -->
+    <!-- 卡片网格（对齐设计稿 banks.html 卡片结构） -->
     <CardGrid v-else>
       <el-card
         v-for="bank in banks"
@@ -242,23 +265,51 @@ async function handleDelete(bank: QuestionBank): Promise<void> {
         @click="goDetail(bank)"
       >
         <div class="bank-card__head">
-          <h3 class="bank-card__name" :title="bank.name">{{ bank.name }}</h3>
-          <el-tag size="small" type="info" effect="plain">{{ bank.category }}</el-tag>
+          <el-tag size="small" effect="plain" class="bank-card__cat">{{ bank.category || '未分类' }}</el-tag>
+          <el-tag v-if="(bank.questionCount ?? 0) === 0" size="small" type="warning" effect="plain">
+            空题库
+          </el-tag>
         </div>
-        <p class="bank-card__count">题目数：{{ bank.questionCount }}</p>
-        <p class="bank-card__meta">
-          创建人：{{ bank.createdBy }} · {{ formatDateTime(bank.createdAt) }}
-        </p>
+        <h3 class="bank-card__name" :title="bank.name">{{ bank.name }}</h3>
         <p v-if="bank.description" class="bank-card__desc" :title="bank.description">
           {{ bank.description }}
         </p>
+
+        <div class="bank-card__metrics">
+          <div>
+            <span class="bank-card__micro">题目</span>
+            <span class="bank-card__num">{{ bank.questionCount ?? 0 }}</span>
+          </div>
+          <div>
+            <span class="bank-card__micro">创建人</span>
+            <span class="bank-card__num">{{ bank.createdBy || '—' }}</span>
+          </div>
+          <div>
+            <span class="bank-card__micro">练题端</span>
+            <span class="bank-card__num">{{ bank.allowPractice ? '已开放' : '未开放' }}</span>
+          </div>
+        </div>
+
+        <div class="bank-card__foot">
+          <span class="bank-card__updated">更新于 {{ dayjs(bank.createdAt).format('MM-DD') }}</span>
+          <el-tag
+            size="small"
+            effect="plain"
+            :type="bank.allowPractice ? 'success' : 'info'"
+          >
+            {{ bank.allowPractice ? '练题端已开放' : '未开放练题' }}
+          </el-tag>
+        </div>
+
         <div class="bank-card__actions" @click.stop>
-          <el-button type="primary" link @click="goDetail(bank)">详情</el-button>
-          <el-button link @click="openClone(bank)">复制</el-button>
-          <el-button link @click="openEdit(bank)">编辑</el-button>
-          <el-button type="danger" link :loading="deleting" @click="handleDelete(bank)">
-            删除
+          <el-button type="primary" size="small" class="bank-card__main-act" @click="goDetail(bank)">
+            查看题目
           </el-button>
+          <el-tooltip content="去组卷" placement="top">
+            <el-button size="small" @click="goComposer()">组卷</el-button>
+          </el-tooltip>
+          <el-button size="small" :icon="EditPen" @click="openEdit(bank)" aria-label="编辑题库" />
+          <el-button size="small" :icon="Delete" @click="handleDelete(bank)" aria-label="删除题库" />
         </div>
       </el-card>
     </CardGrid>
@@ -352,15 +403,44 @@ async function handleDelete(bank: QuestionBank): Promise<void> {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
   margin-bottom: 16px;
+}
+
+/* 分类 chips（设计稿 .chips .btn--sm） */
+.bank-list__chips {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-right: auto;
+}
+
+.bank-list__chip {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid $line-strong;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 12.5px;
+  font-weight: 550;
+  color: $text-body;
+  cursor: pointer;
+  transition: all $transition-fast;
+
+  &:hover {
+    border-color: $color-primary;
+    color: $color-primary;
+  }
+
+  &.is-on {
+    background: $color-primary;
+    border-color: $color-primary;
+    color: #fff;
+  }
 }
 
 .bank-list__keyword {
   max-width: 320px;
-}
-
-.bank-list__category {
-  width: 180px;
 }
 
 .bank-card {
@@ -368,14 +448,19 @@ async function handleDelete(bank: QuestionBank): Promise<void> {
 
   &__head {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 8px;
   }
 
+  &__cat {
+    // 分类色例外（规范 §2.5）：info plain 足够，不额外引入新色
+    font-weight: 550;
+  }
+
   &__name {
-    margin: 0;
-    font-size: 15px;
+    margin: 10px 0 0;
+    font-size: 13.5px;
     font-weight: 600;
     color: $text-primary;
     overflow: hidden;
@@ -383,36 +468,77 @@ async function handleDelete(bank: QuestionBank): Promise<void> {
     white-space: nowrap;
   }
 
-  &__count {
-    margin: 12px 0 0;
-    font-size: 13px;
-    color: $text-primary;
-  }
-
-  &__meta {
-    margin: 6px 0 0;
-    font-size: 12px;
-    color: $text-secondary;
-  }
-
   &__desc {
-    margin: 8px 0 0;
+    margin: 5px 0 0;
     font-size: 12px;
+    line-height: 1.6;
     color: $text-secondary;
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
+    min-height: 38px;
   }
 
+  // 指标行（设计稿 grid g3 micro+num）
+  &__metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  &__micro {
+    display: block;
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $text-secondary;
+  }
+
+  &__num {
+    display: block;
+    margin-top: 2px;
+    font-size: 13px;
+    font-weight: 620;
+    color: $text-primary;
+    font-variant-numeric: tabular-nums;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // 分隔线 + 更新时间/练题态
+  &__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid $border-color;
+  }
+
+  &__updated {
+    font-size: 11.5px;
+    color: $text-secondary;
+  }
+
+  // 动作行：主按钮占满 + 图标按钮
   &__actions {
     display: flex;
     align-items: center;
-    gap: 4px;
-    margin-top: 12px;
-    border-top: 1px solid $border-color;
-    padding-top: 8px;
+    gap: 6px;
+    margin-top: 10px;
+
+    .el-button + .el-button {
+      margin-left: 0;
+    }
+  }
+
+  &__main-act {
+    flex: 1;
   }
 }
 

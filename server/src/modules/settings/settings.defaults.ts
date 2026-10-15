@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   examDefaultPassScore: 60,
   examDefaultMaxAttempts: 1,
   paperTargetDifficulty: 0.72,
+  companyName: '全公司',
   cheatCountThreshold: 3,
   cheatSecondsThreshold: 120,
   cheatAutoSubmitEnabled: false,

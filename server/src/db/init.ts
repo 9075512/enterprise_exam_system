@@ -264,6 +264,8 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     maintenance: ['admin'],
     content: ['admin'],
     home: ['examinee'],
+    'my-retakes': ['examinee'],
+    'exam-messages': ['examinee'],
     'home-config': ['admin'],
   };
   const [menuRows] = await conn.query<mysql.RowDataPacket[]>(`SELECT role, menu_keys FROM menu_permissions`);

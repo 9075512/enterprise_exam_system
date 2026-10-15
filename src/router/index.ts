@@ -160,7 +160,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'exam/retakes',
         component: () => import('@/views/exam/MyRetakePage.vue'),
-        meta: { roles: ['examinee'], title: '我的补考' },
+        meta: { roles: ['examinee'], menuKey: 'my-retakes', title: '我的补考' },
       },
       // 成绩明细：管理员（任意）/ 考生（仅本人，页面内校验）
       {
@@ -172,7 +172,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'notifications',
         component: () => import('@/views/common/NotificationCenterPage.vue'),
-        meta: { roles: ['admin', 'author', 'examinee'], title: '消息中心' },
+        meta: { roles: ['admin', 'author', 'examinee'], menuKey: 'exam-messages', title: '消息中心' },
       },
     ],
   },

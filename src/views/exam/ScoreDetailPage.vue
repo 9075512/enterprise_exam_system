@@ -177,6 +177,18 @@ function isObjectiveType(type: QuestionType): boolean {
   return type === 'single' || type === 'multiple' || type === 'judge';
 }
 
+/** 选项 i 是否为该题正确答案（仅客观题） */
+function isCorrectOption(item: PaperSnapshotQuestion, i: number): boolean {
+  return isObjectiveType(item.question.type) && (item.question.answer as number[]).includes(i);
+}
+
+/** 选项 i 是否为考生选中但错误的选项（仅客观题） */
+function isWrongPick(item: PaperSnapshotQuestion, i: number): boolean {
+  if (!isObjectiveType(item.question.type)) return false;
+  const picked = (userAnswer(item.questionId) as number[]).includes(i);
+  return picked && !isCorrectOption(item, i);
+}
+
 type QStatus = 'correct' | 'wrong' | 'pending' | 'scored';
 
 function qStatus(q: PaperSnapshotQuestion): QStatus {
@@ -490,6 +502,24 @@ onMounted(async () => {
               </div>
 
               <p class="sd__q-stem">{{ item.question.stem }}</p>
+
+              <!-- 选择题选项列表：标出正确答案与考生错选 -->
+              <ul
+                v-if="isObjectiveType(item.question.type) && item.question.options.length"
+                class="sd__opts"
+              >
+                <li
+                  v-for="(opt, i) in item.question.options"
+                  :key="i"
+                  class="sd__opt"
+                  :class="{ 'is-ok': isCorrectOption(item, i), 'is-bad': isWrongPick(item, i) }"
+                >
+                  <span class="sd__opt-kk">{{ optionLetter(i) }}</span>
+                  <span class="sd__opt-tx">{{ opt }}</span>
+                  <span v-if="isCorrectOption(item, i)" class="sd__opt-tag sd__opt-tag--ok">正确答案</span>
+                  <span v-else-if="isWrongPick(item, i)" class="sd__opt-tag sd__opt-tag--bad">你的选择</span>
+                </li>
+              </ul>
 
               <!-- 客观题：你的答案 / 正确答案 -->
               <template v-if="isObjectiveType(item.question.type)">
@@ -991,6 +1021,90 @@ onMounted(async () => {
     font-weight: 520;
     line-height: 1.7;
     color: $text-primary;
+  }
+
+  // 选项列表（设计稿 .opt / .opt.is-ok / .opt.is-bad）
+  &__opts {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 10px 0 0;
+    padding: 0;
+  }
+
+  &__opt {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border: 1px solid $border-color;
+    border-radius: $radius-sm;
+    font-size: 12.5px;
+    color: $text-body;
+
+    &.is-ok {
+      border-color: $color-success;
+      background: $color-success-bg;
+
+      .sd__opt-kk {
+        border-color: $color-success;
+        background: $color-success;
+        color: #fff;
+      }
+
+      .sd__opt-tx {
+        color: $color-success-text;
+      }
+    }
+
+    &.is-bad {
+      border-color: $color-error;
+      background: $color-error-bg;
+
+      .sd__opt-kk {
+        border-color: $color-error;
+        background: $color-error;
+        color: #fff;
+      }
+
+      .sd__opt-tx {
+        color: $color-error-text;
+      }
+    }
+  }
+
+  &__opt-kk {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 1.5px solid $line-strong;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: $text-secondary;
+  }
+
+  &__opt-tx {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.6;
+  }
+
+  &__opt-tag {
+    flex: 0 0 auto;
+    font-size: 11px;
+    font-weight: 560;
+
+    &--ok {
+      color: $color-success-text;
+    }
+
+    &--bad {
+      color: $color-error-text;
+    }
   }
 
   /* 你的答案 / 正确答案 */

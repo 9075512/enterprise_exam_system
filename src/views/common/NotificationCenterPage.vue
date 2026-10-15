@@ -28,6 +28,8 @@ const totalCount = ref(0);
 /** 服务端未读数（精确） */
 const unreadCount = ref(0);
 const active = ref<Notification | null>(null);
+/** 详情弹窗开关（点击列表项打开） */
+const detailVisible = ref(false);
 
 /** 通知分类文案（与后端 notify.ts 的 EVENT_TYPE 一一对应） */
 const TYPE_LABELS: Record<string, string> = {
@@ -115,6 +117,7 @@ function typeTone(type: string): string {
 
 async function open(item: Notification): Promise<void> {
   active.value = item;
+  detailVisible.value = true;
   if (item.isRead) return;
   try {
     await markRead(item.id);
@@ -223,27 +226,29 @@ async function handleMarkAll(): Promise<void> {
         </div>
       </el-card>
 
-      <div class="notif__side">
-        <el-card class="notif__detail" shadow="never">
-          <template #header>
-            <h3 class="notif__card-title">消息详情</h3>
-            <span v-if="active" class="notif__kind notif__kind--pri">{{ typeLabel(active.type) }}</span>
-          </template>
-
-          <template v-if="active">
-            <div class="notif__detail-title">{{ active.title }}</div>
-            <div class="notif__detail-time">{{ formatDateTime(active.createdAt) }} · 系统通知</div>
-            <p class="notif__detail-text">{{ active.content }}</p>
-          </template>
-          <EmptyState v-else text="选择左侧消息查看详情" :image-size="42" />
-        </el-card>
-
-        <div class="notif__tip">
-          <el-icon class="notif__tip-icon"><Message /></el-icon>
-          <div>消息按<b>登录账号</b>隔离，仅你能看到本人相关的考试与成绩通知；消息保留 180 天后自动清理。</div>
-        </div>
+      <div class="notif__tip">
+        <el-icon class="notif__tip-icon"><Message /></el-icon>
+        <div>消息按<b>登录账号</b>隔离，仅你能看到本人相关的考试与成绩通知；消息保留 180 天后自动清理。</div>
       </div>
     </div>
+
+    <!-- 消息详情弹窗（点击列表项展开，替代旧版右侧常驻详情卡） -->
+    <el-dialog v-model="detailVisible" title="消息详情" width="520px" class="notif__dialog">
+      <template #header>
+        <div class="notif__dialog-hd">
+          <h3>消息详情</h3>
+          <span v-if="active" class="notif__kind notif__kind--pri">{{ typeLabel(active.type) }}</span>
+        </div>
+      </template>
+      <template v-if="active">
+        <div class="notif__detail-title">{{ active.title }}</div>
+        <div class="notif__detail-time">{{ formatDateTime(active.createdAt) }} · 系统通知</div>
+        <p class="notif__detail-text">{{ active.content }}</p>
+      </template>
+      <template #footer>
+        <el-button @click="detailVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -265,14 +270,21 @@ async function handleMarkAll(): Promise<void> {
     align-items: start;
   }
 
-  &__side {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-
   &__panel {
     --el-card-padding: 0;
+  }
+
+  /* 详情弹窗头 */
+  &__dialog-hd {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+
+    h3 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 620;
+    }
   }
 
   /* 分类页签（设计稿 .tabs） */

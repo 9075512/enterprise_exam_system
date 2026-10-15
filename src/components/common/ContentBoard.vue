@@ -111,9 +111,9 @@ function openDetail(item: Announcement): void {
     <el-carousel
       v-if="banners.length > 0"
       class="content-board__carousel"
-      height="190px"
+      height="220px"
       :interval="6000"
-      indicator-position="outside"
+      indicator-position=""
       arrow="hover"
     >
       <el-carousel-item v-for="banner in banners" :key="banner.id">
@@ -188,8 +188,42 @@ function openDetail(item: Announcement): void {
     margin-bottom: 12px;
     background: #fff;
     border: 1px solid $border-color;
-    border-radius: 6px;
+    border-radius: $radius-lg;
     overflow: hidden;
+
+    /* 指示点：小胶囊，激活项变主色长条（对齐设计稿 .m-dots 语言） */
+    :deep(.el-carousel__indicator) {
+      padding: 10px 4px;
+
+      .el-carousel__button {
+        width: 14px;
+        height: 4px;
+        border-radius: 2px;
+        background: $line-strong;
+        opacity: 1;
+        transition: width $transition-fast, background-color $transition-fast;
+      }
+
+      &.is-active .el-carousel__button {
+        width: 22px;
+        background: $color-primary;
+      }
+    }
+
+    /* 悬停箭头：白底圆钮 + 发丝边，替代默认深色块 */
+    :deep(.el-carousel__arrow) {
+      width: 30px;
+      height: 30px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid $border-color;
+      color: $text-primary;
+      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+
+      &:hover {
+        color: $color-primary;
+        border-color: $color-primary-border;
+      }
+    }
   }
 
   &__slide {
@@ -208,6 +242,11 @@ function openDetail(item: Announcement): void {
     height: 100%;
     object-fit: cover;
     display: block;
+    transition: transform 0.35s ease;
+  }
+
+  &__slide.is-link:hover &__image {
+    transform: scale(1.025);
   }
 
   &__caption {
@@ -215,10 +254,12 @@ function openDetail(item: Announcement): void {
     left: 0;
     right: 0;
     bottom: 0;
-    padding: 6px 14px;
-    font-size: 13px;
+    padding: 26px 16px 10px;
+    font-size: 13.5px;
+    font-weight: 560;
     color: #fff;
-    background: rgba(15, 23, 42, 0.55);
+    /* 底部渐变黑纱（替代实色条），文字更透气 */
+    background: linear-gradient(to top, rgba(15, 23, 42, 0.62), rgba(15, 23, 42, 0));
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
