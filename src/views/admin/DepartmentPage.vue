@@ -6,7 +6,7 @@
  * 树点击切换列表范围（含子树）；列表按层级顺序输出并带缩进，与设计稿的扁平缩进表一致。
  * 关键字筛选（客户端）+ 页内新建/编辑弹窗 + 删除（有归属用户 → 后端 1005，拦截器已提示）。
  */
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus';
 import { EditPen, Expand, Fold, OfficeBuilding, Plus, Refresh, Search } from '@element-plus/icons-vue';
 import * as departmentsApi from '@/api/departments';
@@ -125,6 +125,22 @@ const deptTree = computed<DeptTreeNode[]>(() => {
   return build(null);
 });
 
+/* ------------------------------ 层级树（el-tree） ------------------------------ */
+/** 虚拟根节点 id（「全公司」，非真实科室） */
+const ROOT_ID = '__root__';
+
+const treeRef = ref<InstanceType<typeof import('element-plus')['ElTree']> | null>(null);
+
+/** el-tree 数据：根节点（全公司）+ 科室层级，支持任意深度 */
+const treeData = computed<Array<DeptTreeNode>>(() => [
+  { id: ROOT_ID, name: companyName.value, count: totalMembers.value, children: deptTree.value },
+]);
+
+/** 节点点击 → 切换筛选范围（根节点 = 全公司） */
+function handleTreeNodeClick(data: DeptTreeNode): void {
+  selectScope(data.id === ROOT_ID ? '' : data.id);
+}
+
 /** 当前列表范围（'' = 全公司） */
 const activeScopeId = ref<string>('');
 const activeScopeName = computed<string>(() =>
@@ -133,6 +149,15 @@ const activeScopeName = computed<string>(() =>
 function selectScope(id: string): void {
   activeScopeId.value = activeScopeId.value === id ? '' : id;
 }
+
+/** 同步 el-tree 高亮节点（activeScopeId 变化 / 数据刷新后） */
+watch(
+  [activeScopeId, treeData],
+  () => {
+    void nextTick(() => treeRef.value?.setCurrentKey(activeScopeId.value || ROOT_ID));
+  },
+  { immediate: true },
+);
 
 /* ------------------------------ 筛选（客户端） ------------------------------ */
 const filterKeyword = ref('');
@@ -314,48 +339,35 @@ async function handleDelete(department: Department): Promise<void> {
           </div>
         </template>
         <template v-if="!treeCollapsed">
-        <div class="department-page__tree">
-          <button
-            type="button"
-            class="department-page__tree-node is-l1"
-            :class="{ 'is-on': activeScopeId === '' }"
-            :title="`${companyName}（点击改名）`"
-            @click="selectScope('')"
-          >
-            <el-icon class="department-page__tree-ico"><OfficeBuilding /></el-icon>
-            <span class="department-page__tree-name">{{ companyName }}</span>
-            <span class="department-page__tree-count">{{ totalMembers }}</span>
-            <el-icon
-              class="department-page__tree-edit"
-              title="修改根节点名称"
-              @click.stop="renameCompany"
-            >
-              <EditPen />
-            </el-icon>
-          </button>
-          <template v-for="node in deptTree" :key="node.id">
-            <button
-              type="button"
-              class="department-page__tree-node is-l2"
-              :class="{ 'is-on': activeScopeId === node.id }"
-              @click="selectScope(node.id)"
-            >
-              <span class="department-page__tree-name">{{ node.name }}</span>
-              <span class="department-page__tree-count">{{ node.count }}</span>
-            </button>
-            <button
-              v-for="child in node.children"
-              :key="child.id"
-              type="button"
-              class="department-page__tree-node is-l3"
-              :class="{ 'is-on': activeScopeId === child.id }"
-              @click="selectScope(child.id)"
-            >
-              <span class="department-page__tree-name">{{ child.name }}</span>
-              <span class="department-page__tree-count">{{ child.count }}</span>
-            </button>
+        <!-- 真实层级树（el-tree）：节点箭头展开/收起，支持任意层级 -->
+        <el-tree
+          ref="treeRef"
+          class="department-page__tree"
+          :data="treeData"
+          node-key="id"
+          :props="{ label: 'name', children: 'children' }"
+          default-expand-all
+          highlight-current
+          :expand-on-click-node="false"
+          :current-node-key="activeScopeId || ROOT_ID"
+          @node-click="handleTreeNodeClick"
+        >
+          <template #default="{ data }">
+            <span class="department-page__tnode" :title="data.id === ROOT_ID ? `${data.name}（点击改名）` : data.name">
+              <el-icon v-if="data.id === ROOT_ID" class="department-page__tnode-ico"><OfficeBuilding /></el-icon>
+              <span class="department-page__tnode-name">{{ data.name }}</span>
+              <span class="department-page__tnode-count">{{ data.count }}</span>
+              <el-icon
+                v-if="data.id === ROOT_ID"
+                class="department-page__tnode-edit"
+                title="修改根节点名称"
+                @click.stop="renameCompany"
+              >
+                <EditPen />
+              </el-icon>
+            </span>
           </template>
-        </div>
+        </el-tree>
         <div class="department-page__tree-foot">
           <el-button text :icon="Plus" @click="openCreate">新增同级科室</el-button>
         </div>
@@ -524,23 +536,6 @@ async function handleDelete(department: Department): Promise<void> {
 }
 
 /* 根节点改名铅笔：hover 时浮现 */
-.department-page__tree-edit {
-  flex: 0 0 auto;
-  margin-left: 2px;
-  font-size: 12px;
-  color: $text-disabled;
-  opacity: 0;
-  transition: opacity 0.12s;
-
-  .department-page__tree-node:hover & {
-    opacity: 1;
-  }
-
-  &:hover {
-    color: $color-primary;
-  }
-}
-
 .department-page__tree-title {
   font-size: 13.5px;
   font-weight: 600;
@@ -551,66 +546,73 @@ async function handleDelete(department: Department): Promise<void> {
   font-size: 12.5px;
 }
 
-/* 树节点：设计稿 .tree__i —— 选中态用主色软底 + 主色字（行焦点语言） */
-.department-page__tree-node {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 6px 8px;
-  border: none;
-  border-radius: $radius-xs;
-  background: transparent;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: background-color 0.12s;
+/* 层级树节点（el-tree）：设计稿 .tree__i —— 选中态主色软底，任意层级 */
+.department-page__tree {
+  font-size: 12.5px;
 
-  &:hover {
+  :deep(.el-tree-node__content) {
+    height: 30px;
+    border-radius: $radius-xs;
+    transition: background-color 0.12s;
+  }
+
+  :deep(.el-tree-node__content:hover) {
     background: $color-table-head;
   }
 
-  &.is-l1 {
-    padding-left: 8px;
-    font-weight: 600;
-    color: $text-primary;
-  }
-
-  &.is-l2 {
-    padding-left: 30px;
-    color: $text-body;
-  }
-
-  &.is-l3 {
-    padding-left: 52px;
-    color: $text-body;
-  }
-
-  &.is-on {
+  /* 选中态：主色软底 + 主色字（覆盖 EP 的 primary 实色底） */
+  :deep(.el-tree-node.is-current > .el-tree-node__content) {
     background: $color-primary-soft;
     color: $color-primary;
-    font-weight: 600;
+    font-weight: 560;
   }
 }
 
-.department-page__tree-ico {
+.department-page__tnode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  padding-right: 4px;
+}
+
+.department-page__tnode-ico {
+  flex: 0 0 auto;
   font-size: 14px;
   color: $text-secondary;
 }
 
-.department-page__tree-name {
+.department-page__tnode-name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  white-space: nowrap;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.department-page__tree-count {
+.department-page__tnode-count {
   flex: 0 0 auto;
   font-size: 11px;
-  color: $text-secondary;
+  color: $text-disabled;
   font-variant-numeric: tabular-nums;
+}
+
+/* 根节点改名铅笔：hover 时浮现 */
+.department-page__tnode-edit {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: $text-disabled;
+  opacity: 0;
+  transition: opacity 0.12s;
+
+  .department-page__tnode:hover & {
+    opacity: 1;
+  }
+
+  &:hover {
+    color: $color-primary;
+  }
 }
 
 .department-page__tree-foot {
