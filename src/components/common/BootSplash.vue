@@ -58,7 +58,7 @@ withDefaults(defineProps<{ show: boolean; dark?: boolean; caption?: string }>(),
   inset: 10px;
   display: grid;
   place-items: center;
-  border-radius: 18px; // radius-exception：品牌徽标块（同侧栏 logo 圆角语言） // radius-exception：品牌徽标块（同侧栏 .layout__brand-mark 的 logo 圆角语言）
+  border-radius: 18px; // radius-exception：品牌徽标块（同侧栏 logo 圆角语言）
   background: linear-gradient(160deg, $color-primary, $color-primary-dark);
   color: #fff;
   font-size: 24px;
@@ -110,6 +110,23 @@ withDefaults(defineProps<{ show: boolean; dark?: boolean; caption?: string }>(),
 @keyframes boot-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* 无障碍豁免：全局 reduce 规则（index.scss）会把 animation-duration 压成 0.001ms，
+   但加载反馈是**功能性动画**——被压停后用户只看到静止色块，会误判为页面卡死。
+   故对进度指示类动画显式恢复时长（同样 !important 才能压过全局 * !important）。 */
+@media (prefers-reduced-motion: reduce) {
+  .boot-splash__mark {
+    animation-duration: 1.8s !important;
+  }
+
+  .boot-splash__ring {
+    animation-duration: 1.1s !important;
+
+    &--2 {
+      animation-duration: 1.7s !important;
+    }
   }
 }
 

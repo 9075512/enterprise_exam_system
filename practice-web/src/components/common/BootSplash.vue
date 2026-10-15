@@ -113,6 +113,23 @@ withDefaults(defineProps<{ show: boolean; dark?: boolean; caption?: string }>(),
   }
 }
 
+/* 无障碍豁免：全局 reduce 规则（index.scss）会把 animation-duration 压成 0.001ms，
+   但加载反馈是**功能性动画**——被压停后用户只看到静止色块，会误判为页面卡死。
+   故对进度指示类动画显式恢复时长（同样 !important 才能压过全局 * !important）。 */
+@media (prefers-reduced-motion: reduce) {
+  .boot-splash__mark {
+    animation-duration: 1.8s !important;
+  }
+
+  .boot-splash__ring {
+    animation-duration: 1.1s !important;
+
+    &--2 {
+      animation-duration: 1.7s !important;
+    }
+  }
+}
+
 .boot-splash-leave-active {
   transition: opacity 0.35s ease;
 }

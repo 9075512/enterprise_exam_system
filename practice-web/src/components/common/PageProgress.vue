@@ -80,4 +80,11 @@ watch(active, (on) => {
 .page-progress-leave-to {
   opacity: 0;
 }
+/* 无障碍豁免（同 BootSplash）：加载反馈属功能性动画，reduce 偏好下恢复时长，
+   否则进度指示静止会被误判为页面卡死。!important 才能压过全局 * !important。 */
+@media (prefers-reduced-motion: reduce) {
+  .page-progress__fill {
+    animation-duration: 1.5s !important;
+  }
+}
 </style>
