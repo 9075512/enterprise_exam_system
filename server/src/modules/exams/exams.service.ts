@@ -169,9 +169,9 @@ export async function listForExaminee(userId: string, departmentId: string): Pro
     const latestScore = latestSubmitted.get(dto.id);
     const failed = latestScore !== undefined && latestScore < Number(dto.passScore);
     const exception = exceptionMap.get(dto.id);
+    // 未及格即可申请补考（不限定该考试是否为单次作答）
     const canApplyRetake =
       allowRetake &&
-      dto.maxAttempts === 1 &&
       failed &&
       retakeStatus !== 'approved' &&
       retakeStatus !== 'pending' &&

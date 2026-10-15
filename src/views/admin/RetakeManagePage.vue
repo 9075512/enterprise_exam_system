@@ -85,7 +85,7 @@ const settingsStore = useSettingsStore();
  *
  * ⚠️ 设置中暂无「补考次数上限 / 计分方式 / 排考间隔 / 审批人」等字段，
  * 故此前展示的四条静态文案（2 次 / 取最高分 / 7 天排考）与后端真实判定不符，已移除。
- * 现按后端 `retakes.service` 的真实口径表述：仅「未及格且答题次数为 1 次」可申请；
+ * 现按后端 `retakes.service` 的真实口径表述：未及格的考试均可申请（不限答题次数）；
  * 每场至多一条有效申请（被驳回可重新申请）；成绩以最近一次作答为准（不合并历史最高分）。
  * 本卡只读，不新增任何后端接口或请求（settings 已在应用启动时由布局加载）。
  */
@@ -93,7 +93,7 @@ const retakeRules = computed<Array<{ label: string; value: string }>>(() => {
   const s = settingsStore.settings;
   return [
     // —— 行为规则（对齐后端 canApplyRetake / applyRetake 判定） ——
-    { label: '补考资格', value: '未及格，且该考试答题次数为 1 次' },
+    { label: '补考资格', value: '未及格（不限考试答题次数）' },
     { label: '审批方式', value: '管理员逐条审批，通过后可再作答一次' },
     { label: '申请次数', value: '每场至多一条有效申请，被驳回后可重新申请' },
     { label: '补考成绩口径', value: '以最近一次作答成绩为准（不合并历史最高分）' },

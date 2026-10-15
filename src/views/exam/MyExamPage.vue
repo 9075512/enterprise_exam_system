@@ -248,7 +248,7 @@ function actionState(row: ExamMy): ActionState {
  * 数值口径与系统设置（后端 DEFAULT_SETTINGS）保持一致，避免写死后与管理员配置脱节：
  * - 切屏异常：`cheatCountThreshold` 次或 `cheatSecondsThreshold` 秒，任一达到即记异常；
  * - 复核时限：`appealWindowDays` 天（自交卷起算，0 = 不限时限），复核关闭时不展示该条；
- * - 补考：仅「未及格且答题次数为 1 次」的考试可申请（后端 canApplyRetake 口径）。
+ * - 补考：未及格的考试均可申请（不限定是否为单次作答，后端 canApplyRetake 口径）。
  */
 const notices = computed<Array<{ icon: unknown; text: string }>>(() => {
   const s = settingsStore.settings;
@@ -258,7 +258,7 @@ const notices = computed<Array<{ icon: unknown; text: string }>>(() => {
       icon: InfoFilled,
       text: `切屏累计达 ${s.cheatCountThreshold} 次、或累计离开页面 ${s.cheatSecondsThreshold} 秒，将记为异常`,
     },
-    { icon: InfoFilled, text: '未及格可申请补考（仅限单次作答的考试），审核通过后可再作答一次' },
+    { icon: InfoFilled, text: '未及格可申请补考，审核通过后可再作答一次' },
   ];
   if (s.appealEnabled) {
     items.push({

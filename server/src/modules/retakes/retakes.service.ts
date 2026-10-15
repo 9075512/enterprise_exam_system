@@ -2,7 +2,7 @@
  * 补考 —— 业务逻辑层（申请-审批流）。
  *
  * 规则：
- * - 仅 `maxAttempts === 1` 且 `allowRetake`（单场覆盖全局默认）的考试可补考；
+ * - `allowRetake`（单场覆盖全局默认）的考试且考生未及格即可补考，不限定考试是否为单次作答；
  * - 仅「已交卷且不及格」的考生可申请；存在进行中作答时不可申请；
  * - 一名考生对一场考试至多一条申请（被拒后可重新申请，重置为待审批）；
  * - 审批通过后，`startExam` 授予额外 1 次答题机会（详见 records.service）。
@@ -51,7 +51,6 @@ export async function apply(userId: string, input: { examId: string; reason: str
   const settings = await getSettings();
   const allowRetake = exam.allowRetake ?? settings.retakeDefaultEnabled;
   if (!allowRetake) throw badRequest('该考试未开放补考申请');
-  if (exam.maxAttempts !== 1) throw badRequest('仅限答题次数为 1 次的考试申请补考');
 
   const latest = await recordsRepo.findLatestByExamAndUser(input.examId, userId);
   if (!latest || latest.status !== 'submitted') throw badRequest('暂无可申请补考的成绩');

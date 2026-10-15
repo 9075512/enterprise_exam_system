@@ -269,10 +269,9 @@ function handleCancel(): void {
           <el-radio value="on">开启</el-radio>
           <el-radio value="off">关闭</el-radio>
         </el-radio-group>
-        <span v-if="form.maxAttempts !== 1" class="exam-form__hint">
-          仅答题次数为 1 次的考试可补考（当前为 {{ form.maxAttempts }} 次）
+        <span class="exam-form__hint">
+          不及格考生可申请补考，经管理员审批通过后追加一次答题机会
         </span>
-        <span v-else class="exam-form__hint">不及格考生可申请补考，经管理员审批通过后追加一次答题机会</span>
       </el-form-item>
 
       <el-form-item label="成绩复核">

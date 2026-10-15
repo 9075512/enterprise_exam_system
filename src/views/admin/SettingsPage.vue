@@ -60,7 +60,7 @@ const TAB_LABEL: Record<SettingsTab, string> = {
 const TAB_DESC: Record<SettingsTab, string> = {
   exam: '新建考试时自动带入的默认时长、及格线与每人答题次数；已发布的考试不受影响。',
   anti: '作答过程中的防作弊检测、作答呈现与监考推送；阈值会同时影响考试端提示与成绩报表的异常判定。',
-  grading: '补考申请与成绩复核的默认开放策略；补考仅限答题次数为 1 次的考试，且需管理员审批。',
+  grading: '补考申请与成绩复核的默认开放策略；未及格的考试均可申请补考，且需管理员审批。',
   account: '密码策略、登录防护与两步验证；默认密码仅用于新建账号与管理员重置密码。',
   notify: '站内信与邮件的通知渠道、触发事件、SMTP 服务与文案模板；邮件发送失败会自动降级为仅站内信。',
   data: '列表分页与 Excel 导入上限，以及审计日志清理、成绩归档的保留策略与自动执行时点。',
@@ -1110,7 +1110,7 @@ async function handleReset(): Promise<void> {
                   inactive-text="关闭"
                 />
                 <p class="settings-page__hint">
-                  开启后，新建考试默认开放补考申请；补考仅限答题次数为 1 次的考试，且需管理员审批。
+                  开启后，新建考试默认开放补考申请；考生未及格即可申请，且需管理员审批。
                 </p>
               </div>
             </el-form-item>
