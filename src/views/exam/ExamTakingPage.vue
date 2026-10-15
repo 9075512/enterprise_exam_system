@@ -23,7 +23,7 @@ import CountdownTimer from './components/CountdownTimer.vue';
 import VisibilityGuard from './components/VisibilityGuard.vue';
 import QuestionCard from './components/QuestionCard.vue';
 import AnswerSheet from './components/AnswerSheet.vue';
-import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
+import BootSplash from '@/components/common/BootSplash.vue';
 import type { Exam, ExamRecord } from '@/types';
 
 const route = useRoute();
@@ -292,9 +292,10 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
       <span v-for="n in 40" :key="n" class="taking__watermark-text">{{ watermarkText }}</span>
     </div>
 
-    <LoadingSkeleton v-if="loading" :rows="8" />
+    <!-- 全屏品牌脉冲（进入考试，冷启动 > 800ms 场景，Loading 方案 ① 深底态） -->
+    <BootSplash :show="loading" dark caption="正在准备考试…" />
 
-    <template v-else-if="record && exam">
+    <template v-if="record && exam">
       <!-- 顶部固定栏（设计稿 .exambar） -->
       <header class="taking__bar">
         <div class="taking__brand">

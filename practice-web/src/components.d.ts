@@ -7,6 +7,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    BootSplash: typeof import('./components/common/BootSplash.vue')['default']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElCarousel: typeof import('element-plus/es')['ElCarousel']
     ElCarouselItem: typeof import('element-plus/es')['ElCarouselItem']
@@ -21,6 +22,9 @@ declare module 'vue' {
     ElRadio: typeof import('element-plus/es')['ElRadio']
     ElRadioGroup: typeof import('element-plus/es')['ElRadioGroup']
     ElSkeleton: typeof import('element-plus/es')['ElSkeleton']
+    LoadingDots: typeof import('./components/common/LoadingDots.vue')['default']
+    PageProgress: typeof import('./components/common/PageProgress.vue')['default']
+    RingProgress: typeof import('./components/common/RingProgress.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }

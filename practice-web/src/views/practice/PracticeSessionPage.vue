@@ -12,6 +12,7 @@ import { computed, onMounted, ref } from 'vue';
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
+import BootSplash from '@/components/common/BootSplash.vue';
 import QuestionCard from '@/views/exam/components/QuestionCard.vue';
 import PracticeFeedback from './components/PracticeFeedback.vue';
 import PracticeProgressDots from './components/PracticeProgressDots.vue';
@@ -319,27 +320,25 @@ onMounted(init);
   <PracticeLayout bare>
     <!-- 作答页无顶栏（设计图 p-session 为 bare）：进度工具栏由页面自带，满幅贴顶 -->
 
-    <!-- 加载中 -->
-    <div v-if="loading" class="session__skeleton">
-      <el-skeleton :rows="6" animated />
-    </div>
+    <!-- 加载中：品牌脉冲全屏（进入答题，Loading 方案 ①） -->
+    <BootSplash :show="loading" dark caption="正在准备题目…" />
 
     <!-- 加载失败 -->
-    <div v-else-if="errorMessage" class="session__state">
+    <div v-if="!loading && errorMessage" class="session__state">
       <div class="session__state-mark" aria-hidden="true">!</div>
       <p class="session__state-text">{{ errorMessage }}</p>
       <el-button type="primary" @click="goHome">返回首页</el-button>
     </div>
 
     <!-- 无题可练 -->
-    <div v-else-if="questions.length === 0" class="session__state">
+    <div v-if="!loading && !errorMessage && questions.length === 0" class="session__state">
       <div class="session__state-mark" aria-hidden="true">—</div>
       <p class="session__state-text">{{ isReans ? '错题本暂无题目' : '该题库暂无可练习的题目' }}</p>
       <el-button type="primary" @click="goHome">返回首页</el-button>
     </div>
 
     <!-- 本次小结 -->
-    <div v-else-if="finished" class="summary">
+    <div v-if="!loading && !errorMessage && questions.length > 0 && finished" class="summary">
       <div class="summary__mark" aria-hidden="true">✓</div>
       <h2 class="summary__title">本次练习完成</h2>
       <div class="summary__stats">
@@ -369,7 +368,7 @@ onMounted(init);
     </div>
 
     <!-- 作答中 -->
-    <div v-else class="session">
+    <div v-if="!loading && !errorMessage && questions.length > 0 && !finished" class="session">
       <div class="session__top">
         <div class="session__row">
           <button type="button" class="session__back" aria-label="返回" @click="goHome">‹</button>

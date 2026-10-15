@@ -268,9 +268,17 @@ describe('全站样式 · v3.1 方向 C 护栏', () => {
     expect(px('radius-xl')).toBeLessThanOrEqual(12);
   });
 
-  it('业务层不出现 14px 及以上大圆角（v2.2 的 $radius-lg: 14px 回归即失败）', () => {
+  it('业务层不出现 14px 及以上大圆角（v2.2 的 $radius-lg: 14px 回归即失败；行内 radius-exception 标记豁免）', () => {
     const offenders = businessFiles.filter((f) =>
-      /border-radius\s*:\s*(1[4-9]|[2-9]\d)px/.test(stripComments(readFileSync(f, 'utf8'))),
+      readFileSync(f, 'utf8')
+        .split('\n')
+        .some(
+          // 行级判定：剥行内注释后匹配，但含 radius-exception 标记的行豁免
+          // （与练题端 styleGuard 同语义；品牌徽标等 logo 圆角语言走标记豁免）
+          (line) =>
+            !line.includes('radius-exception') &&
+            /border-radius\s*:\s*(1[4-9]|[2-9]\d)px/.test(line.replace(/\/\/.*$/, '')),
+        ),
     );
     expect(offenders).toEqual([]);
   });

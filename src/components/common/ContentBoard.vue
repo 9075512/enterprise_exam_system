@@ -11,12 +11,15 @@ import { computed, onMounted, ref } from 'vue';
 import { fetchFeed, markAnnouncementRead, markBannerClick } from '@/api/content';
 import { formatDateTime } from '@/utils/datetime';
 import type { Announcement, Banner } from '@/types';
+import LoadingDots from '@/components/common/LoadingDots.vue';
 
 /** 展示端：考试端首页 / 我的考试页传 'exam'；如需在练题相关页复用可传 'practice' */
 const props = withDefaults(defineProps<{ scope?: 'exam' | 'practice' }>(), { scope: 'exam' });
 
 const banners = ref<Banner[]>([]);
 const announcements = ref<Announcement[]>([]);
+/** 首次加载中（三点波占位，避免闪空） */
+const loading = ref(true);
 const detailVisible = ref(false);
 const detail = ref<Announcement | null>(null);
 
@@ -87,6 +90,8 @@ onMounted(async () => {
     queueImportantReminders();
   } catch {
     // 首页装饰性内容，失败静默（不阻断主体页面）
+  } finally {
+    loading.value = false;
   }
 });
 
@@ -106,7 +111,12 @@ function openDetail(item: Announcement): void {
 </script>
 
 <template>
-  <div v-if="visible" class="content-board">
+  <div v-if="visible || loading" class="content-board">
+    <!-- 首载三点波（Loading 方案 ②） -->
+    <div v-if="loading" class="content-board__loading">
+      <LoadingDots />
+    </div>
+
     <!-- 轮播图 -->
     <el-carousel
       v-if="banners.length > 0"
@@ -183,6 +193,17 @@ function openDetail(item: Announcement): void {
 
 .content-board {
   margin-bottom: 16px;
+
+  &__loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 28px 0;
+    margin-bottom: 12px;
+    background: #fff;
+    border: 1px solid $border-color;
+    border-radius: $radius-lg;
+  }
 
   &__carousel {
     margin-bottom: 12px;

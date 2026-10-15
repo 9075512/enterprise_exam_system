@@ -7,6 +7,7 @@
  * - 提交：仅写入成功行（后端单事务）；完成后 emit('imported') 供父级刷新。
  */
 import { computed, onMounted, reactive, ref, watch } from 'vue';
+import RingProgress from '@/components/common/RingProgress.vue';
 import { ElMessage } from 'element-plus';
 import type { UploadFile, UploadInstance } from 'element-plus';
 import { Download, UploadFilled } from '@element-plus/icons-vue';
@@ -222,6 +223,7 @@ function importAgain(): void {
     width="760px"
     top="6vh"
     append-to-body
+    class="question-import-dialog"
     destroy-on-close
     @closed="reset"
   >
@@ -384,6 +386,10 @@ function importAgain(): void {
         <el-button type="primary" @click="close">完成</el-button>
       </template>
     </template>
+    <!-- 导入中：环形脉冲覆盖层（Loading 方案 ④，无确定进度 → 呼吸态） -->
+    <div v-if="committing" class="question-import-dialog__ring">
+      <RingProgress caption="正在导入，请勿关闭窗口…" />
+    </div>
   </el-dialog>
 </template>
 
@@ -491,3 +497,20 @@ function importAgain(): void {
   justify-content: center;
 }
 </style>
+/* 导入中覆盖层（el-dialog append-to-body → 非 scoped 可达性由全局类保证，这里用 :deep 不可行，直接全局段） */
+<style>
+.question-import-dialog .el-dialog__body {
+  position: relative;
+}
+
+.question-import-dialog__ring {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.88);
+  border-radius: 0 0 8px 8px;
+}
+</style>
+

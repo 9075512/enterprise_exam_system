@@ -4,6 +4,7 @@
  * 菜单权限：v1.5 起，带 `meta.menuKey` 的路由在进入时校验当前角色是否被授权该菜单（见守卫）。
  */
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
+import { usePageProgress } from '@/composables/usePageProgress';
 import { useAuthStore } from '@/stores/auth';
 import { usePermissionsStore } from '@/stores/permissions';
 import type { Role } from '@/types';
@@ -189,7 +190,10 @@ function homePath(role: Role): string {
 }
 
 // 全局守卫（内网异步恢复会话 + 角色/菜单权限校验）
+// Loading 体系 ⑤：导航期间顶栏进度细条（重定向链靠可重入计数兜底）
+const pageProgress = usePageProgress();
 router.beforeEach(async (to) => {
+  pageProgress.start();
   const auth = useAuthStore();
   if (auth.initializing) await auth.fetchMe();
 
@@ -217,5 +221,8 @@ router.beforeEach(async (to) => {
 
   return true;
 });
+
+router.afterEach(() => pageProgress.done());
+router.onError(() => pageProgress.done());
 
 export default router;
