@@ -695,6 +695,8 @@ export interface MaintenanceStatsDto {
  * 读库时若旧数据缺字段，统一回退到 `modules/settings/settings.defaults.ts`。
  */
 export interface SystemSettings {
+  /** 题库分类候选项，由管理员维护。 */
+  bankCategories: string[];
   /** 新建考试默认时长（分钟） */
   examDefaultDuration: number;
   /** 新建考试默认及格线 */

@@ -966,6 +966,8 @@ export interface ExamException {
  * 因此新增字段不会导致旧数据不可用。
  */
 export interface SystemSettings {
+  /** 题库分类候选项，由管理员维护。 */
+  bankCategories: string[];
   /** 新建考试默认时长（分钟） */
   examDefaultDuration: number;
   /** 新建考试默认及格线 */

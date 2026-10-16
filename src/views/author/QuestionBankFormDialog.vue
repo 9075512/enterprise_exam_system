@@ -2,7 +2,7 @@
 /**
  * 题库新建 / 编辑弹窗（W3-T3）。
  * - v-model:visible 控制显隐；bank 有值 = 编辑，无值 = 新建。
- * - 校验：name 必填 ≤120、category 必填（默认「未分类」）、description 选填 ≤255。
+ * - 校验：name 必填 ≤120、category 从系统配置选择、description 选填 ≤255。
  * - 错误提示统一由 http.ts 响应拦截器弹出，本组件仅 try/catch 阻止后续流程。
  */
 import { computed, reactive, ref, watch } from 'vue';
@@ -10,6 +10,7 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import * as banksApi from '@/api/banks';
 import * as usersApi from '@/api/users';
 import { useAuthStore } from '@/stores/auth';
+import { useSettingsStore } from '@/stores/settings';
 import { validateAndFocus } from '@/composables/useFormFocus';
 import { BANK_CATEGORY_DEFAULT } from '@/constants';
 import type { QuestionBank } from '@/types';
@@ -35,6 +36,10 @@ const isEdit = computed<boolean>(() => Boolean(props.bank?.id));
 /** 授权出题人仅管理员可管理 */
 const authStore = useAuthStore();
 const isAdmin = computed<boolean>(() => authStore.hasRole('admin'));
+const settingsStore = useSettingsStore();
+const categoryOptions = computed(() => settingsStore.settings.bankCategories);
+const legacyCategory = computed(() => props.bank?.category && !categoryOptions.value.includes(props.bank.category)
+  ? props.bank.category : '');
 
 /** 可选的出题人账号（admin 专用） */
 const authorOptions = ref<Array<{ id: string; name: string; username: string }>>([]);
@@ -66,7 +71,7 @@ const rules: FormRules = {
     { required: true, message: '请输入题库名称', trigger: 'blur' },
     { max: 120, message: '题库名称不能超过 120 字', trigger: 'blur' },
   ],
-  category: [{ required: true, message: '请输入题库分类', trigger: 'blur' }],
+  category: [{ required: true, message: '请选择题库分类', trigger: 'change' }],
   description: [{ max: 255, message: '描述不能超过 255 字', trigger: 'blur' }],
 };
 
@@ -76,11 +81,12 @@ watch(
   (visible) => {
     if (!visible) return;
     form.name = props.bank?.name ?? '';
-    form.category = props.bank?.category || BANK_CATEGORY_DEFAULT;
+    form.category = props.bank?.category || '';
     form.description = props.bank?.description ?? '';
     form.allowPractice = props.bank?.allowPractice ?? false;
     form.authorIds = [...(props.bank?.authorIds ?? [])];
     void loadAuthorOptions();
+    void settingsStore.load(true);
     formRef.value?.clearValidate();
   },
 );
@@ -134,7 +140,11 @@ function handleCancel(): void {
         <el-input v-model="form.name" maxlength="120" show-word-limit placeholder="如：安全知识题库" />
       </el-form-item>
       <el-form-item label="题库分类" prop="category">
-        <el-input v-model="form.category" maxlength="60" placeholder="如：安全知识 / 企业文化" />
+        <el-select v-model="form.category" filterable class="bank-form__full" placeholder="请选择题库分类"
+          :loading="settingsStore.loading">
+          <el-option v-if="legacyCategory" :label="`${legacyCategory}（历史分类）`" :value="legacyCategory" disabled />
+          <el-option v-for="name in categoryOptions" :key="name" :label="name" :value="name" />
+        </el-select>
       </el-form-item>
       <el-form-item label="描述" prop="description">
         <el-input

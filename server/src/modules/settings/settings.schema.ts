@@ -14,6 +14,10 @@ import { z } from 'zod';
 
 /** 完整系统设置校验（PUT /settings 入参，所有字段必填）。 */
 export const settingsSchema = z.object({
+  bankCategories: z.array(z.string().trim().min(1, '分类名称不能为空').max(60, '分类名称不能超过 60 字'))
+    .min(1, '请至少保留一个题库分类').max(100, '题库分类最多 100 个')
+    .refine((values) => new Set(values).size === values.length, '题库分类不能重复')
+    .optional(), // 兼容旧客户端：未提交时保留现有配置。
   examDefaultDuration: z
     .number({ invalid_type_error: '考试默认时长必须为 1~600 分钟' })
     .int('考试默认时长必须为 1~600 分钟')

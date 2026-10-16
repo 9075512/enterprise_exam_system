@@ -64,7 +64,11 @@ export async function updateSettings(input: unknown, operatorId: string): Promis
     }
     throw err;
   }
-  const normalized: SystemSettings = { ...parsed, notifyTemplates: mergeTemplates(parsed.notifyTemplates) };
+  const normalized: SystemSettings = {
+    ...parsed,
+    bankCategories: parsed.bankCategories ?? (await getSettings()).bankCategories,
+    notifyTemplates: mergeTemplates(parsed.notifyTemplates),
+  };
   await repo.saveRaw(toJsonColumn(normalized), operatorId);
   return normalized;
 }

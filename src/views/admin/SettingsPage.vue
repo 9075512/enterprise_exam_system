@@ -9,9 +9,10 @@
  *   5) 考试默认值     —— 新建考试时带入的时长/及格线/答题次数
  *   6) 阅卷与复核     —— 补考申请、成绩复核与时限
  *   7) 网站与品牌     —— 品牌信息
+ *   8) 题库分类       —— 新建与编辑题库的分类候选项
  *
  * 设计约定（v3.1 方向 C）：
- * - 顶部用 el-tabs 真实页签切换 7 个配置域（2026-10-15 由锚点滚动改为 tab，用户决策）；
+ * - 顶部用 el-tabs 真实页签切换配置域；
  * - 每张卡顶部有一句话说明，避免「不知道这块管什么」；
  * - 同一域内超过 6 项的字段按业务子域再分组（分组小标题 + 一句话补充）；
  * - 控件宽度、间距、提示文案统一（`settings-page__*`），不再混装。
@@ -40,13 +41,14 @@ const settingsStore = useSettingsStore();
 
 /* ------------------------------ 配置域 ------------------------------ */
 
-type SettingsTab = 'exam' | 'anti' | 'grading' | 'account' | 'notify' | 'data' | 'brand';
+type SettingsTab = 'exam' | 'anti' | 'grading' | 'account' | 'notify' | 'data' | 'brand' | 'categories';
 
 /** 当前激活页签（真实 tab 切换；保存校验失败时自动定位到出错域） */
 const activeTab = ref<SettingsTab>('exam');
 
 /** 配置域名称（卡头文案 + 定位错误提示用） */
 const TAB_LABEL: Record<SettingsTab, string> = {
+  categories: '题库分类',
   exam: '考试默认值',
   anti: '作答与防作弊',
   grading: '阅卷与复核',
@@ -58,6 +60,7 @@ const TAB_LABEL: Record<SettingsTab, string> = {
 
 /** 配置域一句话说明（渲染在各卡顶部） */
 const TAB_DESC: Record<SettingsTab, string> = {
+  categories: '维护新建和编辑题库时可选择的分类，输入名称并按回车添加，点击标签关闭按钮移除。',
   exam: '新建考试时自动带入的默认时长、及格线与每人答题次数；已发布的考试不受影响。',
   anti: '作答过程中的防作弊检测、作答呈现与监考推送；阈值会同时影响考试端提示与成绩报表的异常判定。',
   grading: '补考申请与成绩复核的默认开放策略；未及格且答题次数用完后可申请补考，且需管理员审批。',
@@ -69,6 +72,7 @@ const TAB_DESC: Record<SettingsTab, string> = {
 
 /** 表单字段 → 所属配置域（保存校验失败时自动定位到出错卡片） */
 const FIELD_TAB: Record<string, SettingsTab> = {
+  bankCategories: 'categories',
   // 考试默认值
   examDefaultDuration: 'exam',
   examDefaultPassScore: 'exam',
@@ -144,6 +148,7 @@ function cloneTemplates(t: SystemSettings['notifyTemplates']): SystemSettings['n
 
 const form = reactive<SystemSettings>({
   ...settingsStore.settings,
+  bankCategories: [...settingsStore.settings.bankCategories],
   notifyTemplates: cloneTemplates(settingsStore.settings.notifyTemplates),
 });
 const formRef = ref<FormInstance>();
@@ -202,6 +207,15 @@ function strRules(label: string, min: number, max: number): FormItemRule[] {
 }
 
 const rules: FormRules = {
+  bankCategories: [{
+    validator: (_rule, value: string[], callback) => {
+      const names = value.map((name) => name.trim());
+      if (!names.length || names.length > 100) return callback(new Error('题库分类需保留 1~100 个'));
+      if (names.some((name) => !name || name.length > 60)) return callback(new Error('分类名称需为 1~60 字'));
+      if (new Set(names).size !== names.length) return callback(new Error('题库分类不能重复'));
+      callback();
+    }, trigger: 'change',
+  }],
   // 考试默认值
   examDefaultDuration: numRules('考试默认时长', 1, 600, { unit: ' 分钟' }),
   examDefaultPassScore: numRules('考试默认及格线', 1, 1000, { integer: false }),
@@ -286,6 +300,7 @@ async function loadSettings(): Promise<void> {
       return;
     }
     Object.assign(form, settingsStore.settings, {
+      bankCategories: [...settingsStore.settings.bankCategories],
       notifyTemplates: cloneTemplates(settingsStore.settings.notifyTemplates),
     });
   } finally {
@@ -325,7 +340,7 @@ async function handleSave(): Promise<void> {
 
   saving.value = true;
   try {
-    await settingsStore.save({ ...form });
+    await settingsStore.save({ ...form, bankCategories: form.bankCategories.map((name) => name.trim()) });
     ElMessage.success('设置已保存，已全局生效');
   } catch {
     // 错误提示已由 http.ts 响应拦截器统一弹出
@@ -346,7 +361,8 @@ async function handleReset(): Promise<void> {
     .catch(() => false);
   if (!ok) return;
 
-  Object.assign(form, settingsStore.resetToDefaults());
+  const defaults = settingsStore.resetToDefaults();
+  Object.assign(form, defaults, { bankCategories: [...defaults.bankCategories] });
   formRef.value?.clearValidate();
 }
 </script>
@@ -379,6 +395,22 @@ async function handleReset(): Promise<void> {
       class="settings-page__form"
     >
       <el-tabs v-model="activeTab" class="settings-page__tabs">
+        <el-tab-pane label="题库分类" name="categories">
+          <el-card shadow="never" class="settings-page__card">
+            <template #header><h3 class="settings-page__card-title">题库分类</h3></template>
+            <p class="settings-page__desc">{{ TAB_DESC.categories }}</p>
+            <el-form-item label="可选分类" prop="bankCategories">
+              <div class="settings-page__control">
+                <el-select v-model="form.bankCategories" multiple filterable allow-create default-first-option
+                  :reserve-keyword="false" placeholder="输入分类名称后按回车添加" style="width: 100%">
+                  <el-option v-for="name in form.bankCategories" :key="name" :label="name" :value="name" />
+                </el-select>
+                <p class="settings-page__hint">最多 100 个分类，每项最多 60 字。修改名称可移除旧名称后添加新名称，点击「保存设置」生效。</p>
+                <p class="settings-page__hint">移除分类不会改变已有题库；编辑时可保留历史分类，或改选当前分类。</p>
+              </div>
+            </el-form-item>
+          </el-card>
+        </el-tab-pane>
         <el-tab-pane label="通知与模板" name="notify">
       <!-- ===================== 1. 通知与模板 ===================== -->
       <el-card shadow="never" class="settings-page__card">
