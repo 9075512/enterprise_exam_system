@@ -21,6 +21,14 @@ interface MenuExposed {
 }
 
 const route = useRoute();
+const moduleTone = computed(() => {
+  const path = route.path;
+  if (/users|departments|home-config/.test(path)) return 'teal';
+  if (/author\/banks|content|appeals|notifications/.test(path)) return 'violet';
+  if (/author\/papers|reviews|retakes/.test(path)) return 'amber';
+  return 'blue';
+});
+const searchShortcut = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘ K' : 'Ctrl K';
 const router = useRouter();
 const auth = useAuthStore();
 const app = useAppStore();
@@ -229,7 +237,7 @@ async function submitPassword(): Promise<void> {
 </script>
 
 <template>
-  <div class="layout">
+  <div class="layout" :data-module-tone="moduleTone">
     <aside class="layout__aside" :class="{ 'is-collapsed': app.sidebarCollapsed }">
       <div class="layout__brand">
         <span class="layout__brand-mark">考</span>
@@ -328,7 +336,7 @@ async function submitPassword(): Promise<void> {
         <button type="button" class="layout__search" @click="openSearch">
           <el-icon class="layout__search-ic"><Search /></el-icon>
           <span class="layout__search-ph">搜索菜单与功能</span>
-          <kbd class="layout__kbd">⌘K</kbd>
+          <kbd class="layout__kbd">{{ searchShortcut }}</kbd>
         </button>
         <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99" class="layout__bell">
           <el-button text class="layout__bell-btn" aria-label="消息中心" @click="openNotifications">
@@ -408,7 +416,7 @@ async function submitPassword(): Promise<void> {
 .layout {
   display: flex;
   height: 100vh;
-  min-width: 1280px;
+  min-width: 0;
   overflow: hidden;
 
   // ---------- 深色侧栏（v2.1：实色无渐变，尺寸与选中态统一） ----------

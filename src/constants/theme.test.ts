@@ -46,6 +46,14 @@ function scssVar(name: string): string {
 describe('设计 token · SCSS ↔ TS 同源', () => {
   // 语义色三件套（SCSS 变量名 → THEME 键）
   const PAIRS: Array<[string, keyof typeof THEME]> = [
+    ['category-blue', 'categoryBlue'],
+    ['category-blue-soft', 'categoryBlueSoft'],
+    ['category-teal', 'categoryTeal'],
+    ['category-teal-soft', 'categoryTealSoft'],
+    ['category-violet', 'categoryViolet'],
+    ['category-violet-soft', 'categoryVioletSoft'],
+    ['category-amber', 'categoryAmber'],
+    ['category-amber-soft', 'categoryAmberSoft'],
     ['color-success', 'success'],
     ['color-success-bg', 'successBg'],
     ['color-success-border', 'successBorder'],

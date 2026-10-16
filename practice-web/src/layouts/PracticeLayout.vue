@@ -90,7 +90,7 @@ onBeforeUnmount(() => {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    height: calc(44px + env(safe-area-inset-top));
+    height: calc(56px + env(safe-area-inset-top));
     padding: 0 16px;
     padding-top: env(safe-area-inset-top);
     box-sizing: border-box;
@@ -149,7 +149,7 @@ onBeforeUnmount(() => {
     width: 100%;
     max-width: 600px;
     margin: 0 auto;
-    padding: 14px 14px calc(24px + env(safe-area-inset-bottom));
+    padding: 20px 20px calc(24px + env(safe-area-inset-bottom));
     box-sizing: border-box;
   }
 

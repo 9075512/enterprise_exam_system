@@ -1,0 +1,1172 @@
+[
+  {
+    "id": "common-NoAccess",
+    "route": "/no-access",
+    "title": "暂无页面权限",
+    "app": "main",
+    "source": "src/views/common/NoAccessPage.vue",
+    "description": "",
+    "columns": [],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [
+      "暂无可访问的菜单"
+    ],
+    "buttons": [
+      "退出并切换账号"
+    ]
+  },
+  {
+    "id": "Login",
+    "route": "/login",
+    "title": "登录",
+    "app": "main",
+    "source": "src/views/LoginPage.vue",
+    "description": "",
+    "columns": [],
+    "fields": [
+      "账号 / 工号",
+      "登录密码",
+      "图形验证码",
+      "动态验证码"
+    ],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "登 录",
+      "验 证",
+      "返回重新输入账号"
+    ]
+  },
+  {
+    "id": "exam-ExamTaking",
+    "route": "/exam/taking/:recordId",
+    "title": "在线答题",
+    "app": "main",
+    "source": "src/views/exam/ExamTakingPage.vue",
+    "description": "",
+    "columns": [],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [
+      "考试结果"
+    ],
+    "buttons": [
+      "暂存退出",
+      "交卷",
+      "返回我的考试",
+      "查看成绩明细"
+    ]
+  },
+  {
+    "id": "admin-Dashboard",
+    "route": "/admin/dashboard",
+    "title": "数据总览",
+    "app": "main",
+    "source": "src/views/admin/DashboardPage.vue",
+    "description": "系统运行概况",
+    "columns": [
+      "考试名称",
+      "关联试卷",
+      "参与科室",
+      "时间窗",
+      "状态"
+    ],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "查询",
+      "重置"
+    ]
+  },
+  {
+    "id": "admin-Department",
+    "route": "/admin/departments",
+    "title": "科室管理",
+    "app": "main",
+    "source": "src/views/admin/DepartmentPage.vue",
+    "description": "headerDesc",
+    "columns": [
+      "科室名称",
+      "上级科室",
+      "描述",
+      "人员数",
+      "创建时间",
+      "操作"
+    ],
+    "fields": [
+      "科室名称",
+      "上级科室",
+      "描述"
+    ],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "新建科室",
+      "新增同级科室",
+      "重置",
+      "新增下级",
+      "编辑",
+      "删除",
+      "取消"
+    ]
+  },
+  {
+    "id": "admin-User",
+    "route": "/admin/users",
+    "title": "用户管理",
+    "app": "main",
+    "source": "src/views/admin/UserPage.vue",
+    "description": "维护系统账号、角色与所属科室",
+    "columns": [
+      "登录账号",
+      "姓名",
+      "角色",
+      "所属科室",
+      "邮箱",
+      "状态",
+      "创建时间",
+      "操作"
+    ],
+    "fields": [
+      "登录账号",
+      "姓名",
+      "角色",
+      "所属科室",
+      "邮箱",
+      "状态",
+      "初始密码"
+    ],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "批量导入账号",
+      "新建用户",
+      "查询",
+      "重置",
+      "编辑",
+      "重置密码",
+      "强制下线",
+      "重置2FA",
+      "删除",
+      "取消"
+    ]
+  },
+  {
+    "id": "admin-ExamManage",
+    "route": "/admin/exams",
+    "title": "考试管理",
+    "app": "main",
+    "source": "src/views/admin/ExamManagePage.vue",
+    "description": "发布考试，指定试卷与参与科室",
+    "columns": [
+      "考试名称",
+      "试卷名",
+      "参与科室",
+      "时间窗",
+      "时长",
+      "及格线",
+      "答题次数",
+      "状态",
+      "操作"
+    ],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "新建考试",
+      "重置",
+      "监控",
+      "编辑",
+      "特殊安排",
+      "删除"
+    ]
+  },
+  {
+    "id": "admin-ExamMonitor",
+    "route": "/admin/exams/:id/monitor",
+    "title": "监考监控",
+    "app": "main",
+    "source": "src/views/admin/ExamMonitorPage.vue",
+    "description": "准实时掌握作答进度，异常可一键处置",
+    "columns": [
+      "考生",
+      "账号",
+      "科室",
+      "状态",
+      "作答次数",
+      "剩余时长",
+      "加时",
+      "切屏",
+      "得分",
+      "交卷时间",
+      "操作"
+    ],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "返回考试列表",
+      "立即刷新",
+      "加时",
+      "强制交卷"
+    ]
+  },
+  {
+    "id": "admin-RetakeManage",
+    "route": "/admin/retakes",
+    "title": "补考管理",
+    "app": "main",
+    "source": "src/views/admin/RetakeManagePage.vue",
+    "description": "审批考生的补考申请；通过后考生获得一次补考机会",
+    "columns": [
+      "考试名称",
+      "考生姓名",
+      "登录账号",
+      "科室",
+      "状态",
+      "申请时间",
+      "申请说明 / 驳回原因",
+      "操作"
+    ],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "通过",
+      "驳回",
+      "前往设置"
+    ]
+  },
+  {
+    "id": "admin-ScoreReport",
+    "route": "/admin/scores",
+    "title": "成绩报表",
+    "app": "main",
+    "source": "src/views/admin/ScoreReportPage.vue",
+    "description": "headerDesc",
+    "columns": [
+      "排名",
+      "考生姓名",
+      "科室",
+      "得分",
+      "是否及格",
+      "作答次数",
+      "切屏异常",
+      "交卷时间"
+    ],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [
+      "成绩列表",
+      "分数段分布",
+      "科室对比",
+      "错题排行 TOP 5",
+      "切屏审查"
+    ],
+    "buttons": [
+      "导出成绩"
+    ]
+  },
+  {
+    "id": "admin-AppealManage",
+    "route": "/admin/appeals",
+    "title": "成绩复核",
+    "app": "main",
+    "source": "src/views/admin/AppealManagePage.vue",
+    "description": "处理考生提交的成绩复核申请；通过后可直接调整最终成绩",
+    "columns": [
+      "考试名称",
+      "考生姓名",
+      "登录账号",
+      "科室",
+      "原分/新分",
+      "状态",
+      "申请时间",
+      "申请说明 / 复核意见",
+      "操作"
+    ],
+    "fields": [
+      "调整后分数",
+      "复核意见"
+    ],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "通过",
+      "驳回",
+      "取消",
+      "确认通过",
+      "确认驳回"
+    ]
+  },
+  {
+    "id": "admin-Review",
+    "route": "/admin/reviews",
+    "title": "人工阅卷",
+    "app": "main",
+    "source": "src/views/admin/ReviewPage.vue",
+    "description": "headerText",
+    "columns": [],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "满分",
+      "零分",
+      "本题评分",
+      "提交阅卷"
+    ]
+  },
+  {
+    "id": "admin-PracticeSettings",
+    "route": "/admin/practice-settings",
+    "title": "练题端设置",
+    "app": "main",
+    "source": "src/views/admin/PracticeSettingsPage.vue",
+    "description": "仅作用于公网练题端（题库练习、每日一练、收藏夹），不影响内网考试功能",
+    "columns": [
+      "题库名称",
+      "分类",
+      "题数",
+      "对外开放练题",
+      "状态"
+    ],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "保存练题配置",
+      "全部开放",
+      "全部关闭",
+      "刷新",
+      "复制"
+    ]
+  },
+  {
+    "id": "admin-ContentView",
+    "route": "/admin/content",
+    "title": "公告与轮播",
+    "app": "main",
+    "source": "src/views/admin/ContentViewPage.vue",
+    "description": "面向考生发布公告与轮播图；可选择同步两端，或只发布到考试端 / 练题端",
+    "columns": [
+      "标题",
+      "发布范围",
+      "级别",
+      "状态",
+      "生效时间",
+      "阅读",
+      "创建人",
+      "操作"
+    ],
+    "fields": [
+      "公告标题",
+      "公告内容",
+      "发布范围",
+      "公告级别",
+      "生效时间",
+      "置顶",
+      "启用",
+      "标题",
+      "图片",
+      "跳转地址",
+      "排序"
+    ],
+    "tabs": [
+      "公告管理",
+      "轮播图管理",
+      "公告阅读",
+      "轮播点击"
+    ],
+    "tabDetails": [
+      {
+        "title": "公告管理",
+        "fields": []
+      },
+      {
+        "title": "轮播图管理",
+        "fields": []
+      },
+      {
+        "title": "公告阅读",
+        "fields": []
+      },
+      {
+        "title": "轮播点击",
+        "fields": []
+      }
+    ],
+    "headings": [],
+    "buttons": [
+      "触达概览",
+      "查询",
+      "新建公告",
+      "批量上线",
+      "批量下线",
+      "批量删除",
+      "编辑",
+      "删除",
+      "新建轮播图",
+      "取消",
+      "保存",
+      "上传图片"
+    ]
+  },
+  {
+    "id": "admin-HomeConfig",
+    "route": "/admin/home-config",
+    "title": "首页配置",
+    "app": "main",
+    "source": "src/views/admin/HomeConfigPage.vue",
+    "description": "按科室下发考试端首页的快捷入口与推荐练题题库；未单独配置的科室继承「全局默认」",
+    "columns": [
+      "配置范围",
+      "快捷入口",
+      "推荐题库",
+      "最后修改",
+      "操作"
+    ],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "放弃修改",
+      "保存配置",
+      "编辑",
+      "重置"
+    ]
+  },
+  {
+    "id": "admin-Settings",
+    "route": "/admin/settings",
+    "title": "系统设置",
+    "app": "main",
+    "source": "src/views/admin/SettingsPage.vue",
+    "description": "全局参数对所有用户实时生效，仅管理员可修改",
+    "columns": [],
+    "fields": [
+      "站内信通知",
+      "邮件通知",
+      "考试发布通知",
+      "成绩通知",
+      "补考审批通知",
+      "SMTP 服务器地址",
+      "SMTP 端口",
+      "SMTP 加密（SSL）",
+      "SMTP 账号",
+      "SMTP 授权码 / 密码",
+      "发件人地址",
+      "通知事件",
+      "通知标题",
+      "通知正文",
+      " ",
+      "切屏异常：次数阈值（≥ 判为异常）",
+      "切屏异常：累计离开秒数阈值",
+      "切屏异常：自动强制交卷",
+      "答题页浮水印（考生姓名/账号）",
+      "答题页复制/粘贴限制",
+      "人手一卷（默认）",
+      "选项乱序（默认）",
+      "倒计时提醒：剩余不足该分钟数时提醒",
+      "监考大屏实时推送（SSE）",
+      "监考推送间隔（秒）",
+      "简答作图片：单张上限（MB）",
+      "简答作图片：最多张数",
+      "列表默认每页条数",
+      "Excel 单次导入最大行数",
+      "Excel 导入文件大小上限（MB）",
+      "审计日志保留天数（天）",
+      "成绩归档保留天数（天）",
+      "自动归档（每日定时）",
+      "自动归档时点（0~23 时）",
+      "新建账号默认密码",
+      "密码最小长度",
+      "密码复杂度要求",
+      "密码有效期（天）",
+      "登录失败锁定",
+      "连续失败锁定阈值（次）",
+      "锁定时长（分钟）",
+      "验证码触发次数",
+      "两步验证",
+      "考试默认时长（分钟）",
+      "考试默认及格线",
+      "考试默认答题次数（每人最多）",
+      "组卷难度系数目标值",
+      "补考申请（默认）",
+      "成绩复核（默认）",
+      "成绩复核时限（天）",
+      "系统全称（登录页品牌名）",
+      "系统简称（侧边栏名称）",
+      "组织根节点名称",
+      "登录页标语",
+      "登录页版权 / 页脚"
+    ],
+    "tabs": [
+      "通知与模板",
+      "作答与防作弊",
+      "数据与归档",
+      "账号与安全",
+      "考试默认值",
+      "阅卷与复核",
+      "网站与品牌"
+    ],
+    "tabDetails": [
+      {
+        "title": "通知与模板",
+        "fields": [
+          "站内信通知",
+          "邮件通知",
+          "考试发布通知",
+          "成绩通知",
+          "补考审批通知",
+          "SMTP 服务器地址",
+          "SMTP 端口",
+          "SMTP 加密（SSL）",
+          "SMTP 账号",
+          "SMTP 授权码 / 密码",
+          "发件人地址",
+          "通知事件",
+          "通知标题",
+          "通知正文",
+          " "
+        ]
+      },
+      {
+        "title": "作答与防作弊",
+        "fields": [
+          "切屏异常：次数阈值（≥ 判为异常）",
+          "切屏异常：累计离开秒数阈值",
+          "切屏异常：自动强制交卷",
+          "答题页浮水印（考生姓名/账号）",
+          "答题页复制/粘贴限制",
+          "人手一卷（默认）",
+          "选项乱序（默认）",
+          "倒计时提醒：剩余不足该分钟数时提醒",
+          "监考大屏实时推送（SSE）",
+          "监考推送间隔（秒）",
+          "简答作图片：单张上限（MB）",
+          "简答作图片：最多张数"
+        ]
+      },
+      {
+        "title": "数据与归档",
+        "fields": [
+          "列表默认每页条数",
+          "Excel 单次导入最大行数",
+          "Excel 导入文件大小上限（MB）",
+          "审计日志保留天数（天）",
+          "成绩归档保留天数（天）",
+          "自动归档（每日定时）",
+          "自动归档时点（0~23 时）"
+        ]
+      },
+      {
+        "title": "账号与安全",
+        "fields": [
+          "新建账号默认密码",
+          "密码最小长度",
+          "密码复杂度要求",
+          "密码有效期（天）",
+          "登录失败锁定",
+          "连续失败锁定阈值（次）",
+          "锁定时长（分钟）",
+          "验证码触发次数",
+          "两步验证"
+        ]
+      },
+      {
+        "title": "考试默认值",
+        "fields": [
+          "考试默认时长（分钟）",
+          "考试默认及格线",
+          "考试默认答题次数（每人最多）",
+          "组卷难度系数目标值"
+        ]
+      },
+      {
+        "title": "阅卷与复核",
+        "fields": [
+          "补考申请（默认）",
+          "成绩复核（默认）",
+          "成绩复核时限（天）"
+        ]
+      },
+      {
+        "title": "网站与品牌",
+        "fields": [
+          "系统全称（登录页品牌名）",
+          "系统简称（侧边栏名称）",
+          "组织根节点名称",
+          "登录页标语",
+          "登录页版权 / 页脚"
+        ]
+      }
+    ],
+    "headings": [
+      "通知与模板",
+      "作答与防作弊",
+      "数据与归档",
+      "账号与安全",
+      "考试默认值",
+      "阅卷与复核",
+      "网站与品牌"
+    ],
+    "buttons": [
+      "恢复默认",
+      "保存设置",
+      "重新加载",
+      "恢复该事件默认文案"
+    ]
+  },
+  {
+    "id": "admin-MenuPermission",
+    "route": "/admin/permissions",
+    "title": "菜单权限",
+    "app": "main",
+    "source": "src/views/admin/MenuPermissionPage.vue",
+    "description": "配置各角色在侧边栏可见的菜单；管理员必授菜单不可关闭",
+    "columns": [
+      "分组",
+      "菜单名称",
+      "ROLE_LABELS[role]"
+    ],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "保存权限"
+    ]
+  },
+  {
+    "id": "admin-AuditLog",
+    "route": "/admin/audit",
+    "title": "审计日志",
+    "app": "main",
+    "source": "src/views/admin/AuditLogPage.vue",
+    "description": "记录用户、考试、题库与菜单权限的关键操作，便于追溯",
+    "columns": [
+      "时间",
+      "操作者",
+      "动作",
+      "目标类型",
+      "目标",
+      "摘要"
+    ],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "导出字段",
+      "清理过期日志",
+      "查询",
+      "重置",
+      "恢复默认",
+      "确定"
+    ]
+  },
+  {
+    "id": "admin-LoginLog",
+    "route": "/admin/login-logs",
+    "title": "登录日志",
+    "app": "main",
+    "source": "src/views/admin/LoginLogPage.vue",
+    "description": "记录账号登录的成功与失败（含来源 IP、客户端与时间），便于安全追溯",
+    "columns": [
+      "时间",
+      "账号",
+      "结果",
+      "说明",
+      "来源",
+      "IP",
+      "客户端"
+    ],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "查询",
+      "重置"
+    ]
+  },
+  {
+    "id": "admin-SystemMaintenance",
+    "route": "/admin/maintenance",
+    "title": "系统维护",
+    "app": "main",
+    "source": "src/views/admin/SystemMaintenancePage.vue",
+    "description": "数据体量统计与历史成绩归档，控制业务表膨胀",
+    "columns": [
+      "数据对象",
+      "表名",
+      "行数"
+    ],
+    "fields": [
+      "启用自动归档",
+      "每日执行时点",
+      "保留天数",
+      "单次上限"
+    ],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "刷新统计",
+      "保存设置",
+      "立即执行一次",
+      "执行归档"
+    ]
+  },
+  {
+    "id": "author-QuestionBankList",
+    "route": "/author/banks",
+    "title": "题库管理",
+    "app": "main",
+    "source": "src/views/author/QuestionBankListPage.vue",
+    "description": "维护题库分类与题目，支持 Excel 批量导入",
+    "columns": [],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [
+      "题库健康度"
+    ],
+    "buttons": [
+      "新建题库",
+      "查询",
+      "重置",
+      "查看题目",
+      "组卷"
+    ]
+  },
+  {
+    "id": "author-QuestionBankDetail",
+    "route": "/author/banks/:bankId",
+    "title": "题库详情",
+    "app": "main",
+    "source": "src/views/author/QuestionBankDetailPage.vue",
+    "description": "bank?.name || '维护题库内的试题'",
+    "columns": [
+      "题干",
+      "题型",
+      "科目",
+      "难度",
+      "知识点",
+      "默认分值",
+      "正确率",
+      "创建时间",
+      "操作"
+    ],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [
+      "知识点分布",
+      "批量导入模板"
+    ],
+    "buttons": [
+      "返回列表",
+      "编辑题库",
+      "批量授权",
+      "删除题库",
+      "手动新增",
+      "批量导入 Excel",
+      "查询",
+      "重置",
+      "批量编辑",
+      "删除",
+      "打开批量导入"
+    ]
+  },
+  {
+    "id": "author-Paper",
+    "route": "/author/papers",
+    "title": "试卷管理",
+    "app": "main",
+    "source": "src/views/author/PaperPage.vue",
+    "description": "从题库组合生成试卷，支持同时选择多个题库",
+    "columns": [
+      "试卷名称",
+      "来源题库",
+      "题目数",
+      "总分",
+      "描述",
+      "创建时间",
+      "操作"
+    ],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "新建试卷",
+      "重置",
+      "预览",
+      "编辑",
+      "克隆",
+      "删除"
+    ]
+  },
+  {
+    "id": "author-PaperComposer",
+    "route": "/author/papers/composer",
+    "title": "组卷",
+    "app": "main",
+    "source": "src/views/author/PaperComposerPage.vue",
+    "description": "从多个题库组合生成试卷",
+    "columns": [
+      "题型",
+      "抽题数量",
+      "每题分值"
+    ],
+    "fields": [
+      "试卷名称",
+      "描述",
+      "来源题库（可多选，至少选 1 个）"
+    ],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "返回列表",
+      "保存试卷",
+      "生成试卷草稿",
+      "查询",
+      "重置"
+    ]
+  },
+  {
+    "id": "author-PaperPreview",
+    "route": "/author/papers/:paperId/preview",
+    "title": "试卷预览",
+    "app": "main",
+    "source": "src/views/author/PaperPreviewPage.vue",
+    "description": "paper?.name || '查看试卷结构与题目明细'",
+    "columns": [],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "返回列表",
+      "编辑试卷"
+    ]
+  },
+  {
+    "id": "exam-ExamHome",
+    "route": "/exam/home",
+    "title": "首页",
+    "app": "main",
+    "source": "src/views/exam/ExamHomePage.vue",
+    "description": "",
+    "columns": [],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [
+      "即将开始",
+      "成绩趋势",
+      "快捷入口",
+      "最新公告",
+      "推荐练题",
+      "最近成绩"
+    ],
+    "buttons": [
+      "查看我的考试",
+      "全部考试",
+      "更多",
+      "全部成绩",
+      "明细"
+    ]
+  },
+  {
+    "id": "exam-MyExam",
+    "route": "/exam/my",
+    "title": "我的考试",
+    "app": "main",
+    "source": "src/views/exam/MyExamPage.vue",
+    "description": "仅显示你所在科室的考试",
+    "columns": [],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [
+      "考试须知"
+    ],
+    "buttons": [
+      "刷新",
+      "我的补考",
+      "成绩明细",
+      "申请补考"
+    ]
+  },
+  {
+    "id": "exam-MyScore",
+    "route": "/exam/scores",
+    "title": "我的成绩",
+    "app": "main",
+    "source": "src/views/exam/MyScorePage.vue",
+    "description": "headerDesc",
+    "columns": [
+      "考试名称",
+      "得分",
+      "是否及格",
+      "作答次数",
+      "交卷时间",
+      "复核状态",
+      "操作"
+    ],
+    "fields": [
+      "申请说明"
+    ],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [
+      "成绩列表",
+      "复核记录"
+    ],
+    "buttons": [
+      "导出我的成绩",
+      "重置",
+      "成绩明细",
+      "申请复核",
+      "取消",
+      "提交申请"
+    ]
+  },
+  {
+    "id": "exam-MyRetake",
+    "route": "/exam/retakes",
+    "title": "我的补考",
+    "app": "main",
+    "source": "src/views/exam/MyRetakePage.vue",
+    "description": "查看补考申请与审批结果 · 未及格可申请补考，由管理员审批",
+    "columns": [
+      "考试名称",
+      "状态",
+      "审批时间",
+      "说明 / 驳回原因"
+    ],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [
+      "补考申请记录",
+      "申请补考",
+      "补考规则"
+    ],
+    "buttons": [
+      "刷新状态",
+      "重置",
+      "提交补考申请"
+    ]
+  },
+  {
+    "id": "exam-ScoreDetail",
+    "route": "/score-detail/:recordId",
+    "title": "成绩明细",
+    "app": "main",
+    "source": "src/views/exam/ScoreDetailPage.vue",
+    "description": "headerDesc",
+    "columns": [],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [
+      "逐题明细",
+      "答题概况",
+      "切屏记录",
+      "知识点掌握"
+    ],
+    "buttons": [
+      "再考一次"
+    ]
+  },
+  {
+    "id": "common-NotificationCenter",
+    "route": "/notifications",
+    "title": "消息中心",
+    "app": "main",
+    "source": "src/views/common/NotificationCenterPage.vue",
+    "description": "考试发布、成绩与补考审批等通知",
+    "columns": [],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [
+      "消息详情"
+    ],
+    "buttons": [
+      "全部已读",
+      "关闭"
+    ]
+  },
+  {
+    "id": "practice-PracticeLogin",
+    "route": "/practice",
+    "title": "在线练题",
+    "app": "practice",
+    "source": "practice-web/src/views/practice/PracticeLoginPage.vue",
+    "description": "",
+    "columns": [],
+    "fields": [
+      "账号",
+      "密码",
+      "验证码"
+    ],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [
+      "在线练题"
+    ],
+    "buttons": [
+      "换一张",
+      "登 录"
+    ]
+  },
+  {
+    "id": "practice-PracticeHome",
+    "route": "/practice/home",
+    "title": "在线练题",
+    "app": "practice",
+    "source": "practice-web/src/views/practice/PracticeHomePage.vue",
+    "description": "",
+    "columns": [],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "查看错题",
+      "查看收藏",
+      "开始练题"
+    ]
+  },
+  {
+    "id": "practice-PracticeSession",
+    "route": "/practice/banks/:bankId",
+    "title": "练题",
+    "app": "practice",
+    "source": "practice-web/src/views/practice/PracticeSessionPage.vue",
+    "description": "",
+    "columns": [],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [
+      "本次练习完成"
+    ],
+    "buttons": [
+      "返回首页",
+      "重新加载",
+      "再练一次",
+      "查看错题本 ›",
+      "重做本题"
+    ]
+  },
+  {
+    "id": "practice-PracticeSession-reans",
+    "route": "/practice/reans",
+    "title": "错题复习",
+    "app": "practice",
+    "source": "practice-web/src/views/practice/PracticeSessionPage.vue",
+    "description": "",
+    "columns": [],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [
+      "本次练习完成"
+    ],
+    "buttons": [
+      "返回首页",
+      "重新加载",
+      "再练一次",
+      "查看错题本 ›",
+      "重做本题"
+    ]
+  },
+  {
+    "id": "practice-PracticeWrongBook",
+    "route": "/practice/wrong-book",
+    "title": "错题本",
+    "app": "practice",
+    "source": "practice-web/src/views/practice/PracticeWrongBookPage.vue",
+    "description": "",
+    "columns": [],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "全部复习",
+      "复习",
+      "加载更多"
+    ]
+  },
+  {
+    "id": "practice-PracticeReport",
+    "route": "/practice/report",
+    "title": "学习报告",
+    "app": "practice",
+    "source": "practice-web/src/views/practice/PracticeReportPage.vue",
+    "description": "",
+    "columns": [],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "去完成"
+    ]
+  },
+  {
+    "id": "practice-PracticeFavorites",
+    "route": "/practice/favorites",
+    "title": "我的收藏",
+    "app": "practice",
+    "source": "practice-web/src/views/practice/PracticeFavoritesPage.vue",
+    "description": "",
+    "columns": [],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": [
+      "练收藏题",
+      "加载更多"
+    ]
+  },
+  {
+    "id": "practice-PracticeProfile",
+    "route": "/practice/profile",
+    "title": "我的",
+    "app": "practice",
+    "source": "practice-web/src/views/practice/PracticeProfilePage.vue",
+    "description": "",
+    "columns": [],
+    "fields": [],
+    "tabs": [],
+    "tabDetails": [],
+    "headings": [],
+    "buttons": []
+  }
+]

@@ -1,3 +1,4 @@
+import '@fontsource-variable/noto-sans-sc';
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import App from './App.vue';
@@ -24,3 +25,5 @@ setPracticeUnauthorizedHandler(() => {
 });
 
 app.mount('#app');
+
+import './styles/ui-refinement.scss';

@@ -1,0 +1,26 @@
+[
+  {
+    "route": "/exam/my",
+    "heading": "我的考试",
+    "scrollWidth": 1280,
+    "width": 1280
+  },
+  {
+    "route": "/exam/scores",
+    "heading": "我的成绩",
+    "scrollWidth": 1280,
+    "width": 1280
+  },
+  {
+    "route": "/exam/retakes",
+    "heading": "我的补考",
+    "scrollWidth": 1280,
+    "width": 1280
+  },
+  {
+    "route": "/notifications",
+    "heading": "消息中心",
+    "scrollWidth": 1280,
+    "width": 1280
+  }
+]

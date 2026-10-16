@@ -306,10 +306,10 @@ describe('全站样式 · v3.1 方向 C 布局与表头护栏', () => {
   const layoutSource = readFileSync(resolve(process.cwd(), 'src/layouts/AppLayout.vue'), 'utf8');
 
   const VARS: Array<[string, number]> = [
-    ['header-height', 52],
+    ['header-height', 56],
     ['sidebar-width', 216],
     ['sidebar-width-collapsed', 60],
-    ['page-padding', 22],
+    ['page-padding', 24],
   ];
 
   it.each(VARS)('骨架尺寸 $%s 取设计稿值 %spx', (name, px) => {
@@ -403,9 +403,9 @@ describe('全站样式 · v3.1 方向 C 图表配色护栏', () => {
   const dashboard = readSrc('views/admin/DashboardPage.vue');
   const chartTheme = readSrc('utils/chartTheme.ts');
 
-  it('成绩趋势双线走单一主色系：及格率=主色实线 + 平均分=主色浅档虚线', () => {
+  it('成绩趋势使用蓝与青绿区分指标，并保留实线/虚线区分', () => {
     expect(dashboard).not.toMatch(/THEME\.success/);
-    expect(dashboard).toMatch(/itemStyle:\s*\{\s*color:\s*THEME\.primaryLight\s*\}/);
+    expect(dashboard).toMatch(/itemStyle:\s*\{\s*color:\s*THEME\.categoryTeal\s*\}/);
     expect(dashboard).toMatch(/lineStyle:\s*\{[^}]*type:\s*'dashed'/);
   });
 
@@ -449,20 +449,20 @@ describe('全站样式 · v3.1 方向 C 组件刻度护栏', () => {
     expect(scss).toMatch(/--el-alert-title-font-size:\s*12\.5px/);
   });
 
-  it('页头刻度：19px 标题 / -0.01em 字距 / 底部对齐 / 12.5px 描述', () => {
+  it('页头刻度：22px 标题 / 底部对齐 / 12px 描述', () => {
     expect(pageHeader).toMatch(/align-items:\s*flex-end/);
-    expect(pageHeader).toMatch(/font-size:\s*19px/);
+    expect(pageHeader).toMatch(/font-size:\s*22px/);
     expect(pageHeader).toMatch(/letter-spacing:\s*-0\.01em/);
-    expect(pageHeader).toMatch(/font-size:\s*12\.5px/);
+    expect(pageHeader).toMatch(/font-size:\s*12px/);
   });
 
-  it('卡片刻度：内容内距 16px + 卡头 46px 最小高 / 12px 16px / 13.5px 标题', () => {
-    expect(scss).toMatch(/--el-card-padding:\s*16px/);
+  it('卡片刻度：内容内距 20px + 卡头 56px / 16px 20px / 15px 标题', () => {
+    expect(scss).toMatch(/--el-card-padding:\s*20px/);
     const header = /\.el-card__header\s*\{([^}]*)\}/.exec(scss)?.[1] ?? '';
     expect(header).not.toBe('');
-    expect(header).toMatch(/min-height:\s*46px/);
-    expect(header).toMatch(/padding:\s*12px 16px/);
-    expect(header).toMatch(/font-size:\s*13\.5px/);
+    expect(header).toMatch(/min-height:\s*56px/);
+    expect(header).toMatch(/padding:\s*16px 20px/);
+    expect(header).toMatch(/font-size:\s*15px/);
   });
 
   it('图表图例标记是圆点（ECharts 默认方块/菱形与设计稿不符）', () => {

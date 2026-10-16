@@ -24,7 +24,7 @@ defineProps<{ title: string; description?: string }>();
   align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 
   &__text {
     flex: 1 1 240px;
@@ -34,15 +34,15 @@ defineProps<{ title: string; description?: string }>();
 
   &__title {
     margin: 0;
-    font-size: 19px;
-    font-weight: 600;
+    font-size: 22px;
+    font-weight: 700;
     letter-spacing: -0.01em;
     color: $text-primary;
   }
 
   &__desc {
     margin: 4px 0 0;
-    font-size: 12.5px;
+    font-size: 12px;
     color: $text-secondary;
   }
 

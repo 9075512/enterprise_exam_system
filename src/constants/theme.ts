@@ -9,6 +9,11 @@
  */
 
 export const THEME = {
+  /** 业务分类与多指标图表配色，和状态色保持独立。 */
+  categoryBlue: '#356BFA', categoryBlueSoft: '#EFF4FF',
+  categoryTeal: '#138A8A', categoryTealSoft: '#EAF8F6',
+  categoryViolet: '#7A5AE8', categoryVioletSoft: '#F3EFFF',
+  categoryAmber: '#B77915', categoryAmberSoft: '#FFF6E7',
   /** 主色（v3.1 方向 C 精密蓝） */
   primary: '#0B5BFF',
   primaryLight: '#548CFF',
@@ -49,14 +54,14 @@ export const THEME = {
   info50: '#EFF8FF',
 
   /** 文本 */
-  textPrimary: '#0D1220',
+  textPrimary: '#15223B',
   /** 设计稿 text-2 档：表格正文 / 表单标签 / 次按钮字色（$text-body 同源） */
   textBody: '#3D4657',
   textSecondary: '#5A6474',
   /** 禁用/已结束等弱化文本（图形档，禁止承载正文） */
   textDisabled: '#858F9E',
   /** 全局描边（$border-color 同源） */
-  border: '#E9ECF1',
+  border: '#E3E8F0',
   /** 强发丝线：输入框边 / 表头分隔（$line-strong 同源） */
   lineStrong: '#D9DEE7',
   /** 承载面（$bg-paper 同源）—— JS 侧需要白底时用它，如图表提示框 */

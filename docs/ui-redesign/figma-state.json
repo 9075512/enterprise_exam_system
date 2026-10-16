@@ -1,0 +1,563 @@
+{
+  "fileKey": "nZbegmL11IFmzj6damYVDG",
+  "createdNodeIds": [
+    "0:1"
+  ],
+  "collections": {
+    "primitive": "VariableCollectionId:2:2",
+    "colors": "VariableCollectionId:2:3",
+    "metrics": "VariableCollectionId:2:4"
+  },
+  "variables": {
+    "primary": "VariableID:2:6",
+    "primary-dark": "VariableID:2:8",
+    "primary-soft": "VariableID:2:10",
+    "primary-border": "VariableID:2:12",
+    "category-blue": "VariableID:2:14",
+    "category-blue-soft": "VariableID:2:16",
+    "category-teal": "VariableID:2:18",
+    "category-teal-soft": "VariableID:2:20",
+    "category-violet": "VariableID:2:22",
+    "category-violet-soft": "VariableID:2:24",
+    "category-amber": "VariableID:2:26",
+    "category-amber-soft": "VariableID:2:28",
+    "text-primary": "VariableID:2:30",
+    "text-body": "VariableID:2:32",
+    "text-secondary": "VariableID:2:34",
+    "text-disabled": "VariableID:2:36",
+    "surface": "VariableID:2:38",
+    "page": "VariableID:2:40",
+    "border": "VariableID:2:42",
+    "line-strong": "VariableID:2:44",
+    "neutral": "VariableID:2:46",
+    "sidebar": "VariableID:2:48",
+    "sidebar-text": "VariableID:2:50",
+    "sidebar-active": "VariableID:2:52",
+    "success": "VariableID:2:54",
+    "success-soft": "VariableID:2:56",
+    "warning": "VariableID:2:58",
+    "warning-soft": "VariableID:2:60",
+    "error": "VariableID:2:62",
+    "error-soft": "VariableID:2:64",
+    "space/4": "VariableID:2:65",
+    "space/8": "VariableID:2:66",
+    "space/12": "VariableID:2:67",
+    "space/16": "VariableID:2:68",
+    "space/20": "VariableID:2:69",
+    "space/24": "VariableID:2:70",
+    "space/32": "VariableID:2:71",
+    "radius/4": "VariableID:2:72",
+    "radius/6": "VariableID:2:73",
+    "radius/8": "VariableID:2:74",
+    "radius/10": "VariableID:2:75",
+    "radius/12": "VariableID:2:76"
+  },
+  "styles": {
+    "display": "S:09d0ceec4c486826d302be3315e18318b8e34850,",
+    "heading": "S:f5fd593b1f73806cc09d30076a48d4c00943ecbe,",
+    "section": "S:524cbae36accb3429cf0a9e2e3aa4950e6a1f607,",
+    "body": "S:fed5c463ef1b845554e72fdbe3f7023719276fef,",
+    "table": "S:33fe33d999aee56fe8368f3842eebc16c0d86570,",
+    "label": "S:78ccd5fe65d8937769fc3c30f154ed7cee6561c4,",
+    "caption": "S:6cb212437f944a188fd1f86896366c4302452e85,",
+    "metric": "S:f43a547948ecacf665b42990b4fc4b888f4ad6f1,"
+  },
+  "font": "Noto Sans SC",
+  "pageId": "0:1",
+  "components": {
+    "Button/primary/default": "3:16",
+    "Button/primary/hover": "3:17",
+    "Button/primary/disabled": "3:18",
+    "Button/primary/loading": "3:19",
+    "Button/secondary/default": "3:20",
+    "Button/secondary/hover": "3:21",
+    "Button/secondary/disabled": "3:22",
+    "Button/secondary/loading": "3:23",
+    "Button/danger/default": "3:24",
+    "Button/danger/hover": "3:25",
+    "Button/danger/disabled": "3:26",
+    "Button/danger/loading": "3:27",
+    "Input/default": "3:41",
+    "Input/focus": "3:42",
+    "Input/error": "3:43",
+    "Input/disabled": "3:44",
+    "Badge/primary": "3:50",
+    "Badge/teal": "3:51",
+    "Badge/violet": "3:52",
+    "Badge/amber": "3:53",
+    "Badge/error": "3:54",
+    "Badge/neutral": "3:55",
+    "Navigation/default": "3:63",
+    "Navigation/active": "3:64",
+    "StatCard/blue": "3:68",
+    "StatCard/teal": "3:69",
+    "StatCard/violet": "3:70",
+    "StatCard/amber": "3:71",
+    "Option/default": "3:81",
+    "Option/selected": "3:82",
+    "Option/correct": "3:83",
+    "Option/wrong": "3:84",
+    "TableCell/heading": "3:90",
+    "TableCell/body": "3:91"
+  },
+  "pages": {
+    "foundations": "0:1",
+    "desktop": "4:2",
+    "mobile": "5:4941"
+  },
+  "frames": [
+    {
+      "id": "4:6",
+      "name": "数据总览 · /admin/dashboard",
+      "width": 1440,
+      "height": 1312,
+      "source": "数据总览 · /admin/dashboard"
+    },
+    {
+      "id": "4:3",
+      "name": "暂无页面权限 · /no-access",
+      "width": 1440,
+      "height": 900,
+      "source": "src/views/common/NoAccessPage.vue"
+    },
+    {
+      "id": "4:4",
+      "name": "登录 · /login",
+      "width": 1440,
+      "height": 900,
+      "source": "src/views/LoginPage.vue"
+    },
+    {
+      "id": "4:5",
+      "name": "在线答题 · /exam/taking/:recordId",
+      "width": 1440,
+      "height": 960,
+      "source": "src/views/exam/ExamTakingPage.vue"
+    },
+    {
+      "id": "4:7",
+      "name": "科室管理 · /admin/departments",
+      "width": 1440,
+      "height": 960,
+      "source": "科室管理 · /admin/departments"
+    },
+    {
+      "id": "4:8",
+      "name": "用户管理 · /admin/users",
+      "width": 1440,
+      "height": 960,
+      "source": "用户管理 · /admin/users"
+    },
+    {
+      "id": "4:9",
+      "name": "考试管理 · /admin/exams",
+      "width": 1440,
+      "height": 960,
+      "source": "考试管理 · /admin/exams"
+    },
+    {
+      "id": "4:10",
+      "name": "监考监控 · /admin/exams/:id/monitor",
+      "width": 1440,
+      "height": 960,
+      "source": "监考监控 · /admin/exams/:id/monitor"
+    },
+    {
+      "id": "4:11",
+      "name": "补考管理 · /admin/retakes",
+      "width": 1440,
+      "height": 960,
+      "source": "补考管理 · /admin/retakes"
+    },
+    {
+      "id": "4:12",
+      "name": "成绩报表 · /admin/scores",
+      "width": 1440,
+      "height": 1086,
+      "source": "成绩报表 · /admin/scores"
+    },
+    {
+      "id": "4:13",
+      "name": "成绩复核 · /admin/appeals",
+      "width": 1440,
+      "height": 960,
+      "source": "成绩复核 · /admin/appeals"
+    },
+    {
+      "id": "4:14",
+      "name": "人工阅卷 · /admin/reviews",
+      "width": 1440,
+      "height": 960,
+      "source": "人工阅卷 · /admin/reviews"
+    },
+    {
+      "id": "4:15",
+      "name": "练题端设置 · /admin/practice-settings",
+      "width": 1440,
+      "height": 960,
+      "source": "练题端设置 · /admin/practice-settings"
+    },
+    {
+      "id": "4:16",
+      "name": "公告与轮播 · /admin/content",
+      "width": 1440,
+      "height": 960,
+      "source": "公告与轮播 · /admin/content"
+    },
+    {
+      "id": "4:17",
+      "name": "首页配置 · /admin/home-config",
+      "width": 1440,
+      "height": 960,
+      "source": "首页配置 · /admin/home-config"
+    },
+    {
+      "id": "4:18",
+      "name": "系统设置 · /admin/settings",
+      "width": 1440,
+      "height": 1044,
+      "source": "系统设置 · /admin/settings"
+    },
+    {
+      "id": "4:19",
+      "name": "菜单权限 · /admin/permissions",
+      "width": 1440,
+      "height": 960,
+      "source": "菜单权限 · /admin/permissions"
+    },
+    {
+      "id": "4:20",
+      "name": "审计日志 · /admin/audit",
+      "width": 1440,
+      "height": 960,
+      "source": "审计日志 · /admin/audit"
+    },
+    {
+      "id": "4:21",
+      "name": "登录日志 · /admin/login-logs",
+      "width": 1440,
+      "height": 960,
+      "source": "登录日志 · /admin/login-logs"
+    },
+    {
+      "id": "4:22",
+      "name": "系统维护 · /admin/maintenance",
+      "width": 1440,
+      "height": 1012,
+      "source": "系统维护 · /admin/maintenance"
+    },
+    {
+      "id": "4:23",
+      "name": "题库管理 · /author/banks",
+      "width": 1440,
+      "height": 960,
+      "source": "题库管理 · /author/banks"
+    },
+    {
+      "id": "4:24",
+      "name": "题库详情 · /author/banks/:bankId",
+      "width": 1440,
+      "height": 960,
+      "source": "题库详情 · /author/banks/:bankId"
+    },
+    {
+      "id": "4:25",
+      "name": "试卷管理 · /author/papers",
+      "width": 1440,
+      "height": 960,
+      "source": "试卷管理 · /author/papers"
+    },
+    {
+      "id": "4:26",
+      "name": "组卷 · /author/papers/composer",
+      "width": 1440,
+      "height": 1036,
+      "source": "组卷 · /author/papers/composer"
+    },
+    {
+      "id": "4:27",
+      "name": "试卷预览 · /author/papers/:paperId/preview",
+      "width": 1440,
+      "height": 960,
+      "source": "试卷预览 · /author/papers/:paperId/preview"
+    },
+    {
+      "id": "4:28",
+      "name": "首页 · /exam/home",
+      "width": 1440,
+      "height": 1010,
+      "source": "首页 · /exam/home"
+    },
+    {
+      "id": "4:29",
+      "name": "我的考试 · /exam/my",
+      "width": 1440,
+      "height": 960,
+      "source": "我的考试 · /exam/my"
+    },
+    {
+      "id": "4:30",
+      "name": "我的成绩 · /exam/scores",
+      "width": 1440,
+      "height": 960,
+      "source": "我的成绩 · /exam/scores"
+    },
+    {
+      "id": "4:31",
+      "name": "我的补考 · /exam/retakes",
+      "width": 1440,
+      "height": 960,
+      "source": "我的补考 · /exam/retakes"
+    },
+    {
+      "id": "4:32",
+      "name": "成绩明细 · /score-detail/:recordId",
+      "width": 1440,
+      "height": 960,
+      "source": "成绩明细 · /score-detail/:recordId"
+    },
+    {
+      "id": "4:33",
+      "name": "消息中心 · /notifications",
+      "width": 1440,
+      "height": 960,
+      "source": "消息中心 · /notifications"
+    },
+    {
+      "id": "4:34",
+      "name": "系统设置 / 作答与防作弊 · /admin/settings#0",
+      "width": 1440,
+      "height": 960,
+      "source": "系统设置 / 作答与防作弊 · /admin/settings#0"
+    },
+    {
+      "id": "4:35",
+      "name": "系统设置 / 数据与归档 · /admin/settings#1",
+      "width": 1440,
+      "height": 960,
+      "source": "系统设置 / 数据与归档 · /admin/settings#1"
+    },
+    {
+      "id": "4:36",
+      "name": "系统设置 / 账号与安全 · /admin/settings#2",
+      "width": 1440,
+      "height": 960,
+      "source": "系统设置 / 账号与安全 · /admin/settings#2"
+    },
+    {
+      "id": "4:37",
+      "name": "系统设置 / 考试默认值 · /admin/settings#3",
+      "width": 1440,
+      "height": 960,
+      "source": "系统设置 / 考试默认值 · /admin/settings#3"
+    },
+    {
+      "id": "4:38",
+      "name": "系统设置 / 阅卷与复核 · /admin/settings#4",
+      "width": 1440,
+      "height": 960,
+      "source": "系统设置 / 阅卷与复核 · /admin/settings#4"
+    },
+    {
+      "id": "4:39",
+      "name": "系统设置 / 网站与品牌 · /admin/settings#5",
+      "width": 1440,
+      "height": 960,
+      "source": "系统设置 / 网站与品牌 · /admin/settings#5"
+    },
+    {
+      "id": "5:4942",
+      "name": "在线练题 · /practice",
+      "width": 390,
+      "height": 844,
+      "source": "practice-web/src/views/practice/PracticeLoginPage.vue"
+    },
+    {
+      "id": "5:4943",
+      "name": "在线练题 · /practice/home",
+      "width": 390,
+      "height": 844,
+      "source": "practice-web/src/views/practice/PracticeHomePage.vue"
+    },
+    {
+      "id": "5:4944",
+      "name": "练题 · /practice/banks/:bankId",
+      "width": 390,
+      "height": 844,
+      "source": "practice-web/src/views/practice/PracticeSessionPage.vue"
+    },
+    {
+      "id": "5:4945",
+      "name": "错题复习 · /practice/reans",
+      "width": 390,
+      "height": 844,
+      "source": "practice-web/src/views/practice/PracticeSessionPage.vue"
+    },
+    {
+      "id": "5:4946",
+      "name": "错题本 · /practice/wrong-book",
+      "width": 390,
+      "height": 844,
+      "source": "practice-web/src/views/practice/PracticeWrongBookPage.vue"
+    },
+    {
+      "id": "5:4947",
+      "name": "学习报告 · /practice/report",
+      "width": 390,
+      "height": 900,
+      "source": "practice-web/src/views/practice/PracticeReportPage.vue"
+    },
+    {
+      "id": "5:4948",
+      "name": "我的收藏 · /practice/favorites",
+      "width": 390,
+      "height": 844,
+      "source": "practice-web/src/views/practice/PracticeFavoritesPage.vue"
+    },
+    {
+      "id": "5:4949",
+      "name": "我的 · /practice/profile",
+      "width": 390,
+      "height": 844,
+      "source": "practice-web/src/views/practice/PracticeProfilePage.vue"
+    },
+    {
+      "id": "6:2",
+      "name": "设计规范 / Foundations",
+      "width": 1440,
+      "height": 2664
+    },
+    {
+      "id": "6:2191",
+      "name": "新建 / 编辑考试",
+      "width": 680,
+      "height": 1146
+    },
+    {
+      "id": "6:2250",
+      "name": "新建 / 编辑用户",
+      "width": 680,
+      "height": 678
+    },
+    {
+      "id": "6:2285",
+      "name": "新建 / 编辑科室",
+      "width": 680,
+      "height": 366
+    },
+    {
+      "id": "6:2304",
+      "name": "新建 / 编辑题库",
+      "width": 680,
+      "height": 444
+    },
+    {
+      "id": "6:2327",
+      "name": "新建 / 编辑试题",
+      "width": 680,
+      "height": 912
+    },
+    {
+      "id": "6:2374",
+      "name": "考试特殊安排",
+      "width": 680,
+      "height": 522
+    },
+    {
+      "id": "6:2401",
+      "name": "成绩复核通过",
+      "width": 680,
+      "height": 444
+    },
+    {
+      "id": "6:2424",
+      "name": "驳回复核 / 补考申请",
+      "width": 680,
+      "height": 366
+    },
+    {
+      "id": "6:2443",
+      "name": "提交复核 / 补考申请",
+      "width": 680,
+      "height": 366
+    },
+    {
+      "id": "6:2462",
+      "name": "新建 / 编辑公告",
+      "width": 680,
+      "height": 678
+    },
+    {
+      "id": "6:2497",
+      "name": "新建 / 编辑轮播图",
+      "width": 680,
+      "height": 678
+    },
+    {
+      "id": "6:2532",
+      "name": "导出成绩",
+      "width": 680,
+      "height": 366
+    },
+    {
+      "id": "6:2551",
+      "name": "批量编辑题目",
+      "width": 680,
+      "height": 444
+    },
+    {
+      "id": "6:2574",
+      "name": "克隆题库 / 试卷",
+      "width": 680,
+      "height": 366
+    },
+    {
+      "id": "6:2593",
+      "name": "批量授权",
+      "width": 680,
+      "height": 288
+    },
+    {
+      "id": "6:2608",
+      "name": "修改密码",
+      "width": 680,
+      "height": 366
+    },
+    {
+      "id": "6:2627",
+      "name": "账号安全",
+      "width": 680,
+      "height": 444
+    },
+    {
+      "id": "6:2650",
+      "name": "全局菜单搜索",
+      "width": 680,
+      "height": 210
+    },
+    {
+      "id": "6:2661",
+      "name": "批量导入账号 / 题目",
+      "width": 680,
+      "height": 482
+    },
+    {
+      "id": "6:2685",
+      "name": "确认交卷",
+      "width": 680,
+      "height": 366
+    },
+    {
+      "id": "6:2704",
+      "name": "危险操作确认",
+      "width": 680,
+      "height": 366
+    },
+    {
+      "id": "9:2042",
+      "name": "反馈状态 · 加载 / 空态 / 失败 / 完成",
+      "width": 1440,
+      "height": 680
+    }
+  ]
+}

@@ -5,8 +5,8 @@
  * 考生考试端 4 处复用（首页 / 我的成绩 / 我的补考 / 消息中心）；
  * 管理端 DashboardPage 为同视觉的内联实现（同一套 token，改一处需同改另一处）。
  *
- * `tone` 表达「状态」（待办 warn / 通过 ok / 异常 err）——原色只作图形（左缘条 + 图标块），
- * 数字与文案一律走文本档 token，符合 DESIGN-C §2.1 语义色三件套铁律。
+ * `tone` 支持业务分类色与独立状态色；数字与文案使用文本 token，
+ * 分类色用于浅底、左缘条及图标，不替代成功、警告、异常语义。
  */
 import type { Component } from 'vue';
 
@@ -17,8 +17,8 @@ withDefaults(
     /** 数字后缀单位（场 / 分 / 项 …），12→13px 弱色 */
     unit?: string;
     icon?: Component;
-    /** 状态色调：primary（默认）/ success / warning / error */
-    tone?: 'primary' | 'success' | 'warning' | 'error';
+    /** 状态色或业务分类色；默认 primary */
+    tone?: 'primary' | 'success' | 'warning' | 'error' | 'blue' | 'teal' | 'violet' | 'amber';
   }>(),
   { unit: '', icon: undefined, tone: 'primary' },
 );
@@ -84,9 +84,9 @@ withDefaults(
   &__value {
     overflow-wrap: anywhere;
     margin-top: 8px;
-    font-size: 26px;
+    font-size: 28px;
     font-weight: 700;
-    line-height: 1.1;
+    line-height: 1.3;
     letter-spacing: -0.02em;
     color: $text-primary;
     font-variant-numeric: tabular-nums;

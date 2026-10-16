@@ -1,0 +1,26 @@
+[
+  {
+    "route": "/practice/wrong-book",
+    "content": "我的错题本\n\n共 5 道错题\n\n全部复习\n安全知识题库\n3 题\n复习\n单选题\n答错 1 次\n\n下列哪种行为符合公司信息安全规范？\n\n多选题\n答错 1 次\n\n办公电脑的安全使用做法包",
+    "scrollWidth": 390,
+    "width": 390
+  },
+  {
+    "route": "/practice/report",
+    "content": "学习报告\n\n基于每次练习的首次作答记录统计\n\n2\n连续打卡（天）\n7\n累计练题\n3\n累计答对\n43%\n正确率\n5\n错题数\n今日一练\n今日\n今日任务待完成\n已答 1 / 10 题\n去",
+    "scrollWidth": 382,
+    "width": 390
+  },
+  {
+    "route": "/practice/favorites",
+    "content": "我的收藏\n\n共 0 道题\n\n练收藏题\n全部\n企业文化题库\n安全知识题库\n—\n\n还没有收藏的题目，答题时点击「收藏」即可加入",
+    "scrollWidth": 390,
+    "width": 390
+  },
+  {
+    "route": "/practice/profile",
+    "content": "张\n\n张三\n\n科室\n研发部\n\n账号 zhangsan · 考生\n\n练题统计\n7\n累计练题\n3\n累计答对\n43%\n正确率\n5\n错题数\n学习\n学习报告\n连续 2 天\n›\n账号\n退出登录",
+    "scrollWidth": 390,
+    "width": 390
+  }
+]

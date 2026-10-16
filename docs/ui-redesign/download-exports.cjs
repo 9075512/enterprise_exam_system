@@ -1,0 +1,3 @@
+const fs=require('node:fs/promises');const path=require('node:path');
+async function main(){const items=JSON.parse((await fs.readFile(path.join(__dirname,'.download-manifest.json'),'utf8')).replace(/^\uFEFF/,''));const dir=path.join(__dirname,'deliverables/designs');await fs.mkdir(dir,{recursive:true});await Promise.all(items.map(async f=>{const r=await fetch(f.export.image_url);if(!r.ok)throw Error(`${f.id}: ${r.status}`);await fs.writeFile(path.join(dir,f.file),Buffer.from(await r.arrayBuffer()));}));console.log(`Exported ${items.length} frames`);}
+main().catch(e=>{console.error(e);process.exitCode=1;});

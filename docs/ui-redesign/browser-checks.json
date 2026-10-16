@@ -1,0 +1,209 @@
+[
+  {
+    "route": "/admin/departments",
+    "bodyLength": 353,
+    "heading": "科室管理",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": false
+  },
+  {
+    "route": "/admin/users",
+    "bodyLength": 724,
+    "heading": "用户管理",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": false
+  },
+  {
+    "route": "/admin/exams",
+    "bodyLength": 465,
+    "heading": "考试管理",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": false
+  },
+  {
+    "route": "/admin/retakes",
+    "bodyLength": 382,
+    "heading": "补考管理",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": false
+  },
+  {
+    "route": "/admin/scores",
+    "bodyLength": 187,
+    "heading": "成绩报表",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": false
+  },
+  {
+    "route": "/admin/appeals",
+    "bodyLength": 280,
+    "heading": "成绩复核",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": false
+  },
+  {
+    "route": "/admin/reviews",
+    "bodyLength": 235,
+    "heading": "人工阅卷",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": false
+  },
+  {
+    "route": "/admin/practice-settings",
+    "bodyLength": 1961,
+    "heading": "练题端设置",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": false
+  },
+  {
+    "route": "/admin/content",
+    "bodyLength": 311,
+    "heading": "公告与轮播",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": false
+  },
+  {
+    "route": "/admin/home-config",
+    "bodyLength": 724,
+    "heading": "首页配置",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": false
+  },
+  {
+    "route": "/admin/settings",
+    "bodyLength": 390,
+    "heading": "系统设置",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": false
+  },
+  {
+    "route": "/admin/permissions",
+    "bodyLength": 701,
+    "heading": "菜单权限",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": false
+  },
+  {
+    "route": "/admin/audit",
+    "bodyLength": 2391,
+    "heading": "审计日志",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": false
+  },
+  {
+    "route": "/admin/login-logs",
+    "bodyLength": 2150,
+    "heading": "登录日志",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": false
+  },
+  {
+    "route": "/admin/maintenance",
+    "bodyLength": 1167,
+    "heading": "系统维护",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": false
+  },
+  {
+    "route": "/author/banks",
+    "bodyLength": 520,
+    "heading": "题库管理",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": false
+  },
+  {
+    "route": "/author/papers",
+    "bodyLength": 387,
+    "heading": "试卷管理",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": false
+  },
+  {
+    "route": "/author/papers/composer",
+    "bodyLength": 492,
+    "heading": "开始组卷",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": false
+  },
+  {
+    "route": "/exam/home",
+    "bodyLength": 92,
+    "heading": "数据总览",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": true
+  },
+  {
+    "route": "/exam/my",
+    "bodyLength": 92,
+    "heading": "数据总览",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": true
+  },
+  {
+    "route": "/exam/scores",
+    "bodyLength": 92,
+    "heading": "数据总览",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": true
+  },
+  {
+    "route": "/exam/retakes",
+    "bodyLength": 92,
+    "heading": "数据总览",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": true
+  },
+  {
+    "route": "/notifications",
+    "bodyLength": 92,
+    "heading": "数据总览",
+    "sw": 1280,
+    "vw": 1280,
+    "role": "admin",
+    "redirectedByPermission": true
+  }
+]

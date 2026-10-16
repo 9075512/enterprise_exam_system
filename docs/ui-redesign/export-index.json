@@ -1,0 +1,212 @@
+[
+  {
+    "id": "4:6",
+    "name": "数据总览 · /admin/dashboard",
+    "width": 1440,
+    "height": 1312,
+    "source": "数据总览 · /admin/dashboard",
+    "file": "01-4-6.png",
+    "pixelWidth": 1440,
+    "pixelHeight": 1312
+  },
+  {
+    "id": "4:3",
+    "name": "暂无页面权限 · /no-access",
+    "width": 1440,
+    "height": 900,
+    "source": "src/views/common/NoAccessPage.vue",
+    "file": "02-4-3.png",
+    "pixelWidth": 1440,
+    "pixelHeight": 900
+  },
+  {
+    "id": "4:4",
+    "name": "登录 · /login",
+    "width": 1440,
+    "height": 900,
+    "source": "src/views/LoginPage.vue",
+    "file": "03-4-4.png",
+    "pixelWidth": 1440,
+    "pixelHeight": 900
+  },
+  {
+    "id": "4:5",
+    "name": "在线答题 · /exam/taking/:recordId",
+    "width": 1440,
+    "height": 960,
+    "source": "src/views/exam/ExamTakingPage.vue",
+    "file": "04-4-5.png",
+    "pixelWidth": 1440,
+    "pixelHeight": 960
+  },
+  {
+    "id": "4:7",
+    "name": "科室管理 · /admin/departments",
+    "width": 1440,
+    "height": 960,
+    "source": "科室管理 · /admin/departments",
+    "file": "05-4-7.png",
+    "pixelWidth": 1440,
+    "pixelHeight": 960
+  },
+  {
+    "id": "4:8",
+    "name": "用户管理 · /admin/users",
+    "width": 1440,
+    "height": 960,
+    "source": "用户管理 · /admin/users",
+    "file": "06-4-8.png",
+    "pixelWidth": 1440,
+    "pixelHeight": 960
+  },
+  {
+    "id": "4:9",
+    "name": "考试管理 · /admin/exams",
+    "width": 1440,
+    "height": 960,
+    "source": "考试管理 · /admin/exams",
+    "file": "07-4-9.png",
+    "pixelWidth": 1440,
+    "pixelHeight": 960
+  },
+  {
+    "id": "4:10",
+    "name": "监考监控 · /admin/exams/:id/monitor",
+    "width": 1440,
+    "height": 960,
+    "source": "监考监控 · /admin/exams/:id/monitor",
+    "file": "08-4-10.png",
+    "pixelWidth": 1440,
+    "pixelHeight": 960
+  },
+  {
+    "id": "4:11",
+    "name": "补考管理 · /admin/retakes",
+    "width": 1440,
+    "height": 960,
+    "source": "补考管理 · /admin/retakes",
+    "file": "09-4-11.png",
+    "pixelWidth": 1440,
+    "pixelHeight": 960
+  },
+  {
+    "id": "4:12",
+    "name": "成绩报表 · /admin/scores",
+    "width": 1440,
+    "height": 1086,
+    "source": "成绩报表 · /admin/scores",
+    "file": "10-4-12.png",
+    "pixelWidth": 1440,
+    "pixelHeight": 1086
+  },
+  {
+    "id": "4:13",
+    "name": "成绩复核 · /admin/appeals",
+    "width": 1440,
+    "height": 960,
+    "source": "成绩复核 · /admin/appeals",
+    "file": "11-4-13.png",
+    "pixelWidth": 1440,
+    "pixelHeight": 960
+  },
+  {
+    "id": "4:14",
+    "name": "人工阅卷 · /admin/reviews",
+    "width": 1440,
+    "height": 960,
+    "source": "人工阅卷 · /admin/reviews",
+    "file": "12-4-14.png",
+    "pixelWidth": 1440,
+    "pixelHeight": 960
+  },
+  {
+    "id": "4:15",
+    "name": "练题端设置 · /admin/practice-settings",
+    "width": 1440,
+    "height": 960,
+    "source": "练题端设置 · /admin/practice-settings",
+    "file": "13-4-15.png",
+    "pixelWidth": 1440,
+    "pixelHeight": 960
+  },
+  {
+    "id": "4:16",
+    "name": "公告与轮播 · /admin/content",
+    "width": 1440,
+    "height": 960,
+    "source": "公告与轮播 · /admin/content",
+    "file": "14-4-16.png",
+    "pixelWidth": 1440,
+    "pixelHeight": 960
+  },
+  {
+    "id": "4:17",
+    "name": "首页配置 · /admin/home-config",
+    "width": 1440,
+    "height": 960,
+    "source": "首页配置 · /admin/home-config",
+    "file": "15-4-17.png",
+    "pixelWidth": 1440,
+    "pixelHeight": 960
+  },
+  {
+    "id": "4:18",
+    "name": "系统设置 · /admin/settings",
+    "width": 1440,
+    "height": 1044,
+    "source": "系统设置 · /admin/settings",
+    "file": "16-4-18.png",
+    "pixelWidth": 1440,
+    "pixelHeight": 1044
+  },
+  {
+    "id": "4:19",
+    "name": "菜单权限 · /admin/permissions",
+    "width": 1440,
+    "height": 960,
+    "source": "菜单权限 · /admin/permissions",
+    "file": "17-4-19.png",
+    "pixelWidth": 1440,
+    "pixelHeight": 960
+  },
+  {
+    "id": "4:20",
+    "name": "审计日志 · /admin/audit",
+    "width": 1440,
+    "height": 960,
+    "source": "审计日志 · /admin/audit",
+    "file": "18-4-20.png",
+    "pixelWidth": 1440,
+    "pixelHeight": 960
+  },
+  {
+    "id": "4:21",
+    "name": "登录日志 · /admin/login-logs",
+    "width": 1440,
+    "height": 960,
+    "source": "登录日志 · /admin/login-logs",
+    "file": "19-4-21.png",
+    "pixelWidth": 1440,
+    "pixelHeight": 960
+  },
+  {
+    "id": "4:25",
+    "name": "试卷管理 · /author/papers",
+    "width": 1440,
+    "height": 960,
+    "source": "试卷管理 · /author/papers",
+    "file": "23-4-25.png",
+    "pixelWidth": 1440,
+    "pixelHeight": 960
+  },
+  {
+    "id": "5:4943",
+    "name": "在线练题 · /practice/home",
+    "width": 390,
+    "height": 844,
+    "source": "practice-web/src/views/practice/PracticeHomePage.vue",
+    "file": "39-5-4943.png",
+    "pixelWidth": 390,
+    "pixelHeight": 844
+  }
+]

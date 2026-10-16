@@ -1,0 +1,93 @@
+@use './variables.scss' as *;
+@use './ui-tokens.scss';
+
+// Shared visual layer, scoped to real application components. No business data changes.
+:root {
+  --ui-accent: #{$category-blue};
+  --ui-accent-soft: #{$category-blue-soft};
+  --el-component-size: 36px;
+  --el-font-family: 'Noto Sans SC Variable', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+@each $tone, $color, $soft in (
+  ('blue', $category-blue, $category-blue-soft),
+  ('teal', $category-teal, $category-teal-soft),
+  ('violet', $category-violet, $category-violet-soft),
+  ('amber', $category-amber, $category-amber-soft)
+) {
+  [data-module-tone='#{$tone}'] { --ui-accent: #{$color}; --ui-accent-soft: #{$soft}; }
+  .stat-card.stat-card--#{$tone} {
+    background: $soft;
+    .stat-card__rule { background: $color; }
+    .stat-card__icon { color: $color; background: $bg-paper; }
+  }
+}
+
+.stat-card.stat-card {
+  min-height: 116px;
+  .el-card__body { padding: 16px 20px; }
+  .stat-card__value { font-size: 28px; line-height: 36px; }
+  .stat-card__label { font-size: 13px; font-weight: 500; }
+}
+.page-header .page-header__title {
+  line-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  &::before { content: ''; width: 4px; height: 20px; flex: 0 0 4px; border-radius: 4px; background: var(--ui-accent); }
+}
+.el-card.el-card > .el-card__header {
+  padding: 16px 20px;
+  min-height: 56px;
+  font-size: 15px;
+  line-height: 24px;
+}
+.el-button.el-button:not(.el-button--small):not(.is-link):not(.is-text) { min-height: 36px; font-size: 13px; }
+.el-input:not(.el-input--small) .el-input__wrapper,
+.el-select:not(.el-select--small) .el-select__wrapper { min-height: 36px; }
+.el-table.el-table .cell { line-height: 22px; }
+.el-table.el-table th.el-table__cell { background: $bg-page; font-size: 12px; font-weight: 600; letter-spacing: 0; }
+.el-tabs.el-tabs .el-tabs__item { font-size: 13px; }
+.el-tabs.el-tabs .el-tabs__active-bar { height: 3px; border-radius: 3px; }
+.el-dialog.el-dialog { border: 1px solid $border-color; }
+.el-dialog.el-dialog .el-dialog__header { background: $bg-page; }
+.el-dialog.el-dialog .el-dialog__title { font-size: 18px; font-weight: 600; }
+.el-dialog.el-dialog .el-dialog__body { padding: 20px; }
+.el-form-item.el-form-item { margin-bottom: 22px; }
+.el-tag.el-tag { font-weight: 500; }
+
+.dashboard .dashboard__columns, .dashboard .dashboard__stack, .dashboard .dashboard__analysis { gap: 20px; }
+.dashboard.dashboard .dashboard__todo-ic--violet { color: $category-violet; background: $category-violet-soft; }
+.dashboard.dashboard .dashboard__todo-ic--teal { color: $category-teal; background: $category-teal-soft; }
+.bank-card.bank-card { border-top: 3px solid $category-violet; }
+.bank-card.bank-card .bank-card__cat { --el-tag-bg-color: #{$category-violet-soft}; --el-tag-text-color: #{$category-violet}; --el-tag-border-color: transparent; }
+.bank-card.bank-card .bank-card__name { font-size: 17px; line-height: 26px; }
+.login .login__brand-inner::after {
+  content: '';
+  display: block;
+  width: min(100%, 300px);
+  height: 4px;
+  margin-top: 24px;
+  border-radius: 4px;
+  background: linear-gradient(to right, $category-blue 0 25%, $category-teal 25% 50%, $category-violet 50% 75%, $category-amber 75%);
+}
+
+// Every interactive element has a visible keyboard focus, including card navigation.
+:where(button, a, [tabindex], input, textarea, select):focus-visible {
+  outline: 2px solid $color-primary;
+  outline-offset: 2px;
+}
+@media (max-width: 1100px) {
+  .layout .layout__search { min-width: 160px; }
+  .layout .layout__content { padding: 20px; }
+  .dashboard .dashboard__analysis { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .layout .layout__aside:not(.is-collapsed) { width: 176px; }
+  .layout .layout__header { padding: 0 12px; gap: 8px; }
+  .layout .layout__search { min-width: 32px; width: 32px; justify-content: center; padding: 0; }
+  .layout .layout__search-ph, .layout .layout__kbd { display: none; }
+  .layout .layout__content { padding: 16px; }
+  .page-header .page-header__title { font-size: 20px; }
+  .el-dialog.el-dialog { width: min(var(--el-dialog-width, 90vw), calc(100vw - 24px)); }
+}

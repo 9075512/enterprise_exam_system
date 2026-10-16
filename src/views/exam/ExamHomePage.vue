@@ -74,17 +74,17 @@ const greeting = computed<string>(() => {
   return '晚上好';
 });
 
-type Tone = 'primary' | 'success' | 'warning' | 'error';
+type Tone = 'primary' | 'success' | 'warning' | 'error' | 'blue' | 'teal' | 'violet' | 'amber';
 
 const stats = computed<
   Array<{ key: string; label: string; value: number | string; unit: string; tone: Tone; icon: unknown }>
 >(() => {
   const s = summary.value?.stats;
   return [
-    { key: 'pending', label: '待考考试', value: s?.pending ?? 0, unit: '场', tone: 'primary', icon: AlarmClock },
+    { key: 'pending', label: '待考考试', value: s?.pending ?? 0, unit: '场', tone: 'blue', icon: AlarmClock },
     { key: 'ongoing', label: '进行中', value: s?.ongoing ?? 0, unit: '场', tone: 'warning', icon: Warning },
-    { key: 'submitted', label: '已交卷', value: s?.submitted ?? 0, unit: '场', tone: 'primary', icon: Document },
-    { key: 'avg', label: '平均分', value: s?.avgScore ?? 0, unit: '分', tone: 'primary', icon: TrendCharts },
+    { key: 'submitted', label: '已交卷', value: s?.submitted ?? 0, unit: '场', tone: 'teal', icon: Document },
+    { key: 'avg', label: '平均分', value: s?.avgScore ?? 0, unit: '分', tone: 'violet', icon: TrendCharts },
     {
       key: 'passRate',
       label: '及格率',

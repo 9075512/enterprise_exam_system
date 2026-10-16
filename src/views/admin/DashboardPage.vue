@@ -120,13 +120,12 @@ function resetFilters(): void {
   void loadDashboard();
 }
 
-// 统计卡：v3.1 方向 C 统一主色（分类色不外溢到统计卡，见 DESIGN-C §2.1），
-// 卡片自身无 color 字段，图标色由 .stat-card__icon 的 token 决定。
+// 固定分类色帮助识别业务指标；数字仍使用深色文字。
 const cards = [
-  { key: 'departments', label: '科室数', icon: OfficeBuilding },
-  { key: 'users', label: '用户数', icon: User },
-  { key: 'banks', label: '题库 / 题目', icon: Collection },
-  { key: 'papers', label: '试卷数', icon: Document },
+  { key: 'departments', label: '科室数', icon: OfficeBuilding, tone: 'blue' },
+  { key: 'users', label: '用户数', icon: User, tone: 'teal' },
+  { key: 'banks', label: '题库 / 题目', icon: Collection, tone: 'violet' },
+  { key: 'papers', label: '试卷数', icon: Document, tone: 'amber' },
 ] as const;
 
 function cardValue(key: (typeof cards)[number]['key']): string {
@@ -391,7 +390,7 @@ const trendOption = computed(() => {
         smooth: true,
         symbolSize: 6,
         lineStyle: { width: 2, type: 'dashed' },
-        itemStyle: { color: THEME.primaryLight },
+        itemStyle: { color: THEME.categoryTeal },
         data: trend.map((p) => p.avgScore),
       },
     ],
@@ -539,7 +538,7 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
 
       <el-row :gutter="16" class="dashboard__cards">
         <el-col v-for="card in cards" :key="card.key" :xs="12" :sm="12" :md="6">
-          <el-card class="stat-card" shadow="never">
+          <el-card class="stat-card" :class="`stat-card--${card.tone}`" shadow="never">
             <span class="stat-card__rule" aria-hidden="true" />
             <div class="stat-card__top">
               <el-icon class="stat-card__icon"><component :is="card.icon" /></el-icon>
@@ -555,7 +554,7 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
         <div class="dashboard__stack">
           <el-card v-loading="chartLoading" class="dashboard__chart-card" shadow="never">
             <template #header>
-              <span>考试场次趋势</span>
+              <span>参考人数对比</span>
               <span class="dashboard__chart-hint">按考试统计参考人数</span>
             </template>
             <EmptyState v-if="!dashboardData || dashboardData.examTrend.length === 0" text="暂无趋势数据" />
@@ -601,6 +600,80 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
           </div>
         </div>
         <div class="dashboard__stack">
+          <el-card v-loading="todoLoading" class="dashboard__chart-card" shadow="never">
+            <template #header>
+              <span>待办</span>
+              <span class="dashboard__chart-hint">全局实时</span>
+            </template>
+            <ul class="dashboard__todo">
+              <li class="dashboard__todo-item">
+                <el-icon class="dashboard__todo-ic dashboard__todo-ic--warn"><EditPen /></el-icon>
+                <div class="dashboard__todo-body">
+                  <div class="dashboard__todo-title">
+                    <template v-if="pendingReviewCount !== null">
+                      {{ pendingReviewCount }} 份主观题待阅卷
+                    </template>
+                    <template v-else>—</template>
+                  </div>
+                  <div class="dashboard__todo-sub">
+                    <template v-if="pendingReviewCount === null">待阅卷数据获取失败</template>
+                    <template v-else-if="pendingReviewCount === 0">暂无积压</template>
+                    <template v-else-if="pendingReviewOldestAt">
+                      最早提交 {{ formatDateTime(pendingReviewOldestAt) }}
+                    </template>
+                    <template v-else>—</template>
+                  </div>
+                </div>
+              </li>
+              <li class="dashboard__todo-item">
+                <el-icon class="dashboard__todo-ic dashboard__todo-ic--err"><Warning /></el-icon>
+                <div class="dashboard__todo-body">
+                  <div class="dashboard__todo-title">
+                    <template v-if="cheatAlertCount !== null">{{ cheatAlertCount }} 条切屏异常</template>
+                    <template v-else>—</template>
+                  </div>
+                  <div class="dashboard__todo-sub">
+                    <template v-if="alertLoading">正在加载切屏审查数据…</template>
+                    <template v-else-if="cheatAlertCount === null">切屏审查数据获取失败</template>
+                    <template v-else>{{ scopeLabel }} · 达阈值口径</template>
+                  </div>
+                </div>
+              </li>
+              <li class="dashboard__todo-item">
+                <el-icon class="dashboard__todo-ic dashboard__todo-ic--violet"><Flag /></el-icon>
+                <div class="dashboard__todo-body">
+                  <div class="dashboard__todo-title">
+                    <template v-if="pendingAppealCount !== null">
+                      {{ pendingAppealCount }} 份成绩复核申请
+                    </template>
+                    <template v-else>—</template>
+                  </div>
+                  <div class="dashboard__todo-sub">
+                    <template v-if="pendingAppealCount === null">复核申请数据获取失败</template>
+                    <template v-else-if="pendingAppealCount === 0">暂无待处理</template>
+                    <template v-else-if="pendingAppealOldestAt">
+                      最早申请于 {{ formatDateTime(pendingAppealOldestAt) }}
+                    </template>
+                    <template v-else>—</template>
+                  </div>
+                </div>
+              </li>
+              <li class="dashboard__todo-item">
+                <el-icon class="dashboard__todo-ic dashboard__todo-ic--teal"><Refresh /></el-icon>
+                <div class="dashboard__todo-body">
+                  <div class="dashboard__todo-title">
+                    <template v-if="pendingRetakeCount !== null">{{ pendingRetakeCount }} 条补考申请</template>
+                    <template v-else>—</template>
+                  </div>
+                  <div class="dashboard__todo-sub">
+                    <template v-if="pendingRetakeCount === null">补考申请数据获取失败</template>
+                    <template v-else>待审批</template>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </el-card>
+
           <el-card v-loading="passRateLoading" class="dashboard__chart-card" shadow="never">
             <template #header>
               <span>科室及格率</span>
@@ -654,79 +727,6 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
               text="暂无知识点归因数据（请先为题目维护知识点标签）"
             />
             <VChart v-else :option="tagOption" autoresize style="height: 300px" />
-          </el-card>
-          <el-card v-loading="todoLoading" class="dashboard__chart-card" shadow="never">
-            <template #header>
-              <span>待办</span>
-              <span class="dashboard__chart-hint">全局实时</span>
-            </template>
-            <ul class="dashboard__todo">
-              <li class="dashboard__todo-item">
-                <el-icon class="dashboard__todo-ic dashboard__todo-ic--warn"><EditPen /></el-icon>
-                <div class="dashboard__todo-body">
-                  <div class="dashboard__todo-title">
-                    <template v-if="pendingReviewCount !== null">
-                      {{ pendingReviewCount }} 份主观题待阅卷
-                    </template>
-                    <template v-else>—</template>
-                  </div>
-                  <div class="dashboard__todo-sub">
-                    <template v-if="pendingReviewCount === null">待阅卷数据获取失败</template>
-                    <template v-else-if="pendingReviewCount === 0">暂无积压</template>
-                    <template v-else-if="pendingReviewOldestAt">
-                      最早提交 {{ formatDateTime(pendingReviewOldestAt) }}
-                    </template>
-                    <template v-else>—</template>
-                  </div>
-                </div>
-              </li>
-              <li class="dashboard__todo-item">
-                <el-icon class="dashboard__todo-ic dashboard__todo-ic--err"><Warning /></el-icon>
-                <div class="dashboard__todo-body">
-                  <div class="dashboard__todo-title">
-                    <template v-if="cheatAlertCount !== null">{{ cheatAlertCount }} 条切屏异常</template>
-                    <template v-else>—</template>
-                  </div>
-                  <div class="dashboard__todo-sub">
-                    <template v-if="alertLoading">正在加载切屏审查数据…</template>
-                    <template v-else-if="cheatAlertCount === null">切屏审查数据获取失败</template>
-                    <template v-else>{{ scopeLabel }} · 达阈值口径</template>
-                  </div>
-                </div>
-              </li>
-              <li class="dashboard__todo-item">
-                <el-icon class="dashboard__todo-ic"><Flag /></el-icon>
-                <div class="dashboard__todo-body">
-                  <div class="dashboard__todo-title">
-                    <template v-if="pendingAppealCount !== null">
-                      {{ pendingAppealCount }} 份成绩复核申请
-                    </template>
-                    <template v-else>—</template>
-                  </div>
-                  <div class="dashboard__todo-sub">
-                    <template v-if="pendingAppealCount === null">复核申请数据获取失败</template>
-                    <template v-else-if="pendingAppealCount === 0">暂无待处理</template>
-                    <template v-else-if="pendingAppealOldestAt">
-                      最早申请于 {{ formatDateTime(pendingAppealOldestAt) }}
-                    </template>
-                    <template v-else>—</template>
-                  </div>
-                </div>
-              </li>
-              <li class="dashboard__todo-item">
-                <el-icon class="dashboard__todo-ic"><Refresh /></el-icon>
-                <div class="dashboard__todo-body">
-                  <div class="dashboard__todo-title">
-                    <template v-if="pendingRetakeCount !== null">{{ pendingRetakeCount }} 条补考申请</template>
-                    <template v-else>—</template>
-                  </div>
-                  <div class="dashboard__todo-sub">
-                    <template v-if="pendingRetakeCount === null">补考申请数据获取失败</template>
-                    <template v-else>待审批</template>
-                  </div>
-                </div>
-              </li>
-            </ul>
           </el-card>
           <el-card v-loading="alertLoading" class="dashboard__chart-card" shadow="never">
             <template #header>
@@ -1034,7 +1034,7 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
 
   &__value {
     margin-top: 8px;
-    font-size: 26px;
+    font-size: 28px;
     font-weight: 700;
     letter-spacing: -0.02em;
     line-height: 1.1;

@@ -1,0 +1,2 @@
+const fs=require('fs');const {h}=require('vue');const {renderToString}=require('vue/server-renderer');const icons=require('@element-plus/icons-vue');
+(async()=>{const result={};for(const n of ['OfficeBuilding','User','Collection','Document','DataAnalysis','Setting','Bell','EditPen','Reading','Timer','CircleCheck','Search','Lock','Grid','List','Monitor','Refresh','Warning','Calendar','Menu'])result[n]=await renderToString(h(icons[n]));fs.writeFileSync(__dirname+'/icons.json',JSON.stringify(result));})();

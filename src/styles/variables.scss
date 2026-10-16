@@ -47,11 +47,11 @@ $color-info-text: #175CD3; // 5.99:1 ✅
 $color-info-50: #EFF8FF;
 
 // 背景
-$bg-page: #F7F8FA;
+$bg-page: #F5F7FB;
 $bg-paper: #FFFFFF;
 
 // 文本（四档，对齐 DESIGN-C §2 的 text-1/2/3 + icon）
-$text-primary: #0D1220; // 18.7:1 ✅ = DESIGN-C --text-1
+$text-primary: #15223B; // 18.7:1 ✅ = DESIGN-C --text-1
 // 设计稿 text-2 档：表格正文 / 表单标签 / 次按钮字色。
 // 保真度审计 A9 发现：工程此前只有 primary/secondary/disabled 三档，
 // 凡设计稿用 text-2 处都落到了 text-3(#5A6474)，整体比设计稿「灰一档」。
@@ -61,7 +61,7 @@ $text-secondary: #5A6474; // 6.0:1 ✅ = DESIGN-C --text-3
 $text-disabled: #858F9E; // 3.27:1 —— 图形档，禁止承载正文 = DESIGN-C --icon
 
 // 边框 / 圆角 / 阴影
-$border-color: #E9ECF1; // 发丝线：行分隔 / 卡片边
+$border-color: #E3E8F0; // 发丝线：行分隔 / 卡片边
 // 强发丝线：输入框边 / 表头分隔线（DESIGN-C §2.1 的 --line-strong）。
 // 与 $border-color 只差一档明度，用于「需要比行线更明确但仍不喧宾夺主」的分界。
 $line-strong: #D9DEE7;
@@ -101,12 +101,12 @@ $color-primary-border: #BFD4FF;
 $gradient-brand: linear-gradient(135deg, #0b5bff 0%, #0949cc 100%);
 
 // 深色侧栏配色（石墨：#0B0F19 比纯黑柔和、比藏蓝中性）
-$sidebar-bg: #0b0f19;
-$sidebar-text: #9aa5b8;
+$sidebar-bg: #15223B;
+$sidebar-text: #BBC7DC;
 $sidebar-text-hover: #f4f7fb;
 $sidebar-text-active: #ffffff;
 $sidebar-hover-bg: rgba(255, 255, 255, 0.05);
-$sidebar-active-bg: rgba($color-primary, 0.16);
+$sidebar-active-bg: #25436D;
 $sidebar-border: rgba(255, 255, 255, 0.06);
 $sidebar-scrollbar: rgba(255, 255, 255, 0.16);
 // 侧栏宽度（展开 / 折叠）
@@ -121,7 +121,17 @@ $transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 $transition-base: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
 // 顶栏（DESIGN-C §2.2：52px，与侧栏品牌区等高）
-$header-height: 52px;
+$header-height: 56px;
 
 // 页面内距（内容区四周留白，DESIGN-C §2.2 的 --pad-page）
-$page-padding: 22px;
+$page-padding: 24px;
+
+// UI 2026.10：业务分类色；不替代成功、警告、错误状态。
+$category-blue: #356BFA;
+$category-blue-soft: #EFF4FF;
+$category-teal: #138A8A;
+$category-teal-soft: #EAF8F6;
+$category-violet: #7A5AE8;
+$category-violet-soft: #F3EFFF;
+$category-amber: #B77915;
+$category-amber-soft: #FFF6E7;
