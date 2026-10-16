@@ -496,7 +496,7 @@ function formatAt(v: string | null): string {
             <span class="home-config-page__hint"> · {{ formatAt(row.updatedAt) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column class-name="table-actions-cell" label="操作" width="160" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="editRow(row)">编辑</el-button>
             <el-button link type="danger" :loading="resetting" @click="handleReset(row as HomeDeptConfig)">
@@ -565,6 +565,7 @@ function formatAt(v: string | null): string {
 
   &__row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
@@ -603,6 +604,7 @@ function formatAt(v: string | null): string {
 
   &__input {
     width: 260px;
+    max-width: 100%;
     flex: none;
   }
 

@@ -77,6 +77,7 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     StatCard: typeof import('./components/common/StatCard.vue')['default']
     StatusTag: typeof import('./components/common/StatusTag.vue')['default']
+    TableActions: typeof import('./components/common/TableActions.vue')['default']
     TableDensityToggle: typeof import('./components/common/TableDensityToggle.vue')['default']
   }
   export interface ComponentCustomProperties {

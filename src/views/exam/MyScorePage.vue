@@ -335,7 +335,7 @@ async function submitAppeal(): Promise<void> {
             <span v-else class="my-score__muted">未申请</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column class-name="table-actions-cell" label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="goDetail(row as ExamRecord)">成绩明细</el-button>
             <el-button v-if="canAppeal(row as ExamRecord)" link @click="openAppeal(row as ExamRecord)">

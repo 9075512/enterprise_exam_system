@@ -416,6 +416,7 @@ async function submitPassword(): Promise<void> {
 .layout {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   min-width: 0;
   overflow: hidden;
 
@@ -658,6 +659,7 @@ async function submitPassword(): Promise<void> {
   &__main {
     flex: 1;
     min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     background: $bg-page;
@@ -850,10 +852,16 @@ async function submitPassword(): Promise<void> {
     min-width: 0;
     min-height: 0;
     overflow: auto;
+    scrollbar-gutter: stable;
     // 四边同距（DESIGN-C §2.2 --pad-page）：顶栏内距与之对齐，
     // 面包屑与页面标题因此落在同一条竖轴上。
     padding: $page-padding;
     background: $bg-page;
+
+    > :deep(*) {
+      min-width: 0;
+      max-width: 100%;
+    }
   }
 }
 </style>

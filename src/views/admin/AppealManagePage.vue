@@ -240,7 +240,7 @@ async function submitReject(): Promise<void> {
         <el-table-column prop="reason" label="申请说明 / 复核意见" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">{{ row.reviewComment || row.reason || '—' }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column class-name="table-actions-cell" label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <template v-if="row.status === 'pending'">
               <el-button type="success" link @click="openApprove(row as ScoreAppeal)">通过</el-button>

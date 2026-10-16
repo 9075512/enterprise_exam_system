@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TableActions from '@/components/common/TableActions.vue';
 /**
  * 科室管理（W3-T2，管理员）。
  *
@@ -426,11 +427,15 @@ async function handleDelete(department: Department): Promise<void> {
               <span class="department-page__muted">{{ formatDateTime(row.createdAt) }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="190" align="right" fixed="right">
+          <el-table-column class-name="table-actions-cell" label="操作" width="210" align="right" fixed="right">
             <template #default="{ row }">
-              <el-button type="primary" link @click="openCreateChild(row as Department)">新增下级</el-button>
-              <el-button type="primary" link @click="openEdit(row as Department)">编辑</el-button>
-              <el-button type="danger" link @click="handleDelete(row as Department)">删除</el-button>
+              <TableActions>
+                <el-button type="primary" link @click="openCreateChild(row as Department)">新增下级</el-button>
+                <el-button type="primary" link @click="openEdit(row as Department)">编辑</el-button>
+                <template #more>
+                  <el-dropdown-item class="is-danger" @click="handleDelete(row as Department)">删除</el-dropdown-item>
+                </template>
+              </TableActions>
             </template>
           </el-table-column>
           <template #empty>
@@ -690,6 +695,10 @@ async function handleDelete(department: Department): Promise<void> {
 @media (max-width: 900px) {
   .department-page__wrap {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .department-page__tree {
+    max-height: none;
   }
 }
 </style>

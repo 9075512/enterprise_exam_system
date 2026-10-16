@@ -613,6 +613,7 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
             <!-- 数据缺口：DashboardReport 无「按科室聚合」段，此处由最近 ≤5 场 examReport().departments 前端加权聚合 -->
             <PagedOverview v-if="departmentPassRates.length > 0" :items="departmentPassRates" title="科室及格率">
               <template #default="{ items }">
+                <div class="dashboard__dept-scroll" tabindex="0" role="region" aria-label="科室及格率表格">
                 <table class="dashboard__dept">
                   <thead>
                     <tr>
@@ -644,6 +645,7 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
                     </tr>
                   </tbody>
                 </table>
+                </div>
               </template>
             </PagedOverview>
             <EmptyState v-else text="—（暂无科室成绩数据：最近 5 场报表为空或请求失败）" />
@@ -884,6 +886,11 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
     text-align: right;
     white-space: nowrap;
   }
+}
+
+.dashboard__dept-scroll {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .dashboard__rate {

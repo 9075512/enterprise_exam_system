@@ -19,6 +19,7 @@ import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
+import TableActions from '@/components/common/TableActions.vue';
 import UserImportDialog from '@/views/admin/UserImportDialog.vue';
 import type { Role, User } from '@/types';
 
@@ -348,18 +349,20 @@ async function handleDelete(user: User): Promise<void> {
         <el-table-column label="创建时间" width="170">
           <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="380" fixed="right">
+        <el-table-column class-name="table-actions-cell" label="操作" width="170" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="openEdit(row as User)">编辑</el-button>
-            <el-button link @click="handleResetPassword(row as User)">重置密码</el-button>
-            <el-button link @click="handleForceLogout(row as User)">强制下线</el-button>
-            <el-button v-if="row.twoFactorEnabled" link @click="handleResetTwoFactor(row as User)">
-              重置2FA
-            </el-button>
-            <el-button link @click="handleToggleStatus(row as User)">
-              {{ row.status === 'active' ? '停用' : '启用' }}
-            </el-button>
-            <el-button type="danger" link @click="handleDelete(row as User)">删除</el-button>
+            <TableActions>
+              <el-button type="primary" link @click="openEdit(row as User)">编辑</el-button>
+              <el-button link @click="handleToggleStatus(row as User)">
+                {{ row.status === 'active' ? '停用' : '启用' }}
+              </el-button>
+              <template #more>
+                <el-dropdown-item @click="handleResetPassword(row as User)">重置密码</el-dropdown-item>
+                <el-dropdown-item @click="handleForceLogout(row as User)">强制下线</el-dropdown-item>
+                <el-dropdown-item v-if="row.twoFactorEnabled" @click="handleResetTwoFactor(row as User)">重置2FA</el-dropdown-item>
+                <el-dropdown-item divided class="is-danger" @click="handleDelete(row as User)">删除</el-dropdown-item>
+              </template>
+            </TableActions>
           </template>
         </el-table-column>
         <template #empty>
@@ -450,8 +453,13 @@ async function handleDelete(user: User): Promise<void> {
 
 .user-page__filter-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+
+  .el-button + .el-button {
+    margin-left: 0;
+  }
 }
 
 .user-page__full {

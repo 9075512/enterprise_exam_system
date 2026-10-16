@@ -631,7 +631,7 @@ onMounted(() => {
               <template #default="{ row }">{{ row.readCount ?? 0 }}</template>
             </el-table-column>
             <el-table-column prop="createdByName" label="创建人" width="110" show-overflow-tooltip />
-            <el-table-column label="操作" width="140" fixed="right">
+            <el-table-column class-name="table-actions-cell" label="操作" width="140" fixed="right">
               <template #default="{ row }">
                 <el-button type="primary" link @click="openAnnEdit(row as Announcement)">编辑</el-button>
                 <el-button type="danger" link @click="removeAnnouncement(row as Announcement)">删除</el-button>
@@ -734,7 +734,7 @@ onMounted(() => {
             <el-table-column label="点击" width="80" align="right">
               <template #default="{ row }">{{ row.clickCount ?? 0 }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="140" fixed="right">
+            <el-table-column class-name="table-actions-cell" label="操作" width="140" fixed="right">
               <template #default="{ row }">
                 <el-button type="primary" link @click="openBnEdit(row as Banner)">编辑</el-button>
                 <el-button type="danger" link @click="removeBanner(row as Banner)">删除</el-button>

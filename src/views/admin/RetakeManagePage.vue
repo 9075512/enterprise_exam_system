@@ -194,7 +194,7 @@ async function handleReject(row: Retake): Promise<void> {
         <el-table-column prop="reason" label="申请说明 / 驳回原因" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">{{ row.reason || '—' }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column class-name="table-actions-cell" label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <template v-if="row.status === 'pending'">
               <el-button type="success" link @click="handleApprove(row as Retake)">通过</el-button>

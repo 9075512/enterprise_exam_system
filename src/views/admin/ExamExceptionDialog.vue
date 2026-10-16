@@ -186,7 +186,7 @@ async function handleRemove(row: ExamException): Promise<void> {
       <el-table-column prop="note" label="备注" min-width="120" show-overflow-tooltip>
         <template #default="{ row }">{{ row.note || '—' }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="120" fixed="right">
+      <el-table-column class-name="table-actions-cell" label="操作" width="120" fixed="right">
         <template #default="{ row }">
           <el-button type="primary" link @click="startEdit(row as ExamException)">编辑</el-button>
           <el-button type="danger" link @click="handleRemove(row as ExamException)">删除</el-button>

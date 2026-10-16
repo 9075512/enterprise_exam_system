@@ -400,7 +400,7 @@ function describeAgent(ua: string): string {
           <el-table-column label="最后活跃" width="170">
             <template #default="{ row }">{{ formatDateTime(row.lastSeenAt) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="90">
+          <el-table-column class-name="table-actions-cell" label="操作" width="90">
             <template #default="{ row }">
               <el-button v-if="!row.current" type="danger" link @click="revokeOne(row as LoginSession)">
                 下线

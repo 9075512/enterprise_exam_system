@@ -598,7 +598,7 @@ onMounted(() => {
             <el-table-column label="创建时间" width="160">
               <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="120" fixed="right">
+            <el-table-column class-name="table-actions-cell" label="操作" width="120" fixed="right">
               <template #default="{ row }">
                 <el-button type="primary" link @click="openEditQuestion(row as Question)">
                   {{ isIncomplete(row as Question) ? '补齐' : '编辑' }}
@@ -843,7 +843,7 @@ onMounted(() => {
 
 .bank-detail__extras {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
   gap: 16px;
   margin-top: 16px;
 }

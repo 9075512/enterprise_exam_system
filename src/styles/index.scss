@@ -234,6 +234,8 @@ body {
 // ⚠️ 双写类名 + 保留 `td/th.el-table__cell` —— EP 的 `.el-table--default` 与
 //    `.el-table` 都是 (0,1,0)，字号/边框只在同优先级下被 EP 的注入顺序吃掉（审计 B3/B5）。
 .el-table.el-table {
+  min-width: 0;
+  max-width: 100%;
   --el-table-border-color: #{$border-color};
   --el-table-header-bg-color: #{$color-table-head};
   --el-table-header-text-color: #{$text-secondary};
@@ -250,6 +252,35 @@ body {
   th.el-table__cell {
     padding: var(--table-cell-padding-y, 7px) 0;
   }
+}
+
+// 操作列不换行；使用列类名限制作用域，正文列仍可正常换行。
+.el-table .table-actions-cell > .cell,
+.table-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+  overflow-wrap: normal;
+
+  .el-button.is-link {
+    flex: none;
+    margin: 0;
+    padding: 2px 0;
+  }
+
+  .el-dropdown {
+    flex: none;
+    line-height: inherit;
+  }
+}
+
+.el-table .table-actions-cell.is-right > .cell {
+  justify-content: flex-end;
+}
+
+.table-actions-menu .is-danger {
+  color: $color-error-text;
 }
 
 // ---------- 表格密度（规范 §8.3 / §9.2） ----------

@@ -221,6 +221,10 @@ async function handleSave(): Promise<void> {
     grid-template-columns: 236px minmax(0, 1fr);
     gap: 14px;
     align-items: start;
+
+    @media (max-width: 1100px) {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
 
   &__aside {

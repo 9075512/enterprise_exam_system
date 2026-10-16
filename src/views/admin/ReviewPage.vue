@@ -1197,5 +1197,9 @@ async function submitAndAdvance(): Promise<void> {
   .review-page__side {
     position: static;
   }
+
+  .review-page__queue-body {
+    max-height: none;
+  }
 }
 </style>

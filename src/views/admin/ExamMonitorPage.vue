@@ -529,7 +529,7 @@ function goBack(): void {
               <span v-else class="monitor__muted">—</span>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="180" fixed="right">
+          <el-table-column class-name="table-actions-cell" label="操作" width="180" fixed="right">
             <template #default="{ row }">
               <template v-if="(row as ExamMonitorRow).status === 'in_progress'">
                 <el-button type="primary" link :icon="Timer" @click="handleExtend(row as ExamMonitorRow)">

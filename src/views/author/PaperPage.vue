@@ -6,7 +6,8 @@
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Plus, Search, Refresh, ArrowDown } from '@element-plus/icons-vue';
+import { Plus, Search, Refresh } from '@element-plus/icons-vue';
+import TableActions from '@/components/common/TableActions.vue';
 import * as papersApi from '@/api/papers';
 import * as examsApi from '@/api/exams';
 import { useRequest } from '@/composables/useRequest';
@@ -239,34 +240,18 @@ async function handleDelete(paper: Paper): Promise<void> {
         <el-table-column label="创建时间" width="170">
           <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="330" fixed="right">
+        <el-table-column class-name="table-actions-cell" label="操作" width="170" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="goPreview(row as Paper)">预览</el-button>
-            <el-button link @click="goEdit(row as Paper)">编辑</el-button>
-            <el-button
-              link
-              type="primary"
-              :loading="cloningId === (row as Paper).id"
-              @click="handleClone(row as Paper)"
-            >
-              克隆
-            </el-button>
-            <el-dropdown
-              trigger="click"
-              :disabled="exportingId === (row as Paper).id"
-              @command="(cmd: string) => handleExportPdf(row as Paper, cmd === 'answer')"
-            >
-              <el-button link type="primary">
-                导出 PDF<el-icon class="paper-page__caret"><ArrowDown /></el-icon>
-              </el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="student">考生版</el-dropdown-item>
-                  <el-dropdown-item command="answer">答案版（含答案与解析）</el-dropdown-item>
-                </el-dropdown-menu>
+            <TableActions :loading="cloningId === row.id || exportingId === row.id">
+              <el-button type="primary" link @click="goPreview(row as Paper)">预览</el-button>
+              <el-button link @click="goEdit(row as Paper)">编辑</el-button>
+              <template #more>
+                <el-dropdown-item :disabled="cloningId === row.id" @click="handleClone(row as Paper)">克隆</el-dropdown-item>
+                <el-dropdown-item :disabled="exportingId === row.id" @click="handleExportPdf(row as Paper, false)">导出 PDF（考生版）</el-dropdown-item>
+                <el-dropdown-item :disabled="exportingId === row.id" @click="handleExportPdf(row as Paper, true)">导出 PDF（答案与解析）</el-dropdown-item>
+                <el-dropdown-item divided class="is-danger" @click="handleDelete(row as Paper)">删除</el-dropdown-item>
               </template>
-            </el-dropdown>
-            <el-button type="danger" link @click="handleDelete(row as Paper)">删除</el-button>
+            </TableActions>
           </template>
         </el-table-column>
         <template #empty>
@@ -342,11 +327,6 @@ async function handleDelete(paper: Paper): Promise<void> {
   margin: 0 4px 4px 0;
 }
 
-.paper-page__caret {
-  margin-left: 2px;
-  font-size: 12px;
-}
-
 .paper-page__filter-keyword {
   width: 260px;
 }
@@ -393,7 +373,7 @@ async function handleDelete(paper: Paper): Promise<void> {
     padding: 0;
     list-style: none;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
     column-gap: 24px;
   }
 

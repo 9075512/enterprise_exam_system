@@ -69,7 +69,7 @@
 .dashboard.dashboard .dashboard__filters > .el-card__body { padding: 13px 16px; }
 .dashboard.dashboard .dashboard__filter-label { font-size: 14px; color: $text-body; }
 .dashboard.dashboard .dashboard__filter-select { width: 192px; }
-.dashboard.dashboard .dashboard__filter-row .el-date-editor { flex: 1 1 320px; min-width: 240px; }
+.dashboard.dashboard .dashboard__filter-row .el-date-editor { flex: 1 1 320px; min-width: min(240px, 100%); max-width: 100%; }
 .dashboard.dashboard .dashboard__filter-row .el-button + .el-button { margin-left: 0; }
 .dashboard.dashboard .dashboard__chart-card > .el-card__header { min-height: 48px; padding: 11px 16px; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .dashboard.dashboard .dashboard__chart-card > .el-card__body { padding: 16px; }

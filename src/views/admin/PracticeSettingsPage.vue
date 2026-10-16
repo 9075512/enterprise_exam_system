@@ -803,6 +803,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
 
   &__bulk {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
     margin-bottom: 12px;
@@ -823,14 +824,33 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
 
   &__control {
     width: 100%;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
+
+    :deep(.el-radio-group),
+    :deep(.el-radio) {
+      max-width: 100%;
+    }
+
+    :deep(.el-radio) {
+      height: auto;
+      min-height: 32px;
+      margin-right: 0;
+      white-space: normal;
+    }
+
+    :deep(.el-radio__label) {
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
   }
 
   &__num {
     width: 200px;
+    max-width: 100%;
   }
 
   &__select {
@@ -847,6 +867,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
 
   &__inline {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
   }
@@ -907,6 +928,8 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
 
   &__row-ind {
     flex: 0 0 auto;
+    max-width: 100%;
+    white-space: normal;
     padding-top: 1px;
     font-size: 12.5px;
     color: $text-secondary;

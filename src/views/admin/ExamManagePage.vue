@@ -9,7 +9,8 @@
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { ArrowDown, Plus, Search, Refresh, Monitor } from '@element-plus/icons-vue';
+import { Plus, Search, Refresh, Monitor } from '@element-plus/icons-vue';
+import TableActions from '@/components/common/TableActions.vue';
 import * as departmentsApi from '@/api/departments';
 import * as examsApi from '@/api/exams';
 import * as papersApi from '@/api/papers';
@@ -204,25 +205,19 @@ async function handleDelete(exam: Exam): Promise<void> {
             <StatusTag :status="getExamStatus(row as Exam)" />
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="300" fixed="right">
+        <el-table-column class-name="table-actions-cell" label="操作" width="190" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link :icon="Monitor" @click="openMonitor(row as Exam)">监控</el-button>
-            <!-- 考务队列直达：补考 / 复核 / 阅卷，均携带本场考试的 examId（v1.9④） -->
-            <el-dropdown class="exam-page__queue" trigger="click" @command="(cmd: unknown) => openExamQueue(row as Exam, cmd)">
-              <el-button link>
-                考务<el-icon class="exam-page__queue-arrow"><ArrowDown /></el-icon>
-              </el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="retakes">补考管理</el-dropdown-item>
-                  <el-dropdown-item command="appeals">成绩复核</el-dropdown-item>
-                  <el-dropdown-item command="reviews">人工阅卷</el-dropdown-item>
-                </el-dropdown-menu>
+            <TableActions>
+              <el-button type="primary" link :icon="Monitor" @click="openMonitor(row as Exam)">监控</el-button>
+              <el-button link @click="openEdit(row as Exam)">编辑</el-button>
+              <template #more>
+                <el-dropdown-item @click="openExceptions(row as Exam)">特殊安排</el-dropdown-item>
+                <el-dropdown-item @click="openExamQueue(row as Exam, 'retakes')">补考管理</el-dropdown-item>
+                <el-dropdown-item @click="openExamQueue(row as Exam, 'appeals')">成绩复核</el-dropdown-item>
+                <el-dropdown-item @click="openExamQueue(row as Exam, 'reviews')">人工阅卷</el-dropdown-item>
+                <el-dropdown-item divided class="is-danger" @click="handleDelete(row as Exam)">删除</el-dropdown-item>
               </template>
-            </el-dropdown>
-            <el-button link @click="openEdit(row as Exam)">编辑</el-button>
-            <el-button link @click="openExceptions(row as Exam)">特殊安排</el-button>
-            <el-button type="danger" link @click="handleDelete(row as Exam)">删除</el-button>
+            </TableActions>
           </template>
         </el-table-column>
         <template #empty>
@@ -270,14 +265,4 @@ async function handleDelete(exam: Exam): Promise<void> {
   gap: 8px;
 }
 
-/* 「考务」下拉：与相邻 link 按钮保持同一行内间距 */
-.exam-page__queue {
-  margin: 0 12px 0 0;
-  vertical-align: middle;
-}
-
-.exam-page__queue-arrow {
-  margin-left: 2px;
-  font-size: 12px;
-}
 </style>
