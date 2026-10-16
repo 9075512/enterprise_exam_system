@@ -104,6 +104,7 @@ jobs:
       DB_NAME: enterprise_exam_system_test
       DB_NAME_TEST: enterprise_exam_system_test
       JWT_SECRET: github-actions-isolated-test-secret-not-for-deployment
+      PDF_FONT_PATH: /usr/share/fonts/truetype/arphic-gbsn00lp/gbsn00lp.ttf
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -113,6 +114,11 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: server/package-lock.json
+      - name: 安装 PDF 导出测试所需中文字体
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-arphic-gbsn00lp
+          test -f "$PDF_FONT_PATH"
       - run: npm ci
       - run: npm test
       - run: npm run build
