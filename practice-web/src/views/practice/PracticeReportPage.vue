@@ -14,6 +14,8 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
+import PracticeLoading from '@/components/common/PracticeLoading.vue';
+import PagedOverview from '@/components/common/PagedOverview.vue';
 import PracticeTrendChart from './components/PracticeTrendChart.vue';
 import * as practiceApi from '@/api/practice';
 import { usePracticeAuthStore } from '@/stores/practiceAuth';
@@ -93,11 +95,11 @@ async function load(): Promise<void> {
 
 /** 切换趋势区间 */
 async function switchDays(days: 7 | 30): Promise<void> {
-  if (trendDays.value === days) return;
-  trendDays.value = days;
+  if (trendDays.value === days || trendLoading.value) return;
   trendLoading.value = true;
   try {
     trend.value = await practiceApi.reportTrend(days);
+    trendDays.value = days;
   } catch {
     /* 提示已统一 */
   } finally {
@@ -125,10 +127,7 @@ onMounted(load);
     </template>
 
     <div class="rpt">
-      <div v-if="loading" class="rpt__skeleton">
-        <el-skeleton :rows="3" animated />
-        <el-skeleton :rows="4" animated />
-      </div>
+      <PracticeLoading v-if="loading" :loading="loading" :rows="6" caption="正在加载学习报告…" />
 
       <template v-else>
         <!-- 总览 -->
@@ -186,6 +185,7 @@ onMounted(load);
             <button
               type="button"
               class="rpt__switch-btn"
+              :disabled="trendLoading"
               :class="{ 'is-active': trendDays === 7 }"
               @click="switchDays(7)"
             >
@@ -194,6 +194,7 @@ onMounted(load);
             <button
               type="button"
               class="rpt__switch-btn"
+              :disabled="trendLoading"
               :class="{ 'is-active': trendDays === 30 }"
               @click="switchDays(30)"
             >
@@ -201,7 +202,8 @@ onMounted(load);
             </button>
           </span>
         </div>
-        <div class="rpt__card" :class="{ 'is-loading': trendLoading }">
+        <div class="rpt__card" :aria-busy="trendLoading">
+          <PracticeLoading :loading="trendLoading" compact caption="正在更新趋势…" />
           <PracticeTrendChart :points="trend" />
         </div>
 
@@ -209,46 +211,54 @@ onMounted(load);
         <div class="rpt__section">科目掌握度</div>
         <div class="rpt__card">
           <p v-if="subjects.length === 0" class="rpt__empty">还没有作答记录，先去练几道题吧</p>
-          <div v-for="item in subjects" :key="item.subject" class="rpt__subject">
-            <div class="rpt__subject-top">
-              <span class="rpt__subject-name">{{ item.subject }}</span>
-              <span v-if="item.weak" class="rpt__weak">薄弱</span>
-              <span class="rpt__subject-acc" :class="accTone(item.accuracy)">{{ item.accuracy }}%</span>
-            </div>
-            <div class="rpt__bar" role="img" :aria-label="`正确率 ${item.accuracy}%`">
-              <span
-                class="rpt__bar-fill"
-                :class="{ 'is-weak': item.weak }"
-                :style="{ width: `${item.accuracy}%` }"
-              />
-            </div>
-            <p class="rpt__subject-meta">已练 {{ item.doneCount }} 题 · 答对 {{ item.correctCount }} 题</p>
-          </div>
+          <PagedOverview :items="subjects" title="科目掌握度">
+            <template #default="{ items }">
+              <div v-for="item in items" :key="item.subject" class="rpt__subject">
+                <div class="rpt__subject-top">
+                  <span class="rpt__subject-name">{{ item.subject }}</span>
+                  <span v-if="item.weak" class="rpt__weak">薄弱</span>
+                  <span class="rpt__subject-acc" :class="accTone(item.accuracy)">{{ item.accuracy }}%</span>
+                </div>
+                <div class="rpt__bar" role="img" :aria-label="`正确率 ${item.accuracy}%`">
+                  <span
+                    class="rpt__bar-fill"
+                    :class="{ 'is-weak': item.weak }"
+                    :style="{ width: `${item.accuracy}%` }"
+                  />
+                </div>
+                <p class="rpt__subject-meta">已练 {{ item.doneCount }} 题 · 答对 {{ item.correctCount }} 题</p>
+              </div>
+            </template>
+          </PagedOverview>
         </div>
 
         <!-- 题库概览 -->
         <div class="rpt__section">题库进度</div>
         <div class="rpt__card">
           <p v-if="banks.length === 0" class="rpt__empty">暂无可练习的题库</p>
-          <button
-            v-for="item in banks"
-            :key="item.bankId"
-            type="button"
-            class="rpt__bank"
-            @click="goBank(item.bankId)"
-          >
-            <div class="rpt__bank-top">
-              <span class="rpt__bank-name">{{ item.bankName }}</span>
-              <span class="rpt__bank-acc">正确率 {{ item.accuracy }}%</span>
-            </div>
-            <div class="rpt__bar">
-              <span class="rpt__bar-fill" :style="{ width: `${bankPercent(item)}%` }" />
-            </div>
-            <p class="rpt__bank-meta">
-              已练 {{ item.doneCount }} / {{ item.totalCount }} 题
-              <template v-if="item.doneCount === 0"> · 尚未开始</template>
-            </p>
-          </button>
+          <PagedOverview :items="banks" title="题库进度">
+            <template #default="{ items }">
+              <button
+                v-for="item in items"
+                :key="item.bankId"
+                type="button"
+                class="rpt__bank"
+                @click="goBank(item.bankId)"
+              >
+                <div class="rpt__bank-top">
+                  <span class="rpt__bank-name">{{ item.bankName }}</span>
+                  <span class="rpt__bank-acc">正确率 {{ item.accuracy }}%</span>
+                </div>
+                <div class="rpt__bar">
+                  <span class="rpt__bar-fill" :style="{ width: `${bankPercent(item)}%` }" />
+                </div>
+                <p class="rpt__bank-meta">
+                  已练 {{ item.doneCount }} / {{ item.totalCount }} 题
+                  <template v-if="item.doneCount === 0"> · 尚未开始</template>
+                </p>
+              </button>
+            </template>
+          </PagedOverview>
         </div>
 
         <p class="rpt__tip">统计口径与考试一致（每题以首次作答为准）；练题数据独立保存，不影响考试成绩。</p>

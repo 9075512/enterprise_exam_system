@@ -147,14 +147,13 @@ export function buildPdfBuffer<T>(input: PdfBuildInput<T>): Promise<Buffer> {
     input.rows.forEach((row, rowIndex) => {
       // 计算本行各单元格换行后的高度
       let maxHeight = MIN_ROW_HEIGHT;
-      const cellHeights = input.columns.map((col, i) => {
+      input.columns.forEach((col, i) => {
         const text = cellText(col, row);
         const h =
           text === ''
             ? MIN_ROW_HEIGHT
             : doc.heightOfString(text, { width: colWidths[i] - CELL_PADDING_X * 2 }) + CELL_PADDING_Y * 2;
         if (h > maxHeight) maxHeight = h;
-        return h;
       });
 
       ensureSpace(maxHeight);

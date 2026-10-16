@@ -65,8 +65,11 @@ const departmentNameMap = computed<Record<string, string>>(() =>
 );
 
 const selectedExamId = ref('');
-const report = ref<Report | null>(null);
-const reportLoading = ref(false);
+const { data: report, loading: reportLoading } = useRequest<Report | null>(
+  () => selectedExamId.value ? reportsApi.examReport(selectedExamId.value) : Promise.resolve(null),
+  [selectedExamId],
+  { immediate: false, keepPreviousData: false },
+);
 
 /**
  * 首屏默认选中「最近一场考试」（按开始时间倒序），对齐设计稿 scores.html
@@ -108,61 +111,26 @@ const {
   pageSize,
   total,
   loading: recordsLoading,
-  load: loadRecords,
   onPageChange,
   onSizeChange,
   reset: resetRecords,
+  clear: clearRecords,
 } = usePagination<ExamRecord>(
   (p, ps) => recordsApi.listByExam({ examId: selectedExamId.value, page: p, pageSize: ps }),
   settingsStore.settings.defaultPageSize,
 );
 
-/* ------------------------------ 报表加载 ------------------------------ */
-async function loadReport(): Promise<void> {
-  if (!selectedExamId.value) {
-    report.value = null;
-    return;
-  }
-  reportLoading.value = true;
-  try {
-    report.value = await reportsApi.examReport(selectedExamId.value);
-  } catch {
-    report.value = null;
-  } finally {
-    reportLoading.value = false;
-  }
-}
-
 /* ------------------------------ 切屏审查 ------------------------------ */
-const cheatList = ref<ExamRecord[]>([]);
-const cheatLoading = ref(false);
-
-async function loadCheat(): Promise<void> {
-  if (!selectedExamId.value) {
-    cheatList.value = [];
-    return;
-  }
-  cheatLoading.value = true;
-  try {
-    cheatList.value = await recordsApi.listCheatByExam(selectedExamId.value);
-  } catch {
-    cheatList.value = [];
-  } finally {
-    cheatLoading.value = false;
-  }
-}
+const { data: cheatRecords, loading: cheatLoading } = useRequest(
+  () => selectedExamId.value ? recordsApi.listCheatByExam(selectedExamId.value) : Promise.resolve([]),
+  [selectedExamId],
+  { immediate: false, keepPreviousData: false },
+);
+const cheatList = computed<ExamRecord[]>(() => cheatRecords.value ?? []);
 
 watch(selectedExamId, (examId) => {
-  if (!examId) {
-    report.value = null;
-    records.value = [];
-    total.value = 0;
-    cheatList.value = [];
-    return;
-  }
-  void loadReport();
-  resetRecords();
-  void loadCheat();
+  clearRecords();
+  if (examId) resetRecords();
 });
 
 /* ------------------------------ 图表 option ------------------------------ */
@@ -552,7 +520,7 @@ const statItems = computed(() => {
   /** 顶部统计卡（设计稿 scores.html 的 .grid.g5：五卡自动换行） */
   &__stats {
     display: grid;
-    grid-template-columns: repeat(5, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
     gap: 14px;
     margin-bottom: 16px;
   }
@@ -781,19 +749,10 @@ const statItems = computed(() => {
 }
 
 @media (max-width: 1280px) {
-  .report-page__stats {
-    grid-template-columns: repeat(3, minmax(150px, 1fr));
-  }
-
   // 三联卡窄屏折成单列
   .report-page__grid3 {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-@media (max-width: 900px) {
-  .report-page__stats {
-    grid-template-columns: repeat(2, minmax(140px, 1fr));
-  }
-}
 </style>

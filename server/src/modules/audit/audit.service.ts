@@ -212,11 +212,6 @@ function formatLocal(iso: string | null, tzOffsetMinutes: number): string {
   );
 }
 
-/** 文件名安全化：替换 Windows / URL 非法字符。 */
-function sanitizeFilename(name: string): string {
-  return name.replace(/[\\/:*?"<>|]/g, '_');
-}
-
 /** detail 对象 → 可读摘要（'键=值' 以 '；' 连接；空对象返回 ''）。 */
 export function stringifyDetail(detail: Record<string, unknown>): string {
   const parts: string[] = [];

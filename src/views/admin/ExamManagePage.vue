@@ -16,7 +16,7 @@ import * as papersApi from '@/api/papers';
 import { useRequest } from '@/composables/useRequest';
 import { useConfirm } from '@/composables/useConfirm';
 import { EXAM_STATUS_LABELS } from '@/constants';
-import { formatDateTime, formatRange } from '@/utils/datetime';
+import { formatRange } from '@/utils/datetime';
 import { getExamStatus } from '@/utils/examStatus';
 import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';

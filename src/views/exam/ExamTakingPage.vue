@@ -50,20 +50,16 @@ const questions = computed(() => record.value?.paperSnapshot.questions ?? []);
 /** 本次作答序号（>1 时副标题展示标记） */
 const attemptNo = computed<number>(() => record.value?.attemptNo ?? 1);
 
-/** 已答 / 未答题数（顶栏实时进度） */
+/** 已答题数（顶栏实时进度） */
 const answeredCount = computed<number>(
   () => questions.value.filter((q) => (answers.value[q.questionId]?.length ?? 0) > 0).length,
 );
-const unansweredCount = computed<number>(() => questions.value.length - answeredCount.value);
 
 /** 进度百分比（无题按 0，避免 0/0 出现 NaN 宽度） */
 const progressPercent = computed<number>(() => {
   if (questions.value.length === 0) return 0;
   return Math.round((answeredCount.value / questions.value.length) * 100);
 });
-
-/** 姓名首字（头像占位，暂存退出确认文案用） */
-const avatarText = computed<string>(() => (auth.currentUser?.name ?? '').trim().slice(0, 1) || '考');
 
 /** 答题卡上方考生信息 */
 const userName = computed<string>(() => auth.currentUser?.name ?? '考生');
@@ -632,6 +628,8 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
     gap: 12px;
     position: sticky;
     top: 76px;
+    max-height: calc(100dvh - 92px);
+    overflow: auto;
   }
 
   // 答题卡上方的考生信息卡
@@ -716,6 +714,8 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
 
     &__aside {
       position: static;
+      max-height: none;
+      overflow: visible;
     }
   }
 }

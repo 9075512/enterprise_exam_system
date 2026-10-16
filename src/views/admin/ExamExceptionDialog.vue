@@ -166,7 +166,7 @@ async function handleRemove(row: ExamException): Promise<void> {
     </el-form>
 
     <el-table v-loading="loading" :data="list" row-key="id" stripe max-height="320">
-      <el-table-column prop="userName" label="考生" width="110" />
+      <el-table-column prop="userName" label="考生" width="110" show-overflow-tooltip />
       <el-table-column prop="username" label="登录账号" width="130" show-overflow-tooltip />
       <el-table-column prop="departmentName" label="科室" width="110" show-overflow-tooltip>
         <template #default="{ row }">{{ row.departmentName || '—' }}</template>

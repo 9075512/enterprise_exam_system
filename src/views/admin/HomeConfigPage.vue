@@ -214,10 +214,6 @@ function catalogText(key: string): string {
   return catalog.value.find((c) => c.key === key)?.text ?? '';
 }
 
-function catalogDesc(key: string): string {
-  return catalog.value.find((c) => c.key === key)?.desc ?? '';
-}
-
 function formatAt(v: string | null): string {
   return v ? formatDateTime(v) : '-';
 }

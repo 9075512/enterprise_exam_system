@@ -36,6 +36,7 @@ function handleSizeChange(value: number): void {
   <div class="data-table-pagination">
     <el-pagination
       background
+      :pager-count="5"
       layout="total, sizes, prev, pager, next, jumper"
       :total="props.total"
       :current-page="props.page"
@@ -49,6 +50,8 @@ function handleSizeChange(value: number): void {
 
 <style scoped lang="scss">
 .data-table-pagination {
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   justify-content: flex-end;
   margin-top: 16px;

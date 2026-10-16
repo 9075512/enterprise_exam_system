@@ -37,7 +37,7 @@ Vue 3 (Vite, Element Plus, Pinia, Vue Router)  ──REST/JSON──▶  Express
 │  ├─ src/db/                # init.ts（建表 + 幂等迁移 + 种子）、seed.ts
 │  ├─ src/middleware/        # auth / role / validate / error
 │  ├─ src/utils/             # 响应、错误、分页、Excel（exceljs）、PDF（pdfkit）、鉴权、JWT 等
-│  └─ src/test/              # vitest + supertest（523 用例，另含 modules/ 内联用例）
+│  └─ src/test/              # vitest + supertest（另含 modules/、utils/ 内联用例）
 ├─ practice-web/             # 公网练题端（独立前端工程）
 ├─ docs/                     # 增量 PRD 与架构设计文档
 ├─ deploy/                   # 部署脚本（Nginx / DB 授权）
@@ -47,7 +47,7 @@ Vue 3 (Vite, Element Plus, Pinia, Vue Router)  ──REST/JSON──▶  Express
 
 ## 环境要求
 
-- **Node.js 22**（`server` 使用 ESM + `NodeNext`）
+- **Node.js 22.19+ 或 24**（`server` 使用 ESM + `NodeNext`；当前前端测试依赖 `undici` 要求 Node ≥22.19，Node 20 无法启动 jsdom 测试）
 - **MySQL 8**
 - npm（随 Node 安装）
 
@@ -97,19 +97,19 @@ npm run dev          # 启动前端（Vite，:5173），已配置 /api 代理到
 ```bash
 # 前端
 npm run typecheck        # vue-tsc --noEmit
-npm run test             # vitest（160 用例：工具函数 / store / 通用组件 / composables / 样式护栏）
+npm run test             # vitest（工具函数 / store / 通用组件 / composables / 样式护栏）
 npm run build            # vue-tsc + vite build（产物 dist/）
 npm run preview          # 预览构建产物
 
 # 后端
 npm --prefix server run typecheck   # tsc --noEmit
-npm --prefix server run test        # vitest + supertest（523 用例）
+npm --prefix server run test        # vitest + supertest
 npm --prefix server run build       # 编译到 server/dist
 npm --prefix server run start       # 运行编译产物
 
 # 练题端
 npm --prefix practice-web run typecheck   # vue-tsc --noEmit
-npm --prefix practice-web run test        # vitest（24 用例：配置默认值 / 登录 store / 组件 / 样式护栏）
+npm --prefix practice-web run test        # vitest（配置默认值 / 登录 store / 组件 / 样式护栏）
 ```
 
 ## 默认账号
@@ -234,6 +234,25 @@ npm --prefix practice-web run test        # vitest（24 用例：配置默认值
 | `announcement_reads` | 公告已读回执（v2.0③，按「公告 + 用户 + 端」唯一，`INSERT IGNORE` 幂等） |
 | `banner_clicks` | 轮播点击回执（v2.0③，按「轮播 + 用户 + 端」唯一，`INSERT IGNORE` 幂等） |
 | `home_dept_configs` | 考生首页个性化配置（v2.0⑥，`department_id` 主键，`*` 为全局默认；快捷入口启停/文案 + 推荐题库） |
+
+## 项目清理记录（2026-10-15）
+
+- 按入口、动态路由、组件自动导入与测试引用检查了三个工程；当前生产依赖均有实际使用，保留依赖清单与锁文件。
+- 删除未使用的 `src/components/common/ConfirmDialog.vue`、`src/utils/id.ts`，以及练题端的 `LoadingDots.vue`、`RingProgress.vue`，同步移除组件类型声明中的残留引用。
+- 清理 16 处未使用的导入、局部变量和辅助函数；PDF 导出行高计算改用 `forEach`，不再创建无人使用的数组。
+- 将两端 `dist-verify/`、临时登录截图、`.vitest-tmp/` 及三个工程的 `node_modules/.vite/` 缓存移入回收站，共移出约 95 MB 文件；保留验证通过的正式 `dist/` 构建产物，后续构建会更新它们。
+- 保留历史设计稿、交付截图、架构文档、部署 SQL、旧 React 备份、工作区记录、环境配置和上传附件；这些内容有参考、部署或恢复用途。
+- 验证：管理/考试前端 234 项、练题前端 33 项、后端 545 项测试全部通过；三个工程类型检查和构建通过。前端测试使用现有 Node 24 运行。
+- 清理时发现题库复制弹窗缺少入口，保留了业务功能代码；后续优化已补回卡片上的「复制题库」操作。
+
+## 项目优化记录（2026-10-15）
+
+- 请求与分页统一采用「仅最新请求回填」规则，防止快速查询、翻页时旧结果覆盖新结果；页面离开后不再回填异步状态，分页失败可记录和重试。
+- 数据看板复用请求保护；成绩报表切换考试时立即清空旧报表、成绩与切屏审查数据，取消选择会作废在途列表响应。登录日志、审计日志重新查询与重置筛选时回到第一页。
+- 系统设置与公开品牌设置合并并发请求，所有调用方都等待同一次加载；保存成功后，迟到的旧加载结果不能覆盖新设置。练题配置加载失败后允许重试，重置后忽略旧响应。
+- 两端 HTTP 层对业务错误统一支持静默提示，主动取消请求不再弹网络异常；练题端补齐 `skipAuthRedirect` 的会话保护语义。
+- 恢复题库复制入口，并让卡片操作栏在窄卡片内换行。
+- 新增 24 项回归测试，覆盖请求乱序、卸载、分页清空、配置加载等待与恢复、HTTP 静默错误和取消；管理/考试前端共 251 项、练题前端共 40 项测试通过，两端严格类型检查（含未使用声明检查）及生产构建通过。验证使用 Node 24。
 
 ## ⚠️ 红线说明
 

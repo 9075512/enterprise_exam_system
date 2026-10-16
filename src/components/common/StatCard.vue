@@ -82,6 +82,7 @@ withDefaults(
   }
 
   &__value {
+    overflow-wrap: anywhere;
     margin-top: 8px;
     font-size: 26px;
     font-weight: 700;

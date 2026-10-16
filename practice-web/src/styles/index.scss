@@ -59,6 +59,7 @@ body,
 }
 
 body {
+  overflow-wrap: anywhere;
   font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   // 基准字号 14px（= kit/m.css 的 body）。EP 浮层（弹窗 / 气泡 / 下拉）teleport 到 body，
   // 其根字号继承自 body —— 此前未设，取浏览器默认 16px，整层比设计稿大一档（审计 B1 同类）。
@@ -76,6 +77,8 @@ body {
 // 卡片：圆角 + 发丝线（v3.1 方向 C：零投影，层次交给线条）
 // ⚠️ 双写 `.el-card.el-card` 抬一级优先级，见文件头说明。
 .el-card.el-card {
+  min-width: 0;
+  max-width: 100%;
   border-radius: $radius-base;
   border-color: $border-color;
   box-shadow: none;
@@ -169,6 +172,49 @@ body {
     border-top: 1px solid $border-color;
     background: $practice-surface-2;
   }
+}
+
+// Long bank names and large dialogs must retain reachable actions on mobile.
+.el-dialog.el-dialog {
+  display: flex;
+  flex-direction: column;
+  max-width: calc(100vw - 24px);
+  max-height: 90vh;
+  max-height: 90dvh;
+  margin-top: 5vh;
+  margin-bottom: 5vh;
+
+  .el-dialog__header,
+  .el-dialog__footer {
+    flex-shrink: 0;
+  }
+
+  .el-dialog__header {
+    padding-right: 44px;
+  }
+
+  .el-dialog__title {
+    display: block;
+    max-height: 25vh;
+    overflow: auto;
+  }
+
+  .el-dialog__body {
+    min-height: 0;
+    overflow: auto;
+  }
+}
+
+.el-dialog.el-dialog.is-align-center {
+  margin: auto;
+}
+
+.el-tag.el-tag {
+  height: auto;
+  min-height: 20px;
+  max-width: 100%;
+  white-space: normal;
+  line-height: 1.4;
 }
 
 // 标签：圆润、去下划线噪音

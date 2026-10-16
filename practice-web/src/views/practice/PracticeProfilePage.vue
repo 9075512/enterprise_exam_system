@@ -11,6 +11,7 @@ import { useRouter } from 'vue-router';
 import { ElMessageBox } from 'element-plus';
 import { SwitchButton, TrendCharts } from '@element-plus/icons-vue';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
+import PracticeLoading from '@/components/common/PracticeLoading.vue';
 import * as practiceApi from '@/api/practice';
 import { usePracticeAuthStore } from '@/stores/practiceAuth';
 import { usePracticeConfigStore } from '@/stores/practiceConfig';
@@ -121,23 +122,23 @@ onMounted(loadStats);
       <div class="pf__section">练题统计</div>
       <div class="pf__stats">
         <div class="pf__stat">
-          <span class="pf__num">{{ doneTotal }}</span>
+          <span class="pf__num">{{ loading ? '—' : doneTotal }}</span>
           <span class="pf__label">累计练题</span>
         </div>
         <div class="pf__stat">
-          <span class="pf__num pf__num--ok">{{ correctTotal }}</span>
+          <span class="pf__num pf__num--ok">{{ loading ? '—' : correctTotal }}</span>
           <span class="pf__label">累计答对</span>
         </div>
         <div class="pf__stat">
-          <span class="pf__num">{{ accuracy }}%</span>
+          <span class="pf__num">{{ loading ? '—' : `${accuracy}%` }}</span>
           <span class="pf__label">正确率</span>
         </div>
         <div class="pf__stat">
-          <span class="pf__num pf__num--err">{{ wrongTotal }}</span>
+          <span class="pf__num pf__num--err">{{ loading ? '—' : wrongTotal }}</span>
           <span class="pf__label">错题数</span>
         </div>
       </div>
-      <p v-if="loading" class="pf__loading">统计加载中…</p>
+      <PracticeLoading :loading="loading" compact caption="正在加载练题统计…" />
 
       <!-- 学习（学习报告入口可被后台关闭，v1.9⑤） -->
       <template v-if="config.reportEnabled">

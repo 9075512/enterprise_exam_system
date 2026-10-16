@@ -182,9 +182,6 @@ function resetFilter(): void {
   filterKeyword.value = '';
 }
 
-/** 是否处于筛选态（决定空态口径与是否给「清空筛选」出路，规范 §9.2） */
-const hasFilter = computed<boolean>(() => Boolean(filterKeyword.value.trim()) || Boolean(activeScopeId.value));
-
 /** 页头描述（拼接放脚本里，避免模板内嵌模板字符串） */
 const headerDesc = computed<string>(
   () => `共 ${departments.value?.length ?? 0} 个科室 · ${totalMembers.value} 名在册人员`,
@@ -544,6 +541,8 @@ async function handleDelete(department: Department): Promise<void> {
 
 .department-page__tree {
   font-size: 12.5px;
+  max-height: 65vh;
+  overflow: auto;
 }
 
 /* 层级树节点（el-tree）：设计稿 .tree__i —— 选中态主色软底，任意层级 */

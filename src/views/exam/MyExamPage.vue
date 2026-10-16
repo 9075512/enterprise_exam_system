@@ -173,10 +173,6 @@ async function handleStart(exam: ExamMy): Promise<void> {
   }
 }
 
-function goScores(): void {
-  void router.push('/exam/scores');
-}
-
 function goDetail(recordId: string): void {
   void router.push(`/score-detail/${recordId}`);
 }

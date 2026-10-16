@@ -13,8 +13,7 @@
  *
  * v3.1 方向 C（设计稿 p-exam-home 重排）：
  * 顶部改为主色渐变 hero（问候 + 待办摘要 + 主操作），统计改 `.stat` 卡（左缘 2px 条）；
- * 中部 2:1 分栏（左「待办事项」、右「快捷入口 / 推荐练题」）；
- * 底部 2:1 分栏（左「成绩趋势」手绘 SVG 折线图、右「最近成绩」列表）。
+ * 主体 2:1 独立分栏（左「即将开始 / 成绩趋势」、右「快捷入口 / 公告 / 推荐练题 / 最近成绩」）；
  * 图表遵循 DESIGN-C §2.5：单主色 + 线型区分，及格线用主色浅档虚线。
  */
 import { computed, onMounted, ref } from 'vue';
@@ -38,6 +37,7 @@ import { listNotifications } from '@/api/notifications';
 import { useAuthStore } from '@/stores/auth';
 import { formatDateTime } from '@/utils/datetime';
 import ContentBoard from '@/components/common/ContentBoard.vue';
+import PagedOverview from '@/components/common/PagedOverview.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import StatCard from '@/components/common/StatCard.vue';
@@ -63,11 +63,6 @@ const myExams = ref<ExamMy[]>([]);
 const notices = ref<Notification[]>([]);
 
 const userName = computed<string>(() => auth.currentUser?.name ?? '');
-
-/** 中文日期（如 2026年10月13日 星期二） */
-const todayText = computed<string>(() =>
-  new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }),
-);
 
 /** 按时段问候 */
 const greeting = computed<string>(() => {
@@ -108,6 +103,9 @@ const shortcuts = computed<HomeShortcut[]>(() => (summary.value?.shortcuts ?? []
 
 /** 最近成绩（倒序取前 5 条用于列表卡） */
 const recentScores = computed(() => [...trend.value].reverse().slice(0, 5));
+const hasSidebar = computed(() =>
+  shortcuts.value.length > 0 || notices.value.length > 0 || recommendedBanks.value.length > 0 || recentScores.value.length > 0,
+);
 
 /** 及格线（服务端下发，缺省 60） */
 const passLine = computed<number>(() => summary.value?.stats.passLine ?? 60);
@@ -168,7 +166,7 @@ async function load(): Promise<void> {
   ]);
   if (sum.status === 'fulfilled') summary.value = sum.value;
   if (exams.status === 'fulfilled') myExams.value = exams.value;
-  if (notes.status === 'fulfilled') notices.value = notes.value.list ?? [];
+  if (notes.status === 'fulfilled') notices.value = (notes.value.list ?? []).slice(0, 4);
   loading.value = false;
 }
 
@@ -288,62 +286,130 @@ onMounted(load);
         />
       </div>
 
-      <!-- 即将开始 + 快捷入口 / 最新公告 -->
-      <div class="exam-home__row exam-home__row--2-1">
-        <el-card class="exam-home__card" shadow="never">
-          <template #header>
-            <h3 class="exam-home__card-title">即将开始</h3>
-            <el-button class="exam-home__card-link" link type="primary" @click="go('/exam/my')">
-              全部考试
-            </el-button>
-          </template>
+      <!-- 两列独立排列，避免侧栏高度把主栏后续卡片推到底部。 -->
+      <div class="exam-home__columns" :class="{ 'exam-home__columns--single': !hasSidebar }">
+        <div class="exam-home__stack">
+          <el-card class="exam-home__card" shadow="never">
+            <template #header>
+              <h3 class="exam-home__card-title">即将开始</h3>
+              <el-button class="exam-home__card-link" link type="primary" @click="go('/exam/my')">
+                全部考试
+              </el-button>
+            </template>
 
-          <div v-if="upcomingExams.length > 0" class="exam-home__exams">
-            <div
-              v-for="exam in upcomingExams"
-              :key="exam.id"
-              class="exam-home__exam"
-              :class="{ 'is-imminent': isImminent(exam) }"
-            >
-              <div class="exam-home__exam-top">
-                <div class="exam-home__exam-info">
-                  <div class="exam-home__exam-name-row">
-                    <span class="exam-home__exam-name">{{ exam.name }}</span>
-                    <span class="exam-home__badge" :class="`exam-home__badge--${examBadge(exam).tone}`">
-                      {{ examBadge(exam).text }}
-                    </span>
+            <div v-if="upcomingExams.length > 0" class="exam-home__exams">
+              <div
+                v-for="exam in upcomingExams"
+                :key="exam.id"
+                class="exam-home__exam"
+                :class="{ 'is-imminent': isImminent(exam) }"
+              >
+                <div class="exam-home__exam-top">
+                  <div class="exam-home__exam-info">
+                    <div class="exam-home__exam-name-row">
+                      <span class="exam-home__exam-name">{{ exam.name }}</span>
+                      <span class="exam-home__badge" :class="`exam-home__badge--${examBadge(exam).tone}`">
+                        {{ examBadge(exam).text }}
+                      </span>
+                    </div>
+                    <div class="exam-home__exam-meta">
+                      {{ exam.examMode === 'open' ? '开卷' : '闭卷' }} · 共 {{ attemptChances(exam) }} 次机会 · 及格线
+                      {{ exam.passScore }} 分
+                    </div>
                   </div>
-                  <div class="exam-home__exam-meta">
-                    {{ exam.examMode === 'open' ? '开卷' : '闭卷' }} · 共 {{ attemptChances(exam) }} 次机会 · 及格线
-                    {{ exam.passScore }} 分
-                  </div>
+                  <el-button
+                    :type="exam.recordStatus === 'in_progress' ? 'primary' : 'default'"
+                    size="small"
+                    @click="go('/exam/my')"
+                  >
+                    <el-icon v-if="exam.recordStatus === 'in_progress'"><VideoPlay /></el-icon>
+                    {{ exam.recordStatus === 'in_progress' ? '继续作答' : '查看详情' }}
+                  </el-button>
                 </div>
-                <el-button
-                  :type="exam.recordStatus === 'in_progress' ? 'primary' : 'default'"
-                  size="small"
-                  @click="go('/exam/my')"
-                >
-                  <el-icon v-if="exam.recordStatus === 'in_progress'"><VideoPlay /></el-icon>
-                  {{ exam.recordStatus === 'in_progress' ? '继续作答' : '查看详情' }}
-                </el-button>
-              </div>
-              <div class="exam-home__exam-foot">
-                <span><el-icon><Calendar /></el-icon>{{ formatDateTime(exam.startTime) }}</span>
-                <span><el-icon><Clock /></el-icon>{{ exam.durationMinutes }} 分钟</span>
-                <span><el-icon><Flag /></el-icon>及格线 {{ exam.passScore }} 分</span>
+                <div class="exam-home__exam-foot">
+                  <span><el-icon><Calendar /></el-icon>{{ formatDateTime(exam.startTime) }}</span>
+                  <span><el-icon><Clock /></el-icon>{{ exam.durationMinutes }} 分钟</span>
+                  <span><el-icon><Flag /></el-icon>及格线 {{ exam.passScore }} 分</span>
+                </div>
               </div>
             </div>
-          </div>
-          <EmptyState
-            v-else
-            text="暂无待考或进行中的考试"
-            :image-size="42"
-            action-text="查看我的考试"
-            @action="go('/exam/my')"
-          />
-        </el-card>
+            <EmptyState
+              v-else
+              text="暂无待考或进行中的考试"
+              :image-size="42"
+              action-text="查看我的考试"
+              @action="go('/exam/my')"
+            />
+          </el-card>
+          <el-card v-if="trend.length > 0" class="exam-home__card" shadow="never">
+            <template #header>
+              <h3 class="exam-home__card-title">成绩趋势</h3>
+              <span class="exam-home__card-sub">近 {{ chart?.dots.length ?? 0 }} 场</span>
+            </template>
 
-        <div class="exam-home__stack">
+            <template v-if="chart && trendSummary">
+              <svg class="exam-home__chart" :viewBox="`0 0 ${CHART.w} ${CHART.h}`" role="img" aria-label="最近成绩趋势">
+                <!-- 网格 -->
+                <g class="exam-home__chart-grid">
+                  <line :x1="CHART.x0" :y1="CHART.yTop" :x2="CHART.x1" :y2="CHART.yTop" />
+                  <line :x1="CHART.x0" y1="58" :x2="CHART.x1" y2="58" />
+                  <line :x1="CHART.x0" y1="92" :x2="CHART.x1" y2="92" />
+                  <line class="is-base" :x1="CHART.x0" :y1="CHART.yBottom" :x2="CHART.x1" :y2="CHART.yBottom" />
+                </g>
+                <!-- 轴标签 -->
+                <g class="exam-home__chart-axis exam-home__chart-axis--y" text-anchor="end">
+                  <text :x="CHART.x0 - 8" y="27.5">100</text>
+                  <text :x="CHART.x0 - 8" y="61.5">75</text>
+                  <text :x="CHART.x0 - 8" y="95.5">50</text>
+                  <text :x="CHART.x0 - 8" y="129.5">0</text>
+                </g>
+                <!-- 及格线（主色浅档虚线，DESIGN-C §2.5） -->
+                <line
+                  class="exam-home__chart-pass"
+                  :x1="CHART.x0"
+                  :y1="chart.passY"
+                  :x2="CHART.x1"
+                  :y2="chart.passY"
+                />
+                <text class="exam-home__chart-pass-label" :x="CHART.x1" :y="chart.passY - 4" text-anchor="end">
+                  及格线 {{ passLine }}
+                </text>
+                <!-- 折线 -->
+                <polyline class="exam-home__chart-line" :points="chart.line" />
+                <g>
+                  <circle
+                    v-for="dot in chart.dots"
+                    :key="dot.x"
+                    class="exam-home__chart-dot"
+                    :class="{ 'is-fail': !dot.passed }"
+                    :cx="dot.x"
+                    :cy="dot.y"
+                    r="3.5"
+                  />
+                </g>
+                <g class="exam-home__chart-axis exam-home__chart-axis--x" text-anchor="middle">
+                  <text v-for="dot in chart.dots" :key="`x-${dot.x}`" :x="dot.x" :y="146">{{ dot.label }}</text>
+                </g>
+              </svg>
+
+              <div class="exam-home__chart-foot">
+                <div>
+                  <span class="exam-home__kicker">最近得分</span>
+                  <span class="exam-home__num">{{ trendSummary.latest }}</span>
+                </div>
+                <div>
+                  <span class="exam-home__kicker">最高分</span>
+                  <span class="exam-home__num">{{ trendSummary.max }}</span>
+                </div>
+                <div>
+                  <span class="exam-home__kicker">平均分</span>
+                  <span class="exam-home__num">{{ trendSummary.avg }}</span>
+                </div>
+              </div>
+            </template>
+          </el-card>
+        </div>
+        <div v-if="hasSidebar" class="exam-home__stack">
           <el-card v-if="shortcuts.length > 0" class="exam-home__card" shadow="never">
             <template #header>
               <h3 class="exam-home__card-title">快捷入口</h3>
@@ -362,7 +428,6 @@ onMounted(load);
               </button>
             </div>
           </el-card>
-
           <el-card v-if="notices.length > 0" class="exam-home__card" shadow="never">
             <template #header>
               <h3 class="exam-home__card-title">最新公告</h3>
@@ -390,126 +455,57 @@ onMounted(load);
               </button>
             </div>
           </el-card>
-
           <el-card v-if="recommendedBanks.length > 0" class="exam-home__card" shadow="never">
             <template #header>
               <h3 class="exam-home__card-title">推荐练题</h3>
             </template>
-            <div class="exam-home__banks">
-              <div v-for="bank in recommendedBanks" :key="bank.bankId" class="exam-home__bank">
-                <span class="exam-home__bank-name">{{ bank.bankName }}</span>
-                <span class="exam-home__bank-meta">共 {{ bank.questionCount }} 题 · {{ bank.reason }}</span>
-              </div>
-            </div>
+            <PagedOverview :items="recommendedBanks" title="推荐练题" :limit="3">
+              <template #default="{ items }">
+                <div class="exam-home__banks">
+                  <div v-for="bank in items" :key="bank.bankId" class="exam-home__bank">
+                    <span class="exam-home__bank-name">{{ bank.bankName }}</span>
+                    <span class="exam-home__bank-meta">共 {{ bank.questionCount }} 题 · {{ bank.reason }}</span>
+                  </div>
+                </div>
+              </template>
+            </PagedOverview>
+          </el-card>
+          <el-card v-if="recentScores.length > 0" class="exam-home__card" shadow="never">
+            <template #header>
+              <h3 class="exam-home__card-title">最近成绩</h3>
+              <el-button class="exam-home__card-link" link type="primary" @click="go('/exam/scores')">
+                全部成绩
+              </el-button>
+            </template>
+
+            <table class="exam-home__tbl">
+              <thead>
+                <tr>
+                  <th>考试名称</th>
+                  <th class="is-num">得分</th>
+                  <th class="is-num">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in recentScores" :key="item.recordId">
+                  <td>
+                    <span class="exam-home__tbl-name" :title="examName(item)">{{ examName(item) }}</span>
+                    <span class="exam-home__tbl-meta">{{ formatDateTime(item.submittedAt) }}</span>
+                  </td>
+                  <td class="is-num">
+                    <span class="exam-home__tbl-score" :class="{ 'is-fail': !item.passed }">{{ item.score }}</span>
+                    <span class="exam-home__tbl-pass" :class="item.passed ? 'is-ok' : 'is-err'">
+                      {{ item.passed ? '及格' : '未及格' }}
+                    </span>
+                  </td>
+                  <td class="is-num">
+                    <el-button link type="primary" @click="goDetail(item.recordId)">明细</el-button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </el-card>
         </div>
-      </div>
-
-      <!-- 成绩趋势 + 最近成绩 -->
-      <div v-if="trend.length > 0" class="exam-home__row exam-home__row--2-1">
-        <el-card class="exam-home__card" shadow="never">
-          <template #header>
-            <h3 class="exam-home__card-title">成绩趋势</h3>
-            <span class="exam-home__card-sub">近 {{ chart?.dots.length ?? 0 }} 场</span>
-          </template>
-
-          <template v-if="chart && trendSummary">
-            <svg class="exam-home__chart" :viewBox="`0 0 ${CHART.w} ${CHART.h}`" role="img" aria-label="最近成绩趋势">
-              <!-- 网格 -->
-              <g class="exam-home__chart-grid">
-                <line :x1="CHART.x0" :y1="CHART.yTop" :x2="CHART.x1" :y2="CHART.yTop" />
-                <line :x1="CHART.x0" y1="58" :x2="CHART.x1" y2="58" />
-                <line :x1="CHART.x0" y1="92" :x2="CHART.x1" y2="92" />
-                <line class="is-base" :x1="CHART.x0" :y1="CHART.yBottom" :x2="CHART.x1" :y2="CHART.yBottom" />
-              </g>
-              <!-- 轴标签 -->
-              <g class="exam-home__chart-axis exam-home__chart-axis--y" text-anchor="end">
-                <text :x="CHART.x0 - 8" y="27.5">100</text>
-                <text :x="CHART.x0 - 8" y="61.5">75</text>
-                <text :x="CHART.x0 - 8" y="95.5">50</text>
-                <text :x="CHART.x0 - 8" y="129.5">0</text>
-              </g>
-              <!-- 及格线（主色浅档虚线，DESIGN-C §2.5） -->
-              <line
-                class="exam-home__chart-pass"
-                :x1="CHART.x0"
-                :y1="chart.passY"
-                :x2="CHART.x1"
-                :y2="chart.passY"
-              />
-              <text class="exam-home__chart-pass-label" :x="CHART.x1" :y="chart.passY - 4" text-anchor="end">
-                及格线 {{ passLine }}
-              </text>
-              <!-- 折线 -->
-              <polyline class="exam-home__chart-line" :points="chart.line" />
-              <g>
-                <circle
-                  v-for="dot in chart.dots"
-                  :key="dot.x"
-                  class="exam-home__chart-dot"
-                  :class="{ 'is-fail': !dot.passed }"
-                  :cx="dot.x"
-                  :cy="dot.y"
-                  r="3.5"
-                />
-              </g>
-              <g class="exam-home__chart-axis exam-home__chart-axis--x" text-anchor="middle">
-                <text v-for="dot in chart.dots" :key="`x-${dot.x}`" :x="dot.x" :y="146">{{ dot.label }}</text>
-              </g>
-            </svg>
-
-            <div class="exam-home__chart-foot">
-              <div>
-                <span class="exam-home__kicker">最近得分</span>
-                <span class="exam-home__num">{{ trendSummary.latest }}</span>
-              </div>
-              <div>
-                <span class="exam-home__kicker">最高分</span>
-                <span class="exam-home__num">{{ trendSummary.max }}</span>
-              </div>
-              <div>
-                <span class="exam-home__kicker">平均分</span>
-                <span class="exam-home__num">{{ trendSummary.avg }}</span>
-              </div>
-            </div>
-          </template>
-        </el-card>
-
-        <el-card class="exam-home__card" shadow="never">
-          <template #header>
-            <h3 class="exam-home__card-title">最近成绩</h3>
-            <el-button class="exam-home__card-link" link type="primary" @click="go('/exam/scores')">
-              全部成绩
-            </el-button>
-          </template>
-
-          <table class="exam-home__tbl">
-            <thead>
-              <tr>
-                <th>考试名称</th>
-                <th class="is-num">得分</th>
-                <th class="is-num">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="item in recentScores" :key="item.recordId">
-                <td>
-                  <span class="exam-home__tbl-name" :title="examName(item)">{{ examName(item) }}</span>
-                  <span class="exam-home__tbl-meta">{{ formatDateTime(item.submittedAt) }}</span>
-                </td>
-                <td class="is-num">
-                  <span class="exam-home__tbl-score" :class="{ 'is-fail': !item.passed }">{{ item.score }}</span>
-                  <span class="exam-home__tbl-pass" :class="item.passed ? 'is-ok' : 'is-err'">
-                    {{ item.passed ? '及格' : '未及格' }}
-                  </span>
-                </td>
-                <td class="is-num">
-                  <el-button link type="primary" @click="goDetail(item.recordId)">明细</el-button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </el-card>
       </div>
     </template>
   </div>
@@ -571,18 +567,20 @@ onMounted(load);
     margin-bottom: 16px;
   }
 
-  &__row {
+  &__columns {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
     margin-bottom: 16px;
 
-    &--2-1 {
-      display: grid;
-      grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-      gap: 14px;
-      align-items: start;
+    &--single {
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 
   &__stack {
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 14px;
@@ -994,7 +992,7 @@ onMounted(load);
   }
 
   @media (max-width: 1080px) {
-    &__row--2-1 {
+    &__columns {
       grid-template-columns: minmax(0, 1fr);
     }
   }

@@ -20,10 +20,17 @@ defineProps<{ title: string; description?: string }>();
 
 .page-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 16px;
+
+  &__text {
+    flex: 1 1 240px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
 
   &__title {
     margin: 0;
@@ -41,6 +48,9 @@ defineProps<{ title: string; description?: string }>();
 
   &__actions {
     display: flex;
+    flex-wrap: wrap;
+    max-width: 100%;
+    margin-left: auto;
     align-items: center;
     gap: 8px;
   }

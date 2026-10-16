@@ -4,7 +4,7 @@
  * 每个点表示一题：未答（中性）/ 答对（绿）/ 答错（红）；当前题高亮放大为胶囊。
  * 视觉：冷静蓝 · 商务风（去光晕，仅以实色区分状态）。
  */
-import { computed } from 'vue';
+import { computed, ref, watch, nextTick } from 'vue';
 
 const props = withDefaults(
   defineProps<{
@@ -26,10 +26,23 @@ const normalized = computed<Array<'unanswered' | 'correct' | 'wrong'>>(() => {
   for (let i = 0; i < props.total; i += 1) out.push(props.marks[i] ?? 'unanswered');
   return out;
 });
+
+const container = ref<HTMLElement | null>(null);
+watch([container, () => props.current, () => props.total], async () => {
+  await nextTick();
+  const root = container.value;
+  const active = root?.querySelector<HTMLElement>('.is-current');
+  if (!root || !active) return;
+  const top = active.offsetTop;
+  const bottom = top + active.offsetHeight;
+  if (top < root.scrollTop) root.scrollTop = top;
+  else if (bottom > root.scrollTop + root.clientHeight) root.scrollTop = bottom - root.clientHeight;
+}, { flush: 'post' });
 </script>
 
 <template>
   <div
+    ref="container"
     class="progress-dots"
     :class="`progress-dots--${variant}`"
     role="progressbar"
@@ -50,10 +63,13 @@ const normalized = computed<Array<'unanswered' | 'correct' | 'wrong'>>(() => {
 @use '@/styles/variables.scss' as *;
 
 .progress-dots {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
+  max-height: 60px;
+  overflow-y: auto;
 
   &__dot {
     flex: 0 0 auto;

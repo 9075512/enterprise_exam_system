@@ -3,7 +3,8 @@
  */
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import { usePracticeAuthStore } from '@/stores/practiceAuth';
-import { usePageProgress } from '@/composables/usePageProgress';
+import { installPageProgress } from '@/composables/usePageProgress';
+import { practiceRedirect } from './redirect';
 
 const routes: RouteRecordRaw[] = [
   {
@@ -61,9 +62,8 @@ const router = createRouter({ history: createWebHistory(), routes });
 
 // 练题登录守卫（独立于内网登录态）
 // Loading 体系 ⑤：导航期间顶栏进度细条
-const pageProgress = usePageProgress();
+installPageProgress(router);
 router.beforeEach(async (to) => {
-  pageProgress.start();
   if (to.meta.practice) {
     const practiceAuth = usePracticeAuthStore();
     if (practiceAuth.initializing) await practiceAuth.restore();
@@ -71,15 +71,10 @@ router.beforeEach(async (to) => {
       return { path: '/practice', query: { redirect: to.fullPath } };
     }
     if (to.path === '/practice' && practiceAuth.isLoggedIn) {
-      return typeof to.query.redirect === 'string' && to.query.redirect !== ''
-        ? to.query.redirect
-        : '/practice/home';
+      return practiceRedirect(router, to.query.redirect);
     }
   }
   return true;
 });
-
-router.afterEach(() => pageProgress.done());
-router.onError(() => pageProgress.done());
 
 export default router;

@@ -15,23 +15,43 @@ import zhCn from 'element-plus/es/locale/lang/zh-cn';
 import { useRouter } from 'vue-router';
 import BootSplash from '@/components/common/BootSplash.vue';
 import PageProgress from '@/components/common/PageProgress.vue';
+import { useDelayedLoading } from '@/composables/useDelayedLoading';
 
 const router = useRouter();
-/** 首次路由解析完成前显示品牌脉冲（后续导航由顶栏细条承担） */
+/** 只在首次导航超过 800ms 时显示全屏等待，不人为延长已完成的加载。 */
 const booting = ref(true);
+const bootVisible = useDelayedLoading(booting, { delay: 800, minDuration: 0 });
+const bootFailed = ref(false);
 
 onMounted(() => {
-  void router.isReady().then(() => {
-    // 最少停留 400ms：避免快网下闪一帧
-    window.setTimeout(() => (booting.value = false), 400);
-  });
+  void router.isReady()
+    .catch(() => { bootFailed.value = true; })
+    .finally(() => { booting.value = false; });
 });
+
+function reload(): void {
+  window.location.reload();
+}
 </script>
 
 <template>
   <el-config-provider :locale="zhCn">
     <PageProgress />
-    <BootSplash :show="booting" />
-    <RouterView />
+    <BootSplash :show="bootVisible" caption="正在加载系统…" />
+    <div v-if="bootFailed" class="boot-error" role="alert">
+      <p>页面加载失败，请检查网络后重试。</p>
+      <el-button type="primary" @click="reload">重新加载</el-button>
+    </div>
+    <RouterView v-else />
   </el-config-provider>
 </template>
+
+<style scoped>
+.boot-error {
+  min-height: 100vh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 16px;
+}
+</style>

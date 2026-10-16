@@ -216,7 +216,7 @@ async function submitReject(): Promise<void> {
         @row-click="handleAppealRowClick"
       >
         <el-table-column prop="examName" label="考试名称" min-width="160" show-overflow-tooltip />
-        <el-table-column prop="userName" label="考生姓名" width="110" />
+        <el-table-column prop="userName" label="考生姓名" width="110" show-overflow-tooltip />
         <el-table-column prop="username" label="登录账号" width="130" show-overflow-tooltip />
         <el-table-column prop="departmentName" label="科室" width="110" show-overflow-tooltip>
           <template #default="{ row }">{{ row.departmentName || '—' }}</template>
@@ -399,17 +399,21 @@ async function submitReject(): Promise<void> {
 
   &__review-head {
     display: flex;
+    width: 100%;
+    min-width: 0;
     align-items: center;
     gap: 9px;
   }
 
   &__review-title {
+    flex-shrink: 0;
     font-size: 13.5px;
     font-weight: 600;
     color: $text-primary;
   }
 
   &__review-sub {
+    min-width: 0;
     font-size: 11.5px;
     color: $text-secondary;
     overflow: hidden;

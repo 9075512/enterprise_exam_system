@@ -45,6 +45,7 @@ function redirectAfterLogin(): void {
 
 /** 提交登录 */
 async function handleSubmit(): Promise<void> {
+  if (loading.value) return;
   if (!form.username.trim() || !form.password) {
     ElMessage.warning('请输入账号和密码');
     return;

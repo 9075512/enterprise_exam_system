@@ -12,23 +12,28 @@ import type { PracticeConfig } from '@/types';
 
 export const usePracticeConfigStore = defineStore('practiceConfig', () => {
   const config = ref<PracticeConfig>({ ...PRACTICE_CONFIG_DEFAULTS });
-  /** 是否已完成一次加载（含失败） */
+  /** 是否已成功加载（失败保留默认值，后续调用可重试） */
   const loaded = ref(false);
   /** 进行中的请求（避免并发重复拉取） */
   let inflight: Promise<void> | null = null;
+  let revision = 0;
 
   /** 拉取配置（幂等；`force = true` 时强制刷新） */
   async function load(force = false): Promise<void> {
-    if (loaded.value && !force) return;
     if (inflight) return inflight;
+    if (loaded.value && !force) return;
+    const currentRevision = revision;
     inflight = (async () => {
       try {
-        config.value = await practiceApi.getConfig();
+        const next = await practiceApi.getConfig();
+        if (currentRevision === revision) {
+          config.value = { ...PRACTICE_CONFIG_DEFAULTS, ...next };
+          loaded.value = true;
+        }
       } catch {
         // 接口不可用：保持默认值
       } finally {
-        loaded.value = true;
-        inflight = null;
+        if (currentRevision === revision) inflight = null;
       }
     })();
     return inflight;
@@ -36,6 +41,8 @@ export const usePracticeConfigStore = defineStore('practiceConfig', () => {
 
   /** 重置为默认值（登出时调用，避免下个账号沿用上个账号的配置） */
   function reset(): void {
+    revision += 1;
+    inflight = null;
     config.value = { ...PRACTICE_CONFIG_DEFAULTS };
     loaded.value = false;
   }

@@ -52,7 +52,7 @@ import QuestionBankFormDialog from './QuestionBankFormDialog.vue';
 import QuestionImportDialog from './QuestionImportDialog.vue';
 import QuestionBatchEditDialog from './QuestionBatchEditDialog.vue';
 import BankAuthorBatchDialog from './BankAuthorBatchDialog.vue';
-import type { BankQuestionStats, Question, QuestionDifficulty, QuestionType } from '@/types';
+import type { Question, QuestionDifficulty, QuestionType } from '@/types';
 
 const route = useRoute();
 const router = useRouter();
@@ -760,17 +760,10 @@ onMounted(() => {
   // 顶部五张健康度统计卡（对齐设计稿 .grid.g5）
   &__stats {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
     gap: 12px;
     margin-bottom: 16px;
 
-    @media (max-width: 1400px) {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    @media (max-width: 900px) {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
   }
 }
 

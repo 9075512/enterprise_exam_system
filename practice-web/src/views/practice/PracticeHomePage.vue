@@ -7,6 +7,8 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
+import PracticeLoading from '@/components/common/PracticeLoading.vue';
+import PagedOverview from '@/components/common/PagedOverview.vue';
 import PracticeOptionModal from './components/PracticeOptionModal.vue';
 import PracticeNoticeCard from './components/PracticeNoticeCard.vue';
 import { usePracticeAuthStore } from '@/stores/practiceAuth';
@@ -138,10 +140,7 @@ onMounted(load);
       <!-- 公告与轮播（v1.9⑥；仅当后台发布了面向练题端且在生效期内的内容时显示） -->
       <PracticeNoticeCard />
 
-      <div v-if="loading" class="home__skeleton">
-        <el-skeleton :rows="3" animated />
-        <el-skeleton :rows="3" animated />
-      </div>
+      <PracticeLoading v-if="loading" :loading="loading" :rows="5" caption="正在加载题库…" />
 
       <template v-else>
         <!-- 每日一练任务卡（后台关闭或暂无题目时整体不显示） -->
@@ -228,20 +227,24 @@ onMounted(load);
           <p class="home__empty-sub">当前没有对外开放练题的题库，请联系管理员在「练题端设置」中开放题库。</p>
         </div>
 
-        <div v-for="(bank, i) in banks" :key="bank.id" class="home__bank" @click="openBank(bank)">
-          <span class="home__bank-no" aria-hidden="true">{{ bankNo(i) }}</span>
-          <div class="home__bank-main">
-            <div class="home__bank-name">{{ bank.name }}</div>
-            <div class="home__bank-meta">
-              <span class="home__bank-cat">{{ bank.category || '未分类' }}</span>
-              <span class="home__bank-count">共 {{ bank.questionCount }} 题</span>
+        <PagedOverview :items="banks" title="可练习题库" :limit="6">
+          <template #default="{ items, offset }">
+            <div v-for="(bank, i) in items" :key="bank.id" class="home__bank" @click="openBank(bank)">
+              <span class="home__bank-no" aria-hidden="true">{{ bankNo(offset + i) }}</span>
+              <div class="home__bank-main">
+                <div class="home__bank-name" :title="bank.name">{{ bank.name }}</div>
+                <div class="home__bank-meta">
+                  <span class="home__bank-cat" :title="bank.category || '未分类'">{{ bank.category || '未分类' }}</span>
+                  <span class="home__bank-count">共 {{ bank.questionCount }} 题</span>
+                </div>
+                <div v-if="bank.description" class="home__bank-desc" :title="bank.description">{{ bank.description }}</div>
+              </div>
+              <el-button class="home__bank-btn" type="primary" size="small" :disabled="bank.questionCount === 0">
+                开始练题
+              </el-button>
             </div>
-            <div v-if="bank.description" class="home__bank-desc">{{ bank.description }}</div>
-          </div>
-          <el-button class="home__bank-btn" type="primary" size="small" :disabled="bank.questionCount === 0">
-            开始练题
-          </el-button>
-        </div>
+          </template>
+        </PagedOverview>
       </template>
     </div>
 
@@ -594,6 +597,24 @@ onMounted(load);
   &__bank-main {
     min-width: 0;
     flex: 1;
+  }
+
+  // 首页仅展示摘要，查看更多弹窗仍保留完整文本。
+  :deep(.paged-overview__preview) {
+    .home__bank-name,
+    .home__bank-desc {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
+    }
+
+    .home__bank-cat {
+      max-width: 100%;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
   }
 
   &__bank-name {

@@ -25,10 +25,8 @@ import { usePagination } from '@/composables/usePagination';
 import {
   QUESTION_DIFFICULTY_LABELS,
   QUESTION_DIFFICULTY_OPTIONS,
-  QUESTION_DIFFICULTY_P_VALUE,
   QUESTION_TYPE_LABELS,
   QUESTION_TYPE_OPTIONS,
-  PAPER_DIFFICULTY_TOLERANCE,
   PAPER_TARGET_DIFFICULTY,
 } from '@/constants';
 import { useSettingsStore } from '@/stores/settings';
@@ -205,7 +203,6 @@ const {
   pageSize: poolPageSize,
   total: poolTotal,
   loading: poolLoading,
-  load: loadPool,
   onPageChange: onPoolPageChange,
   onSizeChange: onPoolSizeChange,
   reset: resetPool,
@@ -1022,6 +1019,8 @@ onMounted(async () => {
 .composer {
   &__header {
     display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 16px;
@@ -1036,6 +1035,7 @@ onMounted(async () => {
 
   &__header-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
   }
 
@@ -1052,6 +1052,15 @@ onMounted(async () => {
 
   &__bank-item {
     margin-right: 0;
+    max-width: 100%;
+    height: auto;
+    min-height: 32px;
+
+    :deep(.el-checkbox__label) {
+      min-width: 0;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
   }
 
   &__bank-name {
@@ -1176,6 +1185,8 @@ onMounted(async () => {
     width: 380px;
     position: sticky;
     top: 80px;
+    max-height: calc(100dvh - 160px);
+    overflow: auto;
     background: $bg-paper;
     border: 1px solid $border-color;
     border-radius: $radius-base;
@@ -1212,7 +1223,8 @@ onMounted(async () => {
   }
 
   &__selected-index {
-    flex: 0 0 20px;
+    flex: 0 0 auto;
+    min-width: 20px;
     text-align: center;
     color: $text-secondary;
     font-size: 12px;
@@ -1373,7 +1385,7 @@ onMounted(async () => {
   &__struct-row,
   &__struct-total {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 56px 88px 72px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.7fr) minmax(0, 1.1fr) minmax(0, 0.9fr);
     align-items: center;
     gap: 8px;
   }

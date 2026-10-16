@@ -14,6 +14,7 @@ import {
   verifyTwoFactor as apiVerifyTwoFactor,
 } from '@/api/auth';
 import { TOKEN_KEY, resetUnauthorizedGuard } from '@/api/http';
+import { usePermissionsStore } from './permissions';
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem(TOKEN_KEY));
@@ -30,6 +31,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   /** 清空本地会话（Token + 用户） */
   function clearSession(): void {
+    usePermissionsStore().reset();
     token.value = null;
     currentUser.value = null;
     localStorage.removeItem(TOKEN_KEY);
@@ -59,6 +61,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   /** 写入本地会话（Token + 当前用户）。 */
   function applySession(result: LoginResult): void {
+    usePermissionsStore().reset();
+    initializing.value = false;
     token.value = result.token;
     localStorage.setItem(TOKEN_KEY, result.token);
     currentUser.value = result.user;

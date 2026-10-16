@@ -9,6 +9,7 @@
  */
 import { computed, onMounted, ref } from 'vue';
 import * as practiceApi from '@/api/practice';
+import PagedOverview from '@/components/common/PagedOverview.vue';
 import type { Announcement, Banner } from '@/types';
 
 const banners = ref<Banner[]>([]);
@@ -23,13 +24,6 @@ const forceItem = ref<Announcement | null>(null);
 const forceQueue = ref<Announcement[]>([]);
 
 const visible = computed<boolean>(() => banners.value.length > 0 || announcements.value.length > 0);
-
-/** 公告列表默认只展示前 3 条，其余折叠 */
-const expanded = ref(false);
-const shownAnnouncements = computed<Announcement[]>(() =>
-  expanded.value ? announcements.value : announcements.value.slice(0, 3),
-);
-const hasMore = computed<boolean>(() => announcements.value.length > 3);
 
 /** 读取本地已提醒的重要公告 id 集合。 */
 function loadSeenImportant(): Set<string> {
@@ -130,27 +124,32 @@ function openDetail(item: Announcement): void {
       <div class="notice__head">
         <span class="notice__head-title">公告</span>
       </div>
-      <ul class="notice__list">
-        <li
-          v-for="item in shownAnnouncements"
-          :key="item.id"
-          class="notice__item"
-          @click="openDetail(item)"
-        >
-          <span class="notice__mark" :class="{ 'is-important': item.level === 'important' }">
-            {{ item.pinned ? '顶' : item.level === 'important' ? '要' : '告' }}
-          </span>
-          <span class="notice__title" :class="{ 'is-important': item.level === 'important' }">{{ item.title }}</span>
-          <span class="notice__date">{{ shortDate(item.createdAt) }}</span>
-        </li>
-      </ul>
-      <div v-if="hasMore" class="notice__more" @click="expanded = !expanded">
-        {{ expanded ? '收起' : `查看全部 ${announcements.length} 条` }}
-      </div>
+      <PagedOverview :items="announcements" title="公告" :limit="3">
+        <template #default="{ items }">
+          <ul class="notice__list">
+            <li
+              v-for="item in items"
+              :key="item.id"
+              class="notice__item"
+              role="button"
+              tabindex="0"
+              @click="openDetail(item)"
+              @keydown.enter="openDetail(item)"
+              @keydown.space.prevent="openDetail(item)"
+            >
+              <span class="notice__mark" :class="{ 'is-important': item.level === 'important' }">
+                {{ item.pinned ? '顶' : item.level === 'important' ? '要' : '告' }}
+              </span>
+              <span class="notice__title" :class="{ 'is-important': item.level === 'important' }">{{ item.title }}</span>
+              <span class="notice__date">{{ shortDate(item.createdAt) }}</span>
+            </li>
+          </ul>
+        </template>
+      </PagedOverview>
     </div>
 
     <!-- 公告详情 -->
-    <el-dialog v-model="detailVisible" :title="detail?.title ?? '公告'" width="86%" align-center>
+    <el-dialog v-model="detailVisible" :title="detail?.title ?? '公告'" width="86%" align-center append-to-body>
       <p class="notice__detail-meta">
         <span v-if="detail?.level === 'important'" class="notice__detail-flag">重要</span>
         {{ shortDate(detail?.createdAt ?? '') }}
@@ -279,15 +278,6 @@ function openDetail(item: Announcement): void {
     font-size: 11.5px;
     color: $text-disabled;
     font-variant-numeric: tabular-nums;
-  }
-
-  &__more {
-    padding: 9px 14px;
-    border-top: 1px solid $border-color;
-    text-align: center;
-    font-size: 12.5px;
-    color: $practice-primary;
-    cursor: pointer;
   }
 
   &__detail-meta {

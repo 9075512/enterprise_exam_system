@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { InternalAxiosRequestConfig } from 'axios';
+import { CanceledError } from 'axios';
 
 vi.mock('element-plus', () => ({
   ElMessage: { error: vi.fn(), success: vi.fn(), warning: vi.fn(), info: vi.fn() },
@@ -136,5 +137,27 @@ describe('http 401 闸门', () => {
     await http.get('/records/my').catch(() => undefined);
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
     expect(vi.mocked(ElMessage.error)).toHaveBeenCalledWith('登录状态已失效，请重新登录');
+  });
+});
+
+describe('http 静默错误与取消请求', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('业务错误也遵守 suppressErrorToast，并保留错误码', async () => {
+    http.defaults.adapter = async (config) => ({
+      data: { code: 1001, message: '参数不合法', data: null },
+      status: 200, statusText: 'OK', headers: {}, config,
+    });
+    await expect(post('/validate', {}, { suppressErrorToast: true })).rejects.toMatchObject({ code: 1001, status: 200 });
+    expect(ElMessage.error).not.toHaveBeenCalled();
+    await expect(post('/validate', {})).rejects.toThrow('参数不合法');
+    expect(ElMessage.error).toHaveBeenCalledOnce();
+  });
+
+  it('主动取消不显示网络错误，保留取消错误供调用方判断', async () => {
+    const canceled = new CanceledError('页面已离开');
+    http.defaults.adapter = async () => { throw canceled; };
+    await expect(post('/request')).rejects.toBe(canceled);
+    expect(ElMessage.error).not.toHaveBeenCalled();
   });
 });

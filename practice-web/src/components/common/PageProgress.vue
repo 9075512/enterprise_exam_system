@@ -2,24 +2,13 @@
 /**
  * 顶栏进度细条（Loading 方案 ⑤，Loading 设计 §5）。
  * 3px 主色渐变细条固定在视口顶部，路由跳转期间从左向右冲刺循环；
- * 结束后 300ms 淡出。配合 `usePageProgress` 使用，挂在 App 根部即可。
+ * 快速导航不显示；慢导航至少显示 250ms，再淡出。挂在 App 根部即可。
  */
-import { ref, watch } from 'vue';
 import { usePageProgress } from '@/composables/usePageProgress';
+import { useDelayedLoading } from '@/composables/useDelayedLoading';
 
 const { active } = usePageProgress();
-/** active=false 后延迟 300ms 再移除 DOM（淡出） */
-const visible = ref(active.value);
-let hideTimer: number | undefined;
-
-watch(active, (on) => {
-  window.clearTimeout(hideTimer);
-  if (on) {
-    visible.value = true;
-  } else {
-    hideTimer = window.setTimeout(() => (visible.value = false), 300);
-  }
-});
+const visible = useDelayedLoading(active);
 </script>
 
 <template>
@@ -52,7 +41,7 @@ watch(active, (on) => {
   left: 0;
   width: 38%;
   border-radius: 2px;
-  background: linear-gradient(90deg, $practice-primary, #548CFF);
+  background: linear-gradient(90deg, $practice-primary, #548cff);
   animation: page-progress-run 1.5s cubic-bezier(0.2, 0.6, 0.4, 1) infinite;
 }
 
@@ -73,7 +62,7 @@ watch(active, (on) => {
 
 .page-progress-enter-active,
 .page-progress-leave-active {
-  transition: opacity 0.3s ease;
+  transition: opacity 0.15s ease;
 }
 
 .page-progress-enter-from,

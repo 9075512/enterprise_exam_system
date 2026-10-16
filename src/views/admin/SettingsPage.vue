@@ -271,16 +271,33 @@ function resetTpl(): void {
 }
 
 /* ------------------------------ 加载 ------------------------------ */
-onMounted(async () => {
-  await settingsStore.load(true);
-  Object.assign(form, settingsStore.settings, {
-    notifyTemplates: cloneTemplates(settingsStore.settings.notifyTemplates),
-  });
-});
+const loading = ref(true);
+const loadFailed = ref(false);
+const formLocked = computed(() => loading.value || loadFailed.value || saving.value);
+
+async function loadSettings(): Promise<void> {
+  loading.value = true;
+  loadFailed.value = false;
+  try {
+    await settingsStore.load(true);
+    // 首次加载失败时不能将默认值当成服务端配置保存回去。
+    if (!settingsStore.ready) {
+      loadFailed.value = true;
+      return;
+    }
+    Object.assign(form, settingsStore.settings, {
+      notifyTemplates: cloneTemplates(settingsStore.settings.notifyTemplates),
+    });
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(loadSettings);
 
 /* ------------------------------ 保存 ------------------------------ */
 async function handleSave(): Promise<void> {
-  if (!formRef.value) return;
+  if (formLocked.value || !formRef.value) return;
 
   // 使用回调式校验以拿到 invalidFields（用于自动定位出错配置域）
   const [valid, invalidFields] = await new Promise<
@@ -319,6 +336,7 @@ async function handleSave(): Promise<void> {
 
 /* ------------------------------ 恢复默认 ------------------------------ */
 async function handleReset(): Promise<void> {
+  if (formLocked.value) return;
   const ok = await ElMessageBox.confirm(
     '确定恢复为系统默认设置吗？恢复后需点击「保存设置」才会生效。',
     '恢复默认设置',
@@ -337,16 +355,24 @@ async function handleReset(): Promise<void> {
   <div class="settings-page">
     <PageHeader title="系统设置" description="全局参数对所有用户实时生效，仅管理员可修改">
       <template #actions>
-        <el-button @click="handleReset">恢复默认</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSave">保存设置</el-button>
+        <el-button :disabled="formLocked" @click="handleReset">恢复默认</el-button>
+        <el-button type="primary" :loading="saving" :disabled="formLocked" @click="handleSave">保存设置</el-button>
       </template>
     </PageHeader>
 
     <!-- 哨兵：滚出视野说明页头操作区已不可见，此时改用贴底操作条 -->
     <div ref="sentinelRef" class="settings-page__sentinel" aria-hidden="true" />
 
+    <el-alert v-if="loadFailed" type="error" :closable="false" show-icon>
+      <template #title>设置加载失败，请重试后再编辑。</template>
+      <el-button @click="loadSettings">重新加载</el-button>
+    </el-alert>
+
     <el-form
+      v-loading="loading"
       ref="formRef"
+      :disabled="formLocked"
+      :aria-busy="loading"
       :model="form"
       :rules="rules"
       label-position="top"
@@ -1234,8 +1260,8 @@ async function handleReset(): Promise<void> {
       <div v-if="showActionBar" class="settings-page__actionbar">
         <span class="settings-page__actionbar-tip">修改后需点击「保存设置」方可全局生效</span>
         <div class="settings-page__actionbar-actions">
-          <el-button @click="handleReset">恢复默认</el-button>
-          <el-button type="primary" :loading="saving" @click="handleSave">保存设置</el-button>
+          <el-button :disabled="formLocked" @click="handleReset">恢复默认</el-button>
+          <el-button type="primary" :loading="saving" :disabled="formLocked" @click="handleSave">保存设置</el-button>
         </div>
       </div>
     </transition>

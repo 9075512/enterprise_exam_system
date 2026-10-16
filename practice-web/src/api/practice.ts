@@ -158,8 +158,8 @@ export function getProgress(bankId: string): Promise<PracticeProgress> {
 }
 
 /** 保存练题进度 */
-export function saveProgress(payload: PracticeProgressPayload): Promise<PracticeProgress> {
-  return put<PracticeProgress>('/practice/progress', payload, AUTHED);
+export function saveProgress(payload: PracticeProgressPayload, config?: Pick<AppRequestConfig, 'suppressErrorToast'>): Promise<PracticeProgress> {
+  return put<PracticeProgress>('/practice/progress', payload, { ...AUTHED, ...config });
 }
 
 /** 错题本列表（分页） */
@@ -190,8 +190,8 @@ export function favorites(
 }
 
 /** 我收藏的题目 id 列表（作答页批量回显收藏态） */
-export function favoriteIds(bankId?: string): Promise<string[]> {
-  return get<string[]>('/practice/favorites/ids', { bankId: bankId || undefined }, AUTHED);
+export function favoriteIds(bankId?: string, config?: Pick<AppRequestConfig, 'suppressErrorToast'>): Promise<string[]> {
+  return get<string[]>('/practice/favorites/ids', { bankId: bankId || undefined }, { ...AUTHED, ...config });
 }
 
 /** 收藏一题（幂等；超上限时后端返回 1013） */
@@ -220,8 +220,8 @@ export function favoritesReans(bankId?: string): Promise<PracticeSession> {
 /* ------------------------------ 每日一练（二期） ------------------------------ */
 
 /** 今日任务（每日一练关闭时 `enabled=false`，其余字段为降级值） */
-export function daily(): Promise<PracticeDailyTask> {
-  return get<PracticeDailyTask>('/practice/daily', undefined, AUTHED);
+export function daily(config?: Pick<AppRequestConfig, 'suppressErrorToast'>): Promise<PracticeDailyTask> {
+  return get<PracticeDailyTask>('/practice/daily', undefined, { ...AUTHED, ...config });
 }
 
 /** 生成今日任务练习会话（关闭时后端返回 1014） */

@@ -3,8 +3,8 @@
  * 数据总览（W3-T2，管理员；v1.7② 支持科室下钻 + 时间范围 + 知识点归因）。
  * 各接口 Promise.allSettled 互相隔离失败。
  *
- * 区块顺序对齐设计稿 docs/ui-v3b/pages/dashboard.html（FIDELITY-AUDIT.md C 类 dashboard 行）：
- *   统计卡 → 考试场次趋势 + 及格率趋势 → 科目错题归因 + 知识点错题归因 → 最近考试。
+ * 统计卡下采用独立双栏，避免不同数据量的卡片互相撑开：
+ *   主栏：考试场次趋势、最近考试、及格率 / 科目归因；侧栏：科室及格率、知识点归因、待办 / 告警。
  *
  * 已实现的「设计稿区块」（只做后端数据能诚实支撑的项）：
  * - 「考试场次趋势」：由 examTrend.total（每场考试已交卷人数）聚合，横轴=考试名、纵轴=参考人数。
@@ -51,6 +51,7 @@ import * as reportsApi from '@/api/reports';
 import * as retakesApi from '@/api/retakes';
 import * as usersApi from '@/api/users';
 import { useSettingsStore } from '@/stores/settings';
+import { useRequest } from '@/composables/useRequest';
 import { THEME } from '@/constants/theme';
 import {
   CHART_AXIS_LABEL,
@@ -66,6 +67,7 @@ import { formatDateTime, formatRange } from '@/utils/datetime';
 import { formatPercent, formatScore } from '@/utils/format';
 import { getExamStatus } from '@/utils/examStatus';
 import PageHeader from '@/components/common/PageHeader.vue';
+import PagedOverview from '@/components/common/PagedOverview.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import StatusTag from '@/components/common/StatusTag.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
@@ -73,7 +75,8 @@ import type { DashboardReport, Department, DeptItem, Exam, SubjectWrongItem } fr
 
 use([LineChart, BarChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
 
-const loading = ref(false);
+const loading = ref(true);
+const hasLoaded = ref(false);
 const stats = reactive({
   departments: 0,
   users: 0,
@@ -83,13 +86,20 @@ const stats = reactive({
 });
 const exams = ref<Exam[]>([]);
 const paperNames = ref<Record<string, string>>({});
-const dashboardData = ref<DashboardReport | null>(null);
 
 /* ------------------------------ 看板筛选（v1.7②） ------------------------------ */
 const departments = ref<Department[]>([]);
 const filterDepartmentId = ref('');
 const filterRange = ref<[string, string] | null>(null);
-const chartLoading = ref(false);
+const { data: dashboardData, loading: chartLoading, run: loadDashboard } = useRequest<DashboardReport>(
+  () => reportsApi.dashboard({
+    departmentId: filterDepartmentId.value || undefined,
+    from: filterRange.value?.[0] || undefined,
+    to: filterRange.value?.[1] || undefined,
+  }),
+  [],
+  { immediate: false },
+);
 
 /** 科室下拉选项：子科室加缩进前缀，便于辨识层级。 */
 const departmentOptions = computed<Array<{ value: string; label: string }>>(() => {
@@ -99,22 +109,6 @@ const departmentOptions = computed<Array<{ value: string; label: string }>>(() =
     return { value: d.id, label: parent ? `　└ ${d.name}` : d.name };
   });
 });
-
-/** 拉取看板数据（带筛选条件） */
-async function loadDashboard(): Promise<void> {
-  chartLoading.value = true;
-  try {
-    dashboardData.value = await reportsApi.dashboard({
-      departmentId: filterDepartmentId.value || undefined,
-      from: filterRange.value?.[0] || undefined,
-      to: filterRange.value?.[1] || undefined,
-    });
-  } catch {
-    // 错误提示已由 http.ts 响应拦截器统一弹出
-  } finally {
-    chartLoading.value = false;
-  }
-}
 
 function onFilterChange(): void {
   void loadDashboard();
@@ -147,13 +141,15 @@ function shortName(name: string): string {
 
 async function load(): Promise<void> {
   loading.value = true;
-  const [d, u, b, p, e, dash] = await Promise.allSettled([
+  // 图表、待办独立加载；慢报表不应阻塞统计卡和考试列表的首屏。
+  void loadDashboard();
+  void loadTodos();
+  const [d, u, b, p, e] = await Promise.allSettled([
     departmentsApi.list(),
     usersApi.list(),
     banksApi.list(),
     papersApi.list(),
     examsApi.list(),
-    reportsApi.dashboard(),
   ]);
 
   if (d.status === 'fulfilled') {
@@ -170,13 +166,12 @@ async function load(): Promise<void> {
     paperNames.value = Object.fromEntries(p.value.map((item) => [item.id, item.name]));
   }
   if (e.status === 'fulfilled') exams.value = e.value;
-  if (dash.status === 'fulfilled') dashboardData.value = dash.value;
 
+  hasLoaded.value = true;
   loading.value = false;
 
   // C 类补充块在「考试列表就绪」后各自并发拉取（互相隔离失败，不拖垮整页）
   void loadDepartmentPassRates();
-  void loadTodos();
   void loadCheatAlerts();
 }
 
@@ -504,7 +499,7 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
   <div class="dashboard">
     <PageHeader title="数据总览" description="系统运行概况" />
 
-    <LoadingSkeleton v-if="loading && exams.length === 0" :rows="4" />
+    <LoadingSkeleton v-if="loading && !hasLoaded" :rows="4" />
 
     <template v-else>
       <!-- 看板筛选：科室下钻 + 时间范围（v1.7②） -->
@@ -555,9 +550,9 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
         </el-col>
       </el-row>
 
-      <!-- 设计稿 g-2-1：考试场次趋势（主）+ 科室及格率（侧） -->
-      <el-row :gutter="16" class="dashboard__charts">
-        <el-col :xs="24" :md="16">
+      <!-- 主栏和侧栏分别连续排列，卡片按实际内容决定高度。 -->
+      <div class="dashboard__columns">
+        <div class="dashboard__stack">
           <el-card v-loading="chartLoading" class="dashboard__chart-card" shadow="never">
             <template #header>
               <span>考试场次趋势</span>
@@ -566,91 +561,15 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
             <EmptyState v-if="!dashboardData || dashboardData.examTrend.length === 0" text="暂无趋势数据" />
             <VChart v-else :option="sessionOption" autoresize style="height: 300px" />
           </el-card>
-        </el-col>
-        <el-col :xs="24" :md="8">
-          <el-card v-loading="passRateLoading" class="dashboard__chart-card" shadow="never">
-            <template #header>
-              <span>科室及格率</span>
-              <span class="dashboard__chart-hint">按人数加权 · {{ scopeLabel }}</span>
-            </template>
-            <!-- 数据缺口：DashboardReport 无「按科室聚合」段，此处由最近 ≤5 场 examReport().departments 前端加权聚合 -->
-            <table v-if="departmentPassRates.length > 0" class="dashboard__dept">
-              <thead>
-                <tr>
-                  <th>科室</th>
-                  <th class="dashboard__dept-num">人数</th>
-                  <th class="dashboard__dept-num">平均分</th>
-                  <th>及格率</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in departmentPassRates" :key="row.departmentId">
-                  <td class="dashboard__dept-name" :title="row.departmentName">
-                    {{ row.departmentName }}
-                  </td>
-                  <td class="dashboard__dept-num num">{{ row.count }}</td>
-                  <td class="dashboard__dept-num num">{{ formatScore(row.avgScore) }}</td>
-                  <td>
-                    <div class="dashboard__rate">
-                      <span class="dashboard__rate-num num">{{ formatPercent(row.passRate) }}</span>
-                      <el-progress
-                        class="dashboard__rate-bar"
-                        :percentage="Math.round(row.passRate * 100)"
-                        :stroke-width="6"
-                        :show-text="false"
-                        :color="row.passRate >= DEPARTMENT_PASS_RATE_WARN ? THEME.primary : THEME.warning"
-                      />
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <EmptyState v-else text="—（暂无科室成绩数据：最近 5 场报表为空或请求失败）" />
-          </el-card>
-        </el-col>
-      </el-row>
-
-      <el-row :gutter="16" class="dashboard__charts">
-        <el-col :xs="24" :md="8">
-          <el-card v-loading="chartLoading" class="dashboard__chart-card" shadow="never">
-            <template #header><span>及格率趋势</span></template>
-            <EmptyState v-if="!dashboardData || dashboardData.examTrend.length === 0" text="暂无趋势数据" />
-            <VChart v-else :option="trendOption" autoresize style="height: 300px" />
-          </el-card>
-        </el-col>
-        <el-col :xs="24" :md="8">
-          <el-card v-loading="chartLoading" class="dashboard__chart-card" shadow="never">
-            <template #header><span>科目错题归因</span></template>
-            <EmptyState v-if="!dashboardData || dashboardData.subjectWrong.length === 0" text="暂无归因数据" />
-            <VChart v-else :option="subjectOption" autoresize style="height: 300px" />
-          </el-card>
-        </el-col>
-        <el-col :xs="24" :md="8">
-          <el-card v-loading="chartLoading" class="dashboard__chart-card" shadow="never">
-            <template #header>
-              <span>知识点错题归因</span>
-              <span class="dashboard__chart-hint">按题目标签统计，未打标签的题目不计入</span>
-            </template>
-            <EmptyState
-              v-if="!dashboardData || dashboardData.tagWrong.length === 0"
-              text="暂无知识点归因数据（请先为题目维护知识点标签）"
-            />
-            <VChart v-else :option="tagOption" autoresize style="height: 300px" />
-          </el-card>
-        </el-col>
-      </el-row>
-
-      <!-- 设计稿 g-3-1：最近考试（主）+ 待办 / 异常告警（右侧栏） -->
-      <el-row :gutter="16" class="dashboard__charts">
-        <el-col :xs="24" :md="16">
           <el-card class="dashboard__chart-card" shadow="never">
             <template #header>
               <span>最近考试</span>
+              <router-link class="dashboard__all-exams" to="/admin/exams">查看全部考试</router-link>
             </template>
 
             <EmptyState v-if="exams.length === 0" text="暂无考试" />
 
-            <el-table v-else :data="exams" row-key="id" stripe>
+            <el-table v-else :data="recentExams" row-key="id" stripe>
               <el-table-column prop="name" label="考试名称" min-width="160" show-overflow-tooltip />
               <el-table-column label="关联试卷" min-width="150" show-overflow-tooltip>
                 <template #default="{ row }">{{ paperNames[row.paperId] || row.paperId }}</template>
@@ -668,10 +587,74 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
               </el-table-column>
             </el-table>
           </el-card>
-        </el-col>
-
-        <el-col :xs="24" :md="8">
-          <!-- 待办：全部为现成接口汇总的真实数字，失败项以「—」占位 -->
+          <div class="dashboard__analysis">
+            <el-card v-loading="chartLoading" class="dashboard__chart-card" shadow="never">
+              <template #header><span>及格率趋势</span></template>
+              <EmptyState v-if="!dashboardData || dashboardData.examTrend.length === 0" text="暂无趋势数据" />
+              <VChart v-else :option="trendOption" autoresize style="height: 300px" />
+            </el-card>
+            <el-card v-loading="chartLoading" class="dashboard__chart-card" shadow="never">
+              <template #header><span>科目错题归因</span></template>
+              <EmptyState v-if="!dashboardData || dashboardData.subjectWrong.length === 0" text="暂无归因数据" />
+              <VChart v-else :option="subjectOption" autoresize style="height: 300px" />
+            </el-card>
+          </div>
+        </div>
+        <div class="dashboard__stack">
+          <el-card v-loading="passRateLoading" class="dashboard__chart-card" shadow="never">
+            <template #header>
+              <span>科室及格率</span>
+              <span class="dashboard__chart-hint">按人数加权 · {{ scopeLabel }}</span>
+            </template>
+            <!-- 数据缺口：DashboardReport 无「按科室聚合」段，此处由最近 ≤5 场 examReport().departments 前端加权聚合 -->
+            <PagedOverview v-if="departmentPassRates.length > 0" :items="departmentPassRates" title="科室及格率">
+              <template #default="{ items }">
+                <table class="dashboard__dept">
+                  <thead>
+                    <tr>
+                      <th>科室</th>
+                      <th class="dashboard__dept-num">人数</th>
+                      <th class="dashboard__dept-num">平均分</th>
+                      <th>及格率</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in items" :key="row.departmentId">
+                      <td class="dashboard__dept-name" :title="row.departmentName">
+                        {{ row.departmentName }}
+                      </td>
+                      <td class="dashboard__dept-num num">{{ row.count }}</td>
+                      <td class="dashboard__dept-num num">{{ formatScore(row.avgScore) }}</td>
+                      <td>
+                        <div class="dashboard__rate">
+                          <span class="dashboard__rate-num num">{{ formatPercent(row.passRate) }}</span>
+                          <el-progress
+                            class="dashboard__rate-bar"
+                            :percentage="Math.round(row.passRate * 100)"
+                            :stroke-width="6"
+                            :show-text="false"
+                            :color="row.passRate >= DEPARTMENT_PASS_RATE_WARN ? THEME.primary : THEME.warning"
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </template>
+            </PagedOverview>
+            <EmptyState v-else text="—（暂无科室成绩数据：最近 5 场报表为空或请求失败）" />
+          </el-card>
+          <el-card v-loading="chartLoading" class="dashboard__chart-card" shadow="never">
+            <template #header>
+              <span>知识点错题归因</span>
+              <span class="dashboard__chart-hint">按题目标签统计，未打标签的题目不计入</span>
+            </template>
+            <EmptyState
+              v-if="!dashboardData || dashboardData.tagWrong.length === 0"
+              text="暂无知识点归因数据（请先为题目维护知识点标签）"
+            />
+            <VChart v-else :option="tagOption" autoresize style="height: 300px" />
+          </el-card>
           <el-card v-loading="todoLoading" class="dashboard__chart-card" shadow="never">
             <template #header>
               <span>待办</span>
@@ -705,7 +688,8 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
                     <template v-else>—</template>
                   </div>
                   <div class="dashboard__todo-sub">
-                    <template v-if="cheatAlertCount === null">切屏审查数据获取失败</template>
+                    <template v-if="alertLoading">正在加载切屏审查数据…</template>
+                    <template v-else-if="cheatAlertCount === null">切屏审查数据获取失败</template>
                     <template v-else>{{ scopeLabel }} · 达阈值口径</template>
                   </div>
                 </div>
@@ -744,8 +728,6 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
               </li>
             </ul>
           </el-card>
-
-          <!-- 异常告警：以「含切屏事件的已交卷记录」替代设计稿的告警工单（后端无工单表） -->
           <el-card v-loading="alertLoading" class="dashboard__chart-card" shadow="never">
             <template #header>
               <span>异常告警</span>
@@ -771,14 +753,21 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
             </ul>
             <EmptyState v-else text="—（最近 5 场暂无切屏异常记录）" />
           </el-card>
-        </el-col>
-      </el-row>
+        </div>
+      </div>
     </template>
   </div>
 </template>
 
 <style scoped lang="scss">
 @use '@/styles/variables.scss' as *;
+
+.dashboard__all-exams {
+  margin-left: auto;
+  color: $color-primary;
+  font-size: 12px;
+  text-decoration: none;
+}
 
 .dashboard__cards {
   margin-bottom: 16px;
@@ -812,13 +801,36 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
   color: $text-secondary;
 }
 
-.dashboard__charts {
-  margin-bottom: 16px;
+.dashboard__columns {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.dashboard__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.dashboard__analysis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+}
+
+@media (max-width: 991px) {
+  .dashboard__columns, .dashboard__analysis {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .dashboard__chart-card {
   border-radius: $radius-lg;
-  margin-bottom: 16px;
+  min-width: 0;
 }
 
 // —— C 类残项 1：科室及格率（「表格 + 内联进度条」，与「成绩报表 · 科室对比」同范式）

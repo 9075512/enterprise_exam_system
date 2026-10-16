@@ -12,7 +12,7 @@ import { computed, onMounted, ref } from 'vue';
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
-import BootSplash from '@/components/common/BootSplash.vue';
+import PracticeLoading from '@/components/common/PracticeLoading.vue';
 import QuestionCard from '@/views/exam/components/QuestionCard.vue';
 import PracticeFeedback from './components/PracticeFeedback.vue';
 import PracticeProgressDots from './components/PracticeProgressDots.vue';
@@ -34,13 +34,15 @@ const configStore = usePracticeConfigStore();
 
 /** 是否为错题复习模式 */
 const isReans = computed<boolean>(() => Boolean(route.meta.reans));
-/** 普通练题的题库 id（错题复习为空串） */
-const normalBankId = computed<string>(() => (isReans.value ? '' : String(route.params.bankId ?? '')));
 
 /** 会话来源（二期）：daily = 每日一练；favorite = 收藏重练；其余为常规练题 */
 const source = computed<string>(() => (typeof route.query.source === 'string' ? route.query.source : ''));
 const isDaily = computed<boolean>(() => source.value === 'daily');
 const isFavorite = computed<boolean>(() => source.value === 'favorite');
+/** 跨库会话的路由占位值不能作为真实题库 ID 保存进度。 */
+const normalBankId = computed<string>(() =>
+  isReans.value || isDaily.value || isFavorite.value ? '' : String(route.params.bankId ?? ''),
+);
 
 /** 来源标记文案（设计图 `.sx__src`） */
 const srcLabel = computed<string>(() => {
@@ -89,29 +91,34 @@ const summary = computed(() => {
 /** 当前用户已收藏的题目 id 集合 */
 const favoriteIds = ref<Set<string>>(new Set());
 const favoriteBusy = ref(false);
+const favoriteReady = ref(false);
 
 /** 当前题是否已收藏 */
 const currentFavorited = computed<boolean>(() => favoriteIds.value.has(currentId.value));
 
 /** 拉取收藏态（失败静默降级为「未收藏」，不阻塞答题） */
 async function loadFavoriteIds(): Promise<void> {
+  favoriteReady.value = false;
   // 收藏功能关闭时不再请求（服务端亦会拒绝），直接视为未收藏
   if (!configStore.config.favoriteEnabled) {
     favoriteIds.value = new Set();
+    favoriteReady.value = true;
     return;
   }
   try {
-    const ids = await practiceApi.favoriteIds();
+    const ids = await practiceApi.favoriteIds(undefined, { suppressErrorToast: true });
     favoriteIds.value = new Set(ids);
   } catch {
     favoriteIds.value = new Set();
+  } finally {
+    favoriteReady.value = true;
   }
 }
 
 /** 收藏 / 取消收藏（乐观更新，失败回滚） */
 async function toggleFavorite(): Promise<void> {
   const qid = currentId.value;
-  if (!qid || favoriteBusy.value) return;
+  if (!qid || favoriteBusy.value || !favoriteReady.value) return;
   const wasFavorited = favoriteIds.value.has(qid);
   favoriteBusy.value = true;
 
@@ -147,7 +154,7 @@ const dailyProgress = computed<string>(() => {
 /** 刷新今日任务进度（失败静默，不打断作答） */
 async function refreshDaily(): Promise<void> {
   try {
-    dailyInfo.value = await practiceApi.daily();
+    dailyInfo.value = await practiceApi.daily({ suppressErrorToast: true });
   } catch {
     /* 静默 */
   }
@@ -178,14 +185,18 @@ async function init(): Promise<void> {
   answers.value = {};
   results.value = {};
   finished.value = false;
+  questions.value = [];
+  session.value = null;
   try {
     // 练题端配置（默认模式 / 题量范围）：失败保持默认，不阻塞作答
     await configStore.load();
+    // 辅助信息后台加载，不让收藏列表或今日统计拖住题目展示。
+    void loadFavoriteIds();
+    if (isDaily.value) void refreshDaily();
     let s: PracticeSession;
     if (isDaily.value) {
       // 每日一练：后端返回当日固定题序的会话（关闭时抛 1014，由 catch 统一展示）
       s = await practiceApi.dailySession();
-      await refreshDaily();
     } else if (isFavorite.value) {
       const bankId = typeof route.query.bankId === 'string' ? route.query.bankId : undefined;
       s = await practiceApi.favoritesReans(bankId);
@@ -216,8 +227,6 @@ async function init(): Promise<void> {
       return;
     }
     questions.value = await practiceApi.questionsByIds(s.questionIds);
-    // 收藏态回显（失败静默降级，不阻塞答题）
-    await loadFavoriteIds();
   } catch (err) {
     errorMessage.value = (err as Error).message || '加载失败，请稍后重试';
   } finally {
@@ -227,14 +236,14 @@ async function init(): Promise<void> {
 
 /** 选择题目的作答更新（已判分后锁定，避免改动首次结果） */
 function onAnswer(value: number[]): void {
-  if (!currentId.value || currentResult.value) return;
+  if (!currentId.value || currentResult.value || submitting.value) return;
   answers.value = { ...answers.value, [currentId.value]: value };
 }
 
 /** 提交本题 → 即时判分 */
 async function submit(): Promise<void> {
   const q = currentQuestion.value;
-  if (!q || !session.value) return;
+  if (!q || !session.value || submitting.value || currentResult.value) return;
   if (currentAnswer.value.length === 0) {
     ElMessage.warning('请先作答');
     return;
@@ -249,7 +258,7 @@ async function submit(): Promise<void> {
     results.value = { ...results.value, [q.id]: res };
     // 记录进度（普通练题；错题复习 / 收藏重练 / 每日一练无单一题库）
     if (normalBankId.value) {
-      void practiceApi.saveProgress({ bankId: normalBankId.value, lastQuestionId: q.id }).catch(() => {
+      void practiceApi.saveProgress({ bankId: normalBankId.value, lastQuestionId: q.id }, { suppressErrorToast: true }).catch(() => {
         /* 进度保存失败不打断作答 */
       });
     }
@@ -320,13 +329,17 @@ onMounted(init);
   <PracticeLayout bare>
     <!-- 作答页无顶栏（设计图 p-session 为 bare）：进度工具栏由页面自带，满幅贴顶 -->
 
-    <!-- 加载中：品牌脉冲全屏（进入答题，Loading 方案 ①） -->
-    <BootSplash :show="loading" dark caption="正在准备题目…" />
+    <!-- 页内占位保留返回入口，快速取题不闪全屏遮罩。 -->
+    <div v-if="loading" class="session__preparing">
+      <el-button @click="goHome">返回首页</el-button>
+      <PracticeLoading :loading="loading" :rows="5" caption="正在准备题目…" />
+    </div>
 
     <!-- 加载失败 -->
     <div v-if="!loading && errorMessage" class="session__state">
       <div class="session__state-mark" aria-hidden="true">!</div>
       <p class="session__state-text">{{ errorMessage }}</p>
+      <el-button type="primary" @click="restart">重新加载</el-button>
       <el-button type="primary" @click="goHome">返回首页</el-button>
     </div>
 
@@ -382,11 +395,11 @@ onMounted(init);
               type="button"
               class="session__fav"
               :class="{ 'is-on': currentFavorited }"
-              :disabled="favoriteBusy"
+              :disabled="favoriteBusy || !favoriteReady"
               :aria-pressed="currentFavorited"
               @click="toggleFavorite"
             >
-              {{ currentFavorited ? '已收藏' : '收藏本题' }}
+              {{ !favoriteReady ? '收藏加载中…' : currentFavorited ? '已收藏' : '收藏本题' }}
             </button>
           </div>
         </div>
@@ -400,7 +413,7 @@ onMounted(init);
       </div>
 
       <div class="session__body">
-        <div v-if="currentQuestion" class="session__card" :class="{ 'is-locked': !!currentResult }">
+        <div v-if="currentQuestion" class="session__card" :class="{ 'is-locked': !!currentResult || submitting }" :aria-busy="submitting">
           <QuestionCard
             :index="index"
             :question="toQuestion(currentQuestion)"
@@ -422,10 +435,10 @@ onMounted(init);
             size="large"
             class="session__submit"
             :loading="submitting"
-            :disabled="currentAnswer.length === 0"
+            :disabled="submitting || currentAnswer.length === 0"
             @click="submit"
           >
-            提交本题
+            {{ submitting ? '正在判分…' : '提交本题' }}
           </el-button>
         </template>
         <template v-else>
@@ -443,6 +456,10 @@ onMounted(init);
 @use '@/styles/variables.scss' as *;
 
 .session {
+  &__preparing {
+    padding: 14px;
+  }
+
   /* 作答页为 bare 布局：无顶栏，进度工具栏由页面自带并满幅贴顶（设计图 .sx） */
   display: flex;
   flex: 1;
@@ -492,6 +509,7 @@ onMounted(init);
 
   &__row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
   }
@@ -532,7 +550,9 @@ onMounted(init);
 
   &__right {
     display: flex;
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
     align-items: center;
     gap: 8px;
     margin-left: auto;
@@ -541,7 +561,9 @@ onMounted(init);
   &__source {
     display: inline-flex;
     align-items: center;
-    height: 22px;
+    min-height: 22px;
+    min-width: 0;
+    overflow-wrap: anywhere;
     padding: 0 8px;
     border-radius: $radius-sm;
     background: $practice-soft;

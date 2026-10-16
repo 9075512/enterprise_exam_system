@@ -46,6 +46,7 @@ const emit = defineEmits<{ clear: [] }>();
 
 .batch-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   min-height: 44px;
@@ -70,7 +71,7 @@ const emit = defineEmits<{ clear: [] }>();
 
 .batch-bar__actions {
   display: flex;
-  flex: 1;
+  flex: 1 1 240px;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;

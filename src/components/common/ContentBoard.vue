@@ -12,6 +12,7 @@ import { fetchFeed, markAnnouncementRead, markBannerClick } from '@/api/content'
 import { formatDateTime } from '@/utils/datetime';
 import type { Announcement, Banner } from '@/types';
 import LoadingDots from '@/components/common/LoadingDots.vue';
+import PagedOverview from './PagedOverview.vue';
 
 /** 展示端：考试端首页 / 我的考试页传 'exam'；如需在练题相关页复用可传 'practice' */
 const props = withDefaults(defineProps<{ scope?: 'exam' | 'practice' }>(), { scope: 'exam' });
@@ -144,23 +145,31 @@ function openDetail(item: Announcement): void {
       <template #header>
         <span class="content-board__head-title">公告通知</span>
       </template>
-      <ul class="content-board__list">
-        <li
-          v-for="item in announcements"
-          :key="item.id"
-          class="content-board__item"
-          :class="{ 'is-important': item.level === 'important' }"
-          @click="openDetail(item)"
-        >
-          <el-tag v-if="item.pinned" size="small" type="danger" effect="plain" class="content-board__pin">置顶</el-tag>
-          <span class="content-board__item-title">{{ item.title }}</span>
-          <span class="content-board__item-time">{{ formatDateTime(item.createdAt) }}</span>
-        </li>
-      </ul>
+      <PagedOverview :items="announcements" title="公告通知" :limit="5">
+        <template #default="{ items }">
+          <ul class="content-board__list">
+            <li
+              v-for="item in items"
+              :key="item.id"
+              class="content-board__item"
+              :class="{ 'is-important': item.level === 'important' }"
+              role="button"
+              tabindex="0"
+              @click="openDetail(item)"
+              @keydown.enter="openDetail(item)"
+              @keydown.space.prevent="openDetail(item)"
+            >
+              <el-tag v-if="item.pinned" size="small" type="danger" effect="plain" class="content-board__pin">置顶</el-tag>
+              <span class="content-board__item-title">{{ item.title }}</span>
+              <span class="content-board__item-time">{{ formatDateTime(item.createdAt) }}</span>
+            </li>
+          </ul>
+        </template>
+      </PagedOverview>
     </el-card>
 
     <!-- 公告详情 -->
-    <el-dialog v-model="detailVisible" :title="detail?.title ?? '公告'" width="560px">
+    <el-dialog v-model="detailVisible" :title="detail?.title ?? '公告'" width="560px" append-to-body>
       <p class="content-board__detail-meta">
         <span v-if="detail?.level === 'important'" class="content-board__detail-flag">重要</span>
         发布时间：{{ detail ? formatDateTime(detail.createdAt) : '' }}

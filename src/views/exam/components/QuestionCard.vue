@@ -134,6 +134,7 @@ const shortValue = computed<string>({
 
   &__head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
     margin-bottom: 12px;
@@ -143,7 +144,9 @@ const shortValue = computed<string>({
   &__no {
     display: inline-grid;
     place-items: center;
-    width: 22px;
+    min-width: 22px;
+    padding: 0 4px;
+    flex-shrink: 0;
     height: 22px;
     border-radius: $radius-sm;
     background: $color-primary;

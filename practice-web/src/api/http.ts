@@ -61,12 +61,15 @@ http.interceptors.response.use(
     const body = response.data as { code: number; message: string; data: unknown };
     if (body && typeof body === 'object' && 'code' in body) {
       if (body.code === 0) return body.data as never;
-      ElMessage.error(body.message || '请求失败');
+      if (!(response.config as AppRequestConfig).suppressErrorToast) {
+        ElMessage.error(body.message || '请求失败');
+      }
       return Promise.reject(buildApiError(body.message || '请求失败', response.status, body.code)) as never;
     }
     return response.data as never;
   },
   (error) => {
+    if (axios.isCancel(error)) return Promise.reject(error);
     const status = error?.response?.status as number | undefined;
     const body = error?.response?.data as { code?: number; message?: string } | undefined;
     const message: string = body?.message || error?.message || '网络异常，请稍后重试';
@@ -75,7 +78,7 @@ http.interceptors.response.use(
     const suppressErrorToast = config?.suppressErrorToast === true;
     const isPractice = config?.practiceAuth === true;
 
-    if (status === 401 && isPractice) {
+    if (status === 401 && isPractice && !skipAuthRedirect) {
       // 练题登录态失效：清练题 Token + 跳练题登录页。同轮只处理一次，避免 Toast 堆叠。
       if (!practiceUnauthorizedHandled) {
         practiceUnauthorizedHandled = true;

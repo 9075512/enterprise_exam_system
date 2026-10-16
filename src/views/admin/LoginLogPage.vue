@@ -26,7 +26,7 @@ const filters = reactive<{
   dateRange: null,
 });
 
-const { list: logs, page, pageSize, total, loading, load, onPageChange, onSizeChange } =
+const { list: logs, page, pageSize, total, loading, load, reset, onPageChange, onSizeChange } =
   usePagination<LoginLog>((p, ps) =>
     loginLogsApi.listLoginLogs({
       username: filters.username.trim() || undefined,
@@ -40,7 +40,7 @@ const { list: logs, page, pageSize, total, loading, load, onPageChange, onSizeCh
   );
 
 function handleSearch(): void {
-  load();
+  reset();
 }
 
 function handleReset(): void {
@@ -48,7 +48,7 @@ function handleReset(): void {
   filters.success = '';
   filters.source = '';
   filters.dateRange = null;
-  load();
+  reset();
 }
 
 /** 是否处于筛选态（决定空态口径与是否给「清空筛选」出路，规范 §9.2） */

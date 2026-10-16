@@ -10,6 +10,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
+import PracticeLoading from '@/components/common/PracticeLoading.vue';
 import * as practiceApi from '@/api/practice';
 import { usePracticeAuthStore } from '@/stores/practiceAuth';
 import type { PracticeBank, PracticeFavoriteQuestion, QuestionType } from '@/types';
@@ -55,9 +56,9 @@ async function loadBanks(): Promise<void> {
 }
 
 /** 加载指定页（1 = 覆盖，其余 = 追加） */
-async function loadPage(target: number): Promise<void> {
+async function loadPage(target: number, bankId = activeBank.value): Promise<void> {
   const res = await practiceApi.favorites({
-    bankId: activeBank.value || undefined,
+    bankId: bankId || undefined,
     page: target,
     pageSize: PAGE_SIZE,
   });
@@ -70,7 +71,8 @@ async function loadPage(target: number): Promise<void> {
 async function load(): Promise<void> {
   loading.value = true;
   try {
-    await Promise.all([loadBanks(), loadPage(1)]);
+    void loadBanks();
+    await loadPage(1);
   } catch {
     // 错误提示已由 http 拦截器统一弹出
   } finally {
@@ -80,11 +82,11 @@ async function load(): Promise<void> {
 
 /** 切换题库筛选 */
 async function switchBank(bankId: string): Promise<void> {
-  if (activeBank.value === bankId) return;
-  activeBank.value = bankId;
+  if (activeBank.value === bankId || loading.value || loadingMore.value) return;
   loading.value = true;
   try {
-    await loadPage(1);
+    await loadPage(1, bankId);
+    activeBank.value = bankId;
   } catch {
     /* 提示已统一 */
   } finally {
@@ -94,7 +96,7 @@ async function switchBank(bankId: string): Promise<void> {
 
 /** 加载更多 */
 async function loadMore(): Promise<void> {
-  if (loadingMore.value || !hasMore.value) return;
+  if (loading.value || loadingMore.value || !hasMore.value) return;
   loadingMore.value = true;
   try {
     await loadPage(page.value + 1);
@@ -151,6 +153,7 @@ onMounted(load);
         <button
           type="button"
           class="fav__chip"
+          :disabled="loading || loadingMore"
           :class="{ 'is-active': activeBank === '' }"
           @click="switchBank('')"
         >
@@ -161,6 +164,7 @@ onMounted(load);
           :key="bank.id"
           type="button"
           class="fav__chip"
+          :disabled="loading || loadingMore"
           :class="{ 'is-active': activeBank === bank.id }"
           @click="switchBank(bank.id)"
         >
@@ -168,9 +172,7 @@ onMounted(load);
         </button>
       </div>
 
-      <div v-if="loading" class="fav__skeleton">
-        <el-skeleton :rows="5" animated />
-      </div>
+      <PracticeLoading v-if="loading && items.length === 0" :loading="loading" :rows="5" caption="正在加载收藏…" />
 
       <div v-else-if="total === 0" class="fav__empty">
         <div class="fav__empty-mark" aria-hidden="true">—</div>
@@ -178,6 +180,7 @@ onMounted(load);
       </div>
 
       <template v-else>
+        <PracticeLoading :loading="loading" compact caption="正在更新收藏…" />
         <div v-for="q in items" :key="q.id" class="fav__item">
           <div class="fav__item-top">
             <span class="fav__type">{{ TYPE_LABEL[q.type] }}</span>
@@ -189,7 +192,7 @@ onMounted(load);
         </div>
 
         <div v-if="hasMore" class="fav__more">
-          <el-button :loading="loadingMore" @click="loadMore">加载更多</el-button>
+          <el-button :loading="loadingMore" :disabled="loading" @click="loadMore">加载更多</el-button>
         </div>
       </template>
     </div>

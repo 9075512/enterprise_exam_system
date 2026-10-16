@@ -4,12 +4,15 @@
  * 菜单权限：v1.5 起，带 `meta.menuKey` 的路由在进入时校验当前角色是否被授权该菜单（见守卫）。
  */
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
-import { usePageProgress } from '@/composables/usePageProgress';
-import { useAuthStore } from '@/stores/auth';
-import { usePermissionsStore } from '@/stores/permissions';
-import type { Role } from '@/types';
+import { installPageProgress } from '@/composables/usePageProgress';
+import { createAuthGuard } from './guard';
 
 const routes: RouteRecordRaw[] = [
+  {
+    path: '/no-access',
+    component: () => import('@/views/common/NoAccessPage.vue'),
+    meta: { title: '暂无页面权限' },
+  },
   {
     path: '/login',
     name: 'login',
@@ -182,47 +185,8 @@ const routes: RouteRecordRaw[] = [
 
 const router = createRouter({ history: createWebHistory(), routes });
 
-/** 角色首页（v1.9⑦：考生落地「首页」，聚合公告 / 消息 / 统计 / 快捷入口） */
-function homePath(role: Role): string {
-  if (role === 'admin') return '/admin/dashboard';
-  if (role === 'author') return '/author/banks';
-  return '/exam/home';
-}
-
 // 全局守卫（内网异步恢复会话 + 角色/菜单权限校验）
-// Loading 体系 ⑤：导航期间顶栏进度细条（重定向链靠可重入计数兜底）
-const pageProgress = usePageProgress();
-router.beforeEach(async (to) => {
-  pageProgress.start();
-  const auth = useAuthStore();
-  if (auth.initializing) await auth.fetchMe();
-
-  if (to.meta.public) {
-    return auth.isLoggedIn && auth.currentUser ? homePath(auth.currentUser.role) : true;
-  }
-  if (!auth.isLoggedIn) {
-    return { path: '/login', query: { redirect: to.fullPath } };
-  }
-
-  const roles = to.meta.roles as Role[] | undefined;
-  if (roles && auth.currentUser && !roles.some((r) => auth.hasRole(r))) {
-    return homePath(auth.currentUser.role); // 无权限 → 回本人首页
-  }
-
-  // 菜单权限（v1.5）：带 menuKey 的路由校验当前角色是否被授权该菜单
-  const menuKey = to.meta.menuKey as string | undefined;
-  if (menuKey && auth.currentUser) {
-    const permissions = usePermissionsStore();
-    if (!permissions.loaded) await permissions.load();
-    if (!permissions.hasMenu(menuKey, auth.currentUser.role)) {
-      return homePath(auth.currentUser.role);
-    }
-  }
-
-  return true;
-});
-
-router.afterEach(() => pageProgress.done());
-router.onError(() => pageProgress.done());
+installPageProgress(router);
+router.beforeEach(createAuthGuard(router));
 
 export default router;

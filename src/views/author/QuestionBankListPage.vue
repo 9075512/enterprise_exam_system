@@ -7,7 +7,7 @@ import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import dayjs from 'dayjs';
-import { Delete, EditPen, Plus, Refresh, Search } from '@element-plus/icons-vue';
+import { CopyDocument, Delete, EditPen, Plus, Refresh, Search } from '@element-plus/icons-vue';
 import * as banksApi from '@/api/banks';
 import { useRequest } from '@/composables/useRequest';
 import { useConfirm } from '@/composables/useConfirm';
@@ -309,6 +309,7 @@ async function handleDelete(bank: QuestionBank): Promise<void> {
             <el-button size="small" @click="goComposer()">组卷</el-button>
           </el-tooltip>
           <el-button size="small" :icon="EditPen" @click="openEdit(bank)" aria-label="编辑题库" />
+          <el-button size="small" :icon="CopyDocument" @click="openClone(bank)" aria-label="复制题库" />
           <el-button size="small" :icon="Delete" @click="handleDelete(bank)" aria-label="删除题库" />
         </div>
       </el-card>
@@ -528,6 +529,7 @@ async function handleDelete(bank: QuestionBank): Promise<void> {
   // 动作行：主按钮占满 + 图标按钮
   &__actions {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 6px;
     margin-top: 10px;

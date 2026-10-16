@@ -25,6 +25,9 @@ export const useSettingsStore = defineStore('settings', () => {
   const publicSettings = ref<PublicSettings>({ ...PUBLIC_SETTINGS_DEFAULTS });
   const ready = ref(false);
   const loading = ref(false);
+  let inflight: Promise<void> | null = null;
+  let publicInflight: Promise<void> | null = null;
+  let revision = 0;
 
   /** 合并后端返回值（缺字段回退默认值，兼容新增字段） */
   function apply(next: Partial<SystemSettings>): void {
@@ -34,32 +37,51 @@ export const useSettingsStore = defineStore('settings', () => {
 
   /** 加载完整设置（需登录）；已加载过则直接返回，force 时强制刷新 */
   async function load(force = false): Promise<void> {
-    if (loading.value) return;
+    if (inflight) return inflight;
     if (ready.value && !force) return;
     loading.value = true;
-    try {
-      apply(await getSettings());
-      ready.value = true;
-    } catch {
-      /* 静默：保留默认值 */
-    } finally {
-      loading.value = false;
-    }
+    const currentRevision = revision;
+    inflight = (async () => {
+      try {
+        const next = await getSettings();
+        if (currentRevision === revision) {
+          apply(next);
+          ready.value = true;
+        }
+      } catch {
+        /* 静默：保留默认值，下次调用可重试 */
+      } finally {
+        loading.value = false;
+        inflight = null;
+      }
+    })();
+    return inflight;
   }
 
   /** 加载公开品牌设置（无需登录，登录页调用） */
   async function loadPublic(): Promise<void> {
-    try {
-      const data = await getPublicSettings();
-      publicSettings.value = { ...PUBLIC_SETTINGS_DEFAULTS, ...data };
-    } catch {
-      /* 静默：保留默认值 */
-    }
+    if (publicInflight) return publicInflight;
+    const currentRevision = revision;
+    publicInflight = (async () => {
+      try {
+        const data = await getPublicSettings();
+        if (currentRevision === revision) {
+          publicSettings.value = { ...PUBLIC_SETTINGS_DEFAULTS, ...data };
+        }
+      } catch {
+        /* 静默：保留默认值 */
+      } finally {
+        publicInflight = null;
+      }
+    })();
+    return publicInflight;
   }
 
   /** 保存设置（仅 admin）；成功后同步本地 */
   async function save(payload: SystemSettings): Promise<void> {
-    apply(await updateSettings(payload));
+    const next = await updateSettings(payload);
+    revision += 1;
+    apply(next);
     ready.value = true;
   }
 

@@ -839,6 +839,8 @@ async function submitPassword(): Promise<void> {
 
   &__content {
     flex: 1;
+    min-width: 0;
+    min-height: 0;
     overflow: auto;
     // 四边同距（DESIGN-C §2.2 --pad-page）：顶栏内距与之对齐，
     // 面包屑与页面标题因此落在同一条竖轴上。

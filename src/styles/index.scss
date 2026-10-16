@@ -56,6 +56,7 @@ body,
 }
 
 body {
+  overflow-wrap: anywhere;
   font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   // 基准字号 13.5px（DESIGN-C）。EP 浮层（弹窗 / 下拉 / 气泡）teleport 到 body，
   // 其根字号继承自 body —— 此前未设，取浏览器默认 16px，导致弹窗整层大一档（审计 B1）。
@@ -72,6 +73,8 @@ body {
 
 // 卡片：圆角 + 发丝线（v3.1 方向 C：零投影，层次交给线条）
 .el-card.el-card {
+  min-width: 0;
+  max-width: 100%;
   border-radius: $radius-base;
   border-color: $border-color;
 }
@@ -154,6 +157,11 @@ body {
     border-bottom-color: $border-color;
     font-size: 13.5px;
     font-weight: 600;
+
+    > * {
+      min-width: 0;
+      max-width: 100%;
+    }
   }
 }
 
@@ -276,6 +284,13 @@ html[data-density='compact'] {
 .el-dialog.el-dialog {
   border-radius: $radius-base;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-width: calc(100vw - 32px);
+  max-height: 90vh;
+  max-height: 90dvh;
+  margin-top: 5vh;
+  margin-bottom: 5vh;
 
   .el-dialog__header {
     padding: 13px 16px;
@@ -286,10 +301,15 @@ html[data-density='compact'] {
   .el-dialog__title {
     font-size: 14px;
     font-weight: 600;
+    display: block;
+    max-height: 25vh;
+    overflow: auto;
   }
 
   .el-dialog__body {
     padding: 16px;
+    min-height: 0;
+    overflow: auto;
   }
 
   .el-dialog__footer {
@@ -297,11 +317,33 @@ html[data-density='compact'] {
     border-top: 1px solid $border-color;
     background: $bg-paper;
   }
+
+  .el-dialog__header,
+  .el-dialog__footer {
+    flex-shrink: 0;
+  }
+
+  .el-dialog__header {
+    padding-right: 44px;
+  }
+}
+
+.el-dialog.el-dialog.is-fullscreen {
+  margin: 0;
+  max-width: none;
+  max-height: none;
+}
+
+.el-dialog.el-dialog.is-align-center {
+  margin: auto;
 }
 
 // 分页：方形小页码 + 选中主色实底（设计稿 .pager/.pg）
 // 与 EP 默认的差异：EP 选中态只把「文字」染主色，设计稿是主色实底 + 白字。
 .el-pagination.el-pagination {
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 100%;
   --el-pagination-button-height: 27px;
   --el-pagination-button-width: 27px;
   --el-pagination-font-size: 12px;
@@ -336,12 +378,24 @@ html[data-density='compact'] {
 // 标签：小圆角 + 设计稿 .bdg 刻度（20px 高 / 5px 圆角 / 11.5px / 580→600）
 // EP 默认 24px 高、radius 4px、12px —— 整体比设计稿大一号（保真度审计 A6）。
 .el-tag.el-tag {
-  height: 20px;
+  min-height: 20px;
+  height: auto;
+  max-width: 100%;
+  white-space: normal;
   padding: 0 7px;
   border-radius: 5px;
   font-size: 11.5px;
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.4;
+
+  .el-tag__content {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .el-tag__close {
+    flex-shrink: 0;
+  }
 }
 
 // =============================================================
@@ -500,6 +554,7 @@ html[data-density='compact'] {
 
 // 列表容器卡：统一「工具栏 / 表格 / 分页」的承载面
 .table-card {
+  min-width: 0;
   border-radius: $radius-base;
 
   .table-card__toolbar {
@@ -512,6 +567,8 @@ html[data-density='compact'] {
   }
 
   .table-card__toolbar-filters {
+    min-width: 0;
+    max-width: 100%;
     display: flex;
     align-items: center;
     flex-wrap: wrap;
@@ -552,6 +609,8 @@ html[data-density='compact'] {
 
 // 页面级容器（与 PageHeader 配合）
 .page {
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -617,6 +676,9 @@ html[data-density='compact'] {
 // v1.7③ 简答题富文本渲染（内容经服务端白名单净化后再 v-html）
 // =============================================================
 .rich-text {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
   font-size: 13px;
   line-height: 1.75;
   color: $text-primary;
@@ -694,4 +756,24 @@ html[data-density='compact'] {
     border: none;
     border-top: 1px solid $border-color;
   }
+}
+
+// Keep long field values inside their columns, with local scrolling for tables.
+.el-form-item__content.el-form-item__content {
+  min-width: 0;
+}
+
+.el-dialog .el-input,
+.el-dialog .el-select,
+.el-dialog .el-date-editor,
+.table-card__toolbar-filters > * {
+  max-width: 100%;
+}
+
+.el-descriptions__table.el-descriptions__table {
+  table-layout: fixed;
+}
+
+.el-descriptions__content.el-descriptions__content {
+  overflow-wrap: anywhere;
 }

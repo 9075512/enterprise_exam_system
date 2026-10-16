@@ -158,6 +158,10 @@ async function handleMarkAll(): Promise<void> {
     </div>
 
     <div class="notif__row">
+      <div class="notif__tip">
+        <el-icon class="notif__tip-icon"><Message /></el-icon>
+        <div>消息按<b>登录账号</b>隔离，仅你能看到本人相关的考试与成绩通知；消息保留 180 天后自动清理。</div>
+      </div>
       <el-card class="notif__panel" shadow="never">
         <!-- 分类页签（设计稿 .tabs） -->
         <div class="notif__tabs">
@@ -225,11 +229,6 @@ async function handleMarkAll(): Promise<void> {
           </button>
         </div>
       </el-card>
-
-      <div class="notif__tip">
-        <el-icon class="notif__tip-icon"><Message /></el-icon>
-        <div>消息按<b>登录账号</b>隔离，仅你能看到本人相关的考试与成绩通知；消息保留 180 天后自动清理。</div>
-      </div>
     </div>
 
     <!-- 消息详情弹窗（点击列表项展开，替代旧版右侧常驻详情卡） -->
@@ -265,7 +264,7 @@ async function handleMarkAll(): Promise<void> {
 
   &__row {
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 14px;
     align-items: start;
   }

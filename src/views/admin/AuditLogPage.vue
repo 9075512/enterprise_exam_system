@@ -58,12 +58,13 @@ const {
   total,
   loading,
   load,
+  reset,
   onPageChange,
   onSizeChange,
 } = usePagination<AuditLog>((p, ps) => auditApi.listAuditLogs(currentParams(p, ps)));
 
 function handleSearch(): void {
-  load();
+  reset();
 }
 
 function handleReset(): void {
@@ -71,7 +72,7 @@ function handleReset(): void {
   filters.targetType = '';
   filters.keyword = '';
   filters.dateRange = null;
-  load();
+  reset();
 }
 
 /** 是否处于筛选态（决定空态口径与是否给「清空筛选」出路，规范 §9.2） */

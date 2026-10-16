@@ -9,6 +9,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
+import PracticeLoading from '@/components/common/PracticeLoading.vue';
 import * as practiceApi from '@/api/practice';
 import { usePracticeAuthStore } from '@/stores/practiceAuth';
 import type { PracticeBank, PracticeWrongQuestion, QuestionType } from '@/types';
@@ -76,7 +77,8 @@ async function loadPage(target: number): Promise<void> {
 async function load(): Promise<void> {
   loading.value = true;
   try {
-    await Promise.all([loadBanks(), loadPage(1)]);
+    void loadBanks();
+    await loadPage(1);
   } catch {
     // 错误提示已由 http 拦截器统一弹出
   } finally {
@@ -86,7 +88,7 @@ async function load(): Promise<void> {
 
 /** 加载更多 */
 async function loadMore(): Promise<void> {
-  if (loadingMore.value || !hasMore.value) return;
+  if (loading.value || loadingMore.value || !hasMore.value) return;
   loadingMore.value = true;
   try {
     await loadPage(page.value + 1);
@@ -120,9 +122,7 @@ onMounted(load);
         <el-button type="primary" :disabled="total === 0" @click="startReans()">全部复习</el-button>
       </div>
 
-      <div v-if="loading" class="wb__skeleton">
-        <el-skeleton :rows="5" animated />
-      </div>
+      <PracticeLoading v-if="loading" :loading="loading" :rows="5" caption="正在加载错题…" />
 
       <div v-else-if="total === 0" class="wb__empty">
         <div class="wb__empty-mark" aria-hidden="true">—</div>

@@ -40,9 +40,6 @@ function resetFilter(): void {
   filterKeyword.value = '';
 }
 
-/** 是否处于筛选态（决定空态口径与是否给「清空筛选」出路，规范 §9.2） */
-const hasFilter = computed<boolean>(() => Boolean(filterKeyword.value.trim()));
-
 /* ------------------------------ 试卷引用检查 ------------------------------ */
 /**
  * 引用关系反查：一次拉取全部考试，按 exam.paperId 归类，避免逐卷请求。
