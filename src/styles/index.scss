@@ -12,27 +12,27 @@
 
 :root {
   // v3.1 方向 C「精密蓝」主色阶梯（= mix(white, base, 30/50/70/80/90%)）
-  --el-color-primary: #0b5bff;
+  --el-color-primary: #1268FF;
   --el-color-primary-light-3: #548cff;
   --el-color-primary-light-5: #85adff;
   --el-color-primary-light-7: #b6ceff;
   --el-color-primary-light-8: #cedeff;
   --el-color-primary-light-9: #e7efff;
-  --el-color-primary-dark-2: #0949cc;
+  --el-color-primary-dark-2: #0754DB;
   --el-border-radius-base: 8px;
-  --el-bg-color-page: #f5f7fb;
+  --el-bg-color-page: #F3F7FD;
   --el-fill-color-light: #f1f3f6;
   // 基准字号：设计稿正文 13.5px / 控件 13px / 标签 12px。
   // EP 组件的默认字号全部派生自 --el-font-size-base（表格/输入框/按钮…），
   // 此前未设 → 取 EP 默认 14px，比设计稿大一档（保真度审计 B5）。
   --el-font-size-base: 13px;
-  --el-text-color-primary: #15223b;
+  --el-text-color-primary: #102247;
   // 设计稿 text-2（表格正文 / 表单标签 / 次按钮字色）。
   // EP 各组件「常规文字」默认取本变量，改这里一次性把落错档的文字提回 text-2（审计 A2/A4/A5）。
   --el-text-color-regular: #{$text-body};
   // 弱化文字档（设计稿 text-3）
   --el-text-color-secondary: #{$text-secondary};
-  --el-border-color: #e3e8f0;
+  --el-border-color: #E1EAF8;
   // 表单控件用「强发丝线」：比卡片/行线更明确，但不引入阴影（DESIGN-C §2.1）
   --el-input-border-color: #{$line-strong};
 

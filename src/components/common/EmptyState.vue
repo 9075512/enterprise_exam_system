@@ -10,6 +10,7 @@
  * 避免对着一个空库点「清空筛选」。
  */
 import { computed } from 'vue';
+import type { Component } from 'vue';
 import { Files, Plus, Refresh } from '@element-plus/icons-vue';
 
 const props = withDefaults(
@@ -25,6 +26,7 @@ const props = withDefaults(
     actionText?: string;
     /** 空态图形尺寸（v3.1 方向 C：默认 42px 圆形图标，见 DESIGN-C §2.3） */
     imageSize?: number;
+    icon?: Component;
   }>(),
   {
     text: '暂无数据',
@@ -34,6 +36,7 @@ const props = withDefaults(
     clearText: '清空筛选',
     actionText: '',
     imageSize: 42,
+    icon: Files,
   },
 );
 
@@ -48,7 +51,7 @@ const showClearButton = computed(() => props.showClear ?? props.filtered);
     <!-- v3.1 方向 C：以 42px 圆形图标取代 el-empty 默认插画（更轻、不抢视线） -->
     <template #image>
       <span class="empty-state__icon" aria-hidden="true">
-        <el-icon><Files /></el-icon>
+        <el-icon><component :is="icon" /></el-icon>
       </span>
     </template>
     <div v-if="showClearButton || actionText || $slots.default" class="empty-state__actions">

@@ -18,5 +18,30 @@
     "isError": false
   },
   "status": "Figma writes complete; final banks screenshot blocked by Starter tool quota. Dashboard visual verified; specification visual verified before badge contrast fix.",
-  "emailSent": false
+  "emailSent": false,
+  "implementation": {
+    "branch": "ui/selected-blue-refinement",
+    "baseline": "627b1f8",
+    "mainTypecheck": "passed",
+    "practiceTypecheck": "passed",
+    "mainBuild": "passed",
+    "practiceBuild": "passed",
+    "mainSuiteTests": 286,
+    "practiceSuiteTests": 73,
+    "staleColorAssertions": "updated and targeted retests passed",
+    "finalRelatedTests": 147,
+    "finalRelatedTestsStatus": "passed",
+    "viewports": [
+      1448,
+      768,
+      390
+    ],
+    "todoLinks": [
+      "/admin/reviews",
+      "/admin/exams",
+      "/admin/appeals",
+      "/admin/retakes"
+    ],
+    "email": "cancelled_by_user; nothing sent"
+  }
 }

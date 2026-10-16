@@ -193,9 +193,9 @@ describe('全站色值 · 合规护栏', () => {
     const gradient = /\$gradient-brand\s*:\s*([^;]+);/.exec(vars)?.[1] ?? '';
     expect(gradient).not.toBe('');
     expect(gradient).not.toMatch(/#4f46e5|#7c3aed/i);
-    // v3.1 方向 C：渐收取 主色 #0B5BFF → dark-2 #0949CC
-    expect(gradient).toMatch(/#0b5bff/i);
-    expect(gradient).toMatch(/#0949cc/i);
+    // v3.1 方向 C：渐收取 已选主色 #1268FF → dark-2 #0754DB
+    expect(gradient).toMatch(/#1268ff/i);
+    expect(gradient).toMatch(/#0754db/i);
   });
 
   it('规范外色值 #EEF2FF（indigo-50）不出现在任何样式文件', () => {

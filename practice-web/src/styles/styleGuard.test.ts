@@ -122,9 +122,9 @@ describe('练题端 · v3.1 方向 C 换肤护栏', () => {
 });
 
 describe('练题端 · 主色唯一性护栏', () => {
-  it('业务层不硬编码主色（旧 #1d4ed8 / #2563eb，新 #0b5bff）', () => {
+  it('业务层不硬编码主色（旧 #1d4ed8 / #2563eb，新 #1268ff）', () => {
     const offenders = businessFiles.filter((file) =>
-      /#1d4ed8|#2563eb|#0b5bff|(29\s*,\s*78\s*,\s*216)|(11\s*,\s*91\s*,\s*255)/i.test(
+      /#1d4ed8|#2563eb|#1268ff|(29\s*,\s*78\s*,\s*216)|(11\s*,\s*91\s*,\s*255)/i.test(
         stripComments(readFileSync(file, 'utf8')),
       ),
     );
@@ -145,13 +145,13 @@ describe('练题端 · 主色唯一性护栏', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('Element Plus 主色与 $practice-primary 同源（v3.1 收敛到 C 方向 #0b5bff）', () => {
+  it('Element Plus 主色与 $practice-primary 同源（v3.1 收敛到 C 方向 #1268ff）', () => {
     const vars = readFileSync(resolve(ROOT, 'styles/variables.scss'), 'utf8');
     const el = readFileSync(resolve(ROOT, 'styles/element/index.scss'), 'utf8');
     const runtime = readFileSync(resolve(ROOT, 'styles/index.scss'), 'utf8');
-    expect(vars).toMatch(/\$practice-primary:\s*#0b5bff/i);
-    expect(el).toMatch(/'base':\s*#0b5bff/i);
-    expect(runtime).toMatch(/--el-color-primary:\s*#0b5bff/i);
+    expect(vars).toMatch(/\$practice-primary:\s*#1268ff/i);
+    expect(el).toMatch(/'base':\s*#1268ff/i);
+    expect(runtime).toMatch(/--el-color-primary:\s*#1268ff/i);
   });
 });
 
@@ -181,8 +181,8 @@ describe('练题端 · 保真度审计修复（B/A9 类）', () => {
     expect(m?.[1]).toMatch(/line-height:\s*1\.55/);
   });
 
-  it('A9 同类：token 层补第 4 档文字色 $text-body = #3D4657（= DESIGN-C text-2）', () => {
-    expect(vars()).toMatch(/\$text-body:\s*#3D4657/i);
+  it('A9 同类：token 层补第 4 档文字色 $text-body = #354D76（= DESIGN-C text-2）', () => {
+    expect(vars()).toMatch(/\$text-body:\s*#354D76/i);
   });
 
   it('A9 同类：--el-text-color-regular 指向 $text-body，且不再写 #5a6474', () => {

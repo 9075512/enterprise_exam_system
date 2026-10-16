@@ -15,21 +15,21 @@
 
 :root {
   // v3.1 方向 C「精密蓝」主色阶梯（= mix(white, base, 30/50/70/80/90%)）
-  --el-color-primary: #0b5bff;
+  --el-color-primary: #1268FF;
   --el-color-primary-light-3: #548cff;
   --el-color-primary-light-5: #85adff;
   --el-color-primary-light-7: #b6ceff;
   --el-color-primary-light-8: #cedeff;
   --el-color-primary-light-9: #e7efff;
-  --el-color-primary-dark-2: #0949cc;
+  --el-color-primary-dark-2: #0754DB;
   --el-border-radius-base: 10px;
-  --el-bg-color-page: #f5f7fb;
+  --el-bg-color-page: #F3F7FD;
   --el-fill-color-light: #f1f3f6;
-  --el-text-color-primary: #15223b;
-  // text-2 档（#3D4657）：EP 默认正文色（按钮默认字色 / 表单 / 下拉）——
-  // 此前写 #5a6474（text-3），全站比设计稿「灰一档」（保真度审计 A9 同类）。
+  --el-text-color-primary: #102247;
+  // text-2 档（#354D76）：EP 默认正文色（按钮默认字色 / 表单 / 下拉）——
+  // 此前写 #647593（text-3），全站比设计稿「灰一档」（保真度审计 A9 同类）。
   --el-text-color-regular: #{$text-body};
-  --el-border-color: #e3e8f0;
+  --el-border-color: #E1EAF8;
   // 表单控件用「强发丝线」：比卡片/行线更明确，但不引入阴影（DESIGN-C §2.1）。
   // ⚠️ 仅写在 :root 不生效（EP 在 .el-input 元素作用域重定义同名变量），见下方元素级规则；
   //    这里保留一份仅为兜底（非 .el-input 的消费者）与可读性。
@@ -38,7 +38,7 @@
 
 // ⚠️ `--el-input-border-color` 必须落到 EP 的**同一作用域**才生效。
 //    EP 在元素作用域重定义它：`.el-input{--el-input-border-color:var(--el-border-color)}`，
-//    按变量作用域规则后者必胜，:root 的赋值形同虚设（实测 `.el-input` 上算出 #e3e8f0）。
+//    按变量作用域规则后者必胜，:root 的赋值形同虚设（实测 `.el-input` 上算出 #E1EAF8）。
 //    双写类名抬一级优先级，声明才真正落到渲染层（与根应用 B2 同一手法）。
 .el-input.el-input,
 .el-textarea.el-textarea {

@@ -15,10 +15,10 @@
 // 不再保留 $color-primary / $color-secondary 系列（会引入第二个蓝）。
 // Element Plus 主色在 styles/element/index.scss 与 styles/index.scss 与之同源。
 // -----------------------------------------------------------------
-$practice-primary: #0B5BFF; // C 方向主色（= 管理端 $color-primary）
-$practice-primary-dark: #0949CC; // 按压 / 深档（= EP dark-2）
+$practice-primary: #1268FF; // C 方向主色（= 管理端 $color-primary）
+$practice-primary-dark: #0754DB; // 按压 / 深档（= EP dark-2）
 $practice-primary-light: #548CFF; // 浅档（= EP light-3，悬停描边）
-$practice-soft: #EDF3FF; // 主色浅底（选中 / 标签 / 信息块）
+$practice-soft: #EDF4FF; // 主色浅底（选中 / 标签 / 信息块）
 $practice-border-soft: #BFD4FF; // 主色描边（浅底配套，= 图表 --primary-line）
 
 // 顶栏承载面（v3.1：白底 + 发丝线，去 v1.7 的深蓝实色块）
@@ -46,8 +46,8 @@ $color-info-text: #175CD3; // 5.99:1 ✅
 $color-info-50: #EFF8FF; // 兼容旧名（= $color-info-bg）
 
 // 背景 / 承载面
-$practice-bg: #F5F7FB; // 页底（设计图 --app-bg）
-$bg-page: #F5F7FB; // 兼容旧名
+$practice-bg: #F3F7FD; // 页底（设计图 --app-bg）
+$bg-page: #F3F7FD; // 兼容旧名
 $bg-paper: #FFFFFF;
 $practice-surface-2: #FAFBFC; // 次级面（表头 / 浮层头）
 $practice-surface-3: #F1F3F6; // 中性块底（= --surface-3）
@@ -55,16 +55,16 @@ $practice-surface-3: #F1F3F6; // 中性块底（= --surface-3）
 // 文本四档（与管理端同源；保真度审计 A9 同类：此前缺第 2 档）
 // 设计 kit `kit/m.css` 为 text-1 / text-2 / text-3 / icon 四档，工程只落了三档，
 // 凡设计稿用 text-2 处工程都落到 text-3，整体「灰一档」。补 $text-body 对齐 text-2。
-$text-primary: #15223B; // 18.7:1 ✅ = DESIGN-C --text-1
-$text-body: #3D4657; // 9.5:1 ✅ = DESIGN-C --text-2（正文 / 选项 / 次级标签）
-$text-secondary: #5A6474; // 6.0:1 ✅ = DESIGN-C --text-3（meta / 辅助说明）
+$text-primary: #102247; // 18.7:1 ✅ = DESIGN-C --text-1
+$text-body: #354D76; // 9.5:1 ✅ = DESIGN-C --text-2（正文 / 选项 / 次级标签）
+$text-secondary: #647593; // 6.0:1 ✅ = DESIGN-C --text-3（meta / 辅助说明）
 $text-disabled: #858F9E; // 3.27:1 —— 图形档，禁止承载正文 = DESIGN-C --icon
 
 // 发丝线
-$border-color: #E3E8F0; // = --line（行分隔 / 卡片边）
+$border-color: #E1EAF8; // = --line（行分隔 / 卡片边）
 $line-strong: #D9DEE7; // = --line-strong（输入框边 / 更明确的分界）
-$border-soft: #E3E8F0; // 兼容旧名（原为浅描边，收敛到 --line）
-$practice-border: #E3E8F0; // 兼容旧名（卡片 / 描边，收敛到 --line）
+$border-soft: #E1EAF8; // 兼容旧名（原为浅描边，收敛到 --line）
+$practice-border: #E1EAF8; // 兼容旧名（卡片 / 描边，收敛到 --line）
 
 // 圆角（移动端三档：卡 10 / 控件 8 / 小件 6）
 $radius-base: 10px; // 卡片
@@ -95,11 +95,11 @@ $type-multiple-text: #0E7490; // 青（cyan-700），对白底 5.2:1 ✅
 $type-multiple-soft: #ECFEFF; // 青 50 浅底
 
 // UI 2026.10：业务分类色；不替代成功、警告、错误状态。
-$category-blue: #356BFA;
-$category-blue-soft: #EFF4FF;
-$category-teal: #138A8A;
-$category-teal-soft: #EAF8F6;
-$category-violet: #7A5AE8;
-$category-violet-soft: #F3EFFF;
-$category-amber: #B77915;
-$category-amber-soft: #FFF6E7;
+$category-blue: #1268FF;
+$category-blue-soft: #F0F5FF;
+$category-teal: #00AAB5;
+$category-teal-soft: #EFFBFC;
+$category-violet: #773CFF;
+$category-violet-soft: #F5F1FF;
+$category-amber: #F29309;
+$category-amber-soft: #FFF8EF;

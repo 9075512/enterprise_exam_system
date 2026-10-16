@@ -8,11 +8,11 @@
 // =============================================================
 
 // 主色 / 辅助色
-$color-primary: #0B5BFF;
+$color-primary: #1268FF;
 $color-primary-light: #548CFF; // = EP light-3
-$color-primary-dark: #0949CC; // = EP dark-2
+$color-primary-dark: #0754DB; // = EP dark-2
 // 主色 50 号浅底（C 规范 = EP light-9 #E7EFFF）。
-// 注意：与 $color-primary-soft(#EDF3FF) 自 v3.1 起不再是同值——
+// 注意：与 $color-primary-soft(#EDF4FF) 自 v3.1 起不再是同值——
 // 前者用于 ::selection 等「更浅的铺底」，后者用于选中行/信息块底。
 $color-primary-50: #E7EFFF;
 // 分类色 —— 仅用于「题型编码」（考试作答页题型徽标 / 答题卡分组点），不参与状态表达。
@@ -47,21 +47,21 @@ $color-info-text: #175CD3; // 5.99:1 ✅
 $color-info-50: #EFF8FF;
 
 // 背景
-$bg-page: #F5F7FB;
+$bg-page: #F3F7FD;
 $bg-paper: #FFFFFF;
 
 // 文本（四档，对齐 DESIGN-C §2 的 text-1/2/3 + icon）
-$text-primary: #15223B; // 18.7:1 ✅ = DESIGN-C --text-1
+$text-primary: #102247; // 18.7:1 ✅ = DESIGN-C --text-1
 // 设计稿 text-2 档：表格正文 / 表单标签 / 次按钮字色。
 // 保真度审计 A9 发现：工程此前只有 primary/secondary/disabled 三档，
-// 凡设计稿用 text-2 处都落到了 text-3(#5A6474)，整体比设计稿「灰一档」。
+// 凡设计稿用 text-2 处都落到了 text-3(#647593)，整体比设计稿「灰一档」。
 // $text-secondary 保持 = 设计稿的 text-3，勿改语义。
-$text-body: #3D4657; // 9.5:1 ✅ = DESIGN-C --text-2
-$text-secondary: #5A6474; // 6.0:1 ✅ = DESIGN-C --text-3
+$text-body: #354D76; // 9.5:1 ✅ = DESIGN-C --text-2
+$text-secondary: #647593; // 6.0:1 ✅ = DESIGN-C --text-3
 $text-disabled: #858F9E; // 3.27:1 —— 图形档，禁止承载正文 = DESIGN-C --icon
 
 // 边框 / 圆角 / 阴影
-$border-color: #E3E8F0; // 发丝线：行分隔 / 卡片边
+$border-color: #E1EAF8; // 发丝线：行分隔 / 卡片边
 // 强发丝线：输入框边 / 表头分隔线（DESIGN-C §2.1 的 --line-strong）。
 // 与 $border-color 只差一档明度，用于「需要比行线更明确但仍不喧宾夺主」的分界。
 $line-strong: #D9DEE7;
@@ -92,21 +92,21 @@ $radius-lg: 8px;
 $radius-xl: 12px;
 
 // 主色浅底（选中/标签/信息块）
-$color-primary-soft: #EDF3FF;
+$color-primary-soft: #EDF4FF;
 // 主色描边（浅底配套）——同时是 DESIGN-C 的 `--primary-line`：
 // 图表的「非聚焦浅柱」也用它，故不要在图表侧另起一个同值 token。
 $color-primary-border: #BFD4FF;
 
 // 品牌渐变（登录页品牌区 / 焦点页点缀）—— 同色系蓝，禁止混入 indigo / violet
-$gradient-brand: linear-gradient(135deg, #0b5bff 0%, #0949cc 100%);
+$gradient-brand: linear-gradient(135deg, #1268FF 0%, #0754DB 100%);
 
 // 深色侧栏配色（石墨：#0B0F19 比纯黑柔和、比藏蓝中性）
-$sidebar-bg: #15223B;
-$sidebar-text: #BBC7DC;
+$sidebar-bg: #142848;
+$sidebar-text: #C6D3E8;
 $sidebar-text-hover: #f4f7fb;
 $sidebar-text-active: #ffffff;
 $sidebar-hover-bg: rgba(255, 255, 255, 0.05);
-$sidebar-active-bg: #25436D;
+$sidebar-active-bg: #1268FF;
 $sidebar-border: rgba(255, 255, 255, 0.06);
 $sidebar-scrollbar: rgba(255, 255, 255, 0.16);
 // 侧栏宽度（展开 / 折叠）
@@ -127,11 +127,11 @@ $header-height: 56px;
 $page-padding: 24px;
 
 // UI 2026.10：业务分类色；不替代成功、警告、错误状态。
-$category-blue: #356BFA;
-$category-blue-soft: #EFF4FF;
-$category-teal: #138A8A;
-$category-teal-soft: #EAF8F6;
-$category-violet: #7A5AE8;
-$category-violet-soft: #F3EFFF;
-$category-amber: #B77915;
-$category-amber-soft: #FFF6E7;
+$category-blue: #1268FF;
+$category-blue-soft: #F0F5FF;
+$category-teal: #00AAB5;
+$category-teal-soft: #EFFBFC;
+$category-violet: #773CFF;
+$category-violet-soft: #F5F1FF;
+$category-amber: #F29309;
+$category-amber-soft: #FFF8EF;
