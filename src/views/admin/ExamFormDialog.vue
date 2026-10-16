@@ -207,7 +207,7 @@ function handleCancel(): void {
       </el-form-item>
 
       <el-row :gutter="12">
-        <el-col :span="12">
+        <el-col :xs="24" :sm="12">
           <el-form-item label="开始时间" prop="startTime">
             <el-date-picker
               v-model="form.startTime"
@@ -218,7 +218,7 @@ function handleCancel(): void {
             />
           </el-form-item>
         </el-col>
-        <el-col :span="12">
+        <el-col :xs="24" :sm="12">
           <el-form-item label="截止时间" prop="endTime">
             <el-date-picker
               v-model="form.endTime"
@@ -232,12 +232,12 @@ function handleCancel(): void {
       </el-row>
 
       <el-row :gutter="12">
-        <el-col :span="12">
+        <el-col :xs="24" :sm="12">
           <el-form-item label="考试时长（分钟）">
             <el-input-number v-model="form.durationMinutes" :min="1" :max="600" />
           </el-form-item>
         </el-col>
-        <el-col :span="12">
+        <el-col :xs="24" :sm="12">
           <el-form-item label="及格分数线">
             <el-input-number v-model="form.passScore" :min="1" :max="1000" :step="1" />
           </el-form-item>
@@ -245,7 +245,7 @@ function handleCancel(): void {
       </el-row>
 
       <el-row :gutter="12">
-        <el-col :span="12">
+        <el-col :xs="24" :sm="12">
           <el-form-item label="考试形式">
             <el-radio-group v-model="form.examMode">
               <el-radio value="closed">闭卷</el-radio>
@@ -253,7 +253,7 @@ function handleCancel(): void {
             </el-radio-group>
           </el-form-item>
         </el-col>
-        <el-col :span="12">
+        <el-col :xs="24" :sm="12">
           <el-form-item label="答题次数（每人最多）" prop="maxAttempts">
             <el-input-number v-model="form.maxAttempts" :min="1" :max="10" />
           </el-form-item>
@@ -319,7 +319,9 @@ function handleCancel(): void {
 }
 
 .exam-form__hint {
-  margin-left: 12px;
+  display: block;
+  width: 100%;
+  margin-top: 4px;
   font-size: 12px;
   color: $text-secondary;
 }

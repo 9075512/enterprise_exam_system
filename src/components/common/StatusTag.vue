@@ -29,9 +29,9 @@ const TONES = {
 
 /** 状态 → 文案 + 语义色调 */
 const MAP: Record<string, { label: string; tone: keyof typeof TONES }> = {
-  not_started: { label: '未开始', tone: 'neutral' },
+  not_started: { label: '未开始', tone: 'warning' },
   ongoing: { label: '进行中', tone: 'primary' },
-  ended: { label: '已结束', tone: 'info' },
+  ended: { label: '已结束', tone: 'neutral' },
   in_progress: { label: '进行中', tone: 'primary' },
   submitted: { label: '已交卷', tone: 'success' },
   pending_review: { label: '待阅卷', tone: 'warning' },

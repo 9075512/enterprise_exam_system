@@ -232,7 +232,7 @@ async function handleMarkAll(): Promise<void> {
     </div>
 
     <!-- 消息详情弹窗（点击列表项展开，替代旧版右侧常驻详情卡） -->
-    <el-dialog v-model="detailVisible" title="消息详情" width="520px" class="notif__dialog">
+    <el-dialog v-model="detailVisible" title="消息详情" width="520px" class="notif__dialog" append-to-body>
       <template #header>
         <div class="notif__dialog-hd">
           <h3>消息详情</h3>

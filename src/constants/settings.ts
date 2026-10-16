@@ -20,6 +20,7 @@ import {
 
 /** 全部设置的默认值（数值类直接复用既有常量，保证单一来源） */
 export const SETTINGS_DEFAULTS: SystemSettings = {
+  bankCategories: ['未分类', '安全知识', '企业文化'],
   examDefaultDuration: 60,
   examDefaultPassScore: 60,
   examDefaultMaxAttempts: 1,

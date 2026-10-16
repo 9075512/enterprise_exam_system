@@ -183,6 +183,7 @@ function openDetail(item: Announcement): void {
       title="重要公告"
       width="560px"
       class="content-board__force"
+      append-to-body
       @close="closeForce"
     >
       <p class="content-board__detail-meta">

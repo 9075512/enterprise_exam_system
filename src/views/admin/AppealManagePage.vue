@@ -313,7 +313,7 @@ async function submitReject(): Promise<void> {
       </p>
     </el-card>
 
-    <el-dialog v-model="approveVisible" title="复核通过（调整成绩）" width="460px">
+    <el-dialog v-model="approveVisible" title="复核通过（调整成绩）" width="460px" append-to-body>
       <el-alert
         v-if="approveRow"
         class="appeal-manage-page__alert"
@@ -337,7 +337,7 @@ async function submitReject(): Promise<void> {
       </template>
     </el-dialog>
 
-    <el-dialog v-model="rejectVisible" title="驳回复核申请" width="460px">
+    <el-dialog v-model="rejectVisible" title="驳回复核申请" width="460px" append-to-body>
       <el-form label-width="90px">
         <el-form-item label="复核意见">
           <el-input

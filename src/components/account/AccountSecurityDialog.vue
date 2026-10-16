@@ -263,7 +263,7 @@ function describeAgent(ua: string): string {
 </script>
 
 <template>
-  <el-dialog v-model="visible" title="账号安全" width="720px" top="6vh">
+  <el-dialog v-model="visible" title="账号安全" width="720px" top="6vh" append-to-body>
     <div class="security">
       <!-- 密码策略 -->
       <el-card class="security__card" shadow="never">

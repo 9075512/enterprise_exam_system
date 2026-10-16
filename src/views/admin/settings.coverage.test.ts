@@ -39,7 +39,7 @@ const panes = [...page.matchAll(/<el-tab-pane label="([^"]+)" name="([^"]+)"/g)]
 
 describe('系统设置页 · 标签页定义', () => {
   it('标签页数量与 TAB_LABEL / TAB_DESC 完全一致', () => {
-    expect(panes.length).toBe(7);
+    expect(panes.length).toBe(8);
     expect(panes.map((p) => p.name).sort()).toEqual(Object.keys(tabLabel).sort());
     expect(panes.map((p) => p.name).sort()).toEqual(Object.keys(tabDesc).sort());
   });
@@ -52,8 +52,8 @@ describe('系统设置页 · 标签页定义', () => {
 
   it('每个标签页都用同一个文案渲染说明（模板里引用了 TAB_DESC）', () => {
     expect(page).toContain('TAB_DESC.exam');
-    // 7 个 pane 各自引用一次说明
-    expect([...page.matchAll(/settings-page__desc/g)]).toHaveLength(7);
+    // 每个 pane 各自引用一次说明
+    expect([...page.matchAll(/settings-page__desc/g)]).toHaveLength(8);
   });
 });
 

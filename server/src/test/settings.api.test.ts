@@ -95,6 +95,27 @@ describe('系统设置（/api/settings）', () => {
   });
 
   describe('PUT /settings（admin 更新并回读）', () => {
+    it('题库分类可维护、去除首尾空格，旧客户端保存时保留分类', async () => {
+      const categories = [' 临床技能 ', '规章制度'];
+      const saved = await request(app).put('/api/settings').set(bearer(admin))
+        .send({ ...DEFAULT_SETTINGS, bankCategories: categories });
+      expect(saved.status).toBe(200);
+      expect(saved.body.data.bankCategories).toEqual(['临床技能', '规章制度']);
+      const read = await request(app).get('/api/settings').set(bearer(author));
+      expect(read.body.data.bankCategories).toEqual(['临床技能', '规章制度']);
+      const { bankCategories: _categories, ...legacy } = DEFAULT_SETTINGS;
+      const oldClient = await request(app).put('/api/settings').set(bearer(admin)).send(legacy);
+      expect(oldClient.body.data.bankCategories).toEqual(['临床技能', '规章制度']);
+      await resetSettings();
+    });
+
+    it.each([[], [' '], ['重复', ' 重复 '], ['长'.repeat(61)], Array.from({ length: 101 }, (_, i) => `分类${i}`)]
+      .map((values) => ({ values })))('拒绝空、重复、超长或过多分类 %#', async ({ values }) => {
+        const res = await request(app).put('/api/settings').set(bearer(admin))
+          .send({ ...DEFAULT_SETTINGS, bankCategories: values });
+        expect(res.status).toBe(400);
+      });
+
     it('cheatCountThreshold 改为 5 → 200 返回新值，GET 回读一致', async () => {
       const res = await request(app)
         .put('/api/settings')

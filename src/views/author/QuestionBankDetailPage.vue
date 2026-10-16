@@ -742,7 +742,10 @@ onMounted(() => {
 
   &__toolbar-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
+
+    .el-button + .el-button { margin-left: 0; }
   }
 
   &__filter {
@@ -1037,5 +1040,10 @@ onMounted(() => {
   :deep(.el-table.el-table--striped .el-table__body tr.row--incomplete > td.el-table__cell) {
     background: $color-warning-bg;
   }
+}
+
+@media (max-width: 1100px) {
+  .bank-detail__body { flex-direction: column; align-items: stretch; }
+  .bank-detail__aside { flex-basis: auto; width: 100%; }
 }
 </style>

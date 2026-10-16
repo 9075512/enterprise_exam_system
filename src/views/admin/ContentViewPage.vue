@@ -768,7 +768,7 @@ onMounted(() => {
     </el-card>
 
     <!-- ------------------------------ 公告弹窗 ------------------------------ -->
-    <el-dialog v-model="annDialogVisible" :title="annDialogTitle" width="640px" destroy-on-close>
+    <el-dialog v-model="annDialogVisible" :title="annDialogTitle" width="640px" destroy-on-close append-to-body>
       <el-form label-width="96px" label-position="right">
         <el-form-item label="公告标题" required>
           <el-input v-model="annForm.title" maxlength="120" show-word-limit placeholder="请输入公告标题" />
@@ -829,7 +829,7 @@ onMounted(() => {
     </el-dialog>
 
     <!-- ------------------------------ 轮播图弹窗 ------------------------------ -->
-    <el-dialog v-model="bnDialogVisible" :title="bnDialogTitle" width="640px" destroy-on-close>
+    <el-dialog v-model="bnDialogVisible" :title="bnDialogTitle" width="640px" destroy-on-close append-to-body>
       <el-form label-width="96px" label-position="right">
         <el-form-item label="标题" required>
           <el-input v-model="bnForm.title" maxlength="120" show-word-limit placeholder="请输入轮播图标题" />
@@ -893,7 +893,7 @@ onMounted(() => {
     </el-dialog>
 
     <!-- ------------------------------ 触达概览（v2.0③） ------------------------------ -->
-    <el-dialog v-model="touchVisible" title="内容触达概览" width="760px" destroy-on-close>
+    <el-dialog v-model="touchVisible" title="内容触达概览" width="760px" destroy-on-close append-to-body>
       <div v-loading="touchLoading" class="content-page__touch">
         <div class="content-page__touch-audience">
           <span>受众规模：考试端 <b>{{ touchStats?.audience.exam ?? 0 }}</b> 人</span>
@@ -901,7 +901,7 @@ onMounted(() => {
         </div>
         <el-tabs v-model="touchTab">
           <el-tab-pane label="公告阅读" name="announcement">
-            <el-table :data="touchStats?.announcements ?? []" size="small" max-height="360">
+            <el-table :data="touchStats?.announcements ?? []" size="small">
               <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
               <el-table-column label="范围" width="90">
                 <template #default="{ row }">{{ TARGET_LABELS[row.target as ContentTarget] }}</template>
@@ -916,7 +916,7 @@ onMounted(() => {
             </el-table>
           </el-tab-pane>
           <el-tab-pane label="轮播点击" name="banner">
-            <el-table :data="touchStats?.banners ?? []" size="small" max-height="360">
+            <el-table :data="touchStats?.banners ?? []" size="small">
               <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
               <el-table-column label="范围" width="90">
                 <template #default="{ row }">{{ TARGET_LABELS[row.target as ContentTarget] }}</template>
@@ -1046,6 +1046,7 @@ onMounted(() => {
 
   &__touch-audience {
     display: flex;
+    flex-wrap: wrap;
     gap: 24px;
     margin-bottom: 8px;
     padding: 10px 14px;

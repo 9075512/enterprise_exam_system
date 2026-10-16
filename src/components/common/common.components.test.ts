@@ -218,7 +218,9 @@ describe('StatusTag', () => {
     // 已交卷 / 待阅卷 / 已结束 必须用达标文本档
     expect(usesColor('submitted', THEME.successText)).toBe(true);
     expect(usesColor('pending_review', THEME.warningText)).toBe(true);
-    expect(usesColor('ended', THEME.infoText)).toBe(true);
+    expect(usesColor('not_started', THEME.warningText)).toBe(true);
+    expect(usesColor('ongoing', THEME.primaryDark)).toBe(true);
+    expect(usesColor('ended', THEME.textSecondary)).toBe(true);
     // 且不得等于语义原色（原色 3.0–3.3:1 不达标）
     expect(usesColor('submitted', THEME.success)).toBe(false);
     expect(usesColor('pending_review', THEME.warning)).toBe(false);

@@ -29,7 +29,10 @@ const emit = defineEmits<{
 
 const dialogVisible = computed<boolean>({
   get: () => props.visible,
-  set: (value) => emit('update:visible', value),
+  set: (value) => {
+    if (!value && (parsing.value || committing.value)) return;
+    emit('update:visible', value);
+  },
 });
 
 const settingsStore = useSettingsStore();
@@ -225,6 +228,9 @@ function importAgain(): void {
     append-to-body
     class="question-import-dialog"
     destroy-on-close
+    :close-on-click-modal="!parsing && !committing"
+    :close-on-press-escape="!parsing && !committing"
+    :show-close="!parsing && !committing"
     @closed="reset"
   >
     <el-steps :active="activeStep" finish-status="success" align-center class="import-steps">
@@ -317,7 +323,6 @@ function importAgain(): void {
         :data="preview.errors"
         border
         stripe
-        max-height="280"
         empty-text="没有失败行"
       >
         <el-table-column prop="row" label="行号" width="80" align="center" />
@@ -354,12 +359,12 @@ function importAgain(): void {
 
     <template #footer>
       <template v-if="step === 0">
-        <el-button @click="close">取消</el-button>
+        <el-button :disabled="parsing || committing" @click="close">取消</el-button>
         <el-button type="primary" @click="next">下一步：上传</el-button>
       </template>
       <template v-else-if="step === 1">
-        <el-button @click="prev">上一步</el-button>
-        <el-button @click="close">取消</el-button>
+        <el-button :disabled="parsing || committing" @click="prev">上一步</el-button>
+        <el-button :disabled="parsing || committing" @click="close">取消</el-button>
         <el-button
           type="primary"
           :disabled="!selectedFile"
@@ -370,8 +375,8 @@ function importAgain(): void {
         </el-button>
       </template>
       <template v-else-if="step === 2">
-        <el-button @click="prev">上一步</el-button>
-        <el-button @click="close">取消</el-button>
+        <el-button :disabled="parsing || committing" @click="prev">上一步</el-button>
+        <el-button :disabled="parsing || committing" @click="close">取消</el-button>
         <el-button
           type="primary"
           :disabled="!preview || preview.successCount === 0"
@@ -423,6 +428,7 @@ function importAgain(): void {
 
 .import-stats {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 16px;
 
@@ -449,8 +455,6 @@ function importAgain(): void {
   &__list {
     margin: 4px 0 0;
     padding-left: 18px;
-    max-height: 120px;
-    overflow-y: auto;
     font-size: 13px;
   }
 }

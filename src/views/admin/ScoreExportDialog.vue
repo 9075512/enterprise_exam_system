@@ -82,7 +82,7 @@ async function handleExport(): Promise<void> {
 </script>
 
 <template>
-  <el-dialog v-model="visible" title="导出成绩" width="560px" :close-on-click-modal="false">
+  <el-dialog v-model="visible" title="导出成绩" width="560px" :close-on-click-modal="false" append-to-body>
     <el-alert
       class="score-export__alert"
       type="info"
@@ -143,6 +143,8 @@ async function handleExport(): Promise<void> {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
     margin-bottom: 8px;
   }
 
@@ -167,18 +169,16 @@ async function handleExport(): Promise<void> {
     padding: 12px;
     background: $bg-page;
     border-radius: $radius-sm;
-    max-height: 260px;
-    overflow-y: auto;
   }
 
   &__group {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr));
     gap: 8px;
   }
 
   &__group :deep(.el-checkbox) {
-    width: calc(33.33% - 8px);
+    min-width: 0;
     margin-right: 0;
   }
 }

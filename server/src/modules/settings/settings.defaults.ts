@@ -10,6 +10,7 @@ import { NOTIFY_TEMPLATES_DEFAULT } from '../../utils/notifyTemplate.js';
 
 /** 全部设置的默认值。 */
 export const DEFAULT_SETTINGS: SystemSettings = {
+  bankCategories: ['未分类', '安全知识', '企业文化'],
   examDefaultDuration: 60,
   examDefaultPassScore: 60,
   examDefaultMaxAttempts: 1,

@@ -1078,6 +1078,7 @@ onMounted(async () => {
     display: flex;
     align-items: flex-start;
     gap: 16px;
+    margin-bottom: 16px;
   }
 
   &__main {
@@ -1181,16 +1182,26 @@ onMounted(async () => {
   }
 
   &__aside {
+    display: flex;
+    flex-direction: column;
     flex: 0 0 380px;
     width: 380px;
+    min-width: 0;
     position: sticky;
     top: 80px;
     max-height: calc(100dvh - 160px);
-    overflow: auto;
+    overflow: hidden;
     background: $bg-paper;
     border: 1px solid $border-color;
     border-radius: $radius-base;
     padding: 16px;
+  }
+
+  &__aside-head,
+  &__selected-empty,
+  &__total,
+  &__save {
+    flex-shrink: 0;
   }
 
   &__aside-head {
@@ -1207,11 +1218,13 @@ onMounted(async () => {
   }
 
   &__selected-list {
+    min-height: 0;
     margin: 0;
     padding: 0;
     list-style: none;
     max-height: 420px;
     overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   &__selected-item {
@@ -1499,6 +1512,26 @@ onMounted(async () => {
         content: none;
       }
     }
+  }
+}
+
+@media (max-width: 1100px) {
+  .composer__body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .composer__aside {
+    flex-basis: auto;
+    width: 100%;
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .composer__selected-list {
+    max-height: none;
+    overflow: visible;
   }
 }
 </style>

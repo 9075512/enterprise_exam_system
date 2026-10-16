@@ -354,7 +354,7 @@ async function submitPassword(): Promise<void> {
       </main>
     </div>
 
-    <el-dialog v-model="pwdVisible" title="修改密码" width="420px">
+    <el-dialog v-model="pwdVisible" title="修改密码" width="420px" append-to-body>
       <el-form ref="pwdFormRef" :model="pwdForm" :rules="pwdRules" label-width="96px">
         <el-form-item label="旧密码" prop="oldPassword">
           <el-input v-model="pwdForm.oldPassword" type="password" show-password />
@@ -926,8 +926,6 @@ async function submitPassword(): Promise<void> {
   margin: 12px 0 0;
   padding: 0;
   list-style: none;
-  max-height: 320px;
-  overflow-y: auto;
 }
 
 .layout__search-item {

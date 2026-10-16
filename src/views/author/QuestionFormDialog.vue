@@ -590,4 +590,11 @@ function handleCancel(): void {
     min-width: 0;
   }
 }
+@media (max-width: 600px) {
+  .rubric-row {
+    flex-wrap: wrap;
+    &__label { flex: 1; min-width: 120px; }
+    &__desc { flex-basis: 100%; }
+  }
+}
 </style>

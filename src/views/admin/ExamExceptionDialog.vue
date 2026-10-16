@@ -165,7 +165,7 @@ async function handleRemove(row: ExamException): Promise<void> {
       </el-form-item>
     </el-form>
 
-    <el-table v-loading="loading" :data="list" row-key="id" stripe max-height="320">
+    <el-table v-loading="loading" :data="list" row-key="id" stripe>
       <el-table-column prop="userName" label="考生" width="110" show-overflow-tooltip />
       <el-table-column prop="username" label="登录账号" width="130" show-overflow-tooltip />
       <el-table-column prop="departmentName" label="科室" width="110" show-overflow-tooltip>
@@ -227,6 +227,13 @@ async function handleRemove(row: ExamException): Promise<void> {
     margin-left: 6px;
     font-size: 12px;
     color: $text-secondary;
+  }
+}
+
+@media (max-width: 600px) {
+  .exam-exception__form :deep(.el-form-item) {
+    display: flex;
+    margin-right: 0;
   }
 }
 </style>
