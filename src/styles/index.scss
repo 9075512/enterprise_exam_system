@@ -310,9 +310,9 @@ html[data-density='compact'] {
   box-shadow: 0 0 0 1px $color-primary inset, 0 0 0 3px rgba($color-primary, 0.12);
 }
 
-// 对话框：设计稿 .modal 刻度（审计 A3）—— 头 `13px 16px` + 标题 14px；
-// 正文 16px 内距；脚 `12px 16px`。（EP 默认 18/24 头 + 16px 标题，比设计稿松二号）
+// 弹窗只让正文滚动，标题、关闭入口和操作区始终留在视口内。
 .el-dialog.el-dialog {
+  padding: 0;
   border-radius: $radius-base;
   overflow: hidden;
   display: flex;
@@ -333,20 +333,28 @@ html[data-density='compact'] {
     font-size: 14px;
     font-weight: 600;
     display: block;
-    max-height: 25vh;
-    overflow: auto;
+    overflow-wrap: anywhere;
   }
 
   .el-dialog__body {
     padding: 16px;
     min-height: 0;
+    min-width: 0;
     overflow: auto;
+    overscroll-behavior: contain;
+    overflow-wrap: anywhere;
   }
 
   .el-dialog__footer {
     padding: 12px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
     border-top: 1px solid $border-color;
     background: $bg-paper;
+
+    .el-button + .el-button { margin-left: 0; }
   }
 
   .el-dialog__header,
@@ -357,6 +365,12 @@ html[data-density='compact'] {
   .el-dialog__header {
     padding-right: 44px;
   }
+
+  .el-dialog__headerbtn { width: 44px; height: 48px; }
+
+  .el-input-number { max-width: 100%; }
+  .el-radio, .el-checkbox { max-width: 100%; height: auto; min-height: 32px; }
+  .el-radio__label, .el-checkbox__label { white-space: normal; overflow-wrap: anywhere; }
 }
 
 .el-dialog.el-dialog.is-fullscreen {
@@ -367,6 +381,35 @@ html[data-density='compact'] {
 
 .el-dialog.el-dialog.is-align-center {
   margin: auto;
+}
+
+// 确认 / 输入提示框也遵循同样的视口约束。
+.el-message-box.el-message-box {
+  display: inline-flex;
+  flex-direction: column;
+  max-width: calc(100vw - 32px);
+  max-height: 90vh;
+  max-height: 90dvh;
+  vertical-align: middle;
+
+  .el-message-box__header, .el-message-box__btns { flex-shrink: 0; }
+  .el-message-box__content { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+  .el-message-box__title, .el-message-box__message { overflow-wrap: anywhere; }
+  .el-message-box__btns { flex-wrap: wrap; gap: 8px; }
+  .el-message-box__btns .el-button + .el-button { margin-left: 0; }
+}
+
+@media (max-width: 600px) {
+  .el-dialog.el-dialog {
+    .el-form:not(.el-form--inline) .el-form-item { display: block; }
+    .el-form:not(.el-form--inline) .el-form-item__label {
+      display: block;
+      width: auto !important; // 覆盖 Element Plus 的 label-width 内联值。
+      height: auto;
+      text-align: left;
+    }
+    .el-form:not(.el-form--inline) .el-form-item__content { margin-left: 0 !important; }
+  }
 }
 
 // 分页：方形小页码 + 选中主色实底（设计稿 .pager/.pg）

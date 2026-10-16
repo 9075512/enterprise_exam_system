@@ -229,4 +229,11 @@ async function handleRemove(row: ExamException): Promise<void> {
     color: $text-secondary;
   }
 }
+
+@media (max-width: 600px) {
+  .exam-exception__form :deep(.el-form-item) {
+    display: flex;
+    margin-right: 0;
+  }
+}
 </style>

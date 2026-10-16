@@ -27,7 +27,10 @@ const emit = defineEmits<{
 
 const dialogVisible = computed<boolean>({
   get: () => props.visible,
-  set: (value) => emit('update:visible', value),
+  set: (value) => {
+    if (!value && (parsing.value || committing.value)) return;
+    emit('update:visible', value);
+  },
 });
 
 const settingsStore = useSettingsStore();
@@ -218,6 +221,9 @@ function handleHistoryPageChange(p: number): void {
     append-to-body
     class="user-import-dialog"
     destroy-on-close
+    :close-on-click-modal="!parsing && !committing"
+    :close-on-press-escape="!parsing && !committing"
+    :show-close="!parsing && !committing"
     @closed="resetWizard"
   >
     <el-tabs v-model="tab">
@@ -298,40 +304,10 @@ function handleHistoryPageChange(p: number): void {
             </template>
           </el-result>
         </div>
-
-        <template #footer>
-          <template v-if="step === 0">
-            <el-button @click="close">取消</el-button>
-            <el-button type="primary" @click="next">下一步：上传</el-button>
-          </template>
-          <template v-else-if="step === 1">
-            <el-button @click="prev">上一步</el-button>
-            <el-button @click="close">取消</el-button>
-            <el-button type="primary" :disabled="!selectedFile" :loading="parsing" @click="handlePreview">
-              解析预览
-            </el-button>
-          </template>
-          <template v-else-if="step === 2">
-            <el-button @click="prev">上一步</el-button>
-            <el-button @click="close">取消</el-button>
-            <el-button
-              type="primary"
-              :disabled="!preview || preview.successCount === 0"
-              :loading="committing"
-              @click="handleCommit"
-            >
-              确认导入
-            </el-button>
-          </template>
-          <template v-else>
-            <el-button @click="importAgain">再导入一批</el-button>
-            <el-button type="primary" @click="close">完成</el-button>
-          </template>
-        </template>
       </el-tab-pane>
 
       <!-- 导入历史 -->
-      <el-tab-pane label="导入历史" name="history">
+      <el-tab-pane label="导入历史" name="history" :disabled="parsing || committing">
         <el-table v-loading="historyLoading" :data="historyList" row-key="id" border stripe max-height="360">
           <el-table-column prop="fileName" label="文件名" min-width="200" show-overflow-tooltip />
           <el-table-column label="成功" width="90" align="center">
@@ -360,6 +336,38 @@ function handleHistoryPageChange(p: number): void {
         />
       </el-tab-pane>
     </el-tabs>
+    <template #footer>
+      <template v-if="tab === 'wizard'">
+        <template v-if="step === 0">
+          <el-button :disabled="parsing || committing" @click="close">取消</el-button>
+          <el-button type="primary" @click="next">下一步：上传</el-button>
+        </template>
+        <template v-else-if="step === 1">
+          <el-button :disabled="parsing || committing" @click="prev">上一步</el-button>
+          <el-button :disabled="parsing || committing" @click="close">取消</el-button>
+          <el-button type="primary" :disabled="!selectedFile" :loading="parsing" @click="handlePreview">
+            解析预览
+          </el-button>
+        </template>
+        <template v-else-if="step === 2">
+          <el-button :disabled="parsing || committing" @click="prev">上一步</el-button>
+          <el-button :disabled="parsing || committing" @click="close">取消</el-button>
+          <el-button
+            type="primary"
+            :disabled="!preview || preview.successCount === 0"
+            :loading="committing"
+            @click="handleCommit"
+          >
+            确认导入
+          </el-button>
+        </template>
+        <template v-else>
+          <el-button @click="importAgain">再导入一批</el-button>
+          <el-button type="primary" @click="close">完成</el-button>
+        </template>
+      </template>
+      <el-button v-else @click="close">关闭</el-button>
+    </template>
     <!-- 导入中：环形脉冲覆盖层（Loading 方案 ④，无确定进度 → 呼吸态） -->
     <div v-if="committing" class="user-import-dialog__ring">
       <RingProgress caption="正在导入，请勿关闭窗口…" />
@@ -394,6 +402,7 @@ function handleHistoryPageChange(p: number): void {
 
   &__stats {
     display: flex;
+    flex-wrap: wrap;
     gap: 12px;
     margin-bottom: 16px;
   }
