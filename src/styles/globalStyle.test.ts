@@ -1,5 +1,5 @@
 /**
- * 全局样式护栏测试（对应 docs/ui-v2.1/管理端设计规范-v2.1.md §3 / §8.3 / §12）
+ * 全局样式护栏测试（沿用 v2.1 数字、表格与可访问性约束；历史规范见 overview.md）
  *
  * 目的：把「数字统一 tabular-nums」从一句规范落成可执行断言。
  * 数字承载组件（表格 / 分页 / 进度 / 统计 / 数字输入 / 日期选择 / 徽标）
@@ -653,7 +653,7 @@ describe('全站样式 · v3.1 方向 C 考试端换肤护栏', () => {
  * 一旦有人把 `.el-input.el-input` 的高优先级覆盖改回裸 `.el-input`，这里先红。
  *
  * ⚠️ vitest 环境取不到 getComputedStyle 的真实结果，故这些是「作用域写法」断言；
- *    真正的计算值校验走 docs/ui-v3b/tools/audit-fidelity.mjs（CDP 实测）。
+ *    真正的计算值需通过浏览器 CDP 实测；历史审计工具的恢复方法见 overview.md。
  */
 describe('全站样式 · 保真度审计修复（B/A 类）', () => {
   const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');

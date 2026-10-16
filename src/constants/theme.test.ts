@@ -1,5 +1,5 @@
 /**
- * 设计 token 护栏测试（对应 docs/ui-v2.1/管理端设计规范-v2.1.md §2.3 / §2.4）
+ * 设计 token 护栏测试（沿用 v2.1 语义色与对比度约束；历史规范见 overview.md）
  *
  * 两道护栏：
  * 1) 同源：variables.scss 与 constants/theme.ts 的语义色必须逐值一致

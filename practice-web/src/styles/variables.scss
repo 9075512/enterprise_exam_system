@@ -3,8 +3,8 @@
 // 供业务样式通过 @use '@/styles/variables.scss' as *; 复用
 //
 // 与管理端 src/styles/variables.scss 同源（同一套色板），仅圆角比管理端
-// 大一档（移动端更圆润：卡 10 / 控件 8 / 小件 6）。设计图 token 源见
-// docs/ui-v3b/kit/m.css，规范见 docs/ui-v3b/DESIGN-C.md。
+// 大一档（移动端更圆润：卡 10 / 控件 8 / 小件 6）。当前共享色板见
+// docs/ui-redesign/tokens.json；历史移动端规范见 overview.md。
 //
 // 兼容旧名：v1.7 的 $practice-radius / $practice-border / $border-soft 等
 // 保留为别名（页面 30 处引用不动），但值已收敛到 C 方向，不再是两套观感。

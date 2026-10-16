@@ -1,10 +1,10 @@
 <script setup lang="ts">
 /**
- * 状态标签：考试状态 / 记录状态 → el-tag（颜色按 docs/ui-v2.1 §8.4）
+ * 状态标签：考试状态 / 记录状态 → el-tag（颜色取 constants/theme.ts 的语义色）
  *
  * 颜色一律取「语义三件套」（底 / 描边 / 文本）：
  * 文本用 700 档（对白底 ≥ 4.5:1，达 WCAG AA 正文），
- * 不使用语义原色作文字（原色仅用于图形，见 §2.4）。
+ * 不使用语义原色作文字（原色仅用于图形）。
  */
 import { computed } from 'vue';
 import { THEME } from '@/constants/theme';
