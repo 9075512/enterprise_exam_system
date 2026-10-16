@@ -926,8 +926,6 @@ async function submitPassword(): Promise<void> {
   margin: 12px 0 0;
   padding: 0;
   list-style: none;
-  max-height: 320px;
-  overflow-y: auto;
 }
 
 .layout__search-item {

@@ -23,6 +23,7 @@ import CountdownTimer from './components/CountdownTimer.vue';
 import VisibilityGuard from './components/VisibilityGuard.vue';
 import QuestionCard from './components/QuestionCard.vue';
 import AnswerSheet from './components/AnswerSheet.vue';
+import ExamResultDialog from './components/ExamResultDialog.vue';
 import BootSplash from '@/components/common/BootSplash.vue';
 import type { Exam, ExamRecord } from '@/types';
 
@@ -245,11 +246,6 @@ async function doSubmit(auto: boolean): Promise<void> {
 const resultVisible = ref(false);
 const result = ref<ExamRecord | null>(null);
 
-/** 是否及格（以当前考试及格线为准；考试信息缺失时不标色） */
-const resultPassed = computed(() =>
-  result.value && exam.value ? result.value.score >= exam.value.passScore : null,
-);
-
 function gotoScoreDetail(): void {
   resultVisible.value = false;
   void router.replace(`/score-detail/${recordId}`);
@@ -389,35 +385,14 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
       <VisibilityGuard :disabled="submitted" @away="onAway" />
     </template>
 
-    <!-- 交卷结果弹窗：展示得分与及格态，成绩明细由用户点击后进入 -->
-    <el-dialog
+    <ExamResultDialog
       v-model="resultVisible"
-      width="420px"
-      align-center
-      :close-on-click-modal="false"
-      class="taking__result"
-    >
-      <template #header>
-        <div class="taking__result-hd">
-          <h3>考试结果</h3>
-          <span v-if="resultPassed !== null" class="taking__result-bdg" :class="resultPassed ? 'is-ok' : 'is-bad'">
-            {{ resultPassed ? '及格' : '未及格' }}
-          </span>
-        </div>
-      </template>
-      <div class="taking__result-score">
-        <span class="taking__result-num">{{ formatScore(result?.score ?? 0) }}</span>
-        <span class="taking__result-unit">/ {{ formatScore(record?.paperSnapshot.totalScore ?? 0) }} 分</span>
-      </div>
-      <p class="taking__result-tip">
-        交卷成功<template v-if="result?.autoSubmitted">（考试时间到，系统自动交卷）</template>。
-        可在「我的成绩」中随时查看成绩明细与逐题解析。
-      </p>
-      <template #footer>
-        <el-button @click="gotoMyExams">返回我的考试</el-button>
-        <el-button type="primary" @click="gotoScoreDetail">查看成绩明细</el-button>
-      </template>
-    </el-dialog>
+      :result="result"
+      :exam-name="exam?.name ?? ''"
+      :pass-score="exam?.passScore"
+      @back="gotoMyExams"
+      @detail="gotoScoreDetail"
+    />
   </div>
 </template>
 
@@ -718,68 +693,5 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
       overflow: visible;
     }
   }
-}
-</style>
-
-<!-- 交卷结果弹窗：el-dialog teleport 到 body，scoped 选择器不生效，故用 :global -->
-<style scoped lang="scss">
-@use '@/styles/variables.scss' as *;
-
-:global(.taking__result-hd) {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-
-  h3 {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 620;
-  }
-}
-
-:global(.taking__result-bdg) {
-  padding: 1px 8px;
-  border-radius: 999px;
-  font-size: 11.5px;
-  font-weight: 600;
-
-  &.is-ok {
-    color: $color-success-text;
-    background: $color-success-bg;
-  }
-
-  &.is-bad {
-    color: $color-error-text;
-    background: $color-error-bg;
-  }
-}
-
-:global(.taking__result-score) {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  justify-content: center;
-  padding: 6px 0 2px;
-}
-
-:global(.taking__result-num) {
-  font-size: 40px;
-  font-weight: 680;
-  line-height: 1;
-  color: $color-primary;
-  font-variant-numeric: tabular-nums;
-}
-
-:global(.taking__result-unit) {
-  font-size: 13px;
-  color: $text-secondary;
-}
-
-:global(.taking__result-tip) {
-  margin: 10px 0 0;
-  font-size: 12.5px;
-  line-height: 1.7;
-  color: $text-secondary;
-  text-align: center;
 }
 </style>

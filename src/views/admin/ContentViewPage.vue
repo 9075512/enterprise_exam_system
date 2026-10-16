@@ -901,7 +901,7 @@ onMounted(() => {
         </div>
         <el-tabs v-model="touchTab">
           <el-tab-pane label="公告阅读" name="announcement">
-            <el-table :data="touchStats?.announcements ?? []" size="small" max-height="360">
+            <el-table :data="touchStats?.announcements ?? []" size="small">
               <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
               <el-table-column label="范围" width="90">
                 <template #default="{ row }">{{ TARGET_LABELS[row.target as ContentTarget] }}</template>
@@ -916,7 +916,7 @@ onMounted(() => {
             </el-table>
           </el-tab-pane>
           <el-tab-pane label="轮播点击" name="banner">
-            <el-table :data="touchStats?.banners ?? []" size="small" max-height="360">
+            <el-table :data="touchStats?.banners ?? []" size="small">
               <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
               <el-table-column label="范围" width="90">
                 <template #default="{ row }">{{ TARGET_LABELS[row.target as ContentTarget] }}</template>

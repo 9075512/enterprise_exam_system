@@ -332,6 +332,8 @@ html[data-density='compact'] {
   .el-dialog__title {
     font-size: 14px;
     font-weight: 600;
+    line-height: 1.5;
+    margin: 0;
     display: block;
     overflow-wrap: anywhere;
   }
@@ -368,6 +370,9 @@ html[data-density='compact'] {
 
   .el-dialog__headerbtn { width: 44px; height: 48px; }
 
+  // 富文本随正文展开，避免编辑区与弹窗正文同时出现纵向滚动条。
+  .rich-editor__area { max-height: none; overflow-y: visible; }
+
   .el-input-number { max-width: 100%; }
   .el-radio, .el-checkbox { max-width: 100%; height: auto; min-height: 32px; }
   .el-radio__label, .el-checkbox__label { white-space: normal; overflow-wrap: anywhere; }
@@ -387,7 +392,7 @@ html[data-density='compact'] {
 .el-message-box.el-message-box {
   display: inline-flex;
   flex-direction: column;
-  max-width: calc(100vw - 32px);
+  max-width: min(var(--el-messagebox-width, 420px), calc(100vw - 32px));
   max-height: 90vh;
   max-height: 90dvh;
   vertical-align: middle;

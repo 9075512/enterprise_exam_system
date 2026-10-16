@@ -286,7 +286,7 @@ function handleHistoryPageChange(p: number): void {
           <div class="user-import__errors-header">
             <span>失败明细（{{ preview.errors.length }}）</span>
           </div>
-          <el-table :data="preview.errors" border stripe max-height="280" empty-text="没有失败行">
+          <el-table :data="preview.errors" border stripe empty-text="没有失败行">
             <el-table-column prop="row" label="行号" width="80" align="center" />
             <el-table-column prop="column" label="列" width="120" />
             <el-table-column prop="value" label="原始值" min-width="140" show-overflow-tooltip />
@@ -308,7 +308,7 @@ function handleHistoryPageChange(p: number): void {
 
       <!-- 导入历史 -->
       <el-tab-pane label="导入历史" name="history" :disabled="parsing || committing">
-        <el-table v-loading="historyLoading" :data="historyList" row-key="id" border stripe max-height="360">
+        <el-table v-loading="historyLoading" :data="historyList" row-key="id" border stripe>
           <el-table-column prop="fileName" label="文件名" min-width="200" show-overflow-tooltip />
           <el-table-column label="成功" width="90" align="center">
             <template #default="{ row }">{{ row.successCount }}</template>

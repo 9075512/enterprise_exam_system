@@ -323,7 +323,6 @@ function importAgain(): void {
         :data="preview.errors"
         border
         stripe
-        max-height="280"
         empty-text="没有失败行"
       >
         <el-table-column prop="row" label="行号" width="80" align="center" />
@@ -456,8 +455,6 @@ function importAgain(): void {
   &__list {
     margin: 4px 0 0;
     padding-left: 18px;
-    max-height: 120px;
-    overflow-y: auto;
     font-size: 13px;
   }
 }
