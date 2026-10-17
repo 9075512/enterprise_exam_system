@@ -26,6 +26,7 @@ export interface LoginUserRow extends RowDataPacket {
 /** 列表过滤条件。 */
 export interface UserListFilter {
   role?: Role;
+  groupId?: string;
   keyword?: string;
 }
 
@@ -70,6 +71,10 @@ export async function list(filter: UserListFilter = {}): Promise<UserRow[]> {
   if (filter.role) {
     conditions.push('u.role = ?');
     params.push(filter.role);
+  }
+  if (filter.groupId) {
+    conditions.push('EXISTS (SELECT 1 FROM user_group_members gm_filter WHERE gm_filter.user_id = u.id AND gm_filter.group_id = ?)');
+    params.push(filter.groupId);
   }
   if (filter.keyword && filter.keyword.trim() !== '') {
     conditions.push('(u.username LIKE ? OR u.name LIKE ?)');
@@ -131,6 +136,17 @@ export async function setGroups(userId: string, groupIds: string[]): Promise<voi
   for (const groupId of [...new Set(groupIds)]) {
     await query<RowDataPacket[]>(`INSERT INTO user_group_members (group_id, user_id, created_at) VALUES (?, ?, NOW(3))`, [groupId, userId]);
   }
+}
+
+/** 查询用户组绑定的角色，供用户保存时派生实际角色。 */
+export async function findGroupRoles(groupIds: string[]): Promise<Array<{ id: string; role: Role }>> {
+  const unique = [...new Set(groupIds)];
+  if (!unique.length) return [];
+  const rows = await query<Array<RowDataPacket & { id: string; role: Role }>>(
+    `SELECT id, role FROM user_groups WHERE id IN (${unique.map(() => '?').join(',')})`,
+    unique,
+  );
+  return rows.map((row) => ({ id: row.id, role: row.role }));
 }
 
 /** 删除用户。 */

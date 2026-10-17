@@ -20,9 +20,47 @@ import {
 } from '@/constants/settings';
 import type { PublicSettings, SystemSettings } from '@/types';
 
+const PUBLIC_SETTINGS_CACHE_KEY = 'exam-public-settings-v1';
+
+/**
+ * 同步恢复上次成功加载的公开品牌，避免页面刷新后在接口返回前短暂展示兜底名称。
+ * 仅缓存公开字段；缓存损坏或浏览器禁用存储时直接回退内置值。
+ */
+function readCachedPublicSettings(): PublicSettings {
+  try {
+    const raw = localStorage.getItem(PUBLIC_SETTINGS_CACHE_KEY);
+    if (!raw) return { ...PUBLIC_SETTINGS_DEFAULTS };
+    const cached = JSON.parse(raw) as Record<string, unknown>;
+    return {
+      systemName: typeof cached.systemName === 'string' && cached.systemName.trim()
+        ? cached.systemName
+        : PUBLIC_SETTINGS_DEFAULTS.systemName,
+      systemShortName: typeof cached.systemShortName === 'string' && cached.systemShortName.trim()
+        ? cached.systemShortName
+        : PUBLIC_SETTINGS_DEFAULTS.systemShortName,
+      loginSlogan: typeof cached.loginSlogan === 'string'
+        ? cached.loginSlogan
+        : PUBLIC_SETTINGS_DEFAULTS.loginSlogan,
+      copyright: typeof cached.copyright === 'string'
+        ? cached.copyright
+        : PUBLIC_SETTINGS_DEFAULTS.copyright,
+    };
+  } catch {
+    return { ...PUBLIC_SETTINGS_DEFAULTS };
+  }
+}
+
+function cachePublicSettings(value: PublicSettings): void {
+  try {
+    localStorage.setItem(PUBLIC_SETTINGS_CACHE_KEY, JSON.stringify(value));
+  } catch {
+    /* 浏览器禁用存储时不影响设置加载 */
+  }
+}
+
 export const useSettingsStore = defineStore('settings', () => {
   const settings = ref<SystemSettings>({ ...SETTINGS_DEFAULTS });
-  const publicSettings = ref<PublicSettings>({ ...PUBLIC_SETTINGS_DEFAULTS });
+  const publicSettings = ref<PublicSettings>(readCachedPublicSettings());
   const ready = ref(false);
   const loading = ref(false);
   let inflight: Promise<void> | null = null;
@@ -35,6 +73,7 @@ export const useSettingsStore = defineStore('settings', () => {
     const { bankCategories: _legacyBankCategories, ...supported } = next as Partial<SystemSettings> & { bankCategories?: unknown };
     settings.value = { ...SETTINGS_DEFAULTS, ...supported };
     publicSettings.value = pickPublicSettings(settings.value);
+    cachePublicSettings(publicSettings.value);
   }
 
   /** 加载完整设置（需登录）；已加载过则直接返回，force 时强制刷新 */
@@ -69,6 +108,7 @@ export const useSettingsStore = defineStore('settings', () => {
         const data = await getPublicSettings();
         if (currentRevision === revision) {
           publicSettings.value = { ...PUBLIC_SETTINGS_DEFAULTS, ...data };
+          cachePublicSettings(publicSettings.value);
         }
       } catch {
         /* 静默：保留默认值 */

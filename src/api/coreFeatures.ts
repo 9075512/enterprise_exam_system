@@ -19,8 +19,8 @@ export const positionsApi = {
 };
 export const groupsApi = {
   list: (): Promise<UserGroup[]> => get('/user-groups'),
-  create: (data: Pick<UserGroup, 'name' | 'description' | 'userIds'>): Promise<UserGroup> => post('/user-groups', data),
-  update: (id: string, data: Pick<UserGroup, 'name' | 'description' | 'userIds'>): Promise<UserGroup> => put(`/user-groups/${id}`, data),
+  create: (data: Pick<UserGroup, 'name' | 'role' | 'description' | 'userIds'>): Promise<UserGroup> => post('/user-groups', data),
+  update: (id: string, data: Pick<UserGroup, 'name' | 'role' | 'description' | 'userIds'>): Promise<UserGroup> => put(`/user-groups/${id}`, data),
   remove: (id: string): Promise<null> => del(`/user-groups/${id}`),
 };
 export const subjectGrantsApi = {

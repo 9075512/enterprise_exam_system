@@ -681,7 +681,7 @@ CREATE TABLE IF NOT EXISTS positions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS user_groups (
-  id VARCHAR(64) NOT NULL, name VARCHAR(120) NOT NULL, description VARCHAR(255) NOT NULL DEFAULT '',
+  id VARCHAR(64) NOT NULL, name VARCHAR(120) NOT NULL, role ENUM('admin','author','examinee') NOT NULL, description VARCHAR(255) NOT NULL DEFAULT '',
   created_at DATETIME(3) NOT NULL, updated_at DATETIME(3) NOT NULL,
   PRIMARY KEY (id), UNIQUE KEY uk_user_group_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

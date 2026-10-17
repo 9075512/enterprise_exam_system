@@ -14,7 +14,7 @@ const statusEnum = z.enum(['active', 'disabled'], {
 export const createUserSchema = z.object({
   username: z.string().min(1, '登录账号不能为空'),
   name: z.string().min(1, '姓名不能为空'),
-  role: roleEnum,
+  role: roleEnum.optional(),
   departmentId: z.string().optional().default(''),
   positionId: z.string().optional().default(''),
   groupIds: z.array(z.string().min(1).max(64)).max(100).optional().default([]),
@@ -27,7 +27,7 @@ export const createUserSchema = z.object({
 export const updateUserSchema = z.object({
   username: z.string().min(1, '登录账号不能为空'),
   name: z.string().min(1, '姓名不能为空'),
-  role: roleEnum,
+  role: roleEnum.optional(),
   departmentId: z.string().optional().default(''),
   positionId: z.string().optional().default(''),
   groupIds: z.array(z.string().min(1).max(64)).max(100).optional().default([]),
@@ -39,6 +39,7 @@ export const updateUserSchema = z.object({
 /** 列表查询入参。 */
 export const listQuerySchema = z.object({
   role: roleEnum.optional(),
+  groupId: z.string().max(64).optional(),
   keyword: z.string().optional().default(''),
 });
 

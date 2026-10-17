@@ -102,7 +102,7 @@ const ALL_MENUS: MenuItem[] = [
   { key: 'practice', text: '练题', path: '/exam/practice', icon: Notebook, roles: ['admin', 'author', 'examinee'], group: 'learning' },
   { key: 'departments', text: '科室管理', path: '/admin/departments', icon: OfficeBuilding, roles: ['admin'], group: 'system' },
   { key: 'users', text: '用户管理', path: '/admin/users', icon: User, roles: ['admin'], group: 'system' },
-  { key: 'org-extensions', text: '组织扩展', path: '/admin/org-extensions', icon: OfficeBuilding, roles: ['admin'], group: 'system' },
+  { key: 'org-extensions', text: '用户组与岗位', path: '/admin/org-extensions', icon: OfficeBuilding, roles: ['admin'], group: 'system' },
   { key: 'permissions', text: '菜单权限', path: '/admin/permissions', icon: Lock, roles: ['admin'], group: 'system' },
   { key: 'settings', text: '系统设置', path: '/admin/settings', icon: Setting, roles: ['admin'], group: 'system' },
   { key: 'audit', text: '审计日志', path: '/admin/audit', icon: Tickets, roles: ['admin'], group: 'system' },

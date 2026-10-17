@@ -36,7 +36,7 @@ export const MENU_CATALOG: readonly MenuDef[] = [
   { key: 'practice', name: '练题', defaultRoles: ['admin', 'author', 'examinee'], adminRequired: false },
   { key: 'content', name: '公告与轮播', defaultRoles: ['admin'], adminRequired: false },
   { key: 'home-config', name: '首页配置', defaultRoles: ['admin'], adminRequired: false },
-  { key: 'org-extensions', name: '组织扩展', defaultRoles: ['admin'], adminRequired: false },
+  { key: 'org-extensions', name: '用户组与岗位', defaultRoles: ['admin'], adminRequired: false },
   { key: 'settings', name: '系统设置', defaultRoles: ['admin'], adminRequired: true },
   { key: 'permissions', name: '菜单权限', defaultRoles: ['admin'], adminRequired: true },
   { key: 'audit', name: '审计日志', defaultRoles: ['admin'], adminRequired: false },

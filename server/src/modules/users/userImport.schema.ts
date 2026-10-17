@@ -7,6 +7,8 @@ const userValidRowSchema = z.object({
   row: z.number().int().min(1),
   username: z.string().min(1, '登录账号不能为空'),
   name: z.string().min(1, '姓名不能为空'),
+  groupName: z.string().min(1, '用户组不能为空'),
+  groupId: z.string().min(1, '用户组不能为空').max(64),
   role: z.enum(['admin', 'author', 'examinee'], { errorMap: () => ({ message: '角色不合法' }) }),
   departmentName: z.string(),
   departmentId: z.string(),

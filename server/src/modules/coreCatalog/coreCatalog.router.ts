@@ -11,7 +11,10 @@ import { conflict } from '../../utils/errors.js';
 
 const namedSchema = z.object({ name: z.string().trim().min(1).max(120), description: z.string().max(255).optional().default('') });
 const subjectSchema = z.object({ name: z.string().trim().min(1).max(120), parentId: z.string().max(64).nullable().optional(), sortOrder: z.number().int().min(0).max(9999).optional(), status: z.enum(['active', 'disabled']).optional() });
-const groupSchema = namedSchema.extend({ userIds: z.array(z.string().min(1).max(64)).max(5000).optional().default([]) });
+const groupSchema = namedSchema.extend({
+  role: z.enum(['admin', 'author', 'examinee'], { errorMap: () => ({ message: '用户组角色不合法' }) }),
+  userIds: z.array(z.string().min(1).max(64)).max(5000).optional().default([]),
+});
 const grantsSchema = z.object({ grants: z.array(z.object({ principalType: z.enum(['role', 'group', 'position', 'user']), principalId: z.string().min(1).max(64), effect: z.enum(['allow', 'deny']), canView: z.boolean(), canEdit: z.boolean() })).max(1000) });
 const overridesSchema = z.object({ overrides: z.array(z.object({ menuKey: z.string().min(1).max(64), effect: z.enum(['allow', 'deny']) })).max(200) });
 

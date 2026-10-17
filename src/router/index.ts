@@ -54,7 +54,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/admin/SubjectManagePage.vue'),
         meta: { roles: ['admin'], menuKey: 'subjects', title: '科目管理' },
       },
-      { path: 'admin/org-extensions', component: () => import('@/views/admin/OrgExtensionsPage.vue'), meta: { roles: ['admin'], menuKey: 'org-extensions', title: '组织扩展' } },
+      { path: 'admin/org-extensions', component: () => import('@/views/admin/OrgExtensionsPage.vue'), meta: { roles: ['admin'], menuKey: 'org-extensions', title: '用户组与岗位' } },
       { path: 'admin/templates', component: () => import('@/views/admin/TemplateManagePage.vue'), meta: { roles: ['admin', 'author'], menuKey: 'templates', title: '模板管理' } },
       { path: 'admin/question-feedback', component: () => import('@/views/admin/QuestionFeedbackPage.vue'), meta: { roles: ['admin', 'author'], menuKey: 'question-feedback', title: '题目反馈' } },
       { path: 'admin/duplicate-questions', component: () => import('@/views/admin/DuplicateQuestionsPage.vue'), meta: { roles: ['admin'], menuKey: 'duplicate-questions', title: '重复题审计' } },

@@ -15,10 +15,29 @@ function deferred<T>() {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  localStorage.clear();
   setActivePinia(createPinia());
 });
 
 describe('系统设置请求合并', () => {
+  it('公开配置返回前直接使用正式品牌，刷新时不闪现占位名称', () => {
+    const store = useSettingsStore();
+    expect(store.publicSettings.systemName).toBe('卓达煤矿考试学习系统');
+    expect(store.publicSettings.systemShortName).toBe('卓达煤矿考试学习系统');
+    expect(store.publicSettings.copyright).toBe('© 2026 卓达煤矿考试学习系统');
+  });
+
+  it('刷新时同步恢复上次加载的公开品牌', () => {
+    localStorage.setItem('exam-public-settings-v1', JSON.stringify({
+      ...PUBLIC_SETTINGS_DEFAULTS,
+      systemName: '上次加载的品牌',
+      systemShortName: '上次品牌',
+    }));
+    const store = useSettingsStore();
+    expect(store.publicSettings.systemName).toBe('上次加载的品牌');
+    expect(store.publicSettings.systemShortName).toBe('上次品牌');
+  });
+
   it('并发调用只请求一次，所有调用者都等待真实设置就绪', async () => {
     const pending = deferred<SystemSettings>();
     vi.mocked(getSettings).mockReturnValue(pending.promise);

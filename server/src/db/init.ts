@@ -186,6 +186,48 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     changes.push('users.idx_users_position');
   }
 
+  // 用户组统一承载角色：每个组绑定一个系统角色。
+  // 存量组若包含多种角色，按角色拆成同名子组，保留所有成员关系。
+  if (!(await columnExists(conn, 'user_groups', 'role'))) {
+    await conn.query(`ALTER TABLE user_groups ADD COLUMN role ENUM('admin','author','examinee') NULL AFTER name`);
+    const [groups] = await conn.query<mysql.RowDataPacket[]>(
+      `SELECT id, name, description, created_at, updated_at FROM user_groups ORDER BY created_at, id`,
+    );
+    const roleLabels: Record<string, string> = { admin: '管理员', author: '出题人', examinee: '考生' };
+    for (const group of groups) {
+      const [roleRows] = await conn.query<mysql.RowDataPacket[]>(
+        `SELECT DISTINCT u.role FROM user_group_members gm JOIN users u ON u.id = gm.user_id
+          WHERE gm.group_id = ? ORDER BY FIELD(u.role, 'admin','author','examinee')`,
+        [group.id],
+      );
+      const roles = roleRows.map((row) => String(row.role));
+      const primaryRole = roles[0] ?? 'examinee';
+      await conn.query(`UPDATE user_groups SET role = ? WHERE id = ?`, [primaryRole, group.id]);
+      for (const role of roles.slice(1)) {
+        const cloneId = `group-migr-${createHash('sha256').update(`${String(group.id)}:${role}`).digest('hex').slice(0, 20)}`;
+        const cloneName = `${String(group.name)}（${roleLabels[role] ?? role}-${cloneId.slice(-6)}）`;
+        await conn.query(
+          `INSERT INTO user_groups (id, name, role, description, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE role = VALUES(role), updated_at = VALUES(updated_at)`,
+          [cloneId, cloneName, role, group.description, group.created_at, group.updated_at],
+        );
+        await conn.query(
+          `INSERT IGNORE INTO user_group_members (group_id, user_id, created_at)
+           SELECT ?, gm.user_id, gm.created_at FROM user_group_members gm
+           JOIN users u ON u.id = gm.user_id WHERE gm.group_id = ? AND u.role = ?`,
+          [cloneId, group.id, role],
+        );
+        await conn.query(
+          `DELETE gm FROM user_group_members gm JOIN users u ON u.id = gm.user_id
+            WHERE gm.group_id = ? AND u.role = ?`,
+          [group.id, role],
+        );
+      }
+    }
+    await conn.query(`ALTER TABLE user_groups MODIFY COLUMN role ENUM('admin','author','examinee') NOT NULL AFTER name`);
+    changes.push('user_groups.role + split mixed-role groups');
+  }
+
   // v1.7③：账号安全 —— 密码最后修改时间（密码有效期策略用）
   if (!(await columnExists(conn, 'users', 'password_changed_at'))) {
     await conn.query(`ALTER TABLE users ADD COLUMN password_changed_at DATETIME(3) NULL AFTER status`);

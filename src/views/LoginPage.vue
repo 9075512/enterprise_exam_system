@@ -66,9 +66,9 @@ const rules = computed<FormRules>(() => ({
 
 /** 品牌能力点（设计稿 .login__pt：单行短句） */
 const features = [
-  { icon: Collection, desc: '题库集中管理，智能组卷秒级成卷' },
-  { icon: Lock, desc: '防切屏、随机抽题、全程留痕' },
-  { icon: TrendCharts, desc: '成绩分析到人到题，短板一目了然' },
+  { icon: Collection, desc: '题库组卷，统一管理' },
+  { icon: Lock, desc: '随机抽题，全程留痕' },
+  { icon: TrendCharts, desc: '成绩分析，清晰直观' },
 ];
 
 /** 演示账号（点击自动填充） */
@@ -180,7 +180,7 @@ function backToCredentials(): void {
         <h1 v-if="settingsStore.publicSettings.loginSlogan" class="login__headline">
           {{ settingsStore.publicSettings.loginSlogan }}
         </h1>
-        <p class="login__tagline">题库、组卷、监考、阅卷、成绩分析，考试全流程一套系统完成，数据随时可追溯。</p>
+        <p class="login__tagline">覆盖组卷、考试、阅卷与分析全流程。</p>
 
         <ul class="login__features">
           <li v-for="(f, i) in features" :key="i" class="login__feature">
@@ -202,7 +202,7 @@ function backToCredentials(): void {
       <div class="login__form-wrap">
         <h2 class="login__title">{{ step === 'twofa' ? '两步验证' : '欢迎回来' }}</h2>
         <p class="login__subtitle">
-          {{ step === 'twofa' ? '请输入验证器 App 中的 6 位动态验证码，或使用恢复码' : '请使用企业统一账号登录' }}
+          {{ step === 'twofa' ? '请输入动态验证码或恢复码' : '请使用统一账号登录' }}
         </p>
 
         <el-form
@@ -309,7 +309,7 @@ function backToCredentials(): void {
         </el-form>
 
         <p class="login__hint">
-          首次登录请使用初始密码，登录后需立即修改。<br />如账号被锁定，请联系所在部门管理员。
+          首次登录请修改初始密码，账号异常请联系管理员。
         </p>
 
         <div v-if="step === 'credentials'" class="login__demo">
