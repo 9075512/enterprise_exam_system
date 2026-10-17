@@ -40,7 +40,10 @@ beforeEach(() => {
   mocks.api.check.mockResolvedValue({ correct: true, correctAnswer: [0], analysis: '', type: 'judge' });
   mocks.api.saveProgress.mockResolvedValue({});
 });
-afterEach(() => wrapper?.unmount());
+afterEach(() => {
+  wrapper?.unmount();
+  vi.restoreAllMocks();
+});
 
 describe('练题来源与异步反馈', () => {
   it.each(['daily', 'favorite', 'wrong'])('%s 会话判分后不向占位题库保存进度', async source => {
@@ -88,5 +91,28 @@ describe('练题来源与异步反馈', () => {
     expect(wrapper.text()).toContain('取题失败');
     await wrapper.get('.session__state button').trigger('click'); await flushPromises();
     expect(wrapper.findComponent(QuestionCard).exists()).toBe(true);
+  });
+  it.each(['next', 'finish'])('%s 后重置 PC 内容区和移动窗口的滚动位置', async action => {
+    if (action === 'next') {
+      mocks.api.createSession.mockResolvedValue({ sessionToken: 'session', questionIds: ['q1', 'q2'], total: 2 });
+      mocks.api.questionsByIds.mockResolvedValue(['q1', 'q2'].map(id => ({
+        id, bankId: 'bank-1', type: 'judge', stem: '题目', options: ['正确', '错误'], subject: '',
+      })));
+    }
+    const content = document.createElement('main');
+    content.className = 'layout__content';
+    content.scrollTo = vi.fn();
+    document.body.appendChild(content);
+    const scrollWindow = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    try {
+      mountPage(); await flushPromises(); await answer();
+      await wrapper.get('.session__next').trigger('click'); await flushPromises();
+      expect(content.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
+      expect(scrollWindow).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
+      if (action === 'next') expect(wrapper.getComponent(QuestionCard).props('question').id).toBe('q2');
+      else expect(wrapper.find('.summary').exists()).toBe(true);
+    } finally {
+      content.remove();
+    }
   });
 });

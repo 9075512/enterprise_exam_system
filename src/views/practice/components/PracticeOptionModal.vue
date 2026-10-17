@@ -74,7 +74,7 @@ function confirm(): void {
   <el-dialog
     v-model="innerVisible"
     :title="`${bank.name} · 开始练习`"
-    width="92%"
+    width="560px"
     align-center
     append-to-body
     class="opt-dialog"
@@ -168,6 +168,10 @@ function confirm(): void {
 .opt {
   &__group {
     margin-bottom: 20px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
   }
 
   &__label {

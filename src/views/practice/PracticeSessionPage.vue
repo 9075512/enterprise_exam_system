@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 练题作答页（单题聚焦 + 即时反馈 + 小结）· 仅移动端 · 微信内置浏览器兼容。
+ * 练题作答页（单题聚焦 + 即时反馈 + 小结）· PC / 移动端 · 微信内置浏览器兼容。
  *
  * 流程：生成会话（顺序/随机/题量/题型 或 错题复习）→ 按 id 批量取题（不含答案）→
  * 逐题作答 → 提交单题即时判分看解析 → 重做/下一题 → 结束展示小结。
@@ -8,7 +8,7 @@
  * 复用考试组件 `QuestionCard`（**不改其内部**）；不使用 CountdownTimer/VisibilityGuard/AnswerSheet。
  * 视觉：冷静蓝 · 商务风（细边框卡片、吸底实色操作栏、无渐变 / 无 emoji 装饰）。
  */
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
@@ -320,10 +320,14 @@ function next(): void {
     finished.value = true;
     stopHeartbeat();
     if (session.value?.id) void practiceApi.finishSession(session.value.id, 'completed').catch(() => { /* 统计失败不阻塞小结 */ });
-    return;
+  } else {
+    index.value += 1;
   }
-  index.value += 1;
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  void nextTick(() => {
+    // PC 由主布局内容区滚动，移动端由窗口滚动；小结也需要回到顶部。
+    document.querySelector<HTMLElement>('.layout__content')?.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
 }
 
 /** 返回首页 */
@@ -475,7 +479,7 @@ onBeforeUnmount(stopHeartbeat);
         <PracticeFeedback v-if="currentResult" :result="currentResult" :selected="currentAnswer" />
       </div>
 
-      <!-- 操作区（吸底） -->
+      <!-- 操作区：PC 跟随题目，移动端吸底 -->
       <div class="session__actions">
         <template v-if="!currentResult">
           <el-button
@@ -685,6 +689,8 @@ onBeforeUnmount(stopHeartbeat);
 
     :deep(.el-button) {
       flex: 1;
+      min-width: 0;
+      margin: 0;
       height: 42px;
       font-size: 14px;
       font-weight: 580;
@@ -706,6 +712,55 @@ onBeforeUnmount(stopHeartbeat);
     &:hover,
     &:active {
       background: $practice-primary-dark;
+    }
+  }
+}
+
+@media (min-width: 901px) {
+  .session {
+    width: 100%;
+    max-width: 960px;
+    margin: 0 auto;
+    box-sizing: border-box;
+    background: $bg-paper;
+    border: 1px solid $border-color;
+    border-radius: $radius-base;
+
+    &__top {
+      padding: 16px 24px;
+      border-radius: $radius-base $radius-base 0 0;
+    }
+
+    &__body {
+      flex: none;
+      padding: 24px 24px 0;
+    }
+
+    &__card :deep(.question-card) {
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+    }
+
+    &__card :deep(.question-card__stem) {
+      font-size: 16px;
+    }
+
+    // 桌面端操作区属于答题卡，紧随内容排列，短题不再撑出独立白条。
+    &__actions {
+      position: static;
+      left: auto;
+      transform: none;
+      width: 100%;
+      justify-content: center;
+      gap: 12px;
+      padding: 20px 24px 24px;
+      border-top: 0;
+      border-radius: 0 0 $radius-base $radius-base;
+
+      :deep(.el-button) {
+        flex: 0 1 160px;
+      }
     }
   }
 }
