@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * 登录页（v1.2 视觉升级；v1.7③ 增图形验证码与两步验证）。
- * 左右分栏 —— 左侧品牌区（渐变 + 能力清单），右侧登录表单。
+ * 桌面端左右分栏；移动端使用顶部品牌 Hero + 上浮表单 Sheet。
  * 登录成功按 route.query.redirect 或角色首页跳转。
  */
 import { computed, onMounted, reactive, ref, watch } from 'vue';
@@ -594,8 +594,8 @@ function backToCredentials(): void {
   }
 }
 
-// 窄屏：隐藏品牌区，只保留表单
-@media (max-width: 1024px) {
+// 平板：压缩为单列表单，避免横向空间不足。
+@media (min-width: 769px) and (max-width: 1024px) {
   .login {
     &__brand {
       display: none;
@@ -603,6 +603,233 @@ function backToCredentials(): void {
 
     &__panel {
       background: linear-gradient(160deg, $color-primary-50 0%, $bg-paper 45%);
+    }
+  }
+}
+
+// 手机：独立的「品牌 Hero + 上浮白色 Sheet」布局，不再直接复用 PC 表单画布。
+@media (max-width: 768px) {
+  .login {
+    min-height: 100vh;
+    min-height: 100dvh;
+    flex-direction: column;
+    overflow-x: hidden;
+    background: $sidebar-bg;
+
+    &__brand {
+      flex: 0 0 auto;
+      min-height: 218px;
+      padding:
+        max(24px, env(safe-area-inset-top))
+        max(20px, env(safe-area-inset-right))
+        52px
+        max(20px, env(safe-area-inset-left));
+      background:
+        radial-gradient(circle at 92% 12%, rgba($color-primary-light, 0.3), transparent 35%),
+        linear-gradient(145deg, $sidebar-bg 8%, #0d3977 100%);
+
+      &::before {
+        content: '';
+        position: absolute;
+        top: 74px;
+        right: -42px;
+        width: 132px;
+        height: 132px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        pointer-events: none;
+      }
+
+      &::after {
+        right: -80px;
+        bottom: -124px;
+        width: 300px;
+        height: 300px;
+        opacity: 0.4;
+      }
+    }
+
+    &__brand-inner {
+      max-width: none;
+
+      // 桌面端的四色能力分隔条在移动 Hero 中会制造无意义的底部噪音。
+      &::after {
+        display: none;
+      }
+    }
+
+    &__logo {
+      gap: 10px;
+    }
+
+    &__logo-mark {
+      width: 40px;
+      height: 40px;
+      border-radius: 11px; // radius-exception：移动端品牌标识沿用显式视觉稿尺寸。
+      font-size: 17px;
+      box-shadow: 0 8px 24px rgba(18, 104, 255, 0.28);
+    }
+
+    &__logo-name {
+      font-size: 15px;
+
+      small {
+        margin-top: 1px;
+        font-size: 9px;
+        letter-spacing: 0.14em;
+      }
+    }
+
+    &__headline {
+      display: -webkit-box;
+      margin: 30px 0 0;
+      max-width: 20em;
+      overflow: hidden;
+      font-size: clamp(23px, 6.7vw, 28px);
+      line-height: 1.3;
+      letter-spacing: -0.025em;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+
+    &__tagline {
+      display: -webkit-box;
+      margin-top: 8px;
+      max-width: 34em;
+      overflow: hidden;
+      font-size: 12px;
+      line-height: 1.6;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+
+    &__features,
+    &__copyright {
+      display: none;
+    }
+
+    &__panel {
+      position: relative;
+      z-index: 2;
+      flex: 1 0 auto;
+      align-items: flex-start;
+      margin-top: -24px;
+      padding:
+        30px
+        max(20px, env(safe-area-inset-right))
+        max(28px, env(safe-area-inset-bottom))
+        max(20px, env(safe-area-inset-left));
+      border-radius: 24px 24px 0 0; // radius-exception：移动端上浮 Sheet 的结构性圆角。
+      background: $bg-paper;
+    }
+
+    &__form-wrap {
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    &__title {
+      font-size: 23px;
+      line-height: 1.35;
+    }
+
+    &__subtitle {
+      margin: 7px 0 24px;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    :deep(.el-form-item) {
+      margin-bottom: 20px;
+    }
+
+    :deep(.el-form-item__label) {
+      padding-bottom: 7px;
+      font-size: 13px;
+    }
+
+    :deep(.el-input__wrapper) {
+      min-height: 46px;
+      padding-inline: 13px;
+      border-radius: 8px;
+    }
+
+    :deep(.el-input__inner) {
+      font-size: 16px; // 防止 iOS 聚焦输入框时自动放大页面。
+    }
+
+    &__submit {
+      height: 46px;
+      margin-top: 4px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    &__back {
+      min-height: 40px;
+    }
+
+    &__hint {
+      margin-top: 18px;
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    &__demo {
+      margin-top: 20px;
+      padding-top: 16px;
+    }
+
+    &__demo-label {
+      margin-bottom: 10px;
+      font-size: 12px;
+    }
+
+    &__demo-list {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    &__demo-chip {
+      min-width: 0;
+      min-height: 52px;
+      padding: 7px 3px;
+      touch-action: manipulation;
+
+      strong,
+      small {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      &:active {
+        border-color: $color-primary;
+        background: $color-primary-soft;
+        transform: scale(0.98);
+      }
+    }
+  }
+}
+
+@media (max-width: 374px) {
+  .login {
+    &__brand {
+      min-height: 204px;
+      padding-right: 16px;
+      padding-left: 16px;
+    }
+
+    &__headline {
+      margin-top: 24px;
+    }
+
+    &__panel {
+      padding-right: 16px;
+      padding-left: 16px;
     }
   }
 }
