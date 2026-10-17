@@ -159,7 +159,7 @@ export async function getById(id: string, operator: Operator): Promise<BankDetai
   return { ...dto, referencedQuestionCount, referencedPaperCount };
 }
 
-/** 新建科目题库：默认所有人员可预览，编辑权限仍需单独授权。 */
+/** 新建科目题库：默认开放练题和全部人员浏览，编辑权限仍需单独授权。 */
 export async function create(
   input: { name: string; description?: string; parentId?: string | null; sortOrder?: number; status?: 'active' | 'disabled'; allowPractice?: boolean; authorIds?: string[] },
   operator: Operator,
@@ -182,7 +182,7 @@ export async function create(
     name,
     description: input.description?.trim() ?? '',
     category: '未分类',
-    allowPractice: input.allowPractice === true,
+    allowPractice: input.allowPractice !== false,
     parentId,
     sortOrder: input.sortOrder ?? 0,
     status: input.status ?? 'active',

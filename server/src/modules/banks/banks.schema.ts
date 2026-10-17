@@ -11,10 +11,15 @@ export const bankSchema = z.object({
   parentId: z.string().max(64).nullable().optional(),
   sortOrder: z.number().int().min(0).max(999999).optional().default(0),
   status: z.enum(['active', 'disabled']).optional().default('active'),
-  /** 对外开放练题开关（默认关闭，安全默认） */
+  /** 编辑请求沿用原默认；新增请求由 bankCreateSchema 默认开放练题。 */
   allowPractice: z.boolean({ invalid_type_error: '对外开放练题开关必须为布尔值' }).optional().default(false),
   /** 授权出题人 id 列表（仅 admin 生效；author 新建/编辑时忽略） */
   authorIds: z.array(z.string()).optional(),
+});
+
+/** 新增科目默认开放练题，仍允许显式关闭。 */
+export const bankCreateSchema = bankSchema.extend({
+  allowPractice: bankSchema.shape.allowPractice.default(true),
 });
 
 export const bankAccessSchema = z.object({

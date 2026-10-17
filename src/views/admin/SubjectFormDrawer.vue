@@ -22,7 +22,7 @@ const departments = ref<Department[]>([]);
 
 const form = reactive({
   name: '', parentId: null as string | null, sortOrder: 0, status: 'active' as 'active' | 'disabled',
-  description: '', allowPractice: false, permissionMode: 'override' as 'inherit' | 'override',
+  description: '', allowPractice: true, permissionMode: 'override' as 'inherit' | 'override',
   viewAll: true, includeChildDepartments: true, departmentIds: [] as string[], userIds: [] as string[], editorIds: [] as string[],
 });
 const isRoot = computed(() => !form.parentId);
@@ -70,8 +70,8 @@ function applyAccess(access: BankAccessConfig): void {
 async function resetForm(): Promise<void> {
   form.name = props.bank?.name ?? ''; form.parentId = props.bank?.parentId ?? props.defaultParentId ?? null;
   form.sortOrder = props.bank?.sortOrder ?? 0; form.status = props.bank?.status ?? 'active';
-  form.description = props.bank?.description ?? ''; form.allowPractice = props.bank?.allowPractice ?? false;
-  // 新建科目统一使用独立权限，默认允许所有人员预览；编辑时再加载既有配置。
+  form.description = props.bank?.description ?? ''; form.allowPractice = props.bank?.allowPractice ?? true;
+  // 新建科目默认开放练题，并向全部部门、全部人员开放浏览；编辑时加载既有配置。
   form.permissionMode = 'override'; form.viewAll = !props.bank?.id; form.includeChildDepartments = true;
   form.departmentIds = []; form.userIds = []; form.editorIds = [];
   await loadOptions();
@@ -129,9 +129,9 @@ async function handleSubmit(): Promise<void> {
       <el-divider content-position="left">访问权限</el-divider>
       <el-form-item label="权限方式"><el-radio-group v-model="form.permissionMode"><el-radio value="inherit" :disabled="isRoot">继承上级</el-radio><el-radio value="override">完整覆盖</el-radio></el-radio-group><div class="hint">覆盖会替换继承的整组权限；编辑人员自动拥有浏览权限。根科目必须使用完整覆盖。</div></el-form-item>
       <template v-if="form.permissionMode === 'override'">
-        <el-form-item label="浏览范围"><el-checkbox v-model="form.viewAll">所有人员均可预览</el-checkbox><div v-if="!isEdit" class="hint">新增科目默认向管理员、出题人和考生开放预览；考生还需启用“开放练题”后才能进入练习。</div></el-form-item>
-        <el-form-item label="浏览部门"><el-select v-model="form.departmentIds" multiple filterable collapse-tags style="width:100%"><el-option v-for="item in departments" :key="item.id" :label="item.name" :value="item.id" /></el-select><el-checkbox v-model="form.includeChildDepartments">包含子部门</el-checkbox></el-form-item>
-        <el-form-item label="浏览人员"><el-select v-model="form.userIds" multiple filterable collapse-tags style="width:100%"><el-option v-for="item in activeUsers" :key="item.id" :label="`${item.name}（${item.username}）`" :value="item.id" /></el-select></el-form-item>
+        <el-form-item label="浏览范围"><el-checkbox v-model="form.viewAll">所有人员均可预览</el-checkbox><div v-if="!isEdit" class="hint">新增科目默认开放练题，并向全部部门和全部人员开放浏览。</div><div v-if="form.viewAll" class="hint">已包含全部部门和全部人员，后续新增的部门及人员也可浏览；取消勾选后可指定范围。</div></el-form-item>
+        <el-form-item label="浏览部门"><el-select v-model="form.departmentIds" :disabled="form.viewAll" :placeholder="form.viewAll ? '全部部门' : '请选择浏览部门'" multiple filterable collapse-tags style="width:100%"><el-option v-for="item in departments" :key="item.id" :label="item.name" :value="item.id" /></el-select><el-checkbox v-model="form.includeChildDepartments" :disabled="form.viewAll">包含子部门</el-checkbox></el-form-item>
+        <el-form-item label="浏览人员"><el-select v-model="form.userIds" :disabled="form.viewAll" :placeholder="form.viewAll ? '全部人员' : '请选择浏览人员'" multiple filterable collapse-tags style="width:100%"><el-option v-for="item in activeUsers" :key="item.id" :label="`${item.name}（${item.username}）`" :value="item.id" /></el-select></el-form-item>
         <el-form-item label="编辑人员"><el-select v-model="form.editorIds" multiple filterable collapse-tags style="width:100%"><el-option v-for="item in authorOptions" :key="item.id" :label="`${item.name}（${item.username}）`" :value="item.id" /></el-select><div class="hint">仅出题人可选；管理员始终拥有全部权限。</div></el-form-item>
       </template>
     </el-form>

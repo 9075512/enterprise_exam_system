@@ -6,6 +6,7 @@ import * as banksApi from '@/api/banks';
 import { useAuthStore } from '@/stores/auth';
 import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import QuestionBankDetailPage from './QuestionBankDetailPage.vue';
 import type { BankTreeNode } from '@/types';
 
@@ -73,44 +74,46 @@ onMounted(() => void loadTree());
 </script>
 
 <template>
-  <div class="bank-workspace page">
+  <div class="bank-workspace subject-workspace page">
     <PageHeader title="题库管理" description="选择科目并维护叶子科目中的试题">
       <template #actions>
-        <el-button :icon="Refresh" @click="loadTree()">刷新</el-button>
+        <el-button :icon="Refresh" :loading="loading" @click="loadTree()">刷新</el-button>
         <el-button v-if="isAdmin" :icon="Setting" @click="openSubjectManagement">前往科目管理</el-button>
       </template>
     </PageHeader>
 
-    <div class="bank-workspace__card">
-      <aside class="bank-workspace__tree-panel">
-        <div class="bank-workspace__tree-title">科目目录</div>
-        <el-input v-model="keyword" clearable placeholder="搜索科目" :prefix-icon="Search" />
+    <div class="bank-workspace__card subject-workspace__layout">
+      <aside class="bank-workspace__tree-panel subject-workspace__sidebar" aria-label="科目目录">
+        <div class="subject-workspace__nav-heading"><h3>科目目录</h3><span>共 {{ flatMap.size }} 个</span></div>
+        <el-input v-model="keyword" clearable placeholder="搜索科目" aria-label="搜索科目" :prefix-icon="Search" />
         <el-tree
           ref="treeRef"
           v-loading="loading"
-          class="bank-workspace__tree"
+          class="bank-workspace__tree subject-workspace__tree"
           :data="tree"
           node-key="id"
           :props="{ label: 'name', children: 'children' }"
           :filter-node-method="filterNode"
+          :empty-text="loading ? '正在加载科目…' : keyword.trim() ? '未找到匹配科目' : '暂无科目'"
           highlight-current
           default-expand-all
           @node-click="selectNode"
         >
           <template #default="{ data }">
-            <span class="bank-tree-node">
+            <span class="bank-tree-node subject-workspace__node">
               <el-icon><Folder v-if="data.children.length" /><Collection v-else /></el-icon>
-              <span class="bank-tree-node__name">{{ data.name }}</span>
-              <span v-if="!data.children.length" class="bank-tree-node__count">{{ data.questionCount }}</span>
-              <span v-if="data.effectiveStatus === 'disabled'" class="bank-tree-node__disabled">停</span>
+              <span class="subject-workspace__node-name" :title="data.name">{{ data.name }}</span>
+              <span v-if="!data.children.length" class="subject-workspace__node-count" :title="`${data.questionCount} 道题`">{{ data.questionCount }}</span>
+              <span v-if="data.effectiveStatus === 'disabled'" class="subject-workspace__node-disabled">停</span>
             </span>
           </template>
         </el-tree>
-        <p class="bank-workspace__tree-hint">科目结构由管理员在“科目管理”中维护</p>
+        <div class="subject-workspace__nav-footer"><p>科目结构由管理员在“科目管理”中维护</p></div>
       </aside>
 
-      <main class="bank-workspace__content">
-        <EmptyState v-if="!selected" text="请选择左侧科目" />
+      <main class="bank-workspace__content subject-workspace__content">
+        <LoadingSkeleton v-if="loading && !selected" :rows="5" />
+        <EmptyState v-else-if="!selected" text="暂无可查看的科目" />
         <template v-else-if="!selected.isLeaf">
           <div class="directory-head">
             <div>
@@ -124,24 +127,22 @@ onMounted(() => void loadTree());
             </div>
           </div>
           <div v-if="directChildren.length" class="child-grid">
-            <el-card
+            <button
               v-for="child in directChildren"
               :key="child.id"
-              shadow="hover"
+              type="button"
               class="child-card"
-              tabindex="0"
               @click="selectNode(child)"
-              @keyup.enter="selectNode(child)"
             >
-              <div class="child-card__icon"><el-icon><Folder v-if="child.children.length" /><Collection v-else /></el-icon></div>
-              <div class="child-card__body">
-                <h3>{{ child.name }}</h3>
-                <p>{{ child.children.length ? `${child.children.length} 个下级科目` : `${child.questionCount} 道题` }}</p>
-              </div>
+              <span class="child-card__icon"><el-icon><Folder v-if="child.children.length" /><Collection v-else /></el-icon></span>
+              <span class="child-card__body">
+                <strong class="child-card__name" :title="child.name">{{ child.name }}</strong>
+                <span class="child-card__summary">{{ child.children.length ? `${child.children.length} 个下级科目` : `${child.questionCount} 道题` }}</span>
+              </span>
               <el-tag size="small" :type="child.effectiveStatus === 'active' ? 'success' : 'info'">
                 {{ child.effectiveStatus === 'active' ? '启用' : '停用' }}
               </el-tag>
-            </el-card>
+            </button>
           </div>
           <EmptyState v-else text="暂无下级科目" />
         </template>
@@ -153,54 +154,34 @@ onMounted(() => void loadTree());
 
 <style scoped lang="scss">
 @use '@/styles/variables.scss' as *;
+@use '@/styles/subject-workspace.scss' as workspace;
 
-.bank-workspace__card {
-  display: grid;
-  grid-template-columns: 256px minmax(0, 1fr);
-  min-height: 640px;
-  overflow: hidden;
-  border: 1px solid $border-color;
-  border-radius: $radius-lg;
-  background: #fff;
-}
+@include workspace.layout;
 
-.bank-workspace__tree-panel {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  padding: 16px 12px;
-  border-right: 1px solid $border-color;
-  background: #fbfdff;
-}
-.bank-workspace__tree-title { margin: 0 4px 10px; color: $text-secondary; font-size: 12px; font-weight: 600; }
-.bank-workspace__tree { flex: 1; min-height: 0; margin-top: 12px; background: transparent; }
-.bank-tree-node { display: flex; align-items: center; gap: 7px; width: 100%; min-width: 0; }
-.bank-tree-node__name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-.bank-tree-node__count { color: $text-secondary; font-size: 12px; font-variant-numeric: tabular-nums; }
-.bank-tree-node__disabled { color: $text-disabled; font-size: 11px; }
-.bank-workspace__tree-hint { margin: 12px 4px 0; color: $text-secondary; font-size: 11px; line-height: 1.6; }
-
-.bank-workspace__content { min-width: 0; padding: 18px; }
-.directory-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 18px; }
-.directory-head__title-row { display: flex; align-items: center; gap: 8px; }
-.directory-head h2 { margin: 0; font-size: 20px; color: $text-primary; }
+.directory-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid $border-color; }
+.directory-head__title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.directory-head h2 { margin: 0; font-size: 22px; color: $text-primary; overflow-wrap: anywhere; }
 .directory-head p { margin: 6px 0 0; color: $text-secondary; font-size: 13px; }
-.child-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
-.child-card { cursor: pointer; }
-.child-card :deep(.el-card__body) { display: flex; align-items: center; gap: 12px; }
-.child-card__icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; background: $color-primary-soft; color: $color-primary; font-size: 20px; }
+.child-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); gap: 12px; }
+.child-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 18px 16px;
+  border: 1px solid $border-color;
+  border-radius: $radius-base;
+  background: $bg-paper;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color $transition-fast, background-color $transition-fast;
+
+  &:hover { border-color: $color-primary-border; background: $color-primary-soft; }
+}
+.child-card__icon { display: grid; flex-shrink: 0; place-items: center; width: 40px; height: 40px; border-radius: $radius-base; background: $color-primary-soft; color: $color-primary; font-size: 20px; }
 .child-card__body { flex: 1; min-width: 0; }
-.child-card__body h3 { margin: 0; overflow: hidden; color: $text-primary; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
-.child-card__body p { margin: 5px 0 0; color: $text-secondary; font-size: 12px; }
+.child-card__name { display: block; overflow: hidden; color: $text-primary; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.child-card__summary { display: block; margin-top: 5px; color: $text-secondary; font-size: 12px; }
 
-@media (max-width: 1200px) {
-  .bank-workspace__card { grid-template-columns: 224px minmax(0, 1fr); }
-}
-
-@media (max-width: 900px) {
-  .bank-workspace__card { grid-template-columns: 1fr; }
-  .bank-workspace__tree-panel { max-height: 280px; border-right: 0; border-bottom: 1px solid $border-color; }
-  .bank-workspace__tree { overflow: auto; }
-  .bank-workspace__tree-hint { display: none; }
-}
 </style>
