@@ -13,10 +13,12 @@ import {
   questionListQuerySchema,
   subjectsQuerySchema,
   batchEditSchema,
+  questionBatchSchema,
 } from './questions.schema.js';
 import * as questionsService from './questions.service.js';
 import type { BatchEditInput } from './questions.service.js';
 import type { QuestionType, QuestionDifficulty } from '../../types/domain.js';
+import * as qualityService from './questionQuality.service.js';
 
 export const questionsRouter = Router();
 
@@ -32,6 +34,8 @@ questionsRouter.get(
       type?: QuestionType;
       difficulty?: QuestionDifficulty;
       subject: string;
+      subjectId?: string;
+      status?: 'active' | 'disabled';
       tag: string;
       keyword: string;
       page: number;
@@ -41,7 +45,17 @@ questionsRouter.get(
   }),
 );
 
-/** GET /api/questions/subjects —— 全部科目（去重排序）。 */
+/** GET /api/questions/duplicates —— 重复题审计，不修改数据。 */
+questionsRouter.get(
+  '/duplicates',
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    const bankIds = typeof req.query.bankIds === 'string' ? req.query.bankIds.split(',').filter(Boolean) : undefined;
+    return ok(res, await qualityService.duplicates({ bankIds, includeDisabled: req.query.includeDisabled === '1' }));
+  }),
+);
+
+/** GET /api/questions/subjects —— 科目即题库名称（去重排序）。 */
 questionsRouter.get(
   '/subjects',
   validate(subjectsQuerySchema, 'query'),
@@ -61,7 +75,7 @@ questionsRouter.get(
   }),
 );
 
-/** POST /api/questions/batch-edit —— 批量编辑（科目 / 知识点标签 / 默认分值，v1.7②）。 */
+/** POST /api/questions/batch-edit —— 批量编辑（知识点标签 / 默认分值 / 难度）。 */
 questionsRouter.post(
   '/batch-edit',
   validate(batchEditSchema, 'body'),
@@ -69,6 +83,13 @@ questionsRouter.post(
     const body = req.body as BatchEditInput;
     return ok(res, await questionsService.batchEdit(body, req.user!));
   }),
+);
+
+/** POST /api/questions/batch —— 批量启停、迁移、删除和完整性校验（事务）。 */
+questionsRouter.post(
+  '/batch',
+  validate(questionBatchSchema, 'body'),
+  asyncHandler(async (req, res) => ok(res, await qualityService.batch(req.body, req.user!))),
 );
 
 /** POST /api/questions —— 新增试题。 */
@@ -85,6 +106,8 @@ questionsRouter.post(
       defaultScore: number;
       analysis: string;
       subject: string;
+      subjectId?: string | null;
+      status?: 'active' | 'disabled';
       tags: string[];
       rubric?: unknown;
     };
@@ -106,6 +129,8 @@ questionsRouter.put(
       defaultScore: number;
       analysis: string;
       subject: string;
+      subjectId?: string | null;
+      status?: 'active' | 'disabled';
       tags: string[];
       rubric?: unknown;
     };

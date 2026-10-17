@@ -128,7 +128,7 @@ export async function buildTemplateBuffer(limits: ImportLimits): Promise<Buffer>
     'I 正确答案（必填）：单选填 1 个字母（如 A）；多选填多个字母（如 ABD 或 A,B,D）；判断填 对/错',
     'J 分值：正数，缺省为 10',
     'K 解析：选填',
-    'L 科目：选填；留空则继承目标题库分类，填写但与题库分类不一致时会给出黄色提示（不阻断导入）',
+    'L 科目：选填；留空则使用目标题库名称，填写但与目标题库名称不一致时会给出黄色提示（不阻断导入）',
     '',
     '二、答案填写规范',
     '单选：单个选项字母，例如 A',
@@ -162,7 +162,7 @@ interface RowValidation {
 }
 
 /** 校验单行（7 条规则，reason 中文，column 中文列名）。 */
-function validateImportRow(cells: string[], row: number, targetCategory: string): RowValidation {
+function validateImportRow(cells: string[], row: number, targetSubject: string): RowValidation {
   const rowErrors: RowIssue[] = [];
   const rowWarnings: RowIssue[] = [];
 
@@ -265,14 +265,14 @@ function validateImportRow(cells: string[], row: number, targetCategory: string)
 
   if (rowErrors.length > 0) return { rowErrors, rowWarnings };
 
-  // 科目：为空继承题库分类；有值且不一致 → 警告（不阻断）
-  const subject = rawSubject || targetCategory;
-  if (rawSubject && rawSubject !== targetCategory) {
+  // 科目：为空使用题库名称；有值且不一致 → 警告（不阻断）
+  const subject = rawSubject || targetSubject;
+  if (rawSubject && rawSubject !== targetSubject) {
     rowWarnings.push({
       row,
       column: '科目',
       value: rawSubject,
-      reason: `与目标题库分类『${targetCategory}』不一致，将保留该科目`,
+      reason: `与目标题库名称『${targetSubject}』不一致，将保留该科目`,
     });
   }
 
@@ -292,9 +292,9 @@ function validateImportRow(cells: string[], row: number, targetCategory: string)
 /**
  * 解析导入工作簿（第 1 个 sheet），逐行校验。
  * @param buffer .xlsx 二进制内容
- * @param targetCategory 目标题库分类（用于科目继承与一致性告警）
+ * @param targetSubject 目标题库名称（用于科目默认值与一致性告警）
  */
-export async function parseQuestionWorkbook(buffer: Buffer, targetCategory: string): Promise<PreviewResult> {
+export async function parseQuestionWorkbook(buffer: Buffer, targetSubject: string): Promise<PreviewResult> {
   const wb = new ExcelJS.Workbook();
   try {
     await wb.xlsx.load(buffer as unknown as ArrayBuffer);
@@ -317,7 +317,7 @@ export async function parseQuestionWorkbook(buffer: Buffer, targetCategory: stri
     if (cells.every((c) => c === '')) continue;
 
     totalRows += 1;
-    const { validRow, rowErrors, rowWarnings } = validateImportRow(cells, r, targetCategory);
+    const { validRow, rowErrors, rowWarnings } = validateImportRow(cells, r, targetSubject);
     if (rowErrors.length > 0) {
       errors.push(...rowErrors);
     } else if (validRow) {

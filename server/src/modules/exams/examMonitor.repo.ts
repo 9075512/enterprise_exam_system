@@ -18,6 +18,7 @@ export interface MonitorRecordRow extends RowDataPacket {
   submitted_at: string | null;
   auto_submitted: number | boolean;
   score: number | string;
+  resume_allowed: number | boolean;
   cheat_events: unknown;
   extra_minutes: number | string | null;
   user_name: string | null;
@@ -32,7 +33,7 @@ export interface MonitorRecordRow extends RowDataPacket {
 export async function listLatestByExam(examId: string): Promise<MonitorRecordRow[]> {
   return query<MonitorRecordRow[]>(
     `SELECT r.id, r.user_id, r.status, r.attempt_no, r.started_at, r.submitted_at, r.auto_submitted,
-            r.score, r.cheat_events, x.extra_minutes,
+            r.score, r.resume_allowed, r.cheat_events, x.extra_minutes,
             u.name AS user_name, u.username AS username,
             COALESCE(d.name, du.name, '') AS department_name
        FROM exam_records r

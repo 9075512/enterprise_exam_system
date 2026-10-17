@@ -30,8 +30,11 @@ export interface UserListFilter {
 }
 
 const USER_COLUMNS =
-  'u.id, u.username, u.password_hash, u.name, u.role, u.department_id, d.name AS department_name, u.email, u.status, u.password_changed_at, u.two_factor_enabled, u.created_at';
-const USER_FROM = 'FROM users u LEFT JOIN departments d ON d.id = u.department_id';
+  `u.id, u.username, u.password_hash, u.name, u.role, u.department_id, d.name AS department_name,
+   u.position_id, p.name AS position_name,
+   COALESCE((SELECT JSON_ARRAYAGG(gm.group_id) FROM user_group_members gm WHERE gm.user_id = u.id), JSON_ARRAY()) AS group_ids,
+   u.email, u.status, u.password_changed_at, u.two_factor_enabled, u.created_at`;
+const USER_FROM = 'FROM users u LEFT JOIN departments d ON d.id = u.department_id LEFT JOIN positions p ON p.id = u.position_id';
 
 /** 按 id 查询。 */
 export async function findById(id: string): Promise<UserRow | null> {
@@ -88,13 +91,14 @@ export async function insert(row: {
   name: string;
   role: Role;
   departmentId: string | null;
+  positionId: string | null;
   email: string | null;
   status: UserStatus;
   createdAt: string;
 }): Promise<void> {
   await query<RowDataPacket[]>(
-    `INSERT INTO users (id, username, password_hash, name, role, department_id, email, status, password_changed_at, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO users (id, username, password_hash, name, role, department_id, position_id, email, status, password_changed_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       row.id,
       row.username,
@@ -102,6 +106,7 @@ export async function insert(row: {
       row.name,
       row.role,
       row.departmentId,
+      row.positionId,
       row.email,
       row.status,
       row.createdAt,
@@ -113,12 +118,19 @@ export async function insert(row: {
 /** 更新用户基础信息（不改密码）。 */
 export async function update(
   id: string,
-  row: { username: string; name: string; role: Role; departmentId: string | null; email: string | null; status: UserStatus },
+  row: { username: string; name: string; role: Role; departmentId: string | null; positionId: string | null; email: string | null; status: UserStatus },
 ): Promise<void> {
   await query<RowDataPacket[]>(
-    `UPDATE users SET username = ?, name = ?, role = ?, department_id = ?, email = ?, status = ? WHERE id = ?`,
-    [row.username, row.name, row.role, row.departmentId, row.email, row.status, id],
+    `UPDATE users SET username = ?, name = ?, role = ?, department_id = ?, position_id = ?, email = ?, status = ? WHERE id = ?`,
+    [row.username, row.name, row.role, row.departmentId, row.positionId, row.email, row.status, id],
   );
+}
+
+export async function setGroups(userId: string, groupIds: string[]): Promise<void> {
+  await query<RowDataPacket[]>(`DELETE FROM user_group_members WHERE user_id = ?`, [userId]);
+  for (const groupId of [...new Set(groupIds)]) {
+    await query<RowDataPacket[]>(`INSERT INTO user_group_members (group_id, user_id, created_at) VALUES (?, ?, NOW(3))`, [groupId, userId]);
+  }
 }
 
 /** 删除用户。 */

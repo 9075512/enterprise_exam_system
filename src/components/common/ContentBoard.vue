@@ -8,6 +8,7 @@
  * v1.9⑦ 的考试端首页会复用本组件。
  */
 import { computed, onMounted, ref } from 'vue';
+import { Bell } from '@element-plus/icons-vue';
 import { fetchFeed, markAnnouncementRead, markBannerClick } from '@/api/content';
 import { formatDateTime } from '@/utils/datetime';
 import type { Announcement, Banner } from '@/types';
@@ -19,6 +20,8 @@ const props = withDefaults(defineProps<{ scope?: 'exam' | 'practice' }>(), { sco
 
 const banners = ref<Banner[]>([]);
 const announcements = ref<Announcement[]>([]);
+const activeBanner = ref(0);
+const activeNotice = ref(0);
 /** 首次加载中（三点波占位，避免闪空） */
 const loading = ref(true);
 const detailVisible = ref(false);
@@ -103,6 +106,14 @@ function openBanner(banner: Banner): void {
   window.open(banner.linkUrl, '_blank', 'noopener,noreferrer');
 }
 
+function handleBannerChange(index: number): void {
+  activeBanner.value = index;
+}
+
+function handleNoticeChange(index: number): void {
+  activeNotice.value = index;
+}
+
 function openDetail(item: Announcement): void {
   // 触达回执（v2.0③）：打开详情即记录已读（幂等）
   void markAnnouncementRead(item.id).catch(() => undefined);
@@ -112,7 +123,11 @@ function openDetail(item: Announcement): void {
 </script>
 
 <template>
-  <div v-if="visible || loading" class="content-board">
+  <div
+    v-if="visible || loading"
+    class="content-board"
+    :class="{ 'has-banner': banners.length > 0, 'has-notice': announcements.length > 0 }"
+  >
     <!-- 首载三点波（Loading 方案 ②） -->
     <div v-if="loading" class="content-board__loading">
       <LoadingDots />
@@ -126,6 +141,7 @@ function openDetail(item: Announcement): void {
       :interval="6000"
       indicator-position=""
       arrow="hover"
+      @change="handleBannerChange"
     >
       <el-carousel-item v-for="banner in banners" :key="banner.id">
         <div
@@ -138,34 +154,74 @@ function openDetail(item: Announcement): void {
           <span v-if="banner.title" class="content-board__caption">{{ banner.title }}</span>
         </div>
       </el-carousel-item>
+      <span v-if="banners.length > 1" class="content-board__counter">
+        {{ activeBanner + 1 }}/{{ banners.length }}
+      </span>
     </el-carousel>
 
     <!-- 公告 -->
     <el-card v-if="announcements.length > 0" class="content-board__notice" shadow="never">
       <template #header>
-        <span class="content-board__head-title">公告通知</span>
+        <span class="content-board__head-title">
+          <el-icon><Bell /></el-icon>
+          公告通知
+        </span>
+        <span class="content-board__notice-count">{{ announcements.length }} 条</span>
       </template>
-      <PagedOverview :items="announcements" title="公告通知" :limit="5">
-        <template #default="{ items }">
-          <ul class="content-board__list">
-            <li
-              v-for="item in items"
-              :key="item.id"
-              class="content-board__item"
-              :class="{ 'is-important': item.level === 'important' }"
-              role="button"
-              tabindex="0"
-              @click="openDetail(item)"
-              @keydown.enter="openDetail(item)"
-              @keydown.space.prevent="openDetail(item)"
-            >
-              <el-tag v-if="item.pinned" size="small" type="danger" effect="plain" class="content-board__pin">置顶</el-tag>
-              <span class="content-board__item-title">{{ item.title }}</span>
-              <span class="content-board__item-time">{{ formatDateTime(item.createdAt) }}</span>
-            </li>
-          </ul>
-        </template>
-      </PagedOverview>
+      <div class="content-board__desktop-notices">
+        <PagedOverview :items="announcements" title="公告通知" :limit="5">
+          <template #default="{ items }">
+            <ul class="content-board__list">
+              <li
+                v-for="item in items"
+                :key="item.id"
+                class="content-board__item"
+                :class="{ 'is-important': item.level === 'important' }"
+                role="button"
+                tabindex="0"
+                @click="openDetail(item)"
+                @keydown.enter="openDetail(item)"
+                @keydown.space.prevent="openDetail(item)"
+              >
+                <el-tag v-if="item.pinned" size="small" type="danger" effect="plain" class="content-board__pin">置顶</el-tag>
+                <span class="content-board__item-title">{{ item.title }}</span>
+                <span class="content-board__item-time">{{ formatDateTime(item.createdAt) }}</span>
+              </li>
+            </ul>
+          </template>
+        </PagedOverview>
+      </div>
+
+      <!-- 移动端用单行纵向轮播代替长公告列表，所有公告仍可逐条查看。 -->
+      <el-carousel
+        class="content-board__mobile-notices"
+        height="62px"
+        direction="vertical"
+        indicator-position="none"
+        arrow="never"
+        :interval="5000"
+        @change="handleNoticeChange"
+      >
+        <el-carousel-item v-for="item in announcements" :key="`mobile-${item.id}`">
+          <button
+            type="button"
+            class="content-board__mobile-notice"
+            :class="{ 'is-important': item.level === 'important' }"
+            :aria-label="`查看公告：${item.title}`"
+            @click="openDetail(item)"
+          >
+            <span class="content-board__mobile-icon">
+              <el-icon><Bell /></el-icon>
+            </span>
+            <span class="content-board__mobile-label">公告</span>
+            <span class="content-board__mobile-divider" aria-hidden="true" />
+            <span class="content-board__mobile-title">{{ item.title }}</span>
+            <span v-if="announcements.length > 1" class="content-board__mobile-count">
+              {{ activeNotice + 1 }}/{{ announcements.length }}
+            </span>
+          </button>
+        </el-carousel-item>
+      </el-carousel>
     </el-card>
 
     <!-- 公告详情 -->
@@ -216,6 +272,7 @@ function openDetail(item: Announcement): void {
   }
 
   &__carousel {
+    position: relative;
     margin-bottom: 12px;
     background: #fff;
     border: 1px solid $border-color;
@@ -255,6 +312,10 @@ function openDetail(item: Announcement): void {
         border-color: $color-primary-border;
       }
     }
+  }
+
+  &__counter {
+    display: none;
   }
 
   &__slide {
@@ -297,6 +358,12 @@ function openDetail(item: Announcement): void {
   }
 
   &__notice {
+    :deep(.el-card__header) {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
     :deep(.el-card__body) {
       padding: 0;
     }
@@ -305,9 +372,26 @@ function openDetail(item: Announcement): void {
   /* 卡头走全局 `.el-card__header` 刻度（12px 16px / 46px / 13.5px），
      此处只补件内布局；不再使用 v2.x 的 3px 左缘强调条（方向 C 已废弃）。 */
   &__head-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-size: 13.5px;
     font-weight: 600;
     color: $text-primary;
+
+    .el-icon {
+      color: $color-primary;
+    }
+  }
+
+  &__notice-count {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: $text-disabled;
+  }
+
+  &__mobile-notices {
+    display: none;
   }
 
   &__list {
@@ -387,6 +471,186 @@ function openDetail(item: Announcement): void {
     color: $text-primary;
     white-space: pre-wrap;
     word-break: break-word;
+  }
+
+  @media (max-width: 900px) {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 12px;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+
+    &__loading {
+      margin-bottom: 0;
+      border: 0;
+      border-radius: 0;
+    }
+
+    &__carousel {
+      order: 2;
+      margin-bottom: 0;
+      border: 1px solid rgba(15, 23, 42, 0.06);
+      border-radius: 10px;
+      box-shadow: 0 5px 18px rgba(15, 23, 42, 0.07);
+
+      :deep(.el-carousel__container) {
+        height: clamp(140px, 43vw, 170px) !important;
+      }
+
+      :deep(.el-carousel__arrow) {
+        display: none;
+      }
+
+      :deep(.el-carousel__indicator) {
+        display: none;
+      }
+    }
+
+    &__caption {
+      padding: 42px 58px 13px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    &__counter {
+      position: absolute;
+      z-index: 3;
+      right: 10px;
+      bottom: 11px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 36px;
+      height: 22px;
+      padding: 0 7px;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      border-radius: 11px;
+      background: rgba(15, 23, 42, 0.58);
+      color: #fff;
+      font-size: 11px;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      backdrop-filter: blur(4px);
+    }
+
+    &__notice {
+      order: 1;
+      align-self: center;
+      width: 100vw;
+      max-width: none;
+      margin: -14px 0 0;
+      flex-shrink: 0;
+      border: 0;
+      border-bottom: 1px solid $border-color;
+      border-radius: 0;
+      background: $bg-paper;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.035);
+
+      :deep(.el-card__header) {
+        display: none;
+      }
+    }
+
+    &.has-banner .content-board__notice {
+      border-bottom: 1px solid $border-color;
+    }
+
+    &.has-notice .content-board__carousel {
+      margin-top: 12px;
+    }
+
+    &__head-title {
+      gap: 5px;
+      font-size: 12.5px;
+    }
+
+    &__desktop-notices {
+      display: none;
+    }
+
+    &__mobile-notices {
+      display: block;
+      height: 50px;
+      background: $bg-paper;
+
+      :deep(.el-carousel__container) {
+        height: 50px !important;
+      }
+    }
+
+    &__mobile-notice {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      height: 50px;
+      padding: 0 12px;
+      border: 0;
+      background: transparent;
+      color: $text-primary;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    &__mobile-icon {
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: $color-primary-soft;
+      color: $color-primary;
+      font-size: 15px;
+
+      .is-important & {
+        background: $color-warning-bg;
+        color: $color-warning-text;
+      }
+    }
+
+    &__mobile-label {
+      flex: 0 0 auto;
+      color: $text-primary;
+      font-size: 12px;
+      font-weight: 650;
+
+      .is-important & {
+        color: $color-warning-text;
+      }
+    }
+
+    &__mobile-divider {
+      flex: 0 0 auto;
+      width: 1px;
+      height: 14px;
+      background: $line-strong;
+    }
+
+    &__mobile-title {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      color: $text-body;
+      font-size: 13px;
+      line-height: 50px;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    &__mobile-count {
+      flex: 0 0 auto;
+      min-width: 30px;
+      color: $text-disabled;
+      font-size: 10.5px;
+      line-height: 1;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
   }
 }
 </style>

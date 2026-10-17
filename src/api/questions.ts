@@ -42,7 +42,7 @@ export function pool(query: QuestionPoolQuery = {}): Promise<Page<Question>> {
   });
 }
 
-/** 全部科目（去重排序） */
+/** 全部科目（科目即题库名称） */
 export function subjects(bankIds?: string[]): Promise<string[]> {
   return get<string[]>('/questions/subjects', { bankIds: serializeBankIds(bankIds) });
 }
@@ -62,7 +62,7 @@ export function update(id: string, payload: Omit<QuestionSaveInput, 'id'>): Prom
   return put<Question>(`/questions/${id}`, payload);
 }
 
-/** 批量编辑试题（科目 / 知识点标签 / 默认分值，v1.7②） */
+/** 批量编辑试题（知识点标签 / 默认分值 / 难度；科目始终由题库决定） */
 export function batchEdit(payload: QuestionBatchEditInput): Promise<{ updated: number }> {
   return post<{ updated: number }>('/questions/batch-edit', payload);
 }

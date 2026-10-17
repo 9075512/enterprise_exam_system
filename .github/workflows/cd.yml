@@ -1,0 +1,154 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [dev, main]
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy-${{ github.event.workflow_run.head_branch }}
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'development' }}
+      url: ${{ vars.APP_URL }}
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+      API_SERVICE: ${{ vars.API_SERVICE }}
+      PRACTICE_SERVICE: ${{ vars.PRACTICE_SERVICE }}
+      API_HEALTHCHECK_URL: ${{ vars.API_HEALTHCHECK_URL }}
+      PRACTICE_HEALTHCHECK_URL: ${{ vars.PRACTICE_HEALTHCHECK_URL }}
+      KEEP_RELEASES: ${{ vars.KEEP_RELEASES }}
+      RUN_DB_MIGRATIONS: ${{ vars.RUN_DB_MIGRATIONS }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout the tested revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Validate deployment configuration
+        shell: bash
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -Eeuo pipefail
+          : "${DEPLOY_HOST:?请在 Environment Secrets 中配置 DEPLOY_HOST}"
+          : "${DEPLOY_USER:?请在 Environment Secrets 中配置 DEPLOY_USER}"
+          : "${SSH_KEY:?请在 Environment Secrets 中配置 DEPLOY_SSH_KEY}"
+          : "${SSH_KNOWN_HOSTS:?请在 Environment Secrets 中配置 DEPLOY_KNOWN_HOSTS}"
+
+          [[ "${DEPLOY_PORT:-22}" =~ ^[0-9]+$ ]] || { echo 'DEPLOY_PORT 必须是数字'; exit 1; }
+          [[ "${DEPLOY_PATH:-/opt/enterprise-exam}" == /* ]] || { echo 'DEPLOY_PATH 必须是绝对路径'; exit 1; }
+          [[ "${KEEP_RELEASES:-5}" =~ ^([2-9]|[1-9][0-9]+)$ ]] || { echo 'KEEP_RELEASES 必须是大于等于 2 的整数'; exit 1; }
+          [[ "${RUN_DB_MIGRATIONS:-false}" =~ ^(true|false)$ ]] || { echo 'RUN_DB_MIGRATIONS 只能是 true 或 false'; exit 1; }
+
+      - name: Download artifacts from the successful CI run
+        shell: bash
+        env:
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -Eeuo pipefail
+          mkdir -p bundle/web bundle/practice bundle/server
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name web-dist --dir bundle/web
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name practice-dist --dir bundle/practice
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name server-dist --dir bundle/server
+
+          test -f bundle/web/index.html
+          test -f bundle/practice/index.html
+          test -f bundle/server/dist/index.js
+          test -f bundle/server/package-lock.json
+
+      - name: Package release
+        id: release
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -Eeuo pipefail
+          archive="enterprise-exam-${RELEASE_SHA}.tar.gz"
+          tar -C bundle -czf "$archive" web practice server
+          checksum="$(sha256sum "$archive" | awk '{print $1}')"
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+          echo "checksum=$checksum" >> "$GITHUB_OUTPUT"
+
+      - name: Configure SSH
+        shell: bash
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_KEY" > "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/deploy_key" "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/deploy_key" >/dev/null
+
+          cat > "$HOME/.ssh/config" <<EOF
+          Host exam-deploy
+            HostName ${DEPLOY_HOST}
+            User ${DEPLOY_USER}
+            Port ${DEPLOY_PORT:-22}
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+          EOF
+          chmod 600 "$HOME/.ssh/config"
+
+      - name: Upload and activate release
+        shell: bash
+        env:
+          ARCHIVE: ${{ steps.release.outputs.archive }}
+          CHECKSUM: ${{ steps.release.outputs.checksum }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -Eeuo pipefail
+          remote_archive="/tmp/${ARCHIVE}"
+          scp "$ARCHIVE" "exam-deploy:${remote_archive}"
+
+          printf -v remote_command 'bash -s -- %q %q %q %q %q %q %q %q %q %q' \
+            "$remote_archive" \
+            "$CHECKSUM" \
+            "${DEPLOY_PATH:-/opt/enterprise-exam}" \
+            "$RELEASE_SHA" \
+            "${API_SERVICE:-enterprise-exam}" \
+            "${PRACTICE_SERVICE:-enterprise-practice}" \
+            "${API_HEALTHCHECK_URL:-http://127.0.0.1:3001/api/health}" \
+            "${PRACTICE_HEALTHCHECK_URL:-http://127.0.0.1:3002/api/health}" \
+            "${KEEP_RELEASES:-5}" \
+            "${RUN_DB_MIGRATIONS:-false}"
+
+          ssh exam-deploy "$remote_command" < deploy/remote-deploy.sh
+
+      - name: Deployment summary
+        env:
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+          TARGET_ENV: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'development' }}
+        run: |
+          {
+            echo '### 部署成功'
+            echo "- 环境：${TARGET_ENV}"
+            echo "- 提交：\`${RELEASE_SHA}\`"
+            echo "- 地址：${{ vars.APP_URL }}"
+          } >> "$GITHUB_STEP_SUMMARY"

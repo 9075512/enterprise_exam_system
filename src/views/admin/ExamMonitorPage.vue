@@ -14,6 +14,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ArrowLeft, Refresh, Timer, VideoPause } from '@element-plus/icons-vue';
 import * as examsApi from '@/api/exams';
+import * as recordsApi from '@/api/records';
 import { COUNTDOWN_WARNING_MINUTES, EXAM_STATUS_LABELS } from '@/constants';
 import { useSettingsStore } from '@/stores/settings';
 import { formatDateTime } from '@/utils/datetime';
@@ -336,6 +337,17 @@ async function handleExtend(row: ExamMonitorRow): Promise<void> {
   }
 }
 
+async function handleAllowResume(row: ExamMonitorRow): Promise<void> {
+  if (!row.recordId) return;
+  try {
+    await recordsApi.allowResume(row.recordId);
+    ElMessage.success('已放行一次续考');
+    void load(true);
+  } catch {
+    /* 已提示 */
+  }
+}
+
 onMounted(async () => {
   void settingsStore.load();
   await load();
@@ -534,6 +546,14 @@ function goBack(): void {
               <template v-if="(row as ExamMonitorRow).status === 'in_progress'">
                 <el-button type="primary" link :icon="Timer" @click="handleExtend(row as ExamMonitorRow)">
                   加时
+                </el-button>
+                <el-button
+                  v-if="settingsStore.settings.abnormalExitResumePolicy === 'admin_required' && !(row as ExamMonitorRow).resumeAllowed"
+                  type="primary"
+                  link
+                  @click="handleAllowResume(row as ExamMonitorRow)"
+                >
+                  恢复续考
                 </el-button>
                 <el-button type="danger" link :icon="VideoPause" @click="handleForceSubmit(row as ExamMonitorRow)">
                   强制交卷

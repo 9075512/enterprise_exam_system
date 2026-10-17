@@ -1,4 +1,4 @@
-# 分支与自动测试
+# CI/CD 自动测试与部署
 
 - `dev` 为开发集成分支，功能和修复分支通过 PR 合入。
 - `main` 为正式分支，只接受本仓库 `dev` 发起的发布 PR。
@@ -23,11 +23,90 @@ MySQL 服务只在当前测试任务内存在，使用专用 `_test` 数据库�
 构建产物保存 7 天，不包含 `.env`、上传附件或数据库数据。
 工作流只申请读取仓库权限；第三方 Actions 固定到官方版本的提交 SHA。
 
-## 部署接入
+## 自动部署流程
 
-开发环境应在 `dev` 合并后、该提交的所有测试成功后自动部署，PR 测试期间不部署。
-正式环境发布仍通过 `dev → main` 的发布 PR 管理，不自动将开发版本发布到正式环境。
+`.github/workflows/cd.yml` 只接收 **push 触发且成功完成** 的 `CI` 工作流：
 
-自动部署需要先确定开发环境平台、部署目录、应用服务管理方式及健康检查地址。
-部署凭据应放入 GitHub `development` Environment 的 Secrets，不写入代码或聊天。
-当前尚未接入部署目标，测试与构建成功不代表已经部署。
+- `dev` 自动部署到 GitHub `development` Environment；
+- `main` 自动部署到 GitHub `production` Environment；正式发布入口仍然只有 `dev → main` 的 PR；
+- PR 工作流、失败的 CI、来自 fork 的运行均不会触发部署；
+- CD 下载该次 CI 产生的三个构建产物，不在部署阶段重新构建；
+- 发布包通过 SSH 上传后，由 `deploy/remote-deploy.sh` 校验 SHA-256、安装后端生产依赖、原子切换 `current` 软链并重启服务；
+- 两个后端健康检查全部通过才算成功；失败会切回上一版本并重启服务；
+- 默认保留最近 5 个版本，附件与环境文件位于 `shared/`，不会随版本清理。
+
+同一环境的部署不会互相取消，避免一个发布在切换过程中被后续提交打断。建议给 GitHub `production` Environment 配置 Required reviewers，使正式部署在合并 `main` 后仍需人工批准。
+
+## 一次性服务器准备
+
+目标为使用 systemd 与 Nginx 的 Linux 服务器，需要 Node.js 24、npm、curl、tar、sha256sum 和中文字体。以下以默认目录及账号为例：
+
+```bash
+sudo useradd --system --home /nonexistent --shell /usr/sbin/nologin examapp
+sudo useradd --create-home --shell /bin/bash examdeploy
+sudo usermod -aG examapp examdeploy
+sudo install -d -m 2775 -o examdeploy -g examapp /opt/enterprise-exam/releases
+sudo install -d -m 2750 -o root -g examapp /opt/enterprise-exam/shared
+sudo install -d -m 2770 -o examapp -g examapp /opt/enterprise-exam/shared/storage/attachments
+sudo install -m 640 -o root -g examapp deploy/server.env.example /opt/enterprise-exam/shared/server.env
+sudo install -m 640 -o root -g examapp deploy/practice.env.example /opt/enterprise-exam/shared/practice.env
+```
+
+编辑两个 `.env`，替换所有示例口令，并确认 `STORAGE_DIR` 与实际 `DEPLOY_PATH` 一致。安装 systemd 服务：
+
+```bash
+sudo install -m 644 deploy/systemd/enterprise-exam.service /etc/systemd/system/
+sudo install -m 644 deploy/systemd/enterprise-practice.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable enterprise-exam enterprise-practice
+```
+
+部署账号必须能写入 `/opt/enterprise-exam`，并仅被授予无密码重启这两个服务的权限。用 `sudo visudo -f /etc/sudoers.d/enterprise-exam-deploy` 创建：
+
+```sudoers
+examdeploy ALL=(root) NOPASSWD: /bin/systemctl restart enterprise-exam, /bin/systemctl restart enterprise-practice
+```
+
+不同发行版的 `systemctl` 可能位于 `/usr/bin/systemctl`，应以 `command -v systemctl` 的结果为准。Nginx 静态目录应分别指向：
+
+```text
+/opt/enterprise-exam/current/web
+/opt/enterprise-exam/current/practice
+```
+
+`deploy/nginx-exam.conf` 和 `deploy/nginx-practice.conf` 分别是内网考试端、公网练题端基线。复制、替换域名和证书配置后，先运行 `sudo nginx -t` 再加载。首次数据库初始化步骤见 `docs/18-使用说明与部署教程.md`；首次部署前必须完成数据库初始化，自动迁移默认关闭。
+
+## GitHub Environments 配置
+
+分别创建 `development` 和 `production`，每个 Environment 配置以下同名项，因此两个环境可以使用不同服务器。
+
+Secrets：
+
+| 名称 | 必填 | 说明 |
+| --- | --- | --- |
+| `DEPLOY_HOST` | 是 | 服务器域名或 IP |
+| `DEPLOY_PORT` | 否 | SSH 端口，默认 `22` |
+| `DEPLOY_USER` | 是 | SSH 部署账号，如 `examapp` |
+| `DEPLOY_SSH_KEY` | 是 | 专用私钥全文；公钥写入服务器 `authorized_keys` |
+| `DEPLOY_KNOWN_HOSTS` | 是 | 预先核验过的主机公钥记录；不要在工作流中临时信任 `ssh-keyscan` 结果 |
+
+Variables：
+
+| 名称 | 默认值 | 说明 |
+| --- | --- | --- |
+| `APP_URL` | 空 | GitHub 部署页显示的访问地址 |
+| `DEPLOY_PATH` | `/opt/enterprise-exam` | 服务器部署根目录，必须是绝对路径 |
+| `API_SERVICE` | `enterprise-exam` | 完整后端 systemd 服务名；填 `-` 可跳过 |
+| `PRACTICE_SERVICE` | `enterprise-practice` | 练题后端 systemd 服务名；填 `-` 可跳过 |
+| `API_HEALTHCHECK_URL` | `http://127.0.0.1:3001/api/health` | 在服务器本机执行的探活地址；填 `-` 可跳过 |
+| `PRACTICE_HEALTHCHECK_URL` | `http://127.0.0.1:3002/api/health` | 在服务器本机执行的探活地址；填 `-` 可跳过 |
+| `KEEP_RELEASES` | `5` | 保留的版本目录数量，最少为 `2` |
+| `RUN_DB_MIGRATIONS` | `false` | 是否在切换前运行幂等 `dist/db/init.js` |
+
+获取并人工核验主机公钥后，把整行记录存入 `DEPLOY_KNOWN_HOSTS`。如果使用非 22 端口，记录中的主机通常是 `[hostname]:port` 格式。
+
+## 数据库变更与回滚边界
+
+只有在已完成数据库备份、运行账号具备结构变更权限、且变更向后兼容时，才把 `RUN_DB_MIGRATIONS` 设为 `true`。代码健康检查失败会自动回滚 `current` 软链，但数据库结构不会自动逆向回滚；存在不兼容变更时必须采用独立迁移和人工回滚方案。
+
+如需手工回退代码，可在服务器把 `current` 原子切到保留的版本目录，然后重启两个服务并执行健康检查。

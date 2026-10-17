@@ -16,6 +16,7 @@ import * as recordsService from '../records/records.service.js';
 import * as settingsService from '../settings/settings.service.js';
 import * as monitorStream from './examMonitor.stream.js';
 import type { MonitorStreamInfoDto } from '../../types/domain.js';
+import * as participantsService from './examParticipants.service.js';
 
 export const examsRouter = Router();
 
@@ -46,6 +47,46 @@ examsRouter.post(
   asyncHandler(async (req, res) => {
     const body = req.body as ExamInput;
     return ok(res, await examsService.create(body, req.user!.id));
+  }),
+);
+
+/** GET /api/exams/:id/participants —— 生效名单（旧考试仅在 freeze=1 时物化）。 */
+examsRouter.get(
+  '/:id/participants',
+  requireRole('admin'),
+  asyncHandler(async (req, res) => ok(res, await participantsService.listParticipants(req.params.id, req.query.freeze === '1'))),
+);
+
+/** POST /api/exams/:id/participants/regenerate —— 开考前按已保存规则重新生成。 */
+examsRouter.post(
+  '/:id/participants/regenerate',
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    const exam = await examsService.getById(req.params.id);
+    await participantsService.freezeParticipants(exam.id, {
+      departmentIds: exam.departmentIds,
+      includeUserIds: exam.includeUserIds,
+      excludeUserIds: exam.excludeUserIds,
+      audienceTemplateId: exam.audienceTemplateId,
+    });
+    return ok(res, await participantsService.listParticipants(exam.id));
+  }),
+);
+
+/** GET /api/exams/:id/admission-tickets —— 管理员取全量；考生只能取本人。format=pdf 批量导出。 */
+examsRouter.get(
+  '/:id/admission-tickets',
+  requireRole('admin', 'examinee'),
+  asyncHandler(async (req, res) => {
+    if (req.query.format === 'pdf') {
+      const { buffer, filename } = await participantsService.admissionTicketsPdf(req.params.id, req.user!);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+      res.setHeader('Content-Length', String(buffer.length));
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+      return res.send(buffer);
+    }
+    return ok(res, await participantsService.admissionTickets(req.params.id, req.user!));
   }),
 );
 

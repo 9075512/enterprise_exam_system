@@ -8,13 +8,11 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
 import PracticeLoading from '@/components/common/PracticeLoading.vue';
-import PagedOverview from '@/components/common/PagedOverview.vue';
 import PracticeOptionModal from './components/PracticeOptionModal.vue';
-import PracticeNoticeCard from './components/PracticeNoticeCard.vue';
 import { usePracticeAuthStore } from '@/stores/practiceAuth';
 import { usePracticeConfigStore } from '@/stores/practiceConfig';
 import * as practiceApi from '@/api/practice';
-import type { PracticeAchievements, PracticeBank, PracticeDailyTask, PracticeSessionInput } from '@/types';
+import type { PracticeAchievements, PracticeBank, PracticeBankTreeNode, PracticeDailyTask, PracticeSessionInput } from '@/types';
 
 const router = useRouter();
 const practiceAuth = usePracticeAuthStore();
@@ -24,6 +22,7 @@ const config = computed(() => configStore.config);
 
 const loading = ref(true);
 const banks = ref<PracticeBank[]>([]);
+const bankTree = ref<PracticeBankTreeNode[]>([]);
 const wrongTotal = ref(0);
 const favoriteTotal = ref(0);
 const daily = ref<PracticeDailyTask | null>(null);
@@ -44,10 +43,9 @@ const dailyProgressText = computed<string>(() => {
   return d.completed ? `今日已全部完成（${d.total} 题）` : `已答 ${d.doneCount} / ${d.total} 题`;
 });
 
-/** 序号（两位，如 01） */
-function bankNo(index: number): string {
-  return String(index + 1).padStart(2, '0');
-}
+const practiceQuestionTotal = computed<number>(() =>
+  banks.value.reduce((total, bank) => total + bank.questionCount, 0),
+);
 
 /** 加载题库列表、错题本数量、收藏数量、今日任务与打卡成就 */
 async function load(): Promise<void> {
@@ -55,8 +53,9 @@ async function load(): Promise<void> {
   try {
     // 先取练题端配置：决定是否请求错题本 / 收藏数量 / 打卡成就（功能关闭时接口会 404）
     await configStore.load();
-    const [bankList, wrongPage, favPage, dailyTask, ach] = await Promise.all([
+    const [bankList, treeList, wrongPage, favPage, dailyTask, ach] = await Promise.all([
       practiceApi.listBanks(),
+      practiceApi.bankTree(),
       configStore.config.wrongBookEnabled
         ? practiceApi.wrongBook({ page: 1, pageSize: 1 }).catch(() => null)
         : Promise.resolve(null),
@@ -69,6 +68,7 @@ async function load(): Promise<void> {
       configStore.config.achievementEnabled ? practiceApi.achievements().catch(() => null) : Promise.resolve(null),
     ]);
     banks.value = bankList;
+    bankTree.value = treeList;
     wrongTotal.value = wrongPage?.total ?? 0;
     favoriteTotal.value = favPage?.total ?? 0;
     daily.value = dailyTask;
@@ -87,6 +87,12 @@ const selectedBank = ref<PracticeBank | null>(null);
 function openBank(bank: PracticeBank): void {
   selectedBank.value = bank;
   modalVisible.value = true;
+}
+
+function openTreeNode(node: PracticeBankTreeNode): void {
+  if (!node.isLeaf) return;
+  const bank = banks.value.find((item) => item.id === node.id);
+  if (bank) openBank(bank);
 }
 
 /** 开始练习：携带 mode/count/types 跳到作答页（作答页据此生成会话） */
@@ -131,18 +137,14 @@ onMounted(load);
     </template>
 
     <div class="home">
-      <!-- 问候 -->
-      <div class="home__greeting">
-        <p class="home__hello">你好，{{ userName || '同学' }}</p>
-        <p class="home__sub">请从下方选择题库开始练习</p>
-      </div>
-
-      <!-- 公告与轮播（v1.9⑥；仅当后台发布了面向练题端且在生效期内的内容时显示） -->
-      <PracticeNoticeCard />
-
       <PracticeLoading v-if="loading" :loading="loading" :rows="5" caption="正在加载题库…" />
 
       <template v-else>
+        <section
+          class="home__overview"
+          :class="{ 'has-daily': dailyAvailable, 'has-achievements': Boolean(achievements) }"
+          aria-label="练题概览"
+        >
         <!-- 每日一练任务卡（后台关闭或暂无题目时整体不显示） -->
         <div v-if="dailyAvailable" class="home__daily" :class="{ 'is-done': daily?.completed }" @click="goDaily">
           <span class="home__daily-mark" aria-hidden="true">每日</span>
@@ -189,6 +191,7 @@ onMounted(load);
           </div>
         </div>
 
+        <div class="home__shortcut-grid">
         <!-- 错题本入口（后台可关闭） -->
         <div
           v-if="config.wrongBookEnabled"
@@ -218,33 +221,44 @@ onMounted(load);
           </div>
           <el-button class="home__wrong-btn" size="small" :disabled="favoriteTotal === 0">查看收藏</el-button>
         </div>
+        </div>
+        </section>
 
-        <p class="home__hint">可练习题库</p>
+        <section class="home__banks-panel" aria-labelledby="practice-bank-heading">
+          <header class="home__section-head">
+            <div>
+              <h2 id="practice-bank-heading" class="home__hint">可练习题库</h2>
+              <p class="home__section-sub">按科目选择题库，开始顺序练习或随机练习</p>
+            </div>
+            <span class="home__section-meta">{{ banks.length }} 个题库 · {{ practiceQuestionTotal }} 道题</span>
+          </header>
 
         <!-- 题库列表 -->
-        <div v-if="banks.length === 0" class="home__empty">
+        <div v-if="bankTree.length === 0" class="home__empty">
           <p class="home__empty-title">暂无可练习的题库</p>
           <p class="home__empty-sub">当前没有对外开放练题的题库，请联系管理员在「练题端设置」中开放题库。</p>
         </div>
 
-        <PagedOverview :items="banks" title="可练习题库" :limit="6">
-          <template #default="{ items, offset }">
-            <div v-for="(bank, i) in items" :key="bank.id" class="home__bank" @click="openBank(bank)">
-              <span class="home__bank-no" aria-hidden="true">{{ bankNo(offset + i) }}</span>
-              <div class="home__bank-main">
-                <div class="home__bank-name" :title="bank.name">{{ bank.name }}</div>
-                <div class="home__bank-meta">
-                  <span class="home__bank-cat" :title="bank.category || '未分类'">{{ bank.category || '未分类' }}</span>
-                  <span class="home__bank-count">共 {{ bank.questionCount }} 题</span>
-                </div>
-                <div v-if="bank.description" class="home__bank-desc" :title="bank.description">{{ bank.description }}</div>
-              </div>
-              <el-button class="home__bank-btn" type="primary" size="small" :disabled="bank.questionCount === 0">
-                开始练题
-              </el-button>
+        <el-tree
+          v-else
+          class="home__tree"
+          :data="bankTree"
+          node-key="id"
+          default-expand-all
+          :expand-on-click-node="false"
+          :props="{ label: 'name', children: 'children' }"
+          @node-click="openTreeNode"
+        >
+          <template #default="{ data }">
+            <div class="home__tree-node" :class="{ 'is-leaf': data.isLeaf }">
+              <span class="home__tree-kind">{{ data.isLeaf ? '题库' : '科目' }}</span>
+              <span class="home__tree-name">{{ data.name }}</span>
+              <span v-if="data.isLeaf" class="home__tree-count">{{ data.questionCount }} 题</span>
+              <el-button v-if="data.isLeaf" type="primary" size="small" :disabled="data.questionCount === 0">开始</el-button>
             </div>
           </template>
-        </PagedOverview>
+        </el-tree>
+        </section>
       </template>
     </div>
 
@@ -262,29 +276,24 @@ onMounted(load);
 @use '@/styles/variables.scss' as *;
 
 .home {
+  &__shortcut-grid {
+    display: contents;
+  }
+
+  &__section-head {
+    min-width: 0;
+  }
+
+  &__section-sub,
+  &__section-meta {
+    display: none;
+  }
+
   &__user {
     max-width: 120px;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-  }
-
-  &__greeting {
-    margin-bottom: 16px;
-  }
-
-  &__hello {
-    margin: 0;
-    font-size: 19px;
-    font-weight: 640;
-    letter-spacing: -0.02em;
-    color: $text-primary;
-  }
-
-  &__sub {
-    margin: 5px 0 0;
-    font-size: 12.5px;
-    color: $text-secondary;
   }
 
   &__skeleton {
@@ -302,7 +311,7 @@ onMounted(load);
     display: flex;
     align-items: center;
     gap: 11px;
-    margin-bottom: 9px;
+    margin-bottom: 10px;
     padding: 13px 14px;
     background: $bg-paper;
     border: 1px solid $border-color;
@@ -373,7 +382,7 @@ onMounted(load);
     display: flex;
     align-items: center;
     gap: 11px;
-    margin-bottom: 9px;
+    margin-bottom: 10px;
     padding: 13px 14px;
     background: $bg-paper;
     border: 1px solid $border-color;
@@ -442,7 +451,7 @@ onMounted(load);
 
   /* 打卡与成就卡 */
   &__ach {
-    margin-bottom: 9px;
+    margin-bottom: 10px;
     padding: 14px;
     background: $bg-paper;
     border: 1px solid $border-color;
@@ -532,7 +541,7 @@ onMounted(load);
 
   /* 区块标题：v3.1 去掉左缘竖条 */
   &__hint {
-    margin: 0 0 9px;
+    margin: 18px 2px 9px;
     font-size: 14px;
     font-weight: 640;
     color: $text-primary;
@@ -559,6 +568,22 @@ onMounted(load);
     line-height: 1.6;
     color: $text-secondary;
   }
+
+  &__tree {
+    padding: 8px;
+    background: $bg-paper;
+    border: 1px solid $border-color;
+    border-radius: $practice-radius;
+
+    :deep(.el-tree-node__content) { height: auto; min-height: 48px; border-radius: $radius-xs; }
+    :deep(.el-tree-node__content:hover) { background: $practice-surface-2; }
+  }
+
+  &__tree-node { display:flex; align-items:center; gap:8px; width:100%; min-width:0; padding:6px 8px 6px 2px; }
+  &__tree-kind { flex:0 0 auto; padding:2px 6px; border-radius:$radius-xs; background:$practice-surface-3; color:$text-secondary; font-size:10px; }
+  &__tree-node.is-leaf &__tree-kind { background:$practice-soft; color:$practice-primary; }
+  &__tree-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:600; color:$text-primary; }
+  &__tree-count { flex:0 0 auto; color:$text-secondary; font-size:11.5px; }
 
   /* 题库卡：图标块 + 细边框 */
   &__bank {
@@ -669,6 +694,155 @@ onMounted(load);
     &:hover,
     &:active {
       background: $practice-primary-dark;
+    }
+  }
+
+  @media (min-width: 901px) {
+    &__overview {
+      display: grid;
+      grid-template-columns: minmax(380px, 0.9fr) minmax(0, 1.1fr);
+      grid-template-areas:
+        'daily achievement'
+        'shortcuts achievement';
+      gap: 14px 16px;
+      align-items: stretch;
+      margin-bottom: 20px;
+
+      &:not(.has-achievements) {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas:
+          'daily'
+          'shortcuts';
+      }
+
+      &.has-achievements:not(.has-daily) {
+        grid-template-areas: 'shortcuts achievement';
+      }
+    }
+
+    &__daily {
+      grid-area: daily;
+      min-height: 92px;
+      margin: 0;
+      padding: 18px;
+
+      &:hover {
+        border-color: $practice-border-soft;
+        background: $practice-surface-2;
+      }
+    }
+
+    &__daily-mark,
+    &__wrong-icon {
+      width: 40px;
+      height: 40px;
+    }
+
+    &__daily-title,
+    &__wrong-title,
+    &__ach-title {
+      font-size: 14px;
+    }
+
+    &__ach {
+      grid-area: achievement;
+      min-height: 180px;
+      margin: 0;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    &__ach-num {
+      font-size: 32px;
+    }
+
+    &__badges {
+      margin-top: 16px;
+      padding-top: 16px;
+    }
+
+    &__shortcut-grid {
+      grid-area: shortcuts;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    &__wrong {
+      min-width: 0;
+      min-height: 74px;
+      margin: 0;
+      padding: 12px;
+
+      &:hover:not(.is-empty) {
+        border-color: $practice-border-soft;
+        background: $practice-surface-2;
+      }
+    }
+
+    &__wrong-btn {
+      padding-inline: 10px;
+    }
+
+    &__banks-panel {
+      overflow: hidden;
+      background: $bg-paper;
+      border: 1px solid $border-color;
+      border-radius: $practice-radius;
+    }
+
+    &__section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 16px 18px;
+    }
+
+    &__hint {
+      margin: 0;
+      font-size: 15px;
+    }
+
+    &__section-sub {
+      display: block;
+      margin: 4px 0 0;
+      font-size: 11.5px;
+      color: $text-secondary;
+    }
+
+    &__section-meta {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      height: 26px;
+      padding: 0 10px;
+      border-radius: 99px;
+      background: $practice-soft;
+      color: $practice-primary;
+      font-size: 11.5px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    &__tree {
+      padding: 8px 12px 12px;
+      border: 0;
+      border-top: 1px solid $border-color;
+      border-radius: 0;
+
+      :deep(.el-tree-node__content) {
+        min-height: 52px;
+      }
+    }
+
+    &__empty {
+      padding: 42px 16px;
+      border: 0;
+      border-top: 1px solid $border-color;
+      border-radius: 0;
     }
   }
 }

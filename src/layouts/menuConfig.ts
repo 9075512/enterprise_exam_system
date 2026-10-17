@@ -11,8 +11,8 @@
  * 分组只是**展示层**概念——菜单 key 与后端 MENU_CATALOG 完全不变，
  * 因此菜单权限矩阵、路由 meta.menuKey、后端 requireRole 三重同步不受影响。
  *
- * 展示规则：组内可见菜单只有 1 项时，不渲染二级菜单，直接渲染为顶层菜单项
- * （避免「一个孩子的折叠组」这种多余层级）。
+ * 展示规则：普通分组仅 1 项时直接渲染为顶层菜单；“学习中心”固定保留二级结构，
+ * 明确呈现“学习中心 → 在线练题”的产品入口。
  */
 import type { Component } from 'vue';
 import {
@@ -22,6 +22,7 @@ import {
   DataBoard,
   Document,
   EditPen,
+  FolderOpened,
   HomeFilled,
   Lock,
   Notebook,
@@ -59,6 +60,7 @@ export const MENU_GROUP_DEFS: readonly MenuGroupDef[] = [
   { key: 'resources', text: '教学资源', icon: Collection },
   { key: 'exam-ops', text: '考试运营', icon: AlarmClock },
   { key: 'practice-ops', text: '练题运营', icon: Notebook },
+  { key: 'learning', text: '学习中心', icon: Notebook },
   { key: 'system', text: '组织与系统', icon: Setting },
   { key: 'examinee', text: '考生中心', icon: Tickets },
 ];
@@ -82,8 +84,12 @@ export function groupKeyOf(menuKey: string): string {
 /** 全部菜单项（path 必须与 router/index.ts 中 layout children 一一对应）。 */
 const ALL_MENUS: MenuItem[] = [
   { key: 'dashboard', text: '数据总览', path: '/admin/dashboard', icon: DataBoard, roles: ['admin'], group: 'dashboard' },
+  { key: 'subjects', text: '科目管理', path: '/admin/subjects', icon: FolderOpened, roles: ['admin'], group: 'resources' },
   { key: 'banks', text: '题库管理', path: '/author/banks', icon: Collection, roles: ['admin', 'author'], group: 'resources' },
   { key: 'papers', text: '试卷管理', path: '/author/papers', icon: Document, roles: ['admin', 'author'], group: 'resources' },
+  { key: 'templates', text: '模板管理', path: '/admin/templates', icon: Document, roles: ['admin', 'author'], group: 'resources' },
+  { key: 'question-feedback', text: '题目反馈', path: '/admin/question-feedback', icon: EditPen, roles: ['admin', 'author'], group: 'resources' },
+  { key: 'duplicate-questions', text: '重复题审计', path: '/admin/duplicate-questions', icon: Tickets, roles: ['admin'], group: 'resources' },
   { key: 'exams', text: '考试管理', path: '/admin/exams', icon: AlarmClock, roles: ['admin'], group: 'exam-ops' },
   { key: 'retakes', text: '补考管理', path: '/admin/retakes', icon: Refresh, roles: ['admin'], group: 'exam-ops' },
   { key: 'appeals', text: '成绩复核', path: '/admin/appeals', icon: EditPen, roles: ['admin'], group: 'exam-ops' },
@@ -92,8 +98,11 @@ const ALL_MENUS: MenuItem[] = [
   { key: 'content', text: '公告与轮播', path: '/admin/content', icon: Bell, roles: ['admin'], group: 'exam-ops' },
   { key: 'home-config', text: '首页配置', path: '/admin/home-config', icon: HomeFilled, roles: ['admin'], group: 'exam-ops' },
   { key: 'practice-settings', text: '练题端设置', path: '/admin/practice-settings', icon: Notebook, roles: ['admin'], group: 'practice-ops' },
+  { key: 'practice-monitor', text: '练题监控', path: '/admin/practice-monitor', icon: DataBoard, roles: ['admin'], group: 'practice-ops' },
+  { key: 'practice', text: '在线练题', path: '/exam/practice', icon: Notebook, roles: ['admin', 'author', 'examinee'], group: 'learning' },
   { key: 'departments', text: '科室管理', path: '/admin/departments', icon: OfficeBuilding, roles: ['admin'], group: 'system' },
   { key: 'users', text: '用户管理', path: '/admin/users', icon: User, roles: ['admin'], group: 'system' },
+  { key: 'org-extensions', text: '组织扩展', path: '/admin/org-extensions', icon: OfficeBuilding, roles: ['admin'], group: 'system' },
   { key: 'permissions', text: '菜单权限', path: '/admin/permissions', icon: Lock, roles: ['admin'], group: 'system' },
   { key: 'settings', text: '系统设置', path: '/admin/settings', icon: Setting, roles: ['admin'], group: 'system' },
   { key: 'audit', text: '审计日志', path: '/admin/audit', icon: Tickets, roles: ['admin'], group: 'system' },

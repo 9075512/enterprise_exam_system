@@ -11,7 +11,7 @@
 
 /** `exam_records` 全列（不含表别名）。 */
 export const RECORD_FULL_COLUMNS =
-  'id, exam_id, user_id, attempt_no, department_id, paper_snapshot, status, answers, started_at, submitted_at, auto_submitted, score, subjective_scores, cheat_events, review_notes';
+  'id, exam_id, user_id, attempt_no, department_id, paper_snapshot, status, answers, started_at, submitted_at, auto_submitted, score, grade_label, resume_allowed, subjective_scores, cheat_events, review_notes';
 
 /** 带 `r.` 前缀的全列清单（JOIN 查询选择列表用）。 */
 export const RECORD_FULL_COLUMNS_R = RECORD_FULL_COLUMNS.split(', ')

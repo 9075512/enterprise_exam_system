@@ -17,6 +17,8 @@ export interface QuestionRow extends RowDataPacket {
   default_score: number | string;
   analysis: string | null;
   subject: string;
+  subject_id: string | null;
+  status: 'active' | 'disabled';
   difficulty: QuestionDifficulty | null;
   tags: unknown;
   rubric: unknown;
@@ -58,6 +60,8 @@ export function mapQuestionRow(row: QuestionRow, correctRate: number | null = nu
     defaultScore: Number(row.default_score),
     analysis: row.analysis ?? '',
     subject: row.subject,
+    subjectId: row.subject_id ?? null,
+    status: row.status ?? 'active',
     difficulty: row.difficulty ?? null,
     tags: parseJsonColumn<string[]>(row.tags, []),
     rubric: row.type === 'short' ? parseRubric(row.rubric) : [],

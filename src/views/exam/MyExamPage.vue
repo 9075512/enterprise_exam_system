@@ -15,11 +15,11 @@ import { InfoFilled, Refresh, Search } from '@element-plus/icons-vue';
 import * as examsApi from '@/api/exams';
 import * as recordsApi from '@/api/records';
 import { applyRetake } from '@/api/retakes';
+import { participantsApi } from '@/api/coreFeatures';
 import { useRequest } from '@/composables/useRequest';
 import { useSettingsStore } from '@/stores/settings';
 import { formatDateTime, formatRange } from '@/utils/datetime';
 import { getExamStatus } from '@/utils/examStatus';
-import ContentBoard from '@/components/common/ContentBoard.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
@@ -177,6 +177,12 @@ function goDetail(recordId: string): void {
   void router.push(`/score-detail/${recordId}`);
 }
 
+async function downloadTicket(exam: ExamMy): Promise<void> {
+  const blob = await participantsApi.ticketsPdf(exam.id);
+  const url = URL.createObjectURL(blob); const a = document.createElement('a');
+  a.href = url; a.download = `${exam.name}-准考证.pdf`; a.click(); URL.revokeObjectURL(url);
+}
+
 function goRetakes(): void {
   void router.push('/exam/retakes');
 }
@@ -282,25 +288,24 @@ onMounted(() => {
       </template>
     </PageHeader>
 
-    <!-- 公告与轮播（v1.9⑥；无生效内容时组件自身不渲染） -->
-    <ContentBoard scope="exam" />
-
     <LoadingSkeleton v-if="loading && !exams" :rows="5" />
 
     <template v-else>
       <el-card class="my-exam__panel" shadow="never">
         <!-- 分段页签（设计稿 .tabs） -->
         <div class="my-exam__tabs">
-          <button
-            v-for="tab in TABS"
-            :key="tab.key"
-            type="button"
-            class="my-exam__tab"
-            :class="{ 'is-on': activeTab === tab.key }"
-            @click="activeTab = tab.key"
-          >
-            {{ tab.label }} {{ tabCounts[tab.key] }}
-          </button>
+          <div class="my-exam__tab-strip">
+            <button
+              v-for="tab in TABS"
+              :key="tab.key"
+              type="button"
+              class="my-exam__tab"
+              :class="{ 'is-on': activeTab === tab.key }"
+              @click="activeTab = tab.key"
+            >
+              {{ tab.label }} {{ tabCounts[tab.key] }}
+            </button>
+          </div>
           <div class="my-exam__tabs-sp" />
           <el-input
             v-model="keyword"
@@ -372,6 +377,7 @@ onMounted(() => {
                   >
                     成绩明细
                   </el-button>
+                  <el-button @click="downloadTicket(row)">准考证</el-button>
 
                   <el-button
                     v-if="row.canApplyRetake"
@@ -399,26 +405,30 @@ onMounted(() => {
 
           <!-- 分页 -->
           <div v-if="filteredExams.length > PAGE_SIZE" class="my-exam__pager">
-            <span class="my-exam__pager-info">共 {{ filteredExams.length }} 场考试 · 每页 {{ PAGE_SIZE }} 条</span>
+            <span class="my-exam__pager-info">
+              共 {{ filteredExams.length }} 场考试<span class="my-exam__page-size"> · 每页 {{ PAGE_SIZE }} 条</span>
+            </span>
             <button
               type="button"
-              class="my-exam__pg"
+              class="my-exam__pg my-exam__pg--nav"
               :disabled="page <= 1"
               aria-label="上一页"
               @click="page -= 1"
             >
-              ‹
+              <span class="my-exam__pg-arrow">‹</span>
+              <span class="my-exam__pg-label">上一页</span>
             </button>
             <span class="my-exam__pg is-on">{{ page }}</span>
             <span class="my-exam__pg-text">/ {{ totalPages }}</span>
             <button
               type="button"
-              class="my-exam__pg"
+              class="my-exam__pg my-exam__pg--nav"
               :disabled="page >= totalPages"
               aria-label="下一页"
               @click="page += 1"
             >
-              ›
+              <span class="my-exam__pg-arrow">›</span>
+              <span class="my-exam__pg-label">下一页</span>
             </button>
           </div>
         </div>
@@ -455,6 +465,12 @@ onMounted(() => {
     gap: 2px;
     padding: 0 16px;
     border-bottom: 1px solid $border-color;
+  }
+
+  &__tab-strip {
+    display: flex;
+    align-items: center;
+    gap: 2px;
   }
 
   &__tab {
@@ -584,6 +600,52 @@ onMounted(() => {
     color: $text-secondary;
   }
 
+  @media (max-width: 900px) {
+    &__panel {
+      margin-bottom: 12px;
+
+      :deep(.el-card__body) {
+        padding: 0;
+      }
+    }
+    &__tabs {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+      padding: 0 10px 10px;
+    }
+    &__tab-strip {
+      width: 100%;
+      overflow-x: auto;
+      scrollbar-width: none;
+      scroll-snap-type: x proximity;
+
+      &::-webkit-scrollbar { display: none; }
+    }
+    &__tab {
+      flex: 0 0 auto;
+      min-width: 68px;
+      padding-inline: 8px;
+      scroll-snap-align: start;
+    }
+    &__tabs-sp { display: none; }
+    &__search { width: 100%; margin: 0; }
+    &__body { padding: 6px; }
+    &__item { padding: 14px; }
+    &__item-head { display: block; }
+    &__name { max-width: 100%; white-space: normal; }
+    &__item-act { margin-top: 14px; }
+    &__item-act :deep(.el-button) { flex: 1; margin-left: 0; }
+    &__score { flex: 1 0 100%; align-items: flex-start; }
+    &__item-foot { gap: 7px 12px; }
+    &__pager { flex-wrap: nowrap; gap: 7px; }
+    &__pager-info { flex-basis: auto; white-space: nowrap; }
+    &__pg--nav { min-width: 58px; }
+    &__pg-arrow { display: none; }
+    &__pg-label { display: inline; }
+    &__notice { margin-bottom: 4px; }
+  }
+
   &__item-foot {
     display: flex;
     align-items: center;
@@ -702,6 +764,10 @@ onMounted(() => {
     color: $text-secondary;
   }
 
+  &__pg-label {
+    display: none;
+  }
+
   &__notice {
     &-list {
       display: flex;
@@ -731,5 +797,14 @@ onMounted(() => {
     font-weight: 620;
     color: $text-primary;
   }
+
+  @media (max-width: 900px) {
+    &__pager { gap: 7px; }
+    &__pg.my-exam__pg--nav { min-width: 58px; }
+    &__page-size,
+    &__pg-arrow { display: none; }
+    &__pg-label { display: inline; }
+  }
+
 }
 </style>

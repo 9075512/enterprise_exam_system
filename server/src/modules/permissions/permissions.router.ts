@@ -36,6 +36,6 @@ permissionsRouter.get(
   '/my',
   authRequired,
   asyncHandler(async (req, res) => {
-    return ok(res, await permissionsService.getMyMenus(req.user!.role));
+    return ok(res, await permissionsService.getMyMenus(req.user!.role, req.user!.id));
   }),
 );

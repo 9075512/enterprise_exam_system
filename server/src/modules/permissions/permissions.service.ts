@@ -14,6 +14,8 @@ import { badRequest } from '../../utils/errors.js';
 import { withTransaction } from '../../db/pool.js';
 import * as auditService from '../audit/audit.service.js';
 import type { MenuGrantsDto, MenuPermissionDto, MyMenusDto, Role } from '../../types/domain.js';
+import { query } from '../../db/pool.js';
+import type { RowDataPacket } from 'mysql2/promise';
 
 const ROLES: Role[] = ['admin', 'author', 'examinee'];
 
@@ -45,8 +47,19 @@ export async function getMenuPermissions(): Promise<MenuPermissionDto> {
 }
 
 /** 当前登录用户的可见菜单 key 列表。 */
-export async function getMyMenus(role: Role): Promise<MyMenusDto> {
-  return { menus: await grantsFor(role) };
+export async function getMyMenus(role: Role, userId?: string): Promise<MyMenusDto> {
+  const menus = new Set(await grantsFor(role));
+  if (userId) {
+    const rows = await query<Array<RowDataPacket & { menu_key: string; effect: 'allow' | 'deny' }>>(
+      `SELECT menu_key, effect FROM menu_overrides WHERE user_id = ?`, [userId]);
+    for (const row of rows) {
+      if (!ALL_MENU_KEYS.includes(row.menu_key)) continue;
+      if (row.effect === 'allow') menus.add(row.menu_key);
+      else if (!(role === 'admin' && ADMIN_REQUIRED_KEYS.includes(row.menu_key))) menus.delete(row.menu_key);
+    }
+  }
+  if (role === 'admin') for (const key of ADMIN_REQUIRED_KEYS) menus.add(key);
+  return { menus: [...menus] };
 }
 
 /** 更新菜单授权（整体替换语义）。 */

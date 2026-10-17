@@ -9,6 +9,7 @@
  * - 题库访问始终以 `allow_practice = 1` 为前置条件。
  */
 import { Router } from 'express';
+import { z } from 'zod';
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { validate } from '../../middleware/validate.js';
 import { ok } from '../../utils/response.js';
@@ -38,6 +39,7 @@ import {
   practiceQuestionsQuerySchema,
   practiceReportTrendQuerySchema,
   practiceSessionSchema,
+  practiceSessionFinishSchema,
   practiceWrongBookQuerySchema,
   practiceWrongReansSchema,
   type PracticeLoginInput,
@@ -51,8 +53,11 @@ import type {
   PracticeSessionInput,
 } from './practice.schema.js';
 import type { QuestionType } from '../../types/domain.js';
+import * as sessionTracking from './practiceSessionTracking.service.js';
+import * as questionFeedbackService from '../questionFeedback/questionFeedback.service.js';
 
 export const practiceRouter = Router();
+const feedbackSchema = z.object({ questionId: z.string().min(1).max(64), sessionId: z.string().min(1).max(64), category: z.string().trim().min(1).max(32), content: z.string().trim().min(1).max(1000) });
 
 /** 练题所有响应禁止缓存（架构共享约定 §10-14）。 */
 practiceRouter.use((_req, res, next) => {
@@ -144,7 +149,15 @@ practiceRouter.get(
   '/banks',
   practiceAuthRequired,
   practiceRateLimit('banks'),
-  asyncHandler(async (_req, res) => ok(res, await service.listBanks())),
+  asyncHandler(async (req, res) => ok(res, await service.listBanks(req.practiceUser!.id))),
+);
+
+/** GET /api/practice/banks/tree —— 当前用户可见的练题科目树。 */
+practiceRouter.get(
+  '/banks/tree',
+  practiceAuthRequired,
+  practiceRateLimit('banks'),
+  asyncHandler(async (req, res) => ok(res, await service.practiceTree(req.practiceUser!.id))),
 );
 
 /**
@@ -198,7 +211,7 @@ practiceRouter.get(
     };
     return ok(
       res,
-      await service.listQuestions(req.params.id, {
+      await service.listQuestions(req.practiceUser!.id, req.params.id, {
         type: q.type,
         subject: q.subject,
         page: q.page,
@@ -216,7 +229,7 @@ practiceRouter.get(
   validate(practiceQuestionsByIdsQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
     const { ids } = req.query as unknown as { ids: string[] };
-    return ok(res, await service.getQuestionsByIds(ids));
+    return ok(res, await service.getQuestionsByIds(req.practiceUser!.id, ids));
   }),
 );
 
@@ -232,6 +245,35 @@ practiceRouter.post(
     const body = req.body as PracticeSessionInput;
     return ok(res, await service.createSession(req.practiceUser!.id, body));
   }),
+);
+
+/** POST /api/practice/sessions/:id/heartbeat —— 30 秒心跳。 */
+practiceRouter.post(
+  '/sessions/:id/heartbeat',
+  practiceAuthRequired,
+  asyncHandler(async (req, res) => { await sessionTracking.touch(req.params.id, req.practiceUser!.id); return ok(res, null); }),
+);
+
+/** POST /api/practice/sessions/:id/finish —— 正常完成或主动退出。 */
+practiceRouter.post(
+  '/sessions/:id/finish',
+  practiceAuthRequired,
+  validate(practiceSessionFinishSchema, 'body'),
+  asyncHandler(async (req, res) => { await sessionTracking.finish(req.params.id, req.practiceUser!.id, req.body.status); return ok(res, null); }),
+);
+
+/** 从练题结果提交纠错反馈；来源会话和题目归属由服务端核验。 */
+practiceRouter.post(
+  '/feedback',
+  practiceAuthRequired,
+  validate(feedbackSchema, 'body'),
+  asyncHandler(async (req, res) => ok(res, await questionFeedbackService.create({
+    questionId: req.body.questionId,
+    source: 'practice',
+    sourceRefId: req.body.sessionId,
+    category: req.body.category,
+    content: req.body.content,
+  }, req.practiceUser!.id))),
 );
 
 /** POST /api/practice/check —— 提交单题作答 → 即时判分（正误 + 正确答案 + 解析）。 */

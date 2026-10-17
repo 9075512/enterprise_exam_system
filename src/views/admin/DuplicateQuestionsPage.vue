@@ -1,0 +1,12 @@
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
+import PageHeader from '@/components/common/PageHeader.vue';
+import { qualityApi } from '@/api/coreFeatures';
+import type { DuplicateQuestionGroup } from '@/types';
+const rows=ref<DuplicateQuestionGroup[]>([]);const loading=ref(false);const includeDisabled=ref(false);
+async function load(){loading.value=true;try{rows.value=await qualityApi.duplicates({includeDisabled:includeDisabled.value?1:undefined})}finally{loading.value=false}}
+function exportCsv(){const esc=(v:unknown)=>`"${String(v??'').replace(/"/g,'""')}"`;const lines=[['内容指纹','题库','题型','题干','科目','状态','题目ID'].map(esc).join(',')];for(const group of rows.value)for(const item of group.questions)lines.push([group.fingerprint,item.bankName,item.type,item.stem,item.subject,item.status,item.id].map(esc).join(','));const blob=new Blob([`\uFEFF${lines.join('\r\n')}`],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`重复题审计-${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url)}
+onMounted(load);
+</script>
+<template><div class="page"><PageHeader title="重复题审计" description="按题型、题干、选项与答案生成内容指纹，仅分析与人工处理，不自动合并历史引用"><template #actions><el-checkbox v-model="includeDisabled" @change="load">包含停用题</el-checkbox><el-button :disabled="!rows.length" @click="exportCsv">导出 CSV</el-button><el-button @click="load">刷新</el-button></template></PageHeader><el-card shadow="never"><el-table v-loading="loading" :data="rows" row-key="fingerprint"><el-table-column type="expand"><template #default="{row}"><el-table :data="row.questions" size="small"><el-table-column prop="bankName" label="题库" width="160"/><el-table-column prop="type" label="题型" width="90"/><el-table-column prop="stem" label="题干" min-width="320"/><el-table-column prop="subject" label="科目" width="130"/><el-table-column prop="status" label="状态" width="90"/><el-table-column label="定位" width="90"><template #default="scope"><router-link :to="`/author/banks/${scope.row.bankId}`">打开题库</router-link></template></el-table-column></el-table></template></el-table-column><el-table-column label="重复摘要" min-width="360"><template #default="{row}">{{ row.questions[0]?.stem }}</template></el-table-column><el-table-column prop="count" label="重复数" width="100"/><el-table-column prop="fingerprint" label="内容指纹" width="280"/></el-table><el-empty v-if="!loading&&!rows.length" description="未发现重复题"/></el-card></div></template>
+<style scoped>.page{display:flex;flex-direction:column;gap:16px}</style>

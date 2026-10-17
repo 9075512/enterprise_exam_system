@@ -14,6 +14,7 @@ import { badRequest, conflict, notFound, forbidden } from '../../utils/errors.js
 import { genId } from '../../utils/id.js';
 import { nowDb, fromDbDateSafe } from '../../utils/datetime.js';
 import { buildPaperPdfBuffer } from '../../utils/pdfExport.js';
+import { getSettings } from '../settings/settings.service.js';
 import type { PaperPdfQuestion } from '../../utils/pdfExport.js';
 import type {
   DrawQuestionItem,
@@ -85,7 +86,7 @@ export async function list(operator: Operator): Promise<PaperDto[]> {
   const result: PaperDto[] = [];
   for (const p of papers) {
     const [pqRows, bankIds] = await Promise.all([repo.listPaperQuestions(p.id), repo.listBankRefs(p.id)]);
-    if (accessible !== null && !bankIds.some((id) => accessible.includes(id))) continue;
+    if (accessible !== null && !bankIds.every((id) => accessible.includes(id))) continue;
     const names = await repo.bankNamesByIds(bankIds);
     result.push({
       ...baseDto(p, bankIds, names.map((n) => n.name)),
@@ -99,7 +100,7 @@ export async function list(operator: Operator): Promise<PaperDto[]> {
 async function assertPaperVisible(bankIds: string[], operator: Operator): Promise<void> {
   const accessible = await bankAuth.listAccessibleBankIds(operator);
   if (accessible === null) return;
-  if (!bankIds.some((id) => accessible.includes(id))) {
+  if (!bankIds.every((id) => accessible.includes(id))) {
     throw forbidden('您没有该试卷的查看权限');
   }
 }
@@ -431,7 +432,7 @@ export async function exportPaperPdf(
   withAnswer: boolean,
   operator: Operator,
 ): Promise<PaperPdfResult> {
-  const detail = await getById(paperId, operator);
+  const [detail, settings] = await Promise.all([getById(paperId, operator), getSettings()]);
   const questions: PaperPdfQuestion[] = detail.questions.map((item, i) => ({
     index: i + 1,
     typeLabel: TYPE_LABELS[item.question.type] ?? '未知',
@@ -450,7 +451,7 @@ export async function exportPaperPdf(
     subtitle,
     questions,
     withAnswer,
-    footer: `本试卷由在线考试系统生成 · ${withAnswer ? '答案版（含参考答案与解析）' : '考生版'}`,
+    footer: `本试卷由${settings.systemName}生成 · ${withAnswer ? '答案版（含参考答案与解析）' : '考生版'}`,
   });
 
   const filename = `${sanitizeFilename(detail.name)}-试卷-${withAnswer ? '答案版' : '考生版'}.pdf`;

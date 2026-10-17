@@ -6,6 +6,7 @@
 import * as repo from './banks.repo.js';
 import * as bankAuthorsRepo from './bankAuthors.repo.js';
 import * as bankAuth from './bankAuth.js';
+import * as bankAccess from './bankAccess.service.js';
 import type { Operator } from './bankAuth.js';
 import * as usersRepo from '../users/users.repo.js';
 import * as questionRepo from '../questions/questions.repo.js';
@@ -13,7 +14,8 @@ import * as departmentsService from '../departments/departments.service.js';
 import type { BankRowWithCount } from './banks.repo.js';
 import type { BankAuthorRow } from './bankAuthors.repo.js';
 import type { BankCloneInput } from './banks.schema.js';
-import { withTransaction } from '../../db/pool.js';
+import { query, withTransaction } from '../../db/pool.js';
+import type { RowDataPacket } from 'mysql2/promise';
 import { badRequest, conflict, forbidden, notFound } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
 import { nowDb, fromDbDateSafe } from '../../utils/datetime.js';
@@ -25,6 +27,7 @@ import type {
   BankCloneResultDto,
   BankDetailDto,
   BankDto,
+  BankTreeNode,
   Role,
   RubricBand,
 } from '../../types/domain.js';
@@ -35,13 +38,38 @@ function mapRow(row: BankRowWithCount): Omit<BankDto, 'authorIds' | 'authorNames
     id: row.id,
     name: row.name,
     description: row.description,
-    category: row.category,
     allowPractice: Boolean(Number(row.allow_practice)),
+    parentId: row.parent_id,
+    sortOrder: Number(row.sort_order ?? 0),
+    status: row.status,
+    isLeaf: Number(row.child_count ?? 0) === 0,
+    effectiveStatus: row.status,
+    canView: false,
+    canEdit: false,
     createdBy: row.created_by,
     createdAt: fromDbDateSafe(row.created_at),
     questionCount: Number(row.question_count ?? 0),
   };
 }
+
+async function enrichRows(rows: BankRowWithCount[], operator: Operator): Promise<BankDto[]> {
+  const authorMap = await bankAuthorsRepo.listAuthorsByBanks(rows.map((row) => row.id));
+  const access = await bankAccess.loadAccessRows();
+  const base = attachAuthors(rows.map(mapRow), authorMap);
+  return Promise.all(base.map(async (dto) => ({
+    ...dto,
+    effectiveStatus: bankAccess.effectiveStatusFor(dto.id, rows),
+    ...(await bankAccess.permissionsFor(dto.id, operator, rows, access)),
+  })));
+}
+
+async function enrichOne(id: string, operator: Operator): Promise<BankDto> {
+  const all = await repo.list();
+  const dto = (await enrichRows(all, operator)).find((item) => item.id === id);
+  if (!dto) throw notFound('科目题库不存在或已被删除');
+  return dto;
+}
+
 
 /** 为 DTO 批量挂接授权出题人（id + 姓名）。 */
 function attachAuthors(
@@ -72,61 +100,114 @@ async function assertAuthorsValid(authorIds: string[]): Promise<string[]> {
 
 /** 题库列表（admin 全量；author 仅返回被授权题库）。 */
 export async function list(
-  filter: { category?: string; keyword?: string },
+  filter: { keyword?: string },
   operator: Operator,
 ): Promise<BankDto[]> {
-  const rows = await repo.list(filter);
-  const accessible = await bankAuth.listAccessibleBankIds(operator);
-  const visible = accessible === null ? rows : rows.filter((r) => accessible.includes(r.id));
-  const authorMap = await bankAuthorsRepo.listAuthorsByBanks(visible.map((r) => r.id));
-  return attachAuthors(visible.map(mapRow), authorMap);
+  const rows = await repo.list();
+  const enriched = await enrichRows(rows, operator);
+  const keyword = filter.keyword?.trim().toLowerCase() ?? '';
+  return enriched.filter((bank) => bank.isLeaf && bank.effectiveStatus === 'active' && bank.canView
+    && (!keyword || bank.name.toLowerCase().includes(keyword) || bank.description.toLowerCase().includes(keyword)));
+}
+
+/** 完整科目题库树；author 仅得到可浏览节点及其导航祖先。 */
+export async function tree(operator: Operator): Promise<BankTreeNode[]> {
+  const rows = await repo.list();
+  const enriched = await enrichRows(rows, operator);
+  const byId = new Map(enriched.map((bank) => [bank.id, bank]));
+  const keep = new Set<string>();
+  for (const bank of enriched) {
+    if (!bank.canView && operator.role !== 'admin') continue;
+    let cursor: BankDto | undefined = bank;
+    const seen = new Set<string>();
+    while (cursor && !seen.has(cursor.id)) {
+      seen.add(cursor.id); keep.add(cursor.id);
+      cursor = cursor.parentId ? byId.get(cursor.parentId) : undefined;
+    }
+  }
+  const nodes = new Map<string, BankTreeNode>();
+  for (const bank of enriched) if (operator.role === 'admin' || keep.has(bank.id)) nodes.set(bank.id, { ...bank, children: [] });
+  const roots: BankTreeNode[] = [];
+  for (const node of nodes.values()) {
+    const parent = node.parentId ? nodes.get(node.parentId) : undefined;
+    if (parent) parent.children.push(node); else roots.push(node);
+  }
+  const sort = (items: BankTreeNode[]) => {
+    items.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'zh-Hans-CN'));
+    items.forEach((item) => sort(item.children));
+  };
+  sort(roots);
+  return roots;
+}
+
+/** 最近一次旧科目迁移报告（无旧数据时也返回空报告）。 */
+export async function migrationReport(): Promise<unknown> {
+  const rows = await query<Array<RowDataPacket & { report_json: unknown; updated_at: string }>>(
+    `SELECT report_json, updated_at FROM bank_tree_migration_reports WHERE migration_key = 'subject-to-bank-tree-v1' LIMIT 1`,
+  );
+  if (!rows[0]) return { migrationKey: 'subject-to-bank-tree-v1', matched: [], conflicts: [], unresolvedGrants: [], updatedAt: null };
+  return { ...parseJsonColumn<Record<string, unknown>>(rows[0].report_json, {}), updatedAt: fromDbDateSafe(rows[0].updated_at) };
 }
 
 /** 题库详情（含被引用统计；author 需授权）。 */
 export async function getById(id: string, operator: Operator): Promise<BankDetailDto> {
   const row = await repo.findById(id);
   if (!row) throw notFound('题库不存在或已被删除');
-  await bankAuth.assertBankAccess(id, operator);
+  await bankAuth.assertBankView(id, operator);
   const { referencedQuestionCount, referencedPaperCount } = await repo.countReferences(id);
-  const authorMap = await bankAuthorsRepo.listAuthorsByBanks([id]);
-  const [dto] = attachAuthors([mapRow(row)], authorMap);
+  const dto = await enrichOne(id, operator);
   return { ...dto, referencedQuestionCount, referencedPaperCount };
 }
 
-/** 新建题库（admin 按入参设置授权出题人；author 自动成为授权出题人）。 */
+/** 新建科目题库：默认所有人员可预览，编辑权限仍需单独授权。 */
 export async function create(
-  input: { name: string; description?: string; category?: string; allowPractice?: boolean; authorIds?: string[] },
+  input: { name: string; description?: string; parentId?: string | null; sortOrder?: number; status?: 'active' | 'disabled'; allowPractice?: boolean; authorIds?: string[] },
   operator: Operator,
 ): Promise<BankDto> {
+  if (!bankAuth.isAdmin(operator)) throw forbidden('仅管理员可新增科目');
+  const parentId = input.parentId?.trim() || null;
+  if (parentId) {
+    const parent = await repo.findById(parentId);
+    if (!parent) throw badRequest('上级科目不存在');
+    if (Number(parent.question_count) > 0) throw conflict('已有题目的题库不能新增下级科目，请先迁走题目');
+  }
+  const defaultEditorIds = parentId && input.authorIds === undefined
+    ? (await bankAccess.getAccessConfig(parentId)).effectiveEditorIds
+    : [];
+  const name = input.name.trim();
+  if (await repo.findSiblingByName(name, parentId)) throw conflict('同一上级下已存在同名科目');
   const id = genId('bank-');
   await repo.insert({
     id,
-    name: input.name.trim(),
+    name,
     description: input.description?.trim() ?? '',
-    category: input.category?.trim() || '未分类',
+    category: '未分类',
     allowPractice: input.allowPractice === true,
+    parentId,
+    sortOrder: input.sortOrder ?? 0,
+    status: input.status ?? 'active',
+    permissionMode: 'override',
+    viewAll: true,
     createdBy: operator.id,
     createdAt: nowDb(),
   });
 
   // 授权出题人：admin 按入参设置；author 自动授权自己
   if (bankAuth.isAdmin(operator)) {
-    const authorIds = await assertAuthorsValid(input.authorIds ?? []);
+    const authorIds = await assertAuthorsValid(input.authorIds ?? defaultEditorIds);
     await bankAuthorsRepo.setAuthors(id, authorIds);
   } else {
     await bankAuthorsRepo.addAuthor(id, operator.id);
   }
 
-  const created = await repo.findById(id);
-  const authorMap = await bankAuthorsRepo.listAuthorsByBanks([id]);
-  const [dto] = attachAuthors([mapRow(created!)], authorMap);
+  const dto = await enrichOne(id, operator);
   await auditService.record({
     actorId: operator.id,
     action: 'bank.create',
     targetType: 'bank',
     targetId: dto.id,
     targetName: dto.name,
-    detail: { category: dto.category },
+    detail: { parentId: dto.parentId, viewAll: true },
   });
   return dto;
 }
@@ -134,19 +215,43 @@ export async function create(
 /** 编辑题库（author 需授权；仅 admin 可调整授权出题人）。 */
 export async function update(
   id: string,
-  input: { name: string; description?: string; category?: string; allowPractice?: boolean; authorIds?: string[] },
+  input: { name: string; description?: string; parentId?: string | null; sortOrder?: number; status?: 'active' | 'disabled'; allowPractice?: boolean; authorIds?: string[] },
   operator: Operator,
 ): Promise<BankDto> {
   const current = await repo.findById(id);
   if (!current) throw notFound('题库不存在或已被删除');
-  await bankAuth.assertBankAccess(id, operator);
+  if (!bankAuth.isAdmin(operator)) throw forbidden('仅管理员可修改科目层级、名称和状态');
+  const parentId = input.parentId?.trim() || null;
+  if (parentId === id) throw badRequest('上级科目不能是自身');
+  const all = await repo.list();
+  const descendants = new Set<string>();
+  const queue = [id];
+  while (queue.length) {
+    const currentId = queue.shift()!;
+    for (const row of all.filter((item) => item.parent_id === currentId)) {
+      descendants.add(row.id); queue.push(row.id);
+    }
+  }
+  if (parentId && descendants.has(parentId)) throw badRequest('不能将科目移动到其子科目下');
+  if (parentId) {
+    const parent = all.find((item) => item.id === parentId);
+    if (!parent) throw badRequest('上级科目不存在');
+    if (Number(parent.question_count) > 0) throw conflict('已有题目的题库不能新增下级科目，请先迁走题目');
+  }
+  const name = input.name.trim();
+  const duplicate = await repo.findSiblingByName(name, parentId);
+  if (duplicate && duplicate.id !== id) throw conflict('同一上级下已存在同名科目');
 
   await repo.update(id, {
-    name: input.name.trim(),
+    name,
     description: input.description?.trim() ?? '',
-    category: input.category?.trim() || '未分类',
     allowPractice: input.allowPractice === true,
+    parentId,
+    sortOrder: input.sortOrder ?? Number(current.sort_order),
+    status: input.status ?? current.status,
   });
+  // 科目就是题库名称：题库改名时同步所有库内试题的兼容字段。
+  await query(`UPDATE questions SET subject = ?, subject_id = bank_id WHERE bank_id = ?`, [input.name.trim(), id]);
 
   // 仅 admin 可调整授权出题人；author 编辑时保持原授权不变
   if (bankAuth.isAdmin(operator) && input.authorIds !== undefined) {
@@ -154,16 +259,14 @@ export async function update(
     await bankAuthorsRepo.setAuthors(id, authorIds);
   }
 
-  const updated = await repo.findById(id);
-  const authorMap = await bankAuthorsRepo.listAuthorsByBanks([id]);
-  const [dto] = attachAuthors([mapRow(updated!)], authorMap);
+  const dto = await enrichOne(id, operator);
   await auditService.record({
     actorId: operator.id,
     action: 'bank.update',
     targetType: 'bank',
     targetId: dto.id,
     targetName: dto.name,
-    detail: { category: dto.category },
+    detail: { parentId: dto.parentId },
   });
   return dto;
 }
@@ -172,7 +275,7 @@ export async function update(
  * 批量设置「对外开放练题」开关（v1.8+ 练题端可见性修复）。
  *
  * 场景：题库数量多时逐个进「编辑题库」改开关成本高，且新手容易漏开导致练题端题库列表为空。
- * 语义：**仅改 `allow_practice` 一列**，不触碰名称/描述/分类/授权出题人。
+ * 语义：**仅改 `allow_practice` 一列**，不触碰名称、描述或授权出题人。
  * 校验：入参 id 必须全部存在（任一不存在 → 404），避免静默漏改。
  * 审计：按银行流水记录一条 `bank.practice_flag`（含题库 id 列表与目标状态）。
  */
@@ -192,11 +295,8 @@ export async function setPracticeFlagBatch(
 
   await repo.updatePracticeFlag(existing, input.allowPractice);
 
-  const rows = await repo.list();
-  const byId = new Map(rows.map((r) => [r.id, r]));
-  const updated = existing.map((id) => byId.get(id)).filter((r): r is NonNullable<typeof r> => Boolean(r));
-  const authorMap = await bankAuthorsRepo.listAuthorsByBanks(existing);
-  const dtos = attachAuthors(updated.map(mapRow), authorMap);
+  const allDtos = await enrichRows(await repo.list(), operator);
+  const dtos = allDtos.filter((item) => existing.includes(item.id));
 
   await auditService.record({
     actorId: operator.id,
@@ -216,7 +316,8 @@ export async function setPracticeFlagBatch(
 export async function remove(id: string, cascade: boolean, operator: Operator): Promise<void> {
   const current = await repo.findById(id);
   if (!current) throw notFound('题库不存在或已被删除');
-  await bankAuth.assertBankAccess(id, operator);
+  if (!bankAuth.isAdmin(operator)) throw forbidden('仅管理员可删除科目');
+  if (Number(current.child_count) > 0) throw conflict('该科目下存在子科目，请先移动或删除子科目');
 
   const questionCount = await repo.countQuestions(id);
   if (questionCount === 0) {
@@ -240,6 +341,15 @@ export async function remove(id: string, cascade: boolean, operator: Operator): 
       `该题库下存在 ${questionCount} 道试题（其中 ${referencedQuestionCount} 道已被 ${referencedPaperCount} 份试卷引用），如需删除请确认级联`,
     );
   }
+
+  const { referencedQuestionCount, referencedPaperCount } = await repo.countReferences(id);
+  if (referencedQuestionCount > 0) {
+    throw conflict(`该题库有 ${referencedQuestionCount} 道试题已被 ${referencedPaperCount} 份试卷引用，只能停用或迁移，不能物理删除`);
+  }
+  const history = await query<Array<RowDataPacket & { c: number }>>(`SELECT
+    (SELECT COUNT(*) FROM practice_answers pa JOIN questions q ON q.id = pa.question_id WHERE q.bank_id = ?)
+    + (SELECT COUNT(*) FROM practice_wrong_book pw JOIN questions q ON q.id = pw.question_id WHERE q.bank_id = ?) AS c`, [id, id]);
+  if (Number(history[0]?.c ?? 0) > 0) throw conflict('该题库已有练题历史，只能停用或迁移，不能物理删除');
 
   // 级联：事务内先删题再删库（questions.bank_id 为 RESTRICT，须显式先删）
   await withTransaction(async (conn) => {
@@ -480,9 +590,11 @@ export async function cloneBank(
   const source = await repo.findById(id);
   if (!source) throw notFound('题库不存在或已被删除');
   await bankAuth.assertBankAccess(id, operator);
+  if (Number(source.child_count) > 0) throw badRequest('父级科目仅作为目录，不能复制为题库');
 
   const trimmed = (input.name ?? '').trim();
   const newName = (trimmed || `${source.name}（副本）`).slice(0, 100);
+  if (await repo.findSiblingByName(newName, source.parent_id)) throw conflict('同一上级下已存在同名科目');
   const newId = genId('bank-');
   const copyQuestions = input.copyQuestions !== false;
 
@@ -507,6 +619,11 @@ export async function cloneBank(
         description: source.description,
         category: source.category,
         allowPractice: Boolean(Number(source.allow_practice)),
+        parentId: source.parent_id,
+        sortOrder: Number(source.sort_order) + 1,
+        status: source.status,
+        permissionMode: 'override',
+        viewAll: true,
         createdBy: operator.id,
         createdAt: nowDb(),
       },
@@ -541,7 +658,9 @@ export async function cloneBank(
             answer,
             defaultScore: Number(r.default_score),
             analysis: r.analysis ?? '',
-            subject: r.subject,
+            subject: newName,
+            subjectId: newId,
+            status: r.status ?? 'active',
             difficulty: r.difficulty ?? null,
             tags: parseJsonColumn<string[]>(r.tags, []),
             rubric: parseJsonColumn<RubricBand[]>(r.rubric, []),
@@ -558,9 +677,7 @@ export async function cloneBank(
     if (authorIds.length > 0) await bankAuthorsRepo.setAuthors(newId, authorIds, conn);
   });
 
-  const created = await repo.findById(newId);
-  const authorMap = await bankAuthorsRepo.listAuthorsByBanks([newId]);
-  const [dto] = attachAuthors([mapRow(created!)], authorMap);
+  const dto = await enrichOne(newId, operator);
 
   await auditService.record({
     actorId: operator.id,

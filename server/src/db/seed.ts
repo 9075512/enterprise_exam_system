@@ -154,10 +154,12 @@ export async function seed(conn: Connection): Promise<void> {
     { id: 'bank-culture', name: '企业文化题库', description: '公司企业文化与行为准则相关题目', category: '企业文化' },
   ]) {
     await conn.query(
-      `INSERT INTO question_banks (id, name, description, category, allow_practice, created_by, created_at)
-       VALUES (?, ?, ?, ?, 1, 'user-author', ?)
+      `INSERT INTO question_banks
+        (id, name, description, category, allow_practice, permission_mode, view_all,
+         include_child_departments, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 1, 'override', 1, 1, 'user-author', ?, ?)
        ON DUPLICATE KEY UPDATE id = id`,
-      [b.id, b.name, b.description, b.category, now],
+      [b.id, b.name, b.description, b.category, now, now],
     );
   }
 
@@ -175,10 +177,10 @@ export async function seed(conn: Connection): Promise<void> {
   for (const q of SEED_QUESTIONS) {
     await conn.query(
       `INSERT INTO questions
-         (id, bank_id, type, stem, options, answer, default_score, analysis, subject, difficulty, created_by, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 10.0, ?, ?, ?, 'user-author', ?)
+         (id, bank_id, type, stem, options, answer, default_score, analysis, subject, subject_id, difficulty, created_by, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 10.0, ?, ?, ?, ?, 'user-author', ?)
        ON DUPLICATE KEY UPDATE difficulty = ?`,
-      [q.id, q.bankId, q.type, q.stem, toJsonColumn(q.options), toJsonColumn(q.answer), q.analysis, q.subject, q.difficulty, now, q.difficulty],
+      [q.id, q.bankId, q.type, q.stem, toJsonColumn(q.options), toJsonColumn(q.answer), q.analysis, q.subject, q.bankId, q.difficulty, now, q.difficulty],
     );
   }
 

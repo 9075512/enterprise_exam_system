@@ -19,13 +19,15 @@ withDefaults(
     icon?: Component;
     /** 状态色或业务分类色；默认 primary */
     tone?: 'primary' | 'success' | 'warning' | 'error' | 'blue' | 'teal' | 'violet' | 'amber';
+    /** 页面空间紧张时使用紧凑版，不影响默认统计卡尺寸 */
+    density?: 'default' | 'compact';
   }>(),
-  { unit: '', icon: undefined, tone: 'primary' },
+  { unit: '', icon: undefined, tone: 'primary', density: 'default' },
 );
 </script>
 
 <template>
-  <el-card class="stat-card" :class="`stat-card--${tone}`" shadow="never">
+  <el-card class="stat-card" :class="[`stat-card--${tone}`, `stat-card--${density}`]" shadow="never">
     <span class="stat-card__rule" aria-hidden="true" />
     <div class="stat-card__top">
       <span v-if="icon" class="stat-card__icon">
@@ -142,5 +144,20 @@ withDefaults(
       color: $color-error-text;
     }
   }
+}
+
+/* 比全局视觉层多一级选择器，确保仅显式 compact 的页面能够可靠收紧尺寸。 */
+.stat-card.stat-card.stat-card--compact {
+  min-height: 88px;
+
+  :deep(.el-card__body) {
+    padding: 10px 14px;
+  }
+
+  .stat-card__top { gap: 9px; }
+  .stat-card__icon { flex-basis: 32px; width: 32px; height: 32px; font-size: 18px; }
+  .stat-card__value { margin-top: 5px; font-size: 26px; line-height: 1.2; }
+  .stat-card__label { font-size: 12.5px; }
+  .stat-card__foot { margin-top: 4px; font-size: 11px; line-height: 1.4; }
 }
 </style>

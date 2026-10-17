@@ -135,3 +135,17 @@ $category-violet: #773CFF;
 $category-violet-soft: #F5F1FF;
 $category-amber: #F29309;
 $category-amber-soft: #FFF8EF;
+
+// 练题模块兼容 token（PC 与主系统同源，移动端由 PracticeLayout 使用）。
+$practice-primary: $color-primary;
+$practice-primary-dark: $color-primary-dark;
+$practice-primary-light: $color-primary-light;
+$practice-soft: #EEF4FF;
+$practice-border-soft: #C9D9FF;
+$practice-header: $bg-paper;
+$practice-bg: #F6F8FC;
+$practice-surface-2: #FAFBFD;
+$practice-surface-3: #F0F3F8;
+$practice-border: #E3E8F0;
+$practice-radius: 10px;
+$practice-radius-sm: 8px;

@@ -155,12 +155,21 @@ describe('练题端 · 主色唯一性护栏', () => {
   });
 });
 
+describe('练题端 · 移动端弹窗稳定性', () => {
+  it('弹窗锁屏时不缩小 body 宽度，避免页面左右跳动', () => {
+    const runtime = stripComments(readFileSync(resolve(ROOT, 'styles/index.scss'), 'utf8'));
+    expect(runtime).toMatch(
+      /body\[class\*=['"]-parent--hidden['"]\][\s\S]{0,160}width:\s*100%\s*!important[\s\S]{0,100}padding-right:\s*0\s*!important/,
+    );
+  });
+});
+
 // ---------------------------------------------------------------
 // 保真度审计修复（2026-10-14）—— 练题端此前只做视觉回写，未过 computed-style 审计。
 // 复核（`tools/audit-practice.mjs`，CDP 实测）发现与根应用同源的 B / A9 类缺陷：
 //   B1 同类：body 无基准字号 → EP 浮层继承浏览器默认 16px（设计 14px）；
 //   B2 同类：--el-input-border-color 写 :root，被 EP 在 .el-input 元素作用域重定义吃掉；
-//   A9 同类：token 只有三档文字，--el-text-color-regular 落 text-3（#5a6474），偏灰一档。
+//   A9 同类：token 只有三档文字，--el-text-color-regular 曾落到辅助文字档，偏灰一档。
 // vitest 读不到 computed style —— 这里钉住「声明的作用域与值」，计算值以审计报告实测为准。
 // ---------------------------------------------------------------
 describe('练题端 · 保真度审计修复（B/A9 类）', () => {
@@ -181,8 +190,8 @@ describe('练题端 · 保真度审计修复（B/A9 类）', () => {
     expect(m?.[1]).toMatch(/line-height:\s*1\.55/);
   });
 
-  it('A9 同类：token 层补第 4 档文字色 $text-body = #354D76（= DESIGN-C text-2）', () => {
-    expect(vars()).toMatch(/\$text-body:\s*#354D76/i);
+  it('A9 同类：token 层保留独立的正文文字档 $text-body', () => {
+    expect(vars()).toMatch(/\$text-body:\s*#3F4D67/i);
   });
 
   it('A9 同类：--el-text-color-regular 指向 $text-body，且不再写 #5a6474', () => {

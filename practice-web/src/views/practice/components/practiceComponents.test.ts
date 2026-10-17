@@ -25,6 +25,10 @@ function buildRouter() {
       { path: '/practice/wrong-book', component: { template: '<div />' } },
       { path: '/practice/report', component: { template: '<div />' } },
       { path: '/practice/profile', component: { template: '<div />' } },
+      { path: '/exam/practice', component: { template: '<div />' } },
+      { path: '/exam/practice/wrong-book', component: { template: '<div />' } },
+      { path: '/exam/practice/report', component: { template: '<div />' } },
+      { path: '/exam/practice/profile', component: { template: '<div />' } },
     ],
   });
 }
@@ -45,27 +49,27 @@ beforeEach(() => {
 });
 
 describe('PracticeTabBar', () => {
-  it('默认渲染四个 Tab（练题 / 错题本 / 报告 / 我的）', async () => {
+  it('默认渲染三个 Tab（练题 / 错题本 / 报告）', async () => {
     const { wrapper } = await mountTabBar();
     const texts = wrapper.findAll('.tabbar__item .tabbar__text').map((n) => n.text());
-    expect(texts).toEqual(['练题', '错题本', '报告', '我的']);
+    expect(texts).toEqual(['练题', '错题本', '报告']);
   });
 
-  it('关闭错题本与报告入口后仅保留两个 Tab', async () => {
+  it('关闭错题本与报告入口后仅保留练题 Tab', async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const config = usePracticeConfigStore();
     config.config = { ...config.config, wrongBookEnabled: false, reportEnabled: false };
     const { wrapper } = await mountTabBar('/practice/home', pinia);
     const texts = wrapper.findAll('.tabbar__item .tabbar__text').map((n) => n.text());
-    expect(texts).toEqual(['练题', '我的']);
+    expect(texts).toEqual(['练题']);
   });
 
   it('当前路由对应 Tab 标记为激活并设 aria-current="page"', async () => {
-    const { wrapper } = await mountTabBar('/practice/profile');
+    const { wrapper } = await mountTabBar('/practice/report');
     const active = wrapper.findAll('.tabbar__item').filter((n) => n.classes().includes('is-active'));
     expect(active).toHaveLength(1);
-    expect(active[0].text()).toContain('我的');
+    expect(active[0].text()).toContain('报告');
     expect(active[0].attributes('aria-current')).toBe('page');
   });
 
@@ -80,49 +84,50 @@ describe('PracticeTabBar', () => {
     await wrapper.findAll('.tabbar__item')[0].trigger('click');
     expect(push).not.toHaveBeenCalled();
   });
+
+  it('合并到考试端后切换为 /exam/practice 路径并标记桌面集成样式', async () => {
+    const { wrapper, router } = await mountTabBar('/exam/practice');
+    expect(wrapper.find('.tabbar').classes()).toContain('is-integrated');
+    const push = vi.spyOn(router, 'push');
+    await wrapper.findAll('.tabbar__item')[1].trigger('click');
+    expect(push).toHaveBeenCalledWith('/exam/practice/wrong-book');
+  });
 });
 
 describe('PracticeProgressDots', () => {
-  it('按 total 渲染等量圆点，并暴露 progressbar 的可访问性属性', () => {
+  it('统一渲染连续进度条，并暴露已完成数量的可访问性属性', () => {
     const wrapper = mount(PracticeProgressDots, {
       props: { total: 5, current: 2, marks: ['correct', 'wrong', 'unanswered', 'correct', 'wrong'] },
       global: { plugins: [ElementPlus, createPinia()] },
     });
-    const dots = wrapper.findAll('.progress-dots__dot');
-    expect(dots).toHaveLength(5);
-    expect(dots[0].classes()).toContain('progress-dots__dot--correct');
-    expect(dots[1].classes()).toContain('progress-dots__dot--wrong');
-    expect(dots[2].classes()).toContain('progress-dots__dot--unanswered');
 
     const root = wrapper.find('.progress-dots');
     expect(root.attributes('role')).toBe('progressbar');
-    expect(root.attributes('aria-valuenow')).toBe('3');
+    expect(root.attributes('aria-valuenow')).toBe('4');
     expect(root.attributes('aria-valuemax')).toBe('5');
+    expect(wrapper.find('.progress-dots__label').text()).toBe('已完成 4 / 5');
+    expect(wrapper.find('.progress-dots__fill').attributes('style')).toContain('width: 80%');
   });
 
-  it('当前题索引标记 is-current，且不受 total 变化影响', async () => {
+  it('作答状态更新后同步刷新进度', async () => {
     const wrapper = mount(PracticeProgressDots, {
       props: { total: 3, current: 1, marks: ['unanswered', 'unanswered', 'unanswered'] },
       global: { plugins: [ElementPlus, createPinia()] },
     });
-    const currentDots = wrapper.findAll('.progress-dots__dot').filter((n) => n.classes().includes('is-current'));
-    expect(currentDots).toHaveLength(1);
+    expect(wrapper.find('.progress-dots__label').text()).toBe('已完成 0 / 3');
 
-    await wrapper.setProps({ current: 2 });
-    const afterUpdate = wrapper.findAll('.progress-dots__dot').filter((n) => n.classes().includes('is-current'));
-    expect(afterUpdate).toHaveLength(1);
-    expect(wrapper.findAll('.progress-dots__dot')[2].classes()).toContain('is-current');
+    await wrapper.setProps({ current: 2, marks: ['correct', 'wrong', 'unanswered'] });
+    expect(wrapper.find('.progress-dots__label').text()).toBe('已完成 2 / 3');
+    expect(wrapper.find('.progress-dots__fill').attributes('style')).toContain('width: 67%');
   });
 
   it('marks 长度不足时按未答补齐，多余项忽略', () => {
     const wrapper = mount(PracticeProgressDots, {
-      props: { total: 4, current: 0, marks: ['correct'] },
+      props: { total: 4, current: 0, marks: ['correct', 'unanswered', 'unanswered', 'unanswered', 'wrong'] },
       global: { plugins: [ElementPlus, createPinia()] },
     });
-    const dots = wrapper.findAll('.progress-dots__dot');
-    expect(dots).toHaveLength(4);
-    expect(dots[0].classes()).toContain('progress-dots__dot--correct');
-    expect(dots[1].classes()).toContain('progress-dots__dot--unanswered');
+    expect(wrapper.find('.progress-dots__label').text()).toBe('已完成 1 / 4');
+    expect(wrapper.find('.progress-dots__fill').attributes('style')).toContain('width: 25%');
   });
 
   it('variant 决定容器配色类（默认 on-light）', async () => {

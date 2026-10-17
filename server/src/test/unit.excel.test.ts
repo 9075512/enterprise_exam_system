@@ -1,5 +1,5 @@
 /**
- * 单元测试：Excel 导入解析（7 条逐行校验规则 + 科目警告 + 空行跳过）
+ * 单元测试：Excel 导入解析（7 条逐行校验规则 + 科目名称警告 + 空行跳过）
  * 以及导入落库的事务性（部分成功 / 中途致命错误整体回滚）。
  *
  * 说明：`validateImportRow` 未导出，故统一通过 `parseQuestionWorkbook` 驱动校验。
@@ -106,7 +106,7 @@ describe('Excel 导入解析（7 条校验规则）', () => {
     expect(res.errors.some((e) => e.column === '分值' && e.reason.includes('必须为正数'))).toBe(true);
   });
 
-  it('科目与目标题库分类不一致 → 警告（不阻断导入）', async () => {
+  it('科目与目标题库名称不一致 → 警告（不阻断导入）', async () => {
     const buf = await buildWorkbook([line('单选', '题干', ['A', 'B'], 'A', 10, '', '其它科目')]);
     const res = await parseQuestionWorkbook(buf, '安全知识');
     expect(res.successCount).toBe(1);
@@ -141,7 +141,7 @@ describe('导入落库事务（部分成功 + 中途失败整体回滚）', () =
     return Number(rows[0]?.c ?? 0);
   }
 
-  it('commit：逐行写入，单行落库失败（科目超长）不阻断其它行', async () => {
+  it('commit：Excel 科目不再单独落库，统一归一为目标题库名称', async () => {
     const res = await importService.commit(
       {
         bankId: 'bank-security',
@@ -154,12 +154,18 @@ describe('导入落库事务（部分成功 + 中途失败整体回滚）', () =
       },
       { id: 'user-author', role: 'author' },
     );
-    expect(res.successCount).toBe(1);
-    expect(res.failCount).toBe(1);
+    expect(res.successCount).toBe(2);
+    expect(res.failCount).toBe(0);
     expect(res.totalRows).toBe(2);
-    // 合法行已落库，非法行未落库
+    // 科目就是题库：即使文件中的科目文本过长，也由目标题库名称覆盖。
     expect(await countByStem('bank-security', '合法导入题A')).toBe(1);
-    expect(await countByStem('bank-security', '超长科目导入题')).toBe(0);
+    expect(await countByStem('bank-security', '超长科目导入题')).toBe(1);
+    const rows = await query<RowDataPacket[]>(
+      `SELECT subject, subject_id FROM questions WHERE bank_id = ? AND stem = ? LIMIT 1`,
+      ['bank-security', '超长科目导入题'],
+    );
+    expect(rows[0]?.subject).toBe('安全知识题库');
+    expect(rows[0]?.subject_id).toBe('bank-security');
   });
 
   it('commit：批次写入失败 → 已写入的题目连同批次整体回滚', async () => {

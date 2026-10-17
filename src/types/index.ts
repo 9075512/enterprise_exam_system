@@ -54,6 +54,9 @@ export interface User {
   departmentId: string;
   /** 所属科室名称；无科室时为 ''（由后端 login / me / users 列表返回） */
   departmentName: string;
+  positionId: string;
+  positionName: string;
+  groupIds: string[];
   /** 邮箱（邮件通知接收地址；可为空串） */
   email: string;
   status: UserStatus;
@@ -131,10 +134,15 @@ export interface QuestionBank {
   id: string;
   name: string;
   description: string;
-  /** 分类 / 科目域 */
-  category: string;
   /** 是否对外开放练题（默认 false）；仅 true 的题库可在公网练题中被访问 */
   allowPractice: boolean;
+  parentId: string | null;
+  sortOrder: number;
+  status: 'active' | 'disabled';
+  isLeaf: boolean;
+  effectiveStatus: 'active' | 'disabled';
+  canView: boolean;
+  canEdit: boolean;
   createdBy: string;
   /** ISO 8601 */
   createdAt: string;
@@ -144,6 +152,24 @@ export interface QuestionBank {
   authorIds: string[];
   /** 授权出题人姓名列表（与 authorIds 对应） */
   authorNames: string[];
+}
+
+export interface BankTreeNode extends QuestionBank { children: BankTreeNode[] }
+
+export interface BankAccessConfig {
+  bankId: string;
+  permissionMode: 'inherit' | 'override';
+  viewAll: boolean;
+  includeChildDepartments: boolean;
+  departmentIds: string[];
+  userIds: string[];
+  editorIds: string[];
+  effectiveFromBankId: string | null;
+  effectiveViewAll: boolean;
+  effectiveIncludeChildDepartments: boolean;
+  effectiveDepartmentIds: string[];
+  effectiveUserIds: string[];
+  effectiveEditorIds: string[];
 }
 
 /** 题库复制结果（v1.8⑤ U5；含内容去重复用计数） */
@@ -213,6 +239,8 @@ export interface Question {
   defaultScore: number;
   analysis: string;
   subject: string;
+  subjectId: string | null;
+  status: 'active' | 'disabled';
   /** 题目难度（v3.2；null = 未标注） */
   difficulty: QuestionDifficulty | null;
   /** 知识点标签（多标签，v1.7②；空数组 = 未打标签） */
@@ -298,6 +326,10 @@ export interface Exam {
   paperId: string;
   /** 参与科室 id 列表（多选） */
   departmentIds: string[];
+  includeUserIds: string[];
+  excludeUserIds: string[];
+  audienceTemplateId: string | null;
+  audienceMode: 'dynamic' | 'frozen';
   /** 开始时间 ISO 8601 */
   startTime: string;
   /** 截止时间 ISO 8601 */
@@ -400,6 +432,7 @@ export interface ExamRecord {
   /** 是否到时自动交卷 */
   autoSubmitted: boolean;
   score: number;
+  gradeLabel: string;
   cheatEvents: CheatEvent[];
   /**
    * 以下展示字段**仅「记录详情」接口 `GET /records/:id` 返回**（后端 JOIN 得出），
@@ -542,7 +575,6 @@ export interface QuestionFilter {
 /** 试题批量编辑输入（v1.7②；仅提交需要修改的字段） */
 export interface QuestionBatchEditInput {
   ids: string[];
-  subject?: string;
   tags?: string[];
   /** append（追加，默认）/ replace（覆盖） */
   tagsMode?: 'append' | 'replace';
@@ -576,7 +608,6 @@ export interface QuestionSaveInput {
   answer: number[] | string[];
   defaultScore: number;
   analysis?: string;
-  subject?: string;
   /** 题目难度（v3.2；null / 省略 = 未标注） */
   difficulty?: QuestionDifficulty | null;
   /** 知识点标签（v1.7②；最多 10 个，单个 ≤32 字） */
@@ -601,6 +632,9 @@ export interface ExamSaveInput {
   name: string;
   paperId: string;
   departmentIds: string[];
+  includeUserIds?: string[];
+  excludeUserIds?: string[];
+  audienceTemplateId?: string | null;
   startTime: string;
   endTime: string;
   durationMinutes: number;
@@ -703,6 +737,7 @@ export type AuditAction =
   | 'exam.extend_time'
   /** 监考强制交卷（v1.7④ T3） */
   | 'record.force_submit'
+  | 'record.resume_allow'
   /** 历史成绩归档（v1.7④ T5） */
   | 'system.archive'
   /** 导出审计日志（v1.7②） */
@@ -714,7 +749,9 @@ export type AuditAction =
   /** 编辑内容（公告 / 轮播图，v1.9⑥） */
   | 'content.update'
   /** 删除内容（公告 / 轮播图，v1.9⑥） */
-  | 'content.delete';
+  | 'content.delete'
+  | 'practice.settings_update'
+  | 'question-feedback.update';
 
 /** 审计目标类型 */
 export type AuditTargetType =
@@ -731,7 +768,8 @@ export type AuditTargetType =
   /** 公告（v1.9⑥） */
   | 'announcement'
   /** 轮播图（v1.9⑥） */
-  | 'banner';
+  | 'banner'
+  | 'question_feedback';
 
 /** 操作审计日志 */
 export interface AuditLog {
@@ -836,6 +874,8 @@ export interface ExamMonitorRow {
   autoSubmitted: boolean;
   /** 监控记录 id；未开始为空串 */
   recordId: string;
+  /** 管理员恢复模式下，是否已放行下一次进入。 */
+  resumeAllowed: boolean;
 }
 
 /** 监考汇总 */
@@ -966,8 +1006,11 @@ export interface ExamException {
  * 因此新增字段不会导致旧数据不可用。
  */
 export interface SystemSettings {
-  /** 题库分类候选项，由管理员维护。 */
-  bankCategories: string[];
+  gradeBands: Array<{ name: string; minPercent: number }>;
+  reviewAnonymous: boolean;
+  scoreDetailVisible: boolean;
+  retakeScorePolicy: 'latest' | 'highest';
+  abnormalExitResumePolicy: 'auto' | 'admin_required';
   /** 新建考试默认时长（分钟） */
   examDefaultDuration: number;
   /** 新建考试默认及格线 */
@@ -1134,6 +1177,87 @@ export interface PracticeSettings {
   /** 打卡与成就模块开关（v2.0⑤） */
   achievementEnabled: boolean;
 }
+
+/** 考试端内置练题所需的轻量用户信息。 */
+export interface PracticeUser {
+  id: string;
+  username: string;
+  name: string;
+  role: Role;
+  departmentId?: string;
+  departmentName?: string;
+}
+
+export interface PracticeLoginResult { token: string; user: PracticeUser }
+export interface PracticeCaptcha { captchaId: string; image: string }
+
+/** 可预览、可练习的题库；分类字段已从产品模型中移除。 */
+export interface PracticeBank {
+  id: string;
+  name: string;
+  description: string;
+  questionCount: number;
+}
+
+export interface PracticeBankTreeNode {
+  id: string;
+  name: string;
+  parentId: string | null;
+  sortOrder: number;
+  isLeaf: boolean;
+  questionCount: number;
+  description: string;
+  children: PracticeBankTreeNode[];
+}
+
+export interface PracticeQuestion {
+  id: string;
+  type: QuestionType;
+  stem: string;
+  options: string[];
+  subject: string;
+  bankId: string;
+}
+
+/** 练习作答会话（与管理端监控记录分开建模）。 */
+export interface PracticeSession {
+  id: string;
+  sessionToken: string;
+  questionIds: string[];
+  total: number;
+}
+
+export interface PracticeCheckResult {
+  correct: boolean;
+  correctAnswer: number[];
+  analysis: string;
+  type: QuestionType;
+  answerVisible?: boolean;
+  analysisVisible?: boolean;
+}
+
+export interface PracticeProgress {
+  id: string;
+  userId: string;
+  bankId: string;
+  lastQuestionId: string | null;
+  doneCount: number;
+  correctCount: number;
+  updatedAt: string;
+}
+
+export interface PracticeWrongQuestion extends PracticeQuestion { wrongCount: number; lastWrongAt: string }
+export interface PracticeFavoriteQuestion extends PracticeQuestion { favoritedAt: string }
+export type PracticeMode = 'sequence' | 'random';
+export interface PracticeSessionInput { bankId: string; mode?: PracticeMode; count?: number; types?: QuestionType[] }
+export interface PracticeDailyTask { enabled: boolean; date: string; questionIds: string[]; total: number; doneCount: number; correctCount: number; completed: boolean; streakDays: number }
+export interface PracticeReportSummary { doneTotal: number; correctTotal: number; accuracy: number; wrongTotal: number; favoriteTotal: number; streakDays: number; todayDone: number; todayTotal: number; dailyEnabled: boolean }
+export interface PracticeTrendPoint { date: string; doneCount: number; correctCount: number; accuracy: number }
+export interface PracticeSubjectStat { subject: string; doneCount: number; correctCount: number; accuracy: number; weak: boolean }
+export interface PracticeBankStat { bankId: string; bankName: string; doneCount: number; totalCount: number; accuracy: number }
+export interface PracticeConfig { defaultPracticeMode: PracticeMode; sessionMinCount: number; sessionMaxCount: number; showAnswer: boolean; showAnalysis: boolean; reportEnabled: boolean; wrongBookEnabled: boolean; favoriteEnabled: boolean; dailyEnabled: boolean; achievementEnabled: boolean }
+export interface PracticeBadge { key: string; name: string; desc: string; target: number; current: number; unlocked: boolean }
+export interface PracticeAchievements { enabled: boolean; streakDays: number; bestStreak: number; answeredTotal: number; correctTotal: number; accuracy: number; wrongTotal: number; favoriteTotal: number; dailyCompleted: number; badges: PracticeBadge[]; unlockedCount: number; generatedAt: string }
 
 // ============================================================
 // v1.5 增量类型：补考 / 消息通知 / 菜单权限 / 用户导入
@@ -1458,3 +1582,22 @@ export interface HomeConfigOverview {
   globalShortcuts: HomeShortcut[];
   globalRecommendedBanks: HomeRecommendedBank[];
 }
+
+/* 核心功能补齐共享类型 */
+export interface Subject { id: string; name: string; parentId: string | null; sortOrder: number; status: 'active' | 'disabled'; createdAt: string; updatedAt: string }
+export interface Position { id: string; name: string; description: string; createdAt: string; updatedAt: string }
+export interface UserGroup { id: string; name: string; description: string; userIds: string[]; createdAt: string; updatedAt: string }
+export type GrantPrincipalType = 'role' | 'group' | 'position' | 'user';
+export interface SubjectGrant { id: string; subjectId: string; principalType: GrantPrincipalType; principalId: string; effect: 'allow' | 'deny'; canView: boolean; canEdit: boolean }
+export interface MenuOverride { userId: string; menuKey: string; effect: 'allow' | 'deny' }
+export interface PaperTemplate { id: string; name: string; description: string; config: Record<string, unknown>; createdBy: string; createdAt: string; updatedAt: string }
+export interface AudienceTemplateRules { departmentIds: string[]; groupIds: string[]; positionIds: string[]; includeUserIds: string[]; excludeUserIds: string[]; includeSubDepartments: boolean; randomCount: number | null }
+export interface AudienceTemplate { id: string; name: string; description: string; rules: AudienceTemplateRules; createdBy: string; createdAt: string; updatedAt: string }
+export interface ExamParticipant { examId: string; userId: string; username: string; userName: string; departmentId: string | null; departmentName: string; source: 'department' | 'template' | 'include' | 'legacy'; admissionNo: string; createdAt: string }
+export interface AdmissionTicket { admissionNo: string; examId: string; examName: string; userId: string; username: string; userName: string; departmentName: string; startTime: string; endTime: string; durationMinutes: number; examMode: 'open' | 'closed' }
+export type QuestionFeedbackStatus = 'pending' | 'processing' | 'resolved' | 'closed';
+export interface QuestionFeedback { id: string; questionId: string; userId: string; userName: string; source: 'exam' | 'practice'; sourceRefId: string | null; category: string; content: string; status: QuestionFeedbackStatus; reply: string; handledBy: string | null; handledAt: string | null; createdAt: string; updatedAt: string }
+export interface DuplicateQuestionGroup { fingerprint: string; count: number; questions: Array<{ id: string; bankId: string; bankName: string; type: QuestionType; stem: string; subject: string; status: 'active' | 'disabled'; createdAt: string }> }
+export type PracticeSessionStatus = 'active' | 'completed' | 'exited' | 'offline';
+export interface PracticeSessionMonitor { id: string; userId: string; userName: string; departmentName: string; bankId: string; bankName: string; mode: string; questionCount: number; answeredCount: number; correctCount: number; status: PracticeSessionStatus; startedAt: string; lastSeenAt: string; endedAt: string | null }
+export interface PracticeMonitorSummary { activeUsers: number; sessionTotal: number; dailyActiveUsers: number; answerTotal: number; averageCorrectRate: number; wrongConsolidationRate: number; generatedAt: string }

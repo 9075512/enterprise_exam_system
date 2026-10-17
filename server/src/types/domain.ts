@@ -39,6 +39,9 @@ export interface UserDto {
   departmentId: string;
   /** 所属科室名称；无科室时为 '' */
   departmentName: string;
+  positionId: string;
+  positionName: string;
+  groupIds: string[];
   /** 邮箱（邮件通知接收地址；可为空串） */
   email: string;
   status: UserStatus;
@@ -127,10 +130,15 @@ export interface BankDto {
   id: string;
   name: string;
   description: string;
-  /** 分类 / 科目域 */
-  category: string;
   /** 是否对外开放练题（默认 false）；仅 true 的题库可在公网练题中被访问 */
   allowPractice: boolean;
+  parentId: string | null;
+  sortOrder: number;
+  status: 'active' | 'disabled';
+  isLeaf: boolean;
+  effectiveStatus: 'active' | 'disabled';
+  canView: boolean;
+  canEdit: boolean;
   createdBy: string;
   createdAt: string;
   /** 派生统计：题库存题数（不落列） */
@@ -139,6 +147,28 @@ export interface BankDto {
   authorIds: string[];
   /** 授权出题人姓名列表（与 authorIds 对应） */
   authorNames: string[];
+}
+
+/** 题库树节点；children 仅在树接口返回。 */
+export interface BankTreeNode extends BankDto {
+  children: BankTreeNode[];
+}
+
+/** 节点自身权限配置及当前生效配置。 */
+export interface BankAccessConfig {
+  bankId: string;
+  permissionMode: 'inherit' | 'override';
+  viewAll: boolean;
+  includeChildDepartments: boolean;
+  departmentIds: string[];
+  userIds: string[];
+  editorIds: string[];
+  effectiveFromBankId: string | null;
+  effectiveViewAll: boolean;
+  effectiveIncludeChildDepartments: boolean;
+  effectiveDepartmentIds: string[];
+  effectiveUserIds: string[];
+  effectiveEditorIds: string[];
 }
 
 /** 题库详情 DTO（含被引用统计） */
@@ -204,6 +234,8 @@ export interface QuestionDto {
   defaultScore: number;
   analysis: string;
   subject: string;
+  subjectId: string | null;
+  status: 'active' | 'disabled';
   /** 题目难度（v3.2；null = 未标注） */
   difficulty: QuestionDifficulty | null;
   /** 知识点标签（多标签，v1.7②；空数组 = 未打标签） */
@@ -376,6 +408,14 @@ export interface ExamDto {
   paperId: string;
   /** 参与科室 id 列表（多选） */
   departmentIds: string[];
+  /** 人员范围：显式加入的用户。 */
+  includeUserIds: string[];
+  /** 人员范围：显式排除的用户（优先级最高）。 */
+  excludeUserIds: string[];
+  /** 应用的抽考模板；名单冻结后模板变化不反向影响考试。 */
+  audienceTemplateId: string | null;
+  /** dynamic 仅用于兼容旧考试；新建/重新保存后均为 frozen。 */
+  audienceMode: 'dynamic' | 'frozen';
   /** ISO 8601 */
   startTime: string;
   /** ISO 8601 */
@@ -486,6 +526,8 @@ export interface ExamRecordDto {
   /** 是否到时自动交卷 */
   autoSubmitted: boolean;
   score: number;
+  /** 交卷/阅卷时按当时等级规则冻结。 */
+  gradeLabel: string;
   cheatEvents: CheatEvent[];
   /** 考试名称（仅详情接口 GET /records/:id 返回） */
   examName?: string;
@@ -595,6 +637,8 @@ export interface ExamMonitorRowDto {
   autoSubmitted: boolean;
   /** 监控记录 id；未开始为空串 */
   recordId: string;
+  /** 管理员恢复模式下，是否已放行下一次进入。 */
+  resumeAllowed: boolean;
 }
 
 /** 监考汇总（v1.7④ T3） */
@@ -695,6 +739,12 @@ export interface MaintenanceStatsDto {
  * 读库时若旧数据缺字段，统一回退到 `modules/settings/settings.defaults.ts`。
  */
 export interface SystemSettings {
+  /** 按百分比降序匹配的成绩等级；不替代考试及格线。 */
+  gradeBands: Array<{ name: string; minPercent: number }>;
+  reviewAnonymous: boolean;
+  scoreDetailVisible: boolean;
+  retakeScorePolicy: 'latest' | 'highest';
+  abnormalExitResumePolicy: 'auto' | 'admin_required';
   /** 题库分类候选项，由管理员维护。 */
   bankCategories: string[];
   /** 新建考试默认时长（分钟） */
@@ -846,10 +896,21 @@ export interface PracticeLoginResult {
 export interface PracticeBankDto {
   id: string;
   name: string;
-  category: string;
   description: string;
   /** 题库内题数 */
   questionCount: number;
+}
+
+/** 练题端可见科目树；目录节点仅用于导航。 */
+export interface PracticeBankTreeNodeDto {
+  id: string;
+  name: string;
+  parentId: string | null;
+  sortOrder: number;
+  isLeaf: boolean;
+  questionCount: number;
+  description: string;
+  children: PracticeBankTreeNodeDto[];
 }
 
 /** 练题题目 DTO（**不含** answer / analysis，答案与解析仅经 check 接口逐题下发） */
@@ -869,6 +930,7 @@ export interface PracticeQuestionDto {
  * sessionToken 载荷 `{sub, bankId, qids, mode}`，check 时校验 `sub` 与登录态一致、`questionId ∈ qids`、未过期。
  */
 export interface PracticeSession {
+  id: string;
   sessionToken: string;
   questionIds: string[];
   total: number;
@@ -1285,6 +1347,7 @@ export type AuditAction =
   | 'exam.extend_time'
   /** 监考强制交卷（v1.7④ T3） */
   | 'record.force_submit'
+  | 'record.resume_allow'
   /** 历史成绩归档（v1.7④ T5） */
   | 'system.archive'
   /** 导出审计日志（v1.7②） */
@@ -1296,7 +1359,9 @@ export type AuditAction =
   /** 编辑内容（公告 / 轮播图，v1.9⑥） */
   | 'content.update'
   /** 删除内容（公告 / 轮播图，v1.9⑥） */
-  | 'content.delete';
+  | 'content.delete'
+  | 'practice.settings_update'
+  | 'question-feedback.update';
 
 /** 审计目标类型 */
 export type AuditTargetType =
@@ -1313,7 +1378,8 @@ export type AuditTargetType =
   /** 公告（v1.9⑥） */
   | 'announcement'
   /** 轮播图（v1.9⑥） */
-  | 'banner';
+  | 'banner'
+  | 'question_feedback';
 
 /** 操作审计日志 DTO（自包含，actor 删除后仍可读） */
 export interface AuditLogDto {
@@ -1657,3 +1723,25 @@ export interface HomeConfigOverviewDto {
   globalShortcuts: HomeShortcutDto[];
   globalRecommendedBanks: HomeRecommendedBankDto[];
 }
+
+/* ============================================================
+ * 核心功能补齐：科目 / 组织 / 模板 / 考试人员 / 题目质量 / 练题监控
+ * ============================================================ */
+
+export interface SubjectDto { id: string; name: string; parentId: string | null; sortOrder: number; status: 'active' | 'disabled'; createdAt: string; updatedAt: string }
+export interface PositionDto { id: string; name: string; description: string; createdAt: string; updatedAt: string }
+export interface UserGroupDto { id: string; name: string; description: string; userIds: string[]; createdAt: string; updatedAt: string }
+export type GrantPrincipalType = 'role' | 'group' | 'position' | 'user';
+export interface SubjectGrantDto { id: string; subjectId: string; principalType: GrantPrincipalType; principalId: string; effect: 'allow' | 'deny'; canView: boolean; canEdit: boolean }
+export interface MenuOverrideDto { userId: string; menuKey: string; effect: 'allow' | 'deny' }
+export interface PaperTemplateDto { id: string; name: string; description: string; config: Record<string, unknown>; createdBy: string; createdAt: string; updatedAt: string }
+export interface AudienceTemplateRulesDto { departmentIds: string[]; groupIds: string[]; positionIds: string[]; includeUserIds: string[]; excludeUserIds: string[]; includeSubDepartments: boolean; randomCount: number | null }
+export interface AudienceTemplateDto { id: string; name: string; description: string; rules: AudienceTemplateRulesDto; createdBy: string; createdAt: string; updatedAt: string }
+export interface ExamParticipantDto { examId: string; userId: string; username: string; userName: string; departmentId: string | null; departmentName: string; source: 'department' | 'template' | 'include' | 'legacy'; admissionNo: string; createdAt: string }
+export interface AdmissionTicketDto { admissionNo: string; examId: string; examName: string; userId: string; username: string; userName: string; departmentName: string; startTime: string; endTime: string; durationMinutes: number; examMode: 'open' | 'closed' }
+export type QuestionFeedbackStatus = 'pending' | 'processing' | 'resolved' | 'closed';
+export interface QuestionFeedbackDto { id: string; questionId: string; userId: string; userName: string; source: 'exam' | 'practice'; sourceRefId: string | null; category: string; content: string; status: QuestionFeedbackStatus; reply: string; handledBy: string | null; handledAt: string | null; createdAt: string; updatedAt: string }
+export interface DuplicateQuestionGroupDto { fingerprint: string; count: number; questions: Array<{ id: string; bankId: string; bankName: string; type: QuestionType; stem: string; subject: string; status: 'active' | 'disabled'; createdAt: string }> }
+export type PracticeSessionStatus = 'active' | 'completed' | 'exited' | 'offline';
+export interface PracticeSessionDto { id: string; userId: string; userName: string; departmentName: string; bankId: string; bankName: string; mode: string; questionCount: number; answeredCount: number; correctCount: number; status: PracticeSessionStatus; startedAt: string; lastSeenAt: string; endedAt: string | null }
+export interface PracticeMonitorSummaryDto { activeUsers: number; sessionTotal: number; dailyActiveUsers: number; answerTotal: number; averageCorrectRate: number; wrongConsolidationRate: number; generatedAt: string }

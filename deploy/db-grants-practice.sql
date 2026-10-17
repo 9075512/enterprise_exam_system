@@ -27,12 +27,15 @@ GRANT SELECT (id, username, password_hash, name, role, department_id, status)
   ON `enterprise_exam_system`.`users` TO 'practice_app'@'%';
 
 -- 3.1 科室名（仅回显本人科室）：departments 仅列级 SELECT id/name，绝不写入
-GRANT SELECT (id, name)
+GRANT SELECT (id, name, parent_id)
   ON `enterprise_exam_system`.`departments` TO 'practice_app'@'%';
 
 -- 4. 题域只读（仅允许读取；题目内容由应用层按 allow_practice=1 过滤）
 GRANT SELECT ON `enterprise_exam_system`.`questions`        TO 'practice_app'@'%';
 GRANT SELECT ON `enterprise_exam_system`.`question_banks`   TO 'practice_app'@'%';
+GRANT SELECT ON `enterprise_exam_system`.`bank_view_departments` TO 'practice_app'@'%';
+GRANT SELECT ON `enterprise_exam_system`.`bank_view_users`       TO 'practice_app'@'%';
+GRANT SELECT ON `enterprise_exam_system`.`bank_authors`          TO 'practice_app'@'%';
 
 -- 5. 练题自身数据：读写
 GRANT SELECT, INSERT, UPDATE, DELETE ON `enterprise_exam_system`.`practice_progress`   TO 'practice_app'@'%';
@@ -43,21 +46,26 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON `enterprise_exam_system`.`practice_wrong
 GRANT SELECT, INSERT, UPDATE, DELETE ON `enterprise_exam_system`.`practice_favorites`   TO 'practice_app'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE ON `enterprise_exam_system`.`practice_daily_tasks` TO 'practice_app'@'%';
 
--- 5.2 二期新增：练题配置（**只读**）
+-- 5.2 实时练题监管：练题实例创建会话、写心跳与逐题日志；管理端只读聚合。
+GRANT SELECT, INSERT, UPDATE ON `enterprise_exam_system`.`practice_sessions`        TO 'practice_app'@'%';
+GRANT SELECT, INSERT ON `enterprise_exam_system`.`practice_session_answers`          TO 'practice_app'@'%';
+GRANT SELECT, INSERT ON `enterprise_exam_system`.`question_feedback`                  TO 'practice_app'@'%';
+
+-- 5.3 二期新增：练题配置（**只读**）
 --     写入由内网实例（管理端「系统设置 → 公网练题」）完成，练题实例绝不写配置。
 GRANT SELECT ON `enterprise_exam_system`.`practice_settings` TO 'practice_app'@'%';
 
--- 5.3 v1.4 新增：限流计数（练题实例需读写，用于 DB 持久化限流）
+-- 5.4 v1.4 新增：限流计数（练题实例需读写，用于 DB 持久化限流）
 --     仅此一张运行态表可写，不破坏业务表只读隔离；业务表（questions 等）仍只读。
 GRANT SELECT, INSERT, UPDATE, DELETE ON `enterprise_exam_system`.`rate_limit_buckets` TO 'practice_app'@'%';
 
--- 5.4 v1.9⑥ 新增：公告 / 轮播图（**只读**）
+-- 5.5 v1.9⑥ 新增：公告 / 轮播图（**只读**）
 --     内容由内网实例（管理端「公告与轮播」）维护；练题实例只读展示（GET /api/practice/feed）。
 --     注：展示查询会 JOIN users 取创建人姓名，users 的列级 SELECT 已包含 name（见第 3 段）。
 GRANT SELECT ON `enterprise_exam_system`.`announcements` TO 'practice_app'@'%';
 GRANT SELECT ON `enterprise_exam_system`.`banners`       TO 'practice_app'@'%';
 
--- 5.5 v2.0③ 新增：内容触达回执（练题端需写入，实现「双端都统计」）
+-- 5.6 v2.0③ 新增：内容触达回执（练题端需写入，实现「双端都统计」）
 --     announcement_reads / banner_clicks 为**运行态回执表**（仅追加、按用户+端去重），
 --     不承载业务主数据；练题实例可读写，业务表（announcements / banners 等）仍只读。
 --     无 SELECT 时无法回读去重结果，故一并授予 SELECT。

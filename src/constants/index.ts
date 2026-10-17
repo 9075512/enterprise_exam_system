@@ -130,9 +130,6 @@ export const IMPORT_HEADERS = [
   '科目',
 ] as const;
 
-/** 题库默认分类（未填写时） */
-export const BANK_CATEGORY_DEFAULT = '未分类';
-
 /** 题库/导入相关文案 */
 export const BANK_TEXT = {
   /** 删除有题题库的二次强确认标题 */
@@ -193,12 +190,15 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'exam.exception_update': '设置特殊安排',
   'exam.extend_time': '监考加时',
   'record.force_submit': '监考强制交卷',
+  'record.resume_allow': '恢复异常退出续考',
   'system.archive': '历史成绩归档',
   'audit.export': '导出审计日志',
   'audit.cleanup': '清理过期审计日志',
   'content.create': '新建内容',
   'content.update': '编辑内容',
   'content.delete': '删除内容',
+  'practice.settings_update': '更新练题配置',
+  'question-feedback.update': '处理题目反馈',
 };
 
 /** 审计动作下拉选项 */
@@ -218,6 +218,7 @@ export const AUDIT_TARGET_TYPE_LABELS: Record<AuditTargetType, string> = {
   system: '系统维护',
   announcement: '公告',
   banner: '轮播图',
+  question_feedback: '题目反馈',
 };
 
 /** 审计目标类型下拉选项 */

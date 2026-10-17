@@ -12,6 +12,7 @@ import type {
   ContentFeed,
   Page,
   PracticeBank,
+  PracticeBankTreeNode,
   PracticeAchievements,
   PracticeBankStat,
   PracticeCheckResult,
@@ -98,6 +99,10 @@ export function listBanks(): Promise<PracticeBank[]> {
   return get<PracticeBank[]>('/practice/banks', undefined, AUTHED);
 }
 
+export function bankTree(): Promise<PracticeBankTreeNode[]> {
+  return get<PracticeBankTreeNode[]>('/practice/banks/tree', undefined, AUTHED);
+}
+
 /** 题库题目（分页；不含答案/解析） */
 export function questions(
   bankId: string,
@@ -123,6 +128,18 @@ export function questionsByIds(ids: string[]): Promise<PracticeQuestion[]> {
 /** 生成一次练习序列 */
 export function createSession(payload: PracticeSessionPayload): Promise<PracticeSession> {
   return post<PracticeSession>('/practice/sessions', payload, AUTHED);
+}
+/** 刷新练题会话在线状态。 */
+export function heartbeatSession(id: string): Promise<null> {
+  return post<null>(`/practice/sessions/${encodeURIComponent(id)}/heartbeat`, undefined, { ...AUTHED, suppressErrorToast: true });
+}
+/** 正常完成或主动退出练题会话。 */
+export function finishSession(id: string, status: 'completed' | 'exited'): Promise<null> {
+  return post<null>(`/practice/sessions/${encodeURIComponent(id)}/finish`, { status }, { ...AUTHED, suppressErrorToast: true });
+}
+/** 从当前练题结果提交题目纠错反馈。 */
+export function submitQuestionFeedback(payload: { questionId: string; sessionId: string; category: string; content: string }): Promise<unknown> {
+  return post('/practice/feedback', payload, AUTHED);
 }
 /** 练题端公开配置（默认模式 / 题量范围 / 答案可见性 / 页面入口开关，v1.9⑤） */
 export function getConfig(): Promise<PracticeConfig> {

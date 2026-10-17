@@ -4,7 +4,7 @@
  * 左右分栏 —— 左侧品牌区（渐变 + 能力清单），右侧登录表单。
  * 登录成功按 route.query.redirect 或角色首页跳转。
  */
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import { Collection, Lock, TrendCharts, User } from '@element-plus/icons-vue';
@@ -23,6 +23,15 @@ const settingsStore = useSettingsStore();
 onMounted(() => {
   void settingsStore.loadPublic();
 });
+
+// 登录页使用公开品牌配置，避免在页面模板或构建产物中固定系统名称。
+watch(
+  () => settingsStore.publicSettings.systemName,
+  (name) => {
+    if (name.trim()) document.title = name.trim();
+  },
+  { immediate: true },
+);
 
 const formRef = ref<FormInstance>();
 const form = reactive({ username: '', password: '', captcha: '' });
@@ -163,7 +172,7 @@ function backToCredentials(): void {
         <div class="login__logo">
           <span class="login__logo-mark">考</span>
           <span class="login__logo-name">
-            {{ settingsStore.publicSettings.systemShortName || '考试中心' }}
+            {{ settingsStore.publicSettings.systemShortName }}
             <small>EXAM CENTER</small>
           </span>
         </div>

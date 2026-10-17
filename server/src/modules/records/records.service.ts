@@ -23,6 +23,7 @@ import { getSettings } from '../settings/settings.service.js';
 import { shuffleSnapshot } from '../../utils/shuffle.js';
 import { notifyEvent } from '../../utils/notify.js';
 import * as auditService from '../audit/audit.service.js';
+import * as participantsService from '../exams/examParticipants.service.js';
 import crypto from 'node:crypto';
 import type {
   AppealStatus,
@@ -35,6 +36,11 @@ import type {
 } from '../../types/domain.js';
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
+
+function gradeLabel(score: number, total: number, bands: Array<{ name: string; minPercent: number }>): string {
+  const percent = total > 0 ? (score / total) * 100 : 0;
+  return [...bands].sort((a, b) => b.minPercent - a.minPercent).find((band) => percent >= band.minPercent)?.name ?? '';
+}
 
 /**
  * 判分口径唯一来源：自 `utils/grading.js` 抽出（考试与练题共用）。
@@ -70,6 +76,7 @@ export async function startExam(
   const examRow = await examsRepo.findById(examId);
   if (!examRow) throw notFound('考试不存在或已被删除');
   const exam = mapExamRow(examRow);
+  await participantsService.assertParticipant(examId, user.id);
 
   // 特殊安排（v1.7①）：免考拒绝；加时下发；额外次数并入上限
   const exception = await exceptionsRepo.findByExamAndUser(examId, user.id);
@@ -83,9 +90,15 @@ export async function startExam(
   if (status === 'not_started') throw badRequest('考试尚未开始，请在规定时间内参加');
   if (status === 'ended') throw badRequest('考试已结束，无法进入');
 
-  // 续考幂等：存在进行中记录直接返回
+  // 续考幂等：管理员恢复模式下，异常退出后必须先由管理员放行。
   const inProgress = await repo.findInProgressByExamAndUser(examId, user.id);
-  if (inProgress) return { ...mapRecordRow(inProgress), extraMinutes };
+  if (inProgress) {
+    const resumeSettings = await getSettings();
+    if (resumeSettings.abnormalExitResumePolicy === 'admin_required' && !Boolean(inProgress.resume_allowed)) {
+      throw forbidden('本次考试需要管理员恢复后才能继续作答');
+    }
+    return { ...mapRecordRow(inProgress), extraMinutes };
+  }
 
   // 次数上限校验（补考：存在已通过申请时额外授予 1 次；特殊安排：额外次数）
   const used = await repo.countSubmittedByExamAndUser(examId, user.id);
@@ -191,10 +204,12 @@ export async function submit(recordId: string, userId: string, auto: boolean): P
   const record = mapRecordRow(row);
   const score = grade(record); // 客观题 + 填空自动判分；简答记 0（阅卷后补）
   const hasSubjective = record.paperSnapshot.questions.some((sq) => sq.question.type === 'short');
+  const settings = await getSettings();
   await repo.submit(recordId, {
     submittedAt: nowDb(),
     autoSubmitted: auto,
     score,
+    gradeLabel: hasSubjective ? '' : gradeLabel(score, record.paperSnapshot.totalScore, settings.gradeBands),
     status: hasSubjective ? 'pending_review' : 'submitted',
   });
   const updated = await repo.findById(recordId);
@@ -223,7 +238,25 @@ export async function getById(recordId: string, user: { id: string; role: Role }
   const row = await repo.findDetailById(recordId);
   if (!row) throw notFound('考试记录不存在');
   if (user.role === 'examinee' && row.user_id !== user.id) throw forbidden('无权查看他人的考试记录');
-  const dto = mapRecordDetailRow(row);
+  const settings = await getSettings();
+  if (user.role === 'examinee' && row.status === 'in_progress' && settings.abnormalExitResumePolicy === 'admin_required') {
+    if (!Boolean(row.resume_allowed)) throw forbidden('本次考试需要管理员恢复后才能继续作答');
+    // 首次进入或管理员恢复只放行一次；页面重新载入时必须再次由管理员恢复。
+    await repo.setResumeAllowed(recordId, false);
+  }
+  let dto = mapRecordDetailRow(row);
+  if (user.role !== 'examinee' && settings.reviewAnonymous && dto.status === 'pending_review') {
+    dto = { ...dto, userName: '匿名考生', departmentName: '' };
+  }
+  if (user.role === 'examinee' && !settings.scoreDetailVisible && dto.status !== 'in_progress') {
+    dto = {
+      ...dto,
+      answers: {}, subjectiveScores: {}, reviewNotes: {},
+      paperSnapshot: { ...dto.paperSnapshot, questions: dto.paperSnapshot.questions.map((sq) => ({
+        ...sq, question: { ...sq.question, answer: [], analysis: '' },
+      })) },
+    };
+  }
   // 考生视角：仅暴露「勾选同步」的评语，隐藏存疑等内部标记（服务端强制，不依赖前端过滤）
   const reviewNotes = user.role === 'examinee' ? candidateReviewNotes(dto.reviewNotes) : dto.reviewNotes;
   // 特殊安排：加时（供答题页倒计时使用）
@@ -243,6 +276,7 @@ export async function listMy(
 ): Promise<Page<ExamRecordDto>> {
   const paging = normalizePaging(page, pageSize);
   const kw = keyword?.trim() || undefined; // 空串/纯空白 → 不过滤
+  // 历史明细保留全部尝试；最终成绩口径由考试列表、补考资格与报表按策略选取。
   const [rows, total] = await Promise.all([
     repo.listMySubmitted(userId, paging, kw),
     repo.countMySubmitted(userId, kw),
@@ -256,6 +290,16 @@ export async function listMy(
     paging.page,
     paging.pageSize,
   );
+}
+
+/** 管理员允许一次异常退出续考。 */
+export async function allowResume(recordId: string, operatorId: string): Promise<ExamRecordDto> {
+  const row = await repo.findById(recordId);
+  if (!row) throw notFound('考试记录不存在');
+  if (row.status !== 'in_progress') throw conflict('仅进行中的答卷可以恢复');
+  await repo.setResumeAllowed(recordId, true);
+  await auditService.record({ actorId: operatorId, action: 'record.resume_allow', targetType: 'record', targetId: recordId });
+  return mapRecordRow((await repo.findById(recordId))!);
 }
 
 /** 某场考试全部记录（admin，分页）。 */
@@ -289,7 +333,11 @@ export async function listPending(
 ): Promise<Page<ExamRecordDto>> {
   const paging = normalizePaging(page, pageSize);
   const [rows, total] = await Promise.all([repo.listPending(paging, examId), repo.countPending(examId)]);
-  return buildPage(rows.map(mapRecordDetailRow), total, paging.page, paging.pageSize);
+  const settings = await getSettings();
+  return buildPage(rows.map((row) => {
+    const item = mapRecordDetailRow(row);
+    return settings.reviewAnonymous ? { ...item, userName: '匿名考生', departmentName: '' } : item;
+  }), total, paging.page, paging.pageSize);
 }
 
 /** 归一化逐题阅卷备注：校验归属、裁剪评语、剔除空条目（评语空则不带「考生可见」）。 */
@@ -357,8 +405,8 @@ export async function review(
     if (isAnswerCorrect(sq.question, record.answers[sq.questionId])) objectiveTotal += sq.score;
   }
   const finalScore = round1(objectiveTotal + subjectiveTotal);
-
-  await repo.updateReview(recordId, { subjectiveScores, score: finalScore, reviewNotes: notes });
+  const settings = await getSettings();
+  await repo.updateReview(recordId, { subjectiveScores, score: finalScore, gradeLabel: gradeLabel(finalScore, record.paperSnapshot.totalScore, settings.gradeBands), reviewNotes: notes });
   const updated = await repo.findById(recordId);
   const dto = mapRecordRow(updated!);
 

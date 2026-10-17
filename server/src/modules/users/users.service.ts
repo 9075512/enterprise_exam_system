@@ -51,6 +51,8 @@ export async function create(
     name: string;
     role: Role;
     departmentId?: string;
+    positionId?: string;
+    groupIds?: string[];
     email?: string;
     status?: UserStatus;
     password?: string;
@@ -67,6 +69,7 @@ export async function create(
     throw badRequest('考生必须归属一个科室');
   }
   const email = normalizeEmail(input.email);
+  const positionId = normalizeDepartmentId(input.positionId);
 
   const existing = await repo.findByUsername(username);
   if (existing) {
@@ -87,10 +90,12 @@ export async function create(
     name,
     role: input.role,
     departmentId,
+    positionId,
     email,
     status: input.status ?? 'active',
     createdAt: nowDb(),
   });
+  await repo.setGroups(id, input.groupIds ?? []);
   const created = await repo.findById(id);
   const dto = mapUserRow(created!);
   await auditService.record({
@@ -112,6 +117,8 @@ export async function update(
     name: string;
     role: Role;
     departmentId?: string;
+    positionId?: string;
+    groupIds?: string[];
     email?: string;
     status?: UserStatus;
     password?: string;
@@ -131,6 +138,7 @@ export async function update(
     throw badRequest('考生必须归属一个科室');
   }
   const email = normalizeEmail(input.email);
+  const positionId = normalizeDepartmentId(input.positionId);
 
   const duplicate = await repo.findByUsername(username);
   if (duplicate && duplicate.id !== id) {
@@ -142,9 +150,11 @@ export async function update(
     name,
     role: input.role,
     departmentId,
+    positionId,
     email,
     status: input.status ?? current.status,
   });
+  await repo.setGroups(id, input.groupIds ?? mapUserRow(current).groupIds);
   if (input.password && input.password !== '') {
     const settings = await getSettings();
     assertPassword(input.password, settings);

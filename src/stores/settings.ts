@@ -31,7 +31,9 @@ export const useSettingsStore = defineStore('settings', () => {
 
   /** 合并后端返回值（缺字段回退默认值，兼容新增字段） */
   function apply(next: Partial<SystemSettings>): void {
-    settings.value = { ...SETTINGS_DEFAULTS, ...next };
+    // 服务端暂时仍可能返回旧版 bankCategories；新前端不再把题库分类带回设置表单。
+    const { bankCategories: _legacyBankCategories, ...supported } = next as Partial<SystemSettings> & { bankCategories?: unknown };
+    settings.value = { ...SETTINGS_DEFAULTS, ...supported };
     publicSettings.value = pickPublicSettings(settings.value);
   }
 

@@ -4,7 +4,7 @@
  * 分组是**纯展示层**结构：本文件只断言「可见菜单 → 分组 → 渲染结构」的映射，
  * 并锁死两条易被后续改动破坏的约定：
  *   1) 分组不改变菜单 key 集合（权限三重同步不破）；
- *   2) 组内仅 1 项时视图会渲染为顶层菜单项（因此分组不得出现「空组」）。
+ *   2) 普通单项组会平铺；学习中心保留“学习中心 → 在线练题”的二级结构。
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -18,9 +18,9 @@ import {
 } from './menuConfig';
 
 describe('getMenuGroups · 默认（未下发菜单权限）', () => {
-  it('admin 得到 5 个分组，顺序与分组定义一致', () => {
+  it('admin 得到 6 个分组，顺序与分组定义一致', () => {
     const groups = getMenuGroups('admin');
-    expect(groups.map((g) => g.key)).toEqual(['dashboard', 'resources', 'exam-ops', 'practice-ops', 'system']);
+    expect(groups.map((g) => g.key)).toEqual(['dashboard', 'resources', 'exam-ops', 'practice-ops', 'learning', 'system']);
   });
 
   it('admin 的全部菜单项落在已知分组内（无「其他」组）', () => {
@@ -30,9 +30,16 @@ describe('getMenuGroups · 默认（未下发菜单权限）', () => {
     expect(groups.some((g) => g.key === 'other')).toBe(false);
   });
 
-  it('组内菜单数与归属正确（教学资源 2 / 考试运营 7 / 组织与系统 7）', () => {
+  it('组内菜单数与归属正确（包含新增治理、监控和组织扩展入口）', () => {
     const map = Object.fromEntries(getMenuGroups('admin').map((g) => [g.key, g.items.map((i) => i.key)]));
-    expect(map.resources).toEqual(['banks', 'papers']);
+    expect(map.resources).toEqual([
+      'subjects',
+      'banks',
+      'papers',
+      'templates',
+      'question-feedback',
+      'duplicate-questions',
+    ]);
     expect(map['exam-ops']).toEqual([
       'exams',
       'retakes',
@@ -42,10 +49,12 @@ describe('getMenuGroups · 默认（未下发菜单权限）', () => {
       'content',
       'home-config',
     ]);
-    expect(map['practice-ops']).toEqual(['practice-settings']);
+    expect(map['practice-ops']).toEqual(['practice-settings', 'practice-monitor']);
+    expect(map.learning).toEqual(['practice']);
     expect(map.system).toEqual([
       'departments',
       'users',
+      'org-extensions',
       'permissions',
       'settings',
       'audit',
@@ -54,10 +63,11 @@ describe('getMenuGroups · 默认（未下发菜单权限）', () => {
     ]);
   });
 
-  it('examinee 只看到考生中心，且组内 5 项（首页 / 我的考试 / 我的成绩 / 我的补考 / 消息中心）', () => {
+  it('examinee 同时看到在线练题与考生中心', () => {
     const groups = getMenuGroups('examinee');
-    expect(groups.map((g) => g.key)).toEqual(['examinee']);
-    expect(groups[0].items.map((i) => i.key)).toEqual([
+    expect(groups.map((g) => g.key)).toEqual(['learning', 'examinee']);
+    expect(groups[0].items.map((i) => i.key)).toEqual(['practice']);
+    expect(groups[1].items.map((i) => i.key)).toEqual([
       'home',
       'my-exams',
       'my-scores',
@@ -66,11 +76,23 @@ describe('getMenuGroups · 默认（未下发菜单权限）', () => {
     ]);
   });
 
-  it('author 得到 教学资源(2) + 考试运营(1，仅人工阅卷)', () => {
+  it('author 得到教学资源治理菜单与人工阅卷', () => {
     const groups = getMenuGroups('author');
-    expect(groups.map((g) => g.key)).toEqual(['resources', 'exam-ops']);
-    expect(groups[0].items.map((i) => i.key)).toEqual(['banks', 'papers']);
+    expect(groups.map((g) => g.key)).toEqual(['resources', 'exam-ops', 'learning']);
+    expect(groups[0].items.map((i) => i.key)).toEqual([
+      'banks',
+      'papers',
+      'templates',
+      'question-feedback',
+    ]);
     expect(groups[1].items.map((i) => i.key)).toEqual(['reviews']);
+    expect(groups[2].items.map((i) => i.key)).toEqual(['practice']);
+  });
+
+  it('科目管理仅管理员可见，并位于题库管理之前', () => {
+    const adminResources = getMenuGroups('admin').find((g) => g.key === 'resources')!.items;
+    expect(adminResources.slice(0, 2).map((item) => item.key)).toEqual(['subjects', 'banks']);
+    expect(getMenuItems('author').some((item) => item.key === 'subjects')).toBe(false);
   });
 });
 

@@ -8,6 +8,8 @@
  * （`users` 只读校验）与 `utils/grading`（纯函数）；**无任何考试域依赖**。
  */
 import * as repo from './practice.repo.js';
+import * as banksRepo from '../banks/banks.repo.js';
+import * as bankAccess from '../banks/bankAccess.service.js';
 import type {
   PracticeQuestionRow,
   PracticeProgressRow,
@@ -34,6 +36,7 @@ import {
   unauthorized,
 } from '../../utils/errors.js';
 import { signSessionToken, verifySessionToken } from './practice.session.js';
+import * as sessionTracking from './practiceSessionTracking.service.js';
 import {
   addDays,
   bizDayRangeUtc,
@@ -46,6 +49,7 @@ import type {
   PracticeBadgeDto,
   PracticeBankDto,
   PracticeBankStatDto,
+  PracticeBankTreeNodeDto,
   PracticeCheckResult,
   PracticeDailyTaskDto,
   PracticeFavoriteQuestionDto,
@@ -68,16 +72,6 @@ import type {
 } from './practice.schema.js';
 
 /* ------------------------------ 映射 ------------------------------ */
-
-function mapBank(row: OpenBankRow): PracticeBankDto {
-  return {
-    id: row.id,
-    name: row.name,
-    category: row.category,
-    description: row.description,
-    questionCount: Number(row.question_count ?? 0),
-  };
-}
 
 /** 题目行 → DTO（**不含** answer/analysis）。 */
 function mapQuestion(row: PracticeQuestionRow): PracticeQuestionDto {
@@ -157,18 +151,61 @@ export async function me(userId: string): Promise<PracticeUserDto> {
 /* ------------------------------ 题库 / 题目 ------------------------------ */
 
 /** 对外开放练题的题库列表。 */
-export async function listBanks(): Promise<PracticeBankDto[]> {
-  const rows = await repo.listOpenBanks();
-  return rows.map(mapBank);
+async function accessiblePracticeBanks(userId: string) {
+  const user = await repo.findPracticeUserById(userId);
+  if (!user) throw unauthorized('登录状态已失效，请重新登录');
+  const rows = await banksRepo.list();
+  const access = await bankAccess.loadAccessRows();
+  const visible = [];
+  for (const row of rows) {
+    const permission = await bankAccess.permissionsFor(row.id, { id: user.id, role: user.role }, rows, access);
+    if (permission.canView && Number(row.child_count) === 0 && row.allow_practice && bankAccess.effectiveStatusFor(row.id, rows) === 'active') visible.push(row);
+  }
+  return { user, rows, access, visible };
+}
+
+async function requirePracticeBank(userId: string, bankId: string): Promise<OpenBankRow> {
+  const { visible } = await accessiblePracticeBanks(userId);
+  if (!visible.some((row) => row.id === bankId)) throw practiceBankUnavailable();
+  const bank = await repo.findOpenBankById(bankId);
+  if (!bank) throw practiceBankUnavailable();
+  return bank;
+}
+
+/** 对外开放且当前用户可浏览的叶子题库列表。 */
+export async function listBanks(userId: string): Promise<PracticeBankDto[]> {
+  const { visible } = await accessiblePracticeBanks(userId);
+  return visible.map((row) => ({ id: row.id, name: row.name, description: row.description, questionCount: Number(row.question_count) }));
+}
+
+/** 练题端科目树：保留可练叶子的祖先目录。 */
+export async function practiceTree(userId: string): Promise<PracticeBankTreeNodeDto[]> {
+  const { rows, visible } = await accessiblePracticeBanks(userId);
+  const visibleIds = new Set(visible.map((row) => row.id));
+  const keep = new Set<string>();
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  for (const leaf of visible) {
+    let cursor: typeof leaf | undefined = leaf;
+    while (cursor && !keep.has(cursor.id)) { keep.add(cursor.id); cursor = cursor.parent_id ? byId.get(cursor.parent_id) : undefined; }
+  }
+  const nodes = new Map<string, PracticeBankTreeNodeDto>();
+  for (const row of rows) if (keep.has(row.id)) nodes.set(row.id, {
+    id: row.id, name: row.name, parentId: row.parent_id, sortOrder: Number(row.sort_order),
+    isLeaf: visibleIds.has(row.id), questionCount: Number(row.question_count), description: row.description, children: [],
+  });
+  const roots: PracticeBankTreeNodeDto[] = [];
+  for (const node of nodes.values()) { const parent = node.parentId ? nodes.get(node.parentId) : undefined; if (parent) parent.children.push(node); else roots.push(node); }
+  const sort = (list: PracticeBankTreeNodeDto[]) => { list.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'zh-Hans-CN')); list.forEach((node) => sort(node.children)); };
+  sort(roots); return roots;
 }
 
 /** 题库题目分页（仅开放题库；DTO **不含**答案/解析）。 */
 export async function listQuestions(
+  userId: string,
   bankId: string,
   filter: { type?: QuestionType; subject?: string; page?: number; pageSize?: number },
 ): Promise<Page<PracticeQuestionDto>> {
-  const bank = await repo.findOpenBankById(bankId);
-  if (!bank) throw practiceBankUnavailable();
+  await requirePracticeBank(userId, bankId);
   const paging = normalizePaging(filter.page, filter.pageSize);
   const [rows, total] = await Promise.all([
     repo.listBankQuestions({
@@ -184,8 +221,10 @@ export async function listQuestions(
 }
 
 /** 按 id 批量取题（仅开放题库；DTO **不含**答案/解析），用于本地按会话组装题目。 */
-export async function getQuestionsByIds(ids: string[]): Promise<PracticeQuestionDto[]> {
+export async function getQuestionsByIds(userId: string, ids: string[]): Promise<PracticeQuestionDto[]> {
   const rows = await repo.listQuestionsByIds(ids);
+  const allowed = new Set((await accessiblePracticeBanks(userId)).visible.map((bank) => bank.id));
+  if (rows.some((row) => !allowed.has(row.bank_id))) throw practiceBankUnavailable();
   const map = new Map(rows.map((r) => [r.id, mapQuestion(r)]));
   // 保持入参顺序（即会话内的题目顺序）
   return ids
@@ -197,8 +236,7 @@ export async function getQuestionsByIds(ids: string[]): Promise<PracticeQuestion
 
 /** 生成一次练习序列（顺序 / 随机、题量、题型筛选）。 */
 export async function createSession(userId: string, input: PracticeSessionInput): Promise<PracticeSession> {
-  const bank = await repo.findOpenBankById(input.bankId);
-  if (!bank) throw practiceBankUnavailable();
+  await requirePracticeBank(userId, input.bankId);
   const settings = await practiceSettingsService.getPracticeSettings();
   // 练题方式：入参缺省时回退后台配置的默认模式（v1.9⑤）
   const mode = input.mode ?? settings.defaultPracticeMode;
@@ -214,13 +252,15 @@ export async function createSession(userId: string, input: PracticeSessionInput)
     random: mode === 'random',
     limit,
   });
+  const id = await sessionTracking.start(userId, input.bankId, mode, qids.length);
   const sessionToken = signSessionToken({
     sub: userId,
     bankId: input.bankId,
     qids,
     mode,
+    sid: id,
   });
-  return { sessionToken, questionIds: qids, total: qids.length };
+  return { id, sessionToken, questionIds: qids, total: qids.length };
 }
 
 /** 从错题本生成练习序列（可按题库过滤；跨库时 bankId 为空串）。 */
@@ -228,17 +268,19 @@ export async function createWrongReansSession(userId: string, bankId?: string): 
   await requireWrongBookEnabled();
   const scopedBankId = bankId?.trim() ?? '';
   if (scopedBankId !== '') {
-    const bank = await repo.findOpenBankById(scopedBankId);
-    if (!bank) throw practiceBankUnavailable();
+    await requirePracticeBank(userId, scopedBankId);
   }
-  const qids = await repo.listWrongQuestionIds(userId, scopedBankId);
+  const allowedBankIds = (await accessiblePracticeBanks(userId)).visible.map((bank) => bank.id);
+  const qids = await repo.listWrongQuestionIds(userId, scopedBankId, allowedBankIds);
+  const id = await sessionTracking.start(userId, scopedBankId || null, 'wrong-book', qids.length);
   const sessionToken = signSessionToken({
     sub: userId,
     bankId: scopedBankId,
     qids,
     mode: 'sequence',
+    sid: id,
   });
-  return { sessionToken, questionIds: qids, total: qids.length };
+  return { id, sessionToken, questionIds: qids, total: qids.length };
 }
 
 /* ------------------------------ 单题判分（即时） ------------------------------ */
@@ -256,6 +298,7 @@ export async function check(userId: string, input: PracticeCheckInput): Promise<
 
   const row = await repo.findQuestionForCheck(input.questionId);
   if (!row) throw practiceBankUnavailable();
+  await requirePracticeBank(userId, row.bank_id);
   // 双保险：题目必须属于会话指定的题库（跨库复习会话 bankId 为空时跳过）
   if (session.bankId && row.bank_id !== session.bankId) throw practiceBankUnavailable();
 
@@ -268,6 +311,7 @@ export async function check(userId: string, input: PracticeCheckInput): Promise<
   const settings = await practiceSettingsService.getPracticeSettings();
 
   await withTransaction(async (conn) => {
+    await sessionTracking.answer(session.sid, userId, input.questionId, normalized, correct, conn);
     // 统计口径：以「首次作答」为准（重做不覆盖首次）
     const existing = await repo.findAnswer(userId, input.questionId, conn);
     if (!existing) {
@@ -345,8 +389,7 @@ async function requireFavoriteEnabled(): Promise<void> {
 
 /** 查询我的练题进度（无记录返回零值 DTO）。 */
 export async function getProgress(userId: string, bankId: string): Promise<PracticeProgressDto> {
-  const bank = await repo.findOpenBankById(bankId);
-  if (!bank) throw practiceBankUnavailable();
+  await requirePracticeBank(userId, bankId);
   const row = await repo.findProgress(userId, bankId);
   return row ? mapProgress(row) : emptyProgress(userId, bankId);
 }
@@ -356,8 +399,7 @@ export async function saveProgress(
   userId: string,
   input: PracticeProgressPutInput,
 ): Promise<PracticeProgressDto> {
-  const bank = await repo.findOpenBankById(input.bankId);
-  if (!bank) throw practiceBankUnavailable();
+  await requirePracticeBank(userId, input.bankId);
   // 服务端权威：以 practice_answers 首答聚合重算，杜绝客户端伪造累加
   const { done, correct } = await repo.countAnswersByBank(userId, input.bankId);
   await repo.setProgressCounts({
@@ -381,9 +423,10 @@ export async function listWrongBook(
 ): Promise<Page<PracticeWrongQuestionDto>> {
   await requireWrongBookEnabled();
   const paging = normalizePaging(page, pageSize);
+  const allowedBankIds = (await accessiblePracticeBanks(userId)).visible.map((bank) => bank.id);
   const [rows, total] = await Promise.all([
-    repo.listWrongBook(userId, paging.page, paging.pageSize),
-    repo.countWrongBook(userId),
+    repo.listWrongBook(userId, paging.page, paging.pageSize, allowedBankIds),
+    repo.countWrongBook(userId, allowedBankIds),
   ]);
   return buildPage(rows.map(mapWrong), total, paging.page, paging.pageSize);
 }
@@ -418,10 +461,12 @@ export async function listFavorites(
 ): Promise<Page<PracticeFavoriteQuestionDto>> {
   await requireFavoriteEnabled();
   const bankId = filter.bankId?.trim() ?? '';
+  if (bankId) await requirePracticeBank(userId, bankId);
+  const allowedBankIds = (await accessiblePracticeBanks(userId)).visible.map((bank) => bank.id);
   const paging = normalizePaging(filter.page, filter.pageSize);
   const [rows, total] = await Promise.all([
-    repo.listFavorites(userId, bankId, paging.page, paging.pageSize),
-    repo.countFavorites(userId, bankId),
+    repo.listFavorites(userId, bankId, paging.page, paging.pageSize, allowedBankIds),
+    repo.countFavorites(userId, bankId, allowedBankIds),
   ]);
   return buildPage(rows.map(mapFavorite), total, paging.page, paging.pageSize);
 }
@@ -431,7 +476,9 @@ export async function listFavoriteIds(userId: string, bankId?: string): Promise<
   // 收藏功能关闭时返回空集（作答页收藏态回显用，不应因此报错）
   const s = await practiceSettingsService.getPracticeSettings();
   if (!s.favoriteEnabled) return [];
-  return repo.listFavoriteQuestionIds(userId, bankId);
+  if (bankId) await requirePracticeBank(userId, bankId);
+  const allowedBankIds = (await accessiblePracticeBanks(userId)).visible.map((bank) => bank.id);
+  return repo.listFavoriteQuestionIds(userId, bankId, allowedBankIds);
 }
 
 /**
@@ -445,10 +492,12 @@ export async function addFavorite(
   await requireFavoriteEnabled();
   const question = await repo.findQuestionForCheck(questionId);
   if (!question) throw practiceBankUnavailable();
+  await requirePracticeBank(userId, question.bank_id);
 
   const existing = await repo.findFavorite(userId, questionId);
   if (!existing) {
-    const [limit, current] = await Promise.all([favoriteLimit(), repo.countFavorites(userId)]);
+    const allowedBankIds = (await accessiblePracticeBanks(userId)).visible.map((bank) => bank.id);
+    const [limit, current] = await Promise.all([favoriteLimit(), repo.countFavorites(userId, '', allowedBankIds)]);
     if (current >= limit) throw practiceFavoriteLimit();
     await repo.insertFavorite({
       id: genId('pf-'),
@@ -457,7 +506,8 @@ export async function addFavorite(
       createdAt: nowDb(),
     });
   }
-  const total = await repo.countFavorites(userId);
+  const allowedBankIds = (await accessiblePracticeBanks(userId)).visible.map((bank) => bank.id);
+  const total = await repo.countFavorites(userId, '', allowedBankIds);
   return { favorited: true, favoriteTotal: total };
 }
 
@@ -468,7 +518,8 @@ export async function removeFavorite(
 ): Promise<{ favorited: boolean; favoriteTotal: number }> {
   await requireFavoriteEnabled();
   await repo.deleteFavorite(userId, questionId);
-  const total = await repo.countFavorites(userId);
+  const allowedBankIds = (await accessiblePracticeBanks(userId)).visible.map((bank) => bank.id);
+  const total = await repo.countFavorites(userId, '', allowedBankIds);
   return { favorited: false, favoriteTotal: total };
 }
 
@@ -480,17 +531,19 @@ export async function createFavoriteReansSession(
   await requireFavoriteEnabled();
   const scopedBankId = bankId?.trim() ?? '';
   if (scopedBankId !== '') {
-    const bank = await repo.findOpenBankById(scopedBankId);
-    if (!bank) throw practiceBankUnavailable();
+    await requirePracticeBank(userId, scopedBankId);
   }
-  const qids = await repo.listFavoriteQuestionIds(userId, scopedBankId);
+  const allowedBankIds = (await accessiblePracticeBanks(userId)).visible.map((bank) => bank.id);
+  const qids = await repo.listFavoriteQuestionIds(userId, scopedBankId, allowedBankIds);
+  const id = await sessionTracking.start(userId, scopedBankId || null, 'favorite', qids.length);
   const sessionToken = signSessionToken({
     sub: userId,
     bankId: scopedBankId,
     qids,
     mode: 'sequence',
+    sid: id,
   });
-  return { sessionToken, questionIds: qids, total: qids.length };
+  return { id, sessionToken, questionIds: qids, total: qids.length };
 }
 
 /* ============================================================
@@ -525,22 +578,31 @@ async function ensureDailyTask(
   settings: PracticeSettings,
 ): Promise<PracticeDailyTaskRow> {
   const existing = await repo.findDailyTask(userId, date);
-  if (existing) return existing;
+  if (existing) {
+    const allowed = new Set((await accessiblePracticeBanks(userId)).visible.map((bank) => bank.id));
+    const ids = parseJsonColumn<string[]>(existing.question_ids, []);
+    const rows = await repo.listQuestionsByIds(ids);
+    const filtered = ids.filter((id) => { const row = rows.find((item) => item.id === id); return Boolean(row && allowed.has(row.bank_id)); });
+    return { ...existing, question_ids: toJsonColumn(filtered), total: filtered.length } as PracticeDailyTaskRow;
+  }
 
   const types = settings.dailyTypes;
   const want = settings.dailyQuestionCount;
 
   let bankIds: string[] = [];
+  const allowedBankIds = (await accessiblePracticeBanks(userId)).visible.map((bank) => bank.id);
   if (settings.dailyBankScope === 'practiced') {
-    bankIds = await repo.listPracticedBankIds(userId);
+    bankIds = (await repo.listPracticedBankIds(userId)).filter((id) => allowedBankIds.includes(id));
+  } else {
+    bankIds = allowedBankIds;
   }
 
   const picked = await repo.listRandomQuestionIdsInBanks({ bankIds, types, limit: want });
 
-  if (picked.length < want && bankIds.length > 0) {
+  if (picked.length < want && allowedBankIds.length > 0) {
     const pickedSet = new Set(picked);
     const more = await repo.listRandomQuestionIdsInBanks({
-      bankIds: [],
+      bankIds: allowedBankIds,
       types,
       limit: want * 2,
     });
@@ -648,14 +710,16 @@ export async function createDailySession(userId: string): Promise<PracticeSessio
   if (qids.length < settings.dailyMinQuestionCount) {
     throw practiceDailyDisabled('今日暂无可练题目，请稍后再试');
   }
+  const id = await sessionTracking.start(userId, null, 'daily', qids.length);
   const sessionToken = signSessionToken({
     sub: userId,
     // 每日任务可能跨题库 → bankId 置空串，check 时跳过题库归属校验
     bankId: '',
     qids,
     mode: 'sequence',
+    sid: id,
   });
-  return { sessionToken, questionIds: qids, total: qids.length };
+  return { id, sessionToken, questionIds: qids, total: qids.length };
 }
 
 /* ============================================================
@@ -673,8 +737,8 @@ export async function getReportSummary(userId: string): Promise<PracticeReportSu
   const [total, today, wrongTotal, favoriteTotal, streakDays] = await Promise.all([
     repo.countAnswersTotal(userId),
     repo.countAnswersBetween(userId, startUtc, endUtc),
-    repo.countWrongBook(userId),
-    repo.countFavorites(userId),
+    repo.countWrongBook(userId, (await accessiblePracticeBanks(userId)).visible.map((bank) => bank.id)),
+    repo.countFavorites(userId, '', (await accessiblePracticeBanks(userId)).visible.map((bank) => bank.id)),
     computeStreakDays(userId, dayOffset),
   ]);
 
@@ -733,7 +797,8 @@ export async function getReportTrend(
 export async function getReportSubjects(userId: string): Promise<PracticeSubjectStatDto[]> {
   const settings = await practiceSettingsService.getPracticeSettings();
   if (!settings.reportEnabled) throw practiceFeatureDisabled('学习报告暂未开放');
-  const rows = await repo.listSubjectStats(userId);
+  const allowedBankIds = (await accessiblePracticeBanks(userId)).visible.map((bank) => bank.id);
+  const rows = await repo.listSubjectStats(userId, allowedBankIds);
   return rows.map((r) => {
     const accuracy = percent(r.correct, r.done);
     return {
@@ -750,7 +815,8 @@ export async function getReportSubjects(userId: string): Promise<PracticeSubject
 export async function getReportBanks(userId: string): Promise<PracticeBankStatDto[]> {
   const settings = await practiceSettingsService.getPracticeSettings();
   if (!settings.reportEnabled) throw practiceFeatureDisabled('学习报告暂未开放');
-  const rows = await repo.listBankStats(userId);
+  const allowedBankIds = (await accessiblePracticeBanks(userId)).visible.map((bank) => bank.id);
+  const rows = await repo.listBankStats(userId, allowedBankIds);
   return rows.map((r) => ({
     bankId: r.bankId,
     bankName: r.bankName,

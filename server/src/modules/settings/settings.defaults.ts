@@ -10,6 +10,16 @@ import { NOTIFY_TEMPLATES_DEFAULT } from '../../utils/notifyTemplate.js';
 
 /** 全部设置的默认值。 */
 export const DEFAULT_SETTINGS: SystemSettings = {
+  gradeBands: [
+    { name: '优秀', minPercent: 90 },
+    { name: '良好', minPercent: 80 },
+    { name: '及格', minPercent: 60 },
+    { name: '不及格', minPercent: 0 },
+  ],
+  reviewAnonymous: false,
+  scoreDetailVisible: true,
+  retakeScorePolicy: 'latest',
+  abnormalExitResumePolicy: 'auto',
   bankCategories: ['未分类', '安全知识', '企业文化'],
   examDefaultDuration: 60,
   examDefaultPassScore: 60,
@@ -39,10 +49,10 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   defaultPageSize: 20,
   importMaxRows: 2000,
   importMaxFileMb: 5,
-  systemName: '企业内部在线考试系统',
-  systemShortName: '在线考试系统',
+  systemName: 'XX煤矿考试学习系统',
+  systemShortName: 'XX煤矿考试学习系统',
   loginSlogan: '让考核更简单，让能力看得见。',
-  copyright: '© 2026 Enterprise Exam System',
+  copyright: '© 2026 XX煤矿考试学习系统',
   retakeDefaultEnabled: false,
   appealEnabled: true,
   appealWindowDays: 7,

@@ -12,7 +12,7 @@
  *  1) 种子题库默认对外开放 → 练题端题库列表非空、每日一练有题（回归护栏）；
  *  2) 全部关闭 → 题库列表为空、每日一练 total=0、题库内题目 1009；
  *  3) `POST /api/banks/practice/batch`：admin 批量开/关、幂等、空数组 1001、不存在 1004、author 1003；
- *     仅改 allow_practice（不动名称/分类/授权出题人）；审计 `bank.practice_flag` 留痕。
+ *     仅改 allow_practice（不动名称/授权出题人）；审计 `bank.practice_flag` 留痕。
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
@@ -197,24 +197,21 @@ describe('批量设置对外练题开放（POST /api/banks/practice/batch）', (
     expect((second.body.data as BankDto[]).every((b) => b.allowPractice)).toBe(true);
   });
 
-  it('只改 allow_practice，不动名称/分类/授权出题人', async () => {
+  it('只改 allow_practice，不动名称/授权出题人', async () => {
     const before = await query<RowDataPacket[]>(
       `SELECT (SELECT COUNT(*) FROM bank_authors WHERE bank_id = ?) AS ac,
-              (SELECT name FROM question_banks WHERE id = ?) AS nm,
-              (SELECT category FROM question_banks WHERE id = ?) AS ct`,
-      ['bank-security', 'bank-security', 'bank-security'],
+              (SELECT name FROM question_banks WHERE id = ?) AS nm`,
+      ['bank-security', 'bank-security'],
     );
     await batchFlag(adminToken, ['bank-security'], false);
     await batchFlag(adminToken, ['bank-security'], true);
     const after = await query<RowDataPacket[]>(
       `SELECT (SELECT COUNT(*) FROM bank_authors WHERE bank_id = ?) AS ac,
-              (SELECT name FROM question_banks WHERE id = ?) AS nm,
-              (SELECT category FROM question_banks WHERE id = ?) AS ct`,
-      ['bank-security', 'bank-security', 'bank-security'],
+              (SELECT name FROM question_banks WHERE id = ?) AS nm`,
+      ['bank-security', 'bank-security'],
     );
     expect(after[0].ac).toBe(before[0].ac);
     expect(after[0].nm).toBe(before[0].nm);
-    expect(after[0].ct).toBe(before[0].ct);
   });
 
   it('题量统计随开放状态对外可见（questionCount 与库内一致）', async () => {

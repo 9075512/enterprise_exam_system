@@ -95,12 +95,12 @@ describe('v1.7① 考试运营闭环', () => {
       expect((res.body as Buffer).subarray(0, 4).toString()).toBe('%PDF');
     });
 
-    it('出题人导出未授权题库来源的试卷 → 403', async () => {
-      // admin 新建题库（不授权 author）与试卷
+    it('出题人可导出默认开放预览但未授予编辑权的题库来源试卷', async () => {
+      // admin 新建默认全员可预览、但不授权 author 编辑的题库与试卷
       const bank = await request(app)
         .post('/api/banks')
         .set(bearer(admin))
-        .send({ name: '未授权题库P', description: '', category: '测试' });
+        .send({ name: '未授权题库P', description: '' });
       expect(bank.body.code).toBe(0);
       const bankId = bank.body.data.id as string;
 
@@ -127,8 +127,11 @@ describe('v1.7① 考试运营闭环', () => {
 
       const res = await request(app)
         .get(`/api/papers/${paper.body.data.id}/export-pdf`)
-        .set(bearer(author));
-      expect(res.status).toBe(403);
+        .set(bearer(author))
+        .buffer(true)
+        .parse(binaryParser as never);
+      expect(res.status).toBe(200);
+      expect((res.body as Buffer).subarray(0, 4).toString()).toBe('%PDF');
     });
   });
 

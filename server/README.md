@@ -45,9 +45,10 @@ PRACTICE_ONLY=true PORT=3001 npm start
 npm run db:init        # 建表 + 加列 + 种子；可重复执行
 ```
 
-- 幂等新增 `question_banks.allow_practice`（默认 `0`，安全默认）+ 6 张练题表
+- 幂等新增 `question_banks.allow_practice`（默认 `0`，安全默认）+ 8 张练题表
   （`practice_progress` / `practice_answers` / `practice_wrong_book` /
-  `practice_favorites` / `practice_daily_tasks` / `practice_settings`），
+  `practice_favorites` / `practice_daily_tasks` / `practice_settings` /
+  `practice_sessions` / `practice_session_answers`），
   并为 `practice_answers` 幂等补建复合索引 `idx_pa_user_answered (user_id, answered_at)`。
 - **只作用于** `enterprise_exam_system`；**绝不触碰**同实例 `exam_system` 库。
 - `db:init` **不执行授权**（职责单一）；`practice_app` 的授权由运维按下节执行。
@@ -65,9 +66,12 @@ mysql -u root -p < deploy/db-grants-practice.sql
 | --- | --- |
 | `users` | **仅列级 SELECT**（`id, username, password_hash, name, role, department_id, status`），**绝不写** |
 | `departments` | **仅列级 SELECT**（`id, name`）——仅用于「我的」页回显本人科室名，**绝不写** |
-| `questions` / `question_banks` | `SELECT`（题目只读，应用层按 `allow_practice=1` 过滤） |
+| `questions` / `question_banks` / `bank_view_departments` / `bank_view_users` / `bank_authors` | `SELECT`（题目只读，应用层同时校验叶子、有效状态、`allow_practice=1` 与用户浏览权限） |
 | `practice_progress` / `practice_answers` / `practice_wrong_book` | `SELECT, INSERT, UPDATE, DELETE` |
 | `practice_favorites` / `practice_daily_tasks` | `SELECT, INSERT, UPDATE, DELETE` |
+| `practice_sessions` | `SELECT, INSERT, UPDATE`（创建、心跳和结束会话） |
+| `practice_session_answers` | `SELECT, INSERT`（逐题日志仅追加） |
+| `question_feedback` | `SELECT, INSERT`（学员仅能通过服务端核验后追加纠错反馈） |
 | `practice_settings` | **仅 `SELECT`**——练题配置由内网实例（管理端「系统设置 → 公网练题」）写入，练题实例只读 |
 | `papers` / `paper_questions` / `paper_bank_refs` / `exams` / `exam_records` / `import_batches` / `system_settings` | **无任何权限**（物理隔离） |
 

@@ -39,7 +39,7 @@ export async function findDetailById(id: string, exec?: SqlExecutor): Promise<Ex
   const rows = await runQuery<ExamRecordDetailRow[]>(
     exec,
     `SELECT r.id, r.exam_id, r.user_id, r.attempt_no, r.department_id, r.paper_snapshot, r.status, r.answers,
-            r.started_at, r.submitted_at, r.auto_submitted, r.score, r.subjective_scores, r.cheat_events, r.review_notes,
+            r.started_at, r.submitted_at, r.auto_submitted, r.score, r.grade_label, r.resume_allowed, r.subjective_scores, r.cheat_events, r.review_notes,
             e.name AS exam_name, e.pass_score AS pass_score,
             u.name AS user_name, COALESCE(d.name, du.name, '') AS department_name
        FROM ${RECORD_SOURCE}
@@ -163,6 +163,20 @@ export async function countMySubmitted(userId: string, keyword?: string): Promis
   return Number(rows[0]?.c ?? 0);
 }
 
+/** 我的全部已交卷记录；由服务层按补考取分策略选出每场考试的最终记录。 */
+export async function listAllMySubmitted(userId: string, keyword?: string): Promise<ExamRecordRow[]> {
+  const keywordCond = keyword ? ` AND e.name LIKE ? ESCAPE '\\\\'` : '';
+  const params = keyword ? [userId, `%${escapeLike(keyword)}%`] : [userId];
+  return query<ExamRecordRow[]>(
+    `SELECT ${RECORD_COLUMNS_R}
+       FROM ${RECORD_SOURCE}
+       LEFT JOIN exams e ON e.id = r.exam_id
+      WHERE r.user_id = ? AND r.status = 'submitted'${keywordCond}
+      ORDER BY r.submitted_at DESC, r.attempt_no DESC`,
+    params,
+  );
+}
+
 /** 某场考试全部记录（分页，按开考时间倒序）。 */
 export async function listByExam(
   examId: string,
@@ -187,7 +201,7 @@ export async function countByExam(examId: string): Promise<number> {
 export async function listCheatByExam(examId: string): Promise<ExamRecordDetailRow[]> {
   return query<ExamRecordDetailRow[]>(
     `SELECT r.id, r.exam_id, r.user_id, r.attempt_no, r.department_id, r.paper_snapshot, r.status, r.answers,
-            r.started_at, r.submitted_at, r.auto_submitted, r.score, r.subjective_scores, r.cheat_events, r.review_notes,
+            r.started_at, r.submitted_at, r.auto_submitted, r.score, r.grade_label, r.resume_allowed, r.subjective_scores, r.cheat_events, r.review_notes,
             e.name AS exam_name, e.pass_score AS pass_score,
             u.name AS user_name, COALESCE(d.name, du.name, '') AS department_name
        FROM ${RECORD_SOURCE}
@@ -220,8 +234,8 @@ export async function insert(
   await runQuery(
     exec,
     `INSERT INTO exam_records
-       (id, exam_id, user_id, attempt_no, department_id, paper_snapshot, status, answers, started_at, submitted_at, auto_submitted, score, subjective_scores, cheat_events)
-     VALUES (?, ?, ?, ?, ?, ?, 'in_progress', ?, ?, NULL, 0, 0, '{}', ?)`,
+       (id, exam_id, user_id, attempt_no, department_id, paper_snapshot, status, answers, started_at, submitted_at, auto_submitted, score, resume_allowed, subjective_scores, cheat_events)
+     VALUES (?, ?, ?, ?, ?, ?, 'in_progress', ?, ?, NULL, 0, 0, 1, '{}', ?)`,
     [
       row.id,
       row.examId,
@@ -249,13 +263,13 @@ export async function updateCheatEvents(id: string, events: unknown, exec?: SqlE
 /** 交卷：写入状态、交卷时间、自动标记与分数（客观题=submitted，含主观题=pending_review）。 */
 export async function submit(
   id: string,
-  data: { submittedAt: string; autoSubmitted: boolean; score: number; status: 'submitted' | 'pending_review' },
+  data: { submittedAt: string; autoSubmitted: boolean; score: number; gradeLabel: string; status: 'submitted' | 'pending_review' },
   exec?: SqlExecutor,
 ): Promise<void> {
   await runQuery(
     exec,
-    `UPDATE exam_records SET status = ?, submitted_at = ?, auto_submitted = ?, score = ? WHERE id = ?`,
-    [data.status, data.submittedAt, data.autoSubmitted ? 1 : 0, data.score, id],
+    `UPDATE exam_records SET status = ?, submitted_at = ?, auto_submitted = ?, score = ?, grade_label = ? WHERE id = ?`,
+    [data.status, data.submittedAt, data.autoSubmitted ? 1 : 0, data.score, data.gradeLabel, id],
   );
 }
 
@@ -273,7 +287,7 @@ export async function listPending(
   }
   return query<ExamRecordDetailRow[]>(
     `SELECT r.id, r.exam_id, r.user_id, r.attempt_no, r.department_id, r.paper_snapshot, r.status, r.answers,
-            r.started_at, r.submitted_at, r.auto_submitted, r.score, r.subjective_scores, r.cheat_events, r.review_notes,
+            r.started_at, r.submitted_at, r.auto_submitted, r.score, r.grade_label, r.resume_allowed, r.subjective_scores, r.cheat_events, r.review_notes,
             e.name AS exam_name, e.pass_score AS pass_score,
             u.name AS user_name, COALESCE(d.name, du.name, '') AS department_name
        FROM ${RECORD_SOURCE}
@@ -306,14 +320,18 @@ export async function countPending(examId?: string): Promise<number> {
 /** 提交阅卷结果：写主观分与逐题备注、重算总分、状态转 submitted。 */
 export async function updateReview(
   id: string,
-  data: { subjectiveScores: Record<string, number>; score: number; reviewNotes: ReviewNotes },
+  data: { subjectiveScores: Record<string, number>; score: number; gradeLabel: string; reviewNotes: ReviewNotes },
   exec?: SqlExecutor,
 ): Promise<void> {
   await runQuery(
     exec,
-    `UPDATE exam_records SET subjective_scores = ?, score = ?, review_notes = ?, status = 'submitted' WHERE id = ?`,
-    [JSON.stringify(data.subjectiveScores), data.score, JSON.stringify(data.reviewNotes), id],
+    `UPDATE exam_records SET subjective_scores = ?, score = ?, grade_label = ?, review_notes = ?, status = 'submitted' WHERE id = ?`,
+    [JSON.stringify(data.subjectiveScores), data.score, data.gradeLabel, JSON.stringify(data.reviewNotes), id],
   );
+}
+
+export async function setResumeAllowed(id: string, allowed: boolean): Promise<void> {
+  await query<RowDataPacket[]>(`UPDATE exam_records SET resume_allowed = ? WHERE id = ? AND status = 'in_progress'`, [allowed ? 1 : 0, id]);
 }
 
 /** 仅更新总分（成绩复核改分用，v1.7①）。 */

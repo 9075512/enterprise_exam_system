@@ -76,7 +76,7 @@ beforeAll(async () => {
   const bankRes = await request(app)
     .post('/api/banks')
     .set(bearer(adminToken))
-    .send({ name: '健康度测试题库', description: '', category: '安全知识', allowPractice: true });
+    .send({ name: '健康度测试题库', description: '', allowPractice: true });
   expect(bankRes.body.code, JSON.stringify(bankRes.body)).toBe(0);
   bankId = bankRes.body.data.id as string;
 

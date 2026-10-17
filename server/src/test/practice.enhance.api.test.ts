@@ -242,12 +242,12 @@ describe('B. 收藏夹', () => {
     }
   });
 
-  it('按题库筛选：非开放题库过滤不返回任何条目', async () => {
+  it('按题库筛选：非开放题库的直连接口拒绝访问', async () => {
     const res = await request(app)
       .get(`/api/practice/favorites?bankId=${CLOSED_BANK}`)
       .set(bearer(token));
-    expect(res.body.code).toBe(0);
-    expect(res.body.data.total).toBe(0);
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe(1009);
   });
 
   it('收藏上限：按后台配置生效，超限拒绝（409 / 1013），不回溯删除', async () => {

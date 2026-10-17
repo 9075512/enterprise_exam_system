@@ -29,6 +29,7 @@ function blockOf(startMarker: string): string {
 }
 
 const settingKeys = Object.keys(SETTINGS_DEFAULTS) as Array<keyof typeof SETTINGS_DEFAULTS>;
+const editableSettingKeys = settingKeys;
 const fieldTab = Object.fromEntries(entriesOf(blockOf('const FIELD_TAB')) as Array<[string, string]>);
 const tabLabel = Object.fromEntries(entriesOf(blockOf('const TAB_LABEL')) as Array<[string, string]>);
 const tabDesc = Object.fromEntries(entriesOf(blockOf('const TAB_DESC')) as Array<[string, string]>);
@@ -39,7 +40,7 @@ const panes = [...page.matchAll(/<el-tab-pane label="([^"]+)" name="([^"]+)"/g)]
 
 describe('系统设置页 · 标签页定义', () => {
   it('标签页数量与 TAB_LABEL / TAB_DESC 完全一致', () => {
-    expect(panes.length).toBe(8);
+    expect(panes.length).toBe(7);
     expect(panes.map((p) => p.name).sort()).toEqual(Object.keys(tabLabel).sort());
     expect(panes.map((p) => p.name).sort()).toEqual(Object.keys(tabDesc).sort());
   });
@@ -53,13 +54,13 @@ describe('系统设置页 · 标签页定义', () => {
   it('每个标签页都用同一个文案渲染说明（模板里引用了 TAB_DESC）', () => {
     expect(page).toContain('TAB_DESC.exam');
     // 每个 pane 各自引用一次说明
-    expect([...page.matchAll(/settings-page__desc/g)]).toHaveLength(8);
+    expect([...page.matchAll(/settings-page__desc/g)]).toHaveLength(7);
   });
 });
 
 describe('系统设置页 · 字段覆盖', () => {
   it('后端每一个设置项在本页都有对应控件（防止新增设置后静默不可配）', () => {
-    const missing = settingKeys.filter((k) => !new RegExp(`form\\.${k}\\b`).test(page));
+    const missing = editableSettingKeys.filter((k) => !new RegExp(`form\\.${k}\\b`).test(page));
     expect(missing).toEqual([]);
   });
 
@@ -70,7 +71,7 @@ describe('系统设置页 · 字段覆盖', () => {
   });
 
   it('每一个设置项都登记了所属标签页（保存校验失败时可自动定位）', () => {
-    const missing = settingKeys.filter((k) => !(k in fieldTab));
+    const missing = editableSettingKeys.filter((k) => !(k in fieldTab));
     expect(missing).toEqual([]);
   });
 

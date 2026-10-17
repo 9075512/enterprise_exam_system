@@ -1,23 +1,19 @@
 <script setup lang="ts">
 /**
  * 题库详情页（W3-T4，PRD §7.4）。
- * 左列：题库信息卡（名称/分类/题数/描述/创建信息 + 编辑/删除）。
- * 右列：试题表格（题型/科目/关键字筛选 + el-table + 分页）与「手动新增 / 批量导入」入口。
+ * 科目结构只读；本页聚焦试题健康度、筛选、分页与内容维护。
  */
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import {
-  Edit,
   EditPen,
-  Delete,
   Plus,
   Upload,
   UploadFilled,
   Search,
   Refresh,
   ArrowLeft,
-  UserFilled,
   Collection,
   List as ListIcon,
   CircleCheck,
@@ -26,6 +22,7 @@ import {
 } from '@element-plus/icons-vue';
 import * as banksApi from '@/api/banks';
 import * as questionsApi from '@/api/questions';
+import { qualityApi } from '@/api/coreFeatures';
 import { useRequest } from '@/composables/useRequest';
 import { usePagination } from '@/composables/usePagination';
 import { useConfirm } from '@/composables/useConfirm';
@@ -37,7 +34,6 @@ import {
   QUESTION_TYPE_OPTIONS,
 } from '@/constants';
 import { useSettingsStore } from '@/stores/settings';
-import { useAuthStore } from '@/stores/auth';
 import { formatDateTime } from '@/utils/datetime';
 import { formatScore } from '@/utils/format';
 import BatchActionBar from '@/components/common/BatchActionBar.vue';
@@ -48,26 +44,24 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
 import QuestionFormDialog from './QuestionFormDialog.vue';
-import QuestionBankFormDialog from './QuestionBankFormDialog.vue';
 import QuestionImportDialog from './QuestionImportDialog.vue';
 import QuestionBatchEditDialog from './QuestionBatchEditDialog.vue';
-import BankAuthorBatchDialog from './BankAuthorBatchDialog.vue';
-import type { Question, QuestionDifficulty, QuestionType } from '@/types';
+import type { Question, QuestionBank, QuestionDifficulty, QuestionType } from '@/types';
+
+const props = withDefaults(defineProps<{ selectedBankId?: string; embedded?: boolean }>(), { selectedBankId: '', embedded: false });
 
 const route = useRoute();
 const router = useRouter();
 const { confirm } = useConfirm();
 const settingsStore = useSettingsStore();
-const authStore = useAuthStore();
-/** 授权出题人批量维护仅管理员可用（v1.7③ S2） */
-const isAdmin = computed<boolean>(() => authStore.hasRole('admin'));
 
-const bankId = computed<string>(() => String(route.params.bankId ?? ''));
+const bankId = computed<string>(() => props.selectedBankId || String(route.params.bankId ?? ''));
 
 /* ------------------------------ 题库信息 ------------------------------ */
 const { data: bank, loading: bankLoading, refresh: refreshBank } = useRequest(() =>
   banksApi.detail(bankId.value),
 );
+const canEdit = computed<boolean>(() => bank.value?.canEdit === true);
 
 /* ------------------------------ 题目健康度统计（v3.3） ------------------------------ */
 /**
@@ -100,21 +94,12 @@ const incompleteFoot = computed<string>(() => {
 
 /* ------------------------------ 试题筛选 ------------------------------ */
 const filterType = ref<QuestionType | ''>('');
-const filterSubject = ref('');
+const filterStatus = ref<'active' | 'disabled' | ''>('');
 const filterDifficulty = ref<QuestionDifficulty | ''>('');
 const filterTag = ref('');
 const filterKeyword = ref('');
 
-const subjects = ref<string[]>([]);
 const tags = ref<string[]>([]);
-
-async function loadSubjects(): Promise<void> {
-  try {
-    subjects.value = await questionsApi.subjects([bankId.value]);
-  } catch {
-    subjects.value = [];
-  }
-}
 
 async function loadTags(): Promise<void> {
   try {
@@ -139,7 +124,7 @@ const {
   (p, ps) =>
     banksApi.questions(bankId.value, {
       type: filterType.value,
-      subject: filterSubject.value,
+      status: filterStatus.value,
       difficulty: filterDifficulty.value,
       tag: filterTag.value,
       keyword: filterKeyword.value.trim(),
@@ -153,7 +138,7 @@ const {
 const hasFilter = computed<boolean>(() =>
   Boolean(
     filterType.value ||
-      filterSubject.value ||
+      filterStatus.value ||
       filterDifficulty.value ||
       filterTag.value ||
       filterKeyword.value.trim(),
@@ -166,7 +151,7 @@ function onSearch(): void {
 
 function onResetFilters(): void {
   filterType.value = '';
-  filterSubject.value = '';
+  filterStatus.value = '';
   filterDifficulty.value = '';
   filterTag.value = '';
   filterKeyword.value = '';
@@ -178,7 +163,6 @@ function reloadAll(): void {
   void refreshBank();
   void refreshStats();
   void load();
-  void loadSubjects();
   void loadTags();
 }
 
@@ -213,6 +197,47 @@ function onBatchSaved(): void {
   reloadAll();
 }
 
+const migrateVisible = ref(false);
+const migrateBanks = ref<QuestionBank[]>([]);
+const migrateTargetBankId = ref('');
+const qualityLoading = ref(false);
+
+async function runQualityAction(action: 'enable' | 'disable' | 'delete' | 'validate'): Promise<void> {
+  if (!selectedRows.value.length) return;
+  if (action === 'delete') {
+    const ok = await confirm('确认物理删除所选试题？已被试卷引用的题目会被后端拒绝，请改为停用。', { title: '批量删除' });
+    if (!ok) return;
+  }
+  qualityLoading.value = true;
+  try {
+    const result = await qualityApi.batch(selectedRows.value.map((q) => q.id), action);
+    if (action === 'validate') {
+      const issueCount = result.issues?.length ?? 0;
+      ElMessage[issueCount ? 'warning' : 'success'](issueCount ? `校验完成，${issueCount} 道题存在问题` : '完整性校验通过');
+    } else ElMessage.success(`已处理 ${result.affected} 道试题`);
+    clearSelection();
+    reloadAll();
+  } finally { qualityLoading.value = false; }
+}
+
+async function openMigrate(): Promise<void> {
+  migrateBanks.value = (await banksApi.list()).filter((item) => item.id !== bankId.value && item.canEdit);
+  migrateTargetBankId.value = '';
+  migrateVisible.value = true;
+}
+
+async function submitMigrate(): Promise<void> {
+  if (!migrateTargetBankId.value) { ElMessage.warning('请选择目标题库'); return; }
+  qualityLoading.value = true;
+  try {
+    const result = await qualityApi.batch(selectedRows.value.map((q) => q.id), 'migrate', migrateTargetBankId.value);
+    ElMessage.success(`已迁移 ${result.affected} 道试题`);
+    migrateVisible.value = false;
+    clearSelection();
+    reloadAll();
+  } finally { qualityLoading.value = false; }
+}
+
 /* ------------------------------ 试题弹窗 ------------------------------ */
 const formVisible = ref(false);
 const editingQuestion = ref<Question | null>(null);
@@ -225,18 +250,6 @@ function openCreate(): void {
 function openEditQuestion(question: Question): void {
   editingQuestion.value = question;
   formVisible.value = true;
-}
-
-/* ------------------------------ 题库编辑弹窗 ------------------------------ */
-const bankFormVisible = ref(false);
-function openEditBank(): void {
-  bankFormVisible.value = true;
-}
-
-/* ------------------------------ 授权出题人批量维护（v1.7③ S2，仅 admin） ------------------------------ */
-const authorBatchVisible = ref(false);
-function openAuthorBatch(): void {
-  authorBatchVisible.value = true;
 }
 
 const importVisible = ref(false);
@@ -258,30 +271,6 @@ async function handleDeleteQuestion(question: Question): Promise<void> {
     reloadAll();
   } catch {
     // 错误提示已由 http.server 拦截器统一弹出
-  }
-}
-
-/** 删除题库后返回列表 */
-async function handleDeleteBank(): Promise<void> {
-  if (!bank.value) return;
-  const questionCount = bank.value.questionCount;
-  const cascade = questionCount > 0;
-  const message =
-    questionCount > 0
-      ? `该题库下存在 ${questionCount} 道试题，确认连同试题一起删除？此操作不可恢复。`
-      : `确认删除题库「${bank.value.name}」？`;
-  const ok = await confirm(message, {
-    title: BANK_TEXT.CASCADE_CONFIRM_TITLE,
-    confirmButtonText: '确认删除',
-    type: 'warning',
-  });
-  if (!ok) return;
-  try {
-    await banksApi.remove(bank.value.id, cascade);
-    ElMessage.success('题库已删除');
-    void router.push('/author/banks');
-  } catch {
-    // 错误提示已由拦截器统一弹出
   }
 }
 
@@ -354,7 +343,6 @@ const knowledge = computed(() => {
 watch(bankId, () => {
   void refreshBank();
   void refreshStats();
-  loadSubjects();
   loadTags();
   reset();
 });
@@ -362,7 +350,6 @@ watch(bankId, () => {
 onMounted(() => {
   void settingsStore.load();
   void refreshStats();
-  loadSubjects();
   loadTags();
   void load();
 });
@@ -370,21 +357,43 @@ onMounted(() => {
 
 <template>
   <div class="bank-detail">
-    <PageHeader title="题库详情" :description="bank?.name || '维护题库内的试题'">
+    <PageHeader v-if="!props.embedded" title="题库详情" :description="bank?.name || '维护题库内的试题'">
       <template #actions>
         <el-button :icon="ArrowLeft" @click="goBack">返回列表</el-button>
       </template>
     </PageHeader>
 
+    <LoadingSkeleton v-if="bankLoading && !bank" :rows="2" />
+    <section v-else-if="bank" class="bank-overview">
+      <div class="bank-overview__heading">
+        <div class="bank-overview__title-row">
+          <h2 :title="bank.name">{{ bank.name }}</h2>
+          <el-tag :type="bank.effectiveStatus === 'active' ? 'success' : 'info'" effect="plain">
+            {{ bank.effectiveStatus === 'active' ? '启用' : '停用' }}
+          </el-tag>
+          <el-tag v-if="bank.allowPractice" type="success" effect="plain">练题已开放</el-tag>
+        </div>
+        <p v-if="bank.description">{{ bank.description }}</p>
+      </div>
+      <div class="bank-overview__meta">
+        <span>题目 <strong>{{ bank.questionCount }}</strong></span>
+        <span>创建人 <strong>{{ bank.createdBy || '—' }}</strong></span>
+        <span>授权出题人 <strong>{{ bank.authorNames?.length ? bank.authorNames.join('、') : '未授权' }}</strong></span>
+        <span>创建于 <strong>{{ formatDateTime(bank.createdAt) }}</strong></span>
+      </div>
+    </section>
+
     <!-- 题目健康度统计（v3.3；对齐设计稿 bank-detail.html 顶部五张卡：题型分布 / 平均正确率 / 待完善） -->
     <div class="bank-detail__stats">
-      <StatCard label="题目总数" :value="stats?.total ?? 0" unit="道" :icon="Collection" />
+      <StatCard density="compact" label="题目总数" :value="stats?.total ?? 0" unit="道" :icon="Collection" />
       <StatCard
+        density="compact"
         label="单选 / 多选"
         :value="`${typeCount.single} / ${typeCount.multiple}`"
         :icon="ListIcon"
       />
       <StatCard
+        density="compact"
         label="判断 / 简答"
         :value="`${typeCount.judge} / ${typeCount.short}`"
         :icon="CircleCheck"
@@ -392,6 +401,7 @@ onMounted(() => {
         <template v-if="typeCount.fill > 0" #foot>含填空 {{ typeCount.fill }} 道</template>
       </StatCard>
       <StatCard
+        density="compact"
         label="平均正确率"
         :value="avgRateText"
         :unit="stats?.avgCorrectRate != null ? '%' : ''"
@@ -402,6 +412,7 @@ onMounted(() => {
         </template>
       </StatCard>
       <StatCard
+        density="compact"
         label="待完善"
         :value="stats?.incompleteCount ?? 0"
         unit="道"
@@ -412,59 +423,25 @@ onMounted(() => {
       </StatCard>
     </div>
 
-    <div class="bank-detail__body">
-      <!-- 左列：题库信息卡 -->
-      <aside class="bank-detail__aside">
-        <LoadingSkeleton v-if="bankLoading && !bank" :rows="4" />
-        <el-card v-else-if="bank" class="bank-info" shadow="never">
-          <h3 class="bank-info__name" :title="bank.name">{{ bank.name }}</h3>
-          <div class="bank-info__row">
-            <span class="bank-info__label">分类</span>
-            <el-tag size="small" type="info" effect="plain">{{ bank.category }}</el-tag>
-          </div>
-          <div class="bank-info__row">
-            <span class="bank-info__label">题目数</span>
-            <span>{{ bank.questionCount }}</span>
-          </div>
-          <div class="bank-info__row">
-            <span class="bank-info__label">创建人</span>
-            <span>{{ bank.createdBy }}</span>
-          </div>
-          <div class="bank-info__row bank-info__row--block">
-            <span class="bank-info__label">授权出题人</span>
-            <span v-if="bank.authorNames?.length" class="bank-info__desc">
-              {{ bank.authorNames.join('、') }}
-            </span>
-            <span v-else class="bank-info__desc">未授权任何出题人</span>
-          </div>
-          <div class="bank-info__row">
-            <span class="bank-info__label">创建时间</span>
-            <span>{{ formatDateTime(bank.createdAt) }}</span>
-          </div>
-          <div v-if="bank.description" class="bank-info__row bank-info__row--block">
-            <span class="bank-info__label">描述</span>
-            <span class="bank-info__desc">{{ bank.description }}</span>
-          </div>
-          <div class="bank-info__actions">
-            <el-button :icon="Edit" @click="openEditBank">编辑题库</el-button>
-            <el-button v-if="isAdmin" :icon="UserFilled" @click="openAuthorBatch">批量授权</el-button>
-            <el-button type="danger" :icon="Delete" @click="handleDeleteBank">删除题库</el-button>
-          </div>
-        </el-card>
-      </aside>
-
-      <!-- 右列：试题区 -->
-      <section class="bank-detail__main">
+    <section class="bank-detail__main">
         <el-card class="table-card" shadow="never">
           <div class="table-card__toolbar">
             <h3 class="bank-detail__title">试题（{{ total }}）</h3>
             <div class="bank-detail__toolbar-actions">
-              <el-button type="primary" :icon="Plus" @click="openCreate">手动新增</el-button>
-              <el-button :icon="Upload" @click="openImport">批量导入 Excel</el-button>
+              <el-button v-if="canEdit" type="primary" :icon="Plus" @click="openCreate">手动新增</el-button>
+              <el-button v-if="canEdit" :icon="Upload" @click="openImport">批量导入 Excel</el-button>
             </div>
           </div>
 
           <div class="table-card__toolbar-filters bank-detail__filter">
+            <el-input
+              v-model="filterKeyword"
+              class="bank-detail__filter-keyword"
+              placeholder="按题干搜索"
+              clearable
+              :prefix-icon="Search"
+              @keyup.enter="onSearch"
+            />
             <el-select v-model="filterType" class="bank-detail__filter-item" placeholder="全部题型" clearable>
               <el-option label="全部题型" value="" />
               <el-option
@@ -474,14 +451,8 @@ onMounted(() => {
                 :value="opt.value"
               />
             </el-select>
-            <el-select
-              v-model="filterSubject"
-              class="bank-detail__filter-item"
-              placeholder="全部科目"
-              clearable
-            >
-              <el-option label="全部科目" value="" />
-              <el-option v-for="s in subjects" :key="s" :label="s" :value="s" />
+            <el-select v-model="filterStatus" class="bank-detail__filter-item" placeholder="全部状态" clearable>
+              <el-option label="启用" value="active"/><el-option label="停用" value="disabled"/>
             </el-select>
             <el-select
               v-model="filterDifficulty"
@@ -507,21 +478,18 @@ onMounted(() => {
               <el-option label="全部知识点" value="" />
               <el-option v-for="t in tags" :key="t" :label="t" :value="t" />
             </el-select>
-            <el-input
-              v-model="filterKeyword"
-              class="bank-detail__filter-keyword"
-              placeholder="按题干搜索"
-              clearable
-              :prefix-icon="Search"
-              @keyup.enter="onSearch"
-            />
             <el-button type="primary" :icon="Search" @click="onSearch">查询</el-button>
             <el-button :icon="Refresh" @click="onResetFilters">重置</el-button>
             <TableDensityToggle />
           </div>
 
-          <BatchActionBar :count="selectedRows.length" noun="道试题" @clear="clearSelection">
+          <BatchActionBar v-if="canEdit" :count="selectedRows.length" noun="道试题" @clear="clearSelection">
             <el-button :icon="EditPen" @click="openBatchEdit">批量编辑</el-button>
+            <el-button :loading="qualityLoading" @click="runQualityAction('enable')">启用</el-button>
+            <el-button :loading="qualityLoading" @click="runQualityAction('disable')">停用</el-button>
+            <el-button @click="openMigrate">迁移</el-button>
+            <el-button :loading="qualityLoading" @click="runQualityAction('validate')">完整性校验</el-button>
+            <el-button type="danger" :loading="qualityLoading" @click="runQualityAction('delete')">删除</el-button>
           </BatchActionBar>
 
           <el-table
@@ -548,7 +516,7 @@ onMounted(() => {
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="subject" label="科目" width="110" show-overflow-tooltip />
+            <el-table-column label="状态" width="80"><template #default="{ row }"><el-tag size="small" :type="row.status === 'active' ? 'success' : 'info'">{{ row.status === 'active' ? '启用' : '停用' }}</el-tag></template></el-table-column>
             <el-table-column label="难度" width="80" align="center">
               <template #default="{ row }">
                 <el-tag v-if="row.difficulty" size="small" effect="plain" type="info">
@@ -600,24 +568,27 @@ onMounted(() => {
             </el-table-column>
             <el-table-column class-name="table-actions-cell" label="操作" width="120" fixed="right">
               <template #default="{ row }">
-                <el-button type="primary" link @click="openEditQuestion(row as Question)">
+                <el-button v-if="canEdit" type="primary" link @click="openEditQuestion(row as Question)">
                   {{ isIncomplete(row as Question) ? '补齐' : '编辑' }}
                 </el-button>
-                <el-button type="danger" link @click="handleDeleteQuestion(row as Question)">删除</el-button>
+                <el-button v-if="canEdit" type="danger" link @click="handleDeleteQuestion(row as Question)">删除</el-button>
               </template>
             </el-table-column>
             <template #empty>
               <EmptyState
                 :text="hasFilter ? '没有符合条件的试题' : BANK_TEXT.EMPTY_QUESTIONS"
                 :filtered="hasFilter"
-                action-text="手动新增"
                 @clear="onResetFilters"
-                @action="openCreate"
-              />
+              >
+                <template v-if="!hasFilter && canEdit">
+                  <el-button type="primary" :icon="Plus" @click="openCreate">手动新增</el-button>
+                  <el-button :icon="Upload" @click="openImport">批量导入 Excel</el-button>
+                </template>
+              </EmptyState>
             </template>
           </el-table>
 
-          <div class="table-card__pagination">
+          <div v-if="total > 0" class="table-card__pagination">
             <DataTablePagination
               :page="page"
               :page-size="pageSize"
@@ -652,7 +623,7 @@ onMounted(() => {
           </el-card>
 
           <!-- 批量导入模板（对齐设计稿形态：拖拽区 + 说明；点击打开已有导入弹窗，复用其模板下载） -->
-          <el-card class="import-card" shadow="never">
+          <el-card v-if="canEdit" class="import-card" shadow="never">
             <template #header>
               <h3 class="card-head__title">批量导入模板</h3>
             </template>
@@ -676,15 +647,12 @@ onMounted(() => {
             </div>
           </el-card>
         </div>
-      </section>
-    </div>
+    </section>
 
-    <QuestionBankFormDialog v-model:visible="bankFormVisible" :bank="bank" @saved="reloadAll" />
     <QuestionFormDialog
       v-model:visible="formVisible"
       :bank-id="bankId"
       :question="editingQuestion"
-      :default-subject="bank?.category"
       @saved="reloadAll"
     />
     <QuestionImportDialog
@@ -699,13 +667,10 @@ onMounted(() => {
       :bank-id="bankId"
       @saved="onBatchSaved"
     />
-    <BankAuthorBatchDialog
-      v-if="isAdmin"
-      v-model:visible="authorBatchVisible"
-      :bank-id="bankId"
-      :current-author-ids="bank?.authorIds ?? []"
-      @saved="refreshBank()"
-    />
+    <el-dialog v-model="migrateVisible" title="迁移试题" width="460px" append-to-body>
+      <el-form label-width="90px"><el-form-item label="目标题库" required><el-select v-model="migrateTargetBankId" filterable style="width:100%"><el-option v-for="item in migrateBanks" :key="item.id" :label="item.name" :value="item.id"/></el-select></el-form-item></el-form>
+      <template #footer><el-button @click="migrateVisible=false">取消</el-button><el-button type="primary" :loading="qualityLoading" @click="submitMigrate">确认迁移</el-button></template>
+    </el-dialog>
   </div>
 </template>
 
@@ -717,19 +682,7 @@ onMounted(() => {
     margin-bottom: 12px;
   }
 
-  &__body {
-    display: flex;
-    align-items: flex-start;
-    gap: 16px;
-  }
-
-  &__aside {
-    flex: 0 0 280px;
-    width: 280px;
-  }
-
   &__main {
-    flex: 1;
     min-width: 0;
   }
 
@@ -757,68 +710,82 @@ onMounted(() => {
   }
 
   &__filter-keyword {
-    width: 220px;
+    flex: 1 1 260px;
+    min-width: min(260px, 100%);
   }
 
   // 顶部五张健康度统计卡（对齐设计稿 .grid.g5）
   &__stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
-    gap: 12px;
-    margin-bottom: 16px;
-
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+    margin: 12px 0;
   }
 }
 
-.bank-info {
-  border-radius: $radius-lg;
+.bank-overview {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 2px 2px 12px;
+  border-bottom: 1px solid $border-color;
+}
 
-  &__name {
-    margin: 0 0 12px;
-    font-size: 16px;
-    font-weight: 600;
-    color: $text-primary;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+.bank-overview__heading {
+  min-width: 180px;
+  flex: 1;
+}
 
-  &__row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 8px;
-    font-size: 13px;
-    color: $text-primary;
+.bank-overview__title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 
-    &--block {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-  }
+.bank-overview__title-row h2 {
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  overflow: hidden;
+  color: $text-primary;
+  font-size: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-  &__label {
-    color: $text-secondary;
-  }
+.bank-overview__heading p {
+  display: -webkit-box;
+  margin: 5px 0 0;
+  overflow: hidden;
+  color: $text-secondary;
+  font-size: 12px;
+  line-height: 1.6;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
 
-  &__desc {
-    margin-top: 4px;
-    color: $text-primary;
-    word-break: break-all;
-  }
+.bank-overview__meta {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  max-width: 64%;
+  color: $text-secondary;
+  font-size: 12px;
+}
 
-  &__actions {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 16px;
+.bank-overview__meta span {
+  white-space: nowrap;
+}
 
-    :deep(.el-button) {
-      margin-left: 0;
-      width: 100%;
-    }
-  }
+.bank-overview__meta strong {
+  margin-left: 4px;
+  color: $text-primary;
+  font-weight: 600;
 }
 
 .cell-stem {
@@ -1043,7 +1010,18 @@ onMounted(() => {
 }
 
 @media (max-width: 1100px) {
-  .bank-detail__body { flex-direction: column; align-items: stretch; }
-  .bank-detail__aside { flex-basis: auto; width: 100%; }
+  .bank-detail__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bank-overview { flex-direction: column; gap: 10px; }
+  .bank-overview__meta { justify-content: flex-start; max-width: none; }
+}
+
+@media (min-width: 1101px) and (max-width: 1450px) {
+  .bank-detail__stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .bank-detail__stats { grid-template-columns: 1fr; }
+  .bank-detail__filter-item { width: 100%; }
+  .bank-detail__filter-keyword { flex-basis: 100%; }
 }
 </style>

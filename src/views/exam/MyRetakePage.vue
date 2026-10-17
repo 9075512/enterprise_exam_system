@@ -165,6 +165,7 @@ const RULES = [
         </el-select>
       </template>
 
+      <div class="my-retake__desktop-table">
       <el-table v-loading="loading" :data="paged" row-key="id" stripe>
         <el-table-column label="考试名称" min-width="200">
           <template #default="{ row }">
@@ -193,22 +194,49 @@ const RULES = [
           />
         </template>
       </el-table>
+      </div>
+
+      <div v-loading="loading" class="my-retake__mobile-list">
+        <EmptyState
+          v-if="paged.length === 0"
+          :text="filterStatus ? '没有该状态的补考申请' : '暂无补考申请'"
+          :filtered="Boolean(filterStatus)"
+          @clear="clearFilter"
+        />
+        <article v-for="row in paged" v-else :key="row.id" class="my-retake__mobile-card">
+          <div class="my-retake__mobile-head">
+            <div>
+              <div class="my-retake__exam">{{ row.examName }}</div>
+              <div class="my-retake__exam-sub">申请于 {{ formatDateTime(row.appliedAt) }}</div>
+            </div>
+            <el-tag :type="STATUS_TAG[row.status as RetakeStatus]" effect="light">
+              {{ STATUS_LABELS[row.status as RetakeStatus] }}
+            </el-tag>
+          </div>
+          <dl class="my-retake__mobile-detail">
+            <div><dt>审批时间</dt><dd>{{ row.reviewedAt ? formatDateTime(row.reviewedAt) : '—' }}</dd></div>
+            <div><dt>说明</dt><dd>{{ row.reason || '—' }}</dd></div>
+          </dl>
+        </article>
+      </div>
 
       <div v-if="filtered.length > PAGE_SIZE" class="my-retake__pager">
         <span class="my-retake__pager-info">共 {{ filtered.length }} 条</span>
-        <button type="button" class="my-retake__pg" :disabled="page <= 1" aria-label="上一页" @click="page -= 1">
-          ‹
+        <button type="button" class="my-retake__pg my-retake__pg--nav" :disabled="page <= 1" aria-label="上一页" @click="page -= 1">
+          <span class="my-retake__pg-arrow">‹</span>
+          <span class="my-retake__pg-label">上一页</span>
         </button>
         <span class="my-retake__pg is-on">{{ page }}</span>
         <span class="my-retake__pg-text">/ {{ totalPages }}</span>
         <button
           type="button"
-          class="my-retake__pg"
+          class="my-retake__pg my-retake__pg--nav"
           :disabled="page >= totalPages"
           aria-label="下一页"
           @click="page += 1"
         >
-          ›
+          <span class="my-retake__pg-arrow">›</span>
+          <span class="my-retake__pg-label">下一页</span>
         </button>
       </div>
     </el-card>
@@ -281,6 +309,8 @@ const RULES = [
 @use '@/styles/variables.scss' as *;
 
 .my-retake {
+  &__mobile-list { display: none; }
+
   &__stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -362,6 +392,8 @@ const RULES = [
     font-size: 12px;
     color: $text-secondary;
   }
+
+  &__pg-label { display: none; }
 
   /* 申请补考 + 补考规则 */
   &__row {
@@ -467,6 +499,31 @@ const RULES = [
     &__row {
       grid-template-columns: minmax(0, 1fr);
     }
+  }
+
+  @media (max-width: 900px) {
+    &__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    &__filter { width: 128px; }
+    &__desktop-table { display: none; }
+    &__mobile-list { display: flex; flex-direction: column; gap: 10px; }
+    &__mobile-card {
+      padding: 14px;
+      border: 1px solid $border-color;
+      border-radius: $radius-base;
+      background: $bg-paper;
+    }
+    &__mobile-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    &__mobile-detail { margin: 12px 0 0; display: flex; flex-direction: column; gap: 8px; }
+    &__mobile-detail div { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 8px; font-size: 12px; }
+    &__mobile-detail dt { color: $text-secondary; }
+    &__mobile-detail dd { margin: 0; color: $text-primary; overflow-wrap: anywhere; }
+    &__pager { flex-wrap: nowrap; gap: 7px; }
+    &__pager-info { flex-basis: auto; white-space: nowrap; }
+    &__pg.my-retake__pg--nav { min-width: 58px; }
+    &__pg-arrow { display: none; }
+    &__pg-label { display: inline; }
+    &__desc-row { grid-template-columns: 72px minmax(0, 1fr); }
+    &__form-act :deep(.el-button) { flex: 1; }
   }
 }
 </style>
