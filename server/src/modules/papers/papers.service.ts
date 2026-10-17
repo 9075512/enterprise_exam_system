@@ -9,7 +9,7 @@ import * as banksRepo from '../banks/banks.repo.js';
 import * as bankAuth from '../banks/bankAuth.js';
 import type { Operator } from '../banks/bankAuth.js';
 import { mapQuestionRow } from '../questions/question.mapper.js';
-import { withTransaction } from '../../db/pool.js';
+import { withTransaction, type SqlExecutor } from '../../db/pool.js';
 import { badRequest, conflict, notFound, forbidden } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
 import { nowDb, fromDbDateSafe } from '../../utils/datetime.js';
@@ -360,12 +360,12 @@ export type { PaperRow, PaperQuestionRow };/**
  * 生成试卷快照（冻结题目内容副本，供开考落库与判分使用）。
  * `options`/`answer` 做深拷贝，避免快照与被引用的题目对象共享。
  */
-export async function getSnapshot(paperId: string): Promise<PaperSnapshot> {
-  const p = await repo.findById(paperId);
+export async function getSnapshot(paperId: string, exec?: SqlExecutor): Promise<PaperSnapshot> {
+  const p = await repo.findById(paperId, exec);
   if (!p) throw notFound('试卷不存在或已被删除');
 
-  const pqRows = await repo.listPaperQuestions(paperId);
-  const qRows = await questionRepo.findByIds(pqRows.map((r) => r.question_id));
+  const pqRows = await repo.listPaperQuestions(paperId, exec);
+  const qRows = await questionRepo.findByIds(pqRows.map((r) => r.question_id), exec);
   const qMap = new Map(qRows.map((r) => [r.id, r]));
 
   // 答题页题号顺序由快照决定：按题型（单选→多选→判断）稳定排序，存量试卷同样有序。
@@ -456,4 +456,28 @@ export async function exportPaperPdf(
 
   const filename = `${sanitizeFilename(detail.name)}-试卷-${withAnswer ? '答案版' : '考生版'}.pdf`;
   return { buffer, filename, questionCount: questions.length };
+}
+
+/** Prepare exam-owned content without starting a nested transaction. */
+export async function prepareExamPaper(input: { bankIds: string[]; questions: Array<{ questionId: string; score: number }> }, operator: Operator) {
+  if (!input.bankIds.length || !input.questions.length) throw badRequest('请选择来源题库并至少配置一道题目');
+  if (new Set(input.questions.map(q => q.questionId)).size !== input.questions.length) throw badRequest('考试题目不能重复');
+  if (input.questions.some(q => !Number.isFinite(q.score) || q.score <= 0)) throw badRequest('每题分值必须为正数');
+  const bankIds = [...new Set(input.bankIds)];
+  await assertBanksExist(bankIds);
+  const { types, bankIds: questionBanks } = await assertQuestionsExist(input.questions);
+  if (questionBanks.some(id => !bankIds.includes(id))) throw badRequest('所选题目必须属于来源题库');
+  await assertComposeAccessible(bankIds, questionBanks, operator);
+  return { bankIds, questions: sortByQuestionType(input.questions, q => types.get(q.questionId)), totalScore: round1(input.questions.reduce((n, q) => n + q.score, 0)) };
+}
+
+export async function writeExamPaper(id: string, name: string, data: Awaited<ReturnType<typeof prepareExamPaper>>, operator: Operator, exec: SqlExecutor, create = false): Promise<void> {
+  if (create) await repo.insert({ id, name, description: '', totalScore: data.totalScore, createdBy: operator.id, createdAt: nowDb() }, exec);
+  else {
+    await repo.update(id, { name, description: '', totalScore: data.totalScore }, exec);
+    await repo.deletePaperQuestions(id, exec);
+    await repo.deleteBankRefs(id, exec);
+  }
+  await repo.insertPaperQuestions(id, data.questions, exec);
+  await repo.insertBankRefs(id, data.bankIds, exec);
 }

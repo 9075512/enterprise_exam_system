@@ -7,12 +7,16 @@ import * as exceptionsRepo from './examExceptions.repo.js';
 import * as monitorRepo from './examMonitor.repo.js';
 import type { MonitorRecordRow } from './examMonitor.repo.js';
 import { mapExamRow } from './exams.mapper.js';
+import * as papersService from '../papers/papers.service.js';
+import * as bankAuth from '../banks/bankAuth.js';
+import type { Operator } from '../banks/bankAuth.js';
+import type { ExamInput } from './exams.schema.js';
 import * as papersRepo from '../papers/papers.repo.js';
 import * as recordsRepo from '../records/records.repo.js';
 import * as retakesRepo from '../retakes/retakes.repo.js';
 import * as usersRepo from '../users/users.repo.js';
 import * as departmentsService from '../departments/departments.service.js';
-import { badRequest, conflict, notFound } from '../../utils/errors.js';
+import { badRequest, conflict, notFound, forbidden } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
 import { nowDb, toDbDate, fromDbDateSafe } from '../../utils/datetime.js';
 import { parseJsonColumn } from '../../utils/json.js';
@@ -20,7 +24,7 @@ import { getSettings } from '../settings/settings.service.js';
 import { notifyEvent } from '../../utils/notify.js';
 import * as auditService from '../audit/audit.service.js';
 import * as participantsService from './examParticipants.service.js';
-import { withTransaction } from '../../db/pool.js';
+import { withTransaction, type SqlExecutor } from '../../db/pool.js';
 import type {
   CheatEvent,
   ExamDto,
@@ -35,24 +39,7 @@ import type {
 } from '../../types/domain.js';
 
 /** 校验并归一化考试入参（照搬 v1.0 examService.save 规则）。 */
-async function validateExamInput(input: {
-  name: string;
-  paperId: string;
-  departmentIds: string[];
-  includeUserIds?: string[];
-  excludeUserIds?: string[];
-  audienceTemplateId?: string | null;
-  startTime: string;
-  endTime: string;
-  durationMinutes: number;
-  passScore: number;
-  maxAttempts: number;
-  shuffleEnabled?: boolean | null;
-  shuffleOptions?: boolean | null;
-  allowRetake?: boolean | null;
-  allowAppeal?: boolean | null;
-  examMode?: 'open' | 'closed';
-}): Promise<{
+async function validateExamInput(input: ExamInput, paperId: string, totalScore: number): Promise<{
   name: string;
   paperId: string;
   departmentIds: string[];
@@ -71,8 +58,6 @@ async function validateExamInput(input: {
   const name = input.name.trim();
   if (!name) throw badRequest('考试名称不能为空');
 
-  const paper = await papersRepo.findById(input.paperId);
-  if (!paper) throw notFound('关联试卷不存在或已被删除');
 
   if (input.departmentIds.length === 0 && !(input.includeUserIds?.length) && !input.audienceTemplateId) {
     throw badRequest('请至少选择一个参与科室、指定人员或抽考模板');
@@ -88,7 +73,7 @@ async function validateExamInput(input: {
 
   const passScore = Number(input.passScore);
   if (!Number.isFinite(passScore) || passScore < 1) throw badRequest('及格线必须为正数');
-  if (passScore > Number(paper.total_score)) throw badRequest('及格线不能超过试卷总分');
+  if (passScore > totalScore) throw badRequest('及格线不能超过试卷总分');
 
   const maxAttempts = Number(input.maxAttempts);
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1) throw badRequest('答题次数至少为 1');
@@ -96,7 +81,7 @@ async function validateExamInput(input: {
 
   return {
     name,
-    paperId: input.paperId,
+    paperId,
     departmentIds: input.departmentIds,
     audienceRules: {
       includeUserIds: [...new Set(input.includeUserIds ?? [])],
@@ -117,9 +102,90 @@ async function validateExamInput(input: {
 }
 
 /** 全部考试（admin）。 */
-export async function list(): Promise<ExamDto[]> {
+export async function list(operator: Operator): Promise<ExamDto[]> {
   const rows = await repo.list();
-  return rows.map(mapExamRow);
+  const result: ExamDto[] = [];
+  for (const row of rows) {
+    const authors = await repo.listAuthors(row.id);
+    if (operator.role !== 'admin' && !authors.some(a => a.id === operator.id)) continue;
+    result.push(await managementDto(row, operator));
+  }
+  return result;
+}
+
+async function assertManager(id: string, operator: Operator, exec?: SqlExecutor): Promise<void> {
+  if (operator.role === 'admin') return;
+  if (operator.role !== 'author' || !(await repo.listAuthors(id, exec)).some(a => a.id === operator.id)) throw forbidden('无权维护该考试');
+}
+
+async function managementDto(row: repo.ExamRow, operator: Operator): Promise<ExamDto> {
+  await assertManager(row.id, operator);
+  const [authors, paper, questions, banks, count, accessible] = await Promise.all([
+    repo.listAuthors(row.id), papersRepo.findById(row.paper_id), papersRepo.listPaperQuestions(row.paper_id),
+    papersRepo.listBankRefs(row.paper_id), repo.countRecords(row.id), bankAuth.listAccessibleBankIds(operator),
+  ]);
+  const dto = mapExamRow(row);
+  const locked = Date.now() >= new Date(dto.startTime).getTime() || count > 0;
+  const canRead = accessible === null || banks.every(id => accessible.includes(id));
+  return { ...dto, authors, questionCount: questions.length, totalScore: Number(paper?.total_score ?? 0),
+    canReadQuestions: canRead, canEditQuestions: canRead && !locked, questionsLocked: locked,
+    questionEditReason: !canRead ? '缺少该考试所需题库的浏览权限' : locked ? '考试已到开始时间或已有作答，题目与分值已锁定' : '' };
+}
+
+export async function getManagement(id: string, operator: Operator): Promise<ExamDto> {
+  const row = await repo.findById(id);
+  if (!row) throw notFound('考试不存在或已被删除');
+  return managementDto(row, operator);
+}
+
+export async function getQuestions(id: string, operator: Operator) {
+  const row = await repo.findById(id);
+  if (!row) throw notFound('考试不存在或已被删除');
+  await assertManager(id, operator);
+  return papersService.getById(row.paper_id, operator);
+}
+
+export async function exportQuestions(id: string, withAnswer: boolean, operator: Operator) {
+  const row = await repo.findById(id);
+  if (!row) throw notFound('考试不存在或已被删除');
+  await assertManager(id, operator);
+  return papersService.exportPaperPdf(row.paper_id, withAnswer, operator);
+}
+
+async function validateAuthors(ids: string[]): Promise<void> {
+  for (const id of new Set(ids)) {
+    const user = await usersRepo.findById(id);
+    if (!user || user.role !== 'author' || user.status !== 'active') throw badRequest('指定出题人必须为启用中的出题人账号');
+  }
+}
+
+async function isLocked(current: repo.ExamRow, exec: SqlExecutor): Promise<boolean> {
+  return Date.now() >= new Date(fromDbDateSafe(current.start_time)).getTime() || (await repo.countRecords(current.id, exec)) > 0;
+}
+
+async function questionsChanged(paperId: string, input: { bankIds: string[]; questions: Array<{ questionId: string; score: number }> }, exec: SqlExecutor): Promise<boolean> {
+  const banks = await papersRepo.listBankRefs(paperId, exec);
+  const questions = await papersRepo.listPaperQuestions(paperId, exec);
+  const next = new Map(input.questions.map(q => [q.questionId, q.score]));
+  return banks.length !== new Set(input.bankIds).size || banks.some(id => !input.bankIds.includes(id)) || questions.length !== input.questions.length || questions.some(q => next.get(q.question_id) !== Number(q.score));
+}
+
+export async function saveQuestions(id: string, input: { bankIds: string[]; questions: Array<{ questionId: string; score: number }> }, operator: Operator): Promise<ExamDto> {
+  await assertManager(id, operator);
+  const accessible = await bankAuth.listAccessibleBankIds(operator);
+  const data = await papersService.prepareExamPaper(input, operator);
+  await withTransaction(async conn => {
+    const current = await repo.findById(id, conn, true);
+    if (!current) throw notFound('考试不存在或已被删除');
+    await assertManager(id, operator, conn);
+    if (await isLocked(current, conn)) throw conflict('考试已锁定，不能修改题目和分值');
+    const banks = await papersRepo.listBankRefs(current.paper_id, conn);
+    if (accessible !== null && banks.some(id => !accessible.includes(id))) throw forbidden('缺少该考试所需题库的浏览权限');
+    if (data.totalScore < Number(current.pass_score)) throw badRequest('及格线不能超过考试总分，请联系管理员调整及格线');
+    await papersService.writeExamPaper(current.paper_id, current.name, data, operator, conn);
+  });
+  await auditService.record({ actorId: operator.id, action: 'exam.update', detail: { questionsOnly: true }, targetType: 'exam', targetId: id });
+  return getManagement(id, operator);
 }
 
 /** 考试详情（登录）。 */
@@ -211,17 +277,18 @@ export async function listForExaminee(userId: string, departmentId: string): Pro
 }
 
 /** 新建考试。 */
-export async function create(input: Parameters<typeof validateExamInput>[0], operatorId: string): Promise<ExamDto> {
-  const data = await validateExamInput(input);
+export async function create(input: ExamInput, operatorId: string): Promise<ExamDto> {
+  const operator: Operator = { id: operatorId, role: 'admin' };
+  const paper = await papersService.prepareExamPaper(input, operator);
+  await validateAuthors(input.authorIds);
+  const paperId = genId('paper-');
+  const data = await validateExamInput(input, paperId, paper.totalScore);
   const id = genId('exam-');
   await withTransaction(async (conn) => {
+    await papersService.writeExamPaper(paperId, data.name, paper, operator, conn, true);
     await repo.insert({ id, ...data, createdBy: operatorId, createdAt: nowDb() }, conn);
-    await participantsService.freezeParticipants(id, {
-      departmentIds: data.departmentIds,
-      includeUserIds: data.audienceRules.includeUserIds,
-      excludeUserIds: data.audienceRules.excludeUserIds,
-      audienceTemplateId: data.audienceRules.audienceTemplateId,
-    }, conn);
+    await repo.replaceAuthors(id, input.authorIds, conn);
+    await participantsService.freezeParticipants(id, { departmentIds: data.departmentIds, ...data.audienceRules }, conn);
   });
   const created = await repo.findById(id);
   const dto = mapExamRow(created!);
@@ -241,26 +308,30 @@ export async function create(input: Parameters<typeof validateExamInput>[0], ope
     detail: { passScore: dto.passScore, maxAttempts: dto.maxAttempts, departmentCount: dto.departmentIds.length },
   });
 
-  return dto;
+  return getManagement(dto.id, operator);
 }
 
 /** 编辑考试。 */
 export async function update(
   id: string,
-  input: Parameters<typeof validateExamInput>[0],
+  input: ExamInput,
   operatorId: string,
 ): Promise<ExamDto> {
-  const current = await repo.findById(id);
-  if (!current) throw notFound('考试不存在或已被删除');
-  const data = await validateExamInput(input);
+  const operator: Operator = { id: operatorId, role: 'admin' };
+  await validateAuthors(input.authorIds);
+  const paper = await papersService.prepareExamPaper(input, operator);
   await withTransaction(async (conn) => {
+    const current = await repo.findById(id, conn, true);
+    if (!current) throw notFound('考试不存在或已被删除');
+    const locked = await isLocked(current, conn);
+    const changed = await questionsChanged(current.paper_id, input, conn);
+    if (locked && (changed || new Date(input.startTime).getTime() !== new Date(fromDbDateSafe(current.start_time)).getTime())) throw conflict('考试已锁定，不能修改题目、分值、来源题库或开始时间');
+    const data = await validateExamInput(input, current.paper_id, paper.totalScore);
+    if (changed) await papersService.writeExamPaper(current.paper_id, data.name, paper, operator, conn);
+    else await papersRepo.update(current.paper_id, { name: data.name, description: '', totalScore: paper.totalScore }, conn);
     await repo.update(id, data, conn);
-    await participantsService.freezeParticipants(id, {
-      departmentIds: data.departmentIds,
-      includeUserIds: data.audienceRules.includeUserIds,
-      excludeUserIds: data.audienceRules.excludeUserIds,
-      audienceTemplateId: data.audienceRules.audienceTemplateId,
-    }, conn);
+    await repo.replaceAuthors(id, input.authorIds, conn);
+    await participantsService.freezeParticipants(id, { departmentIds: data.departmentIds, ...data.audienceRules }, conn);
   });
   const updated = await repo.findById(id);
   const dto = mapExamRow(updated!);
@@ -272,18 +343,19 @@ export async function update(
     targetName: dto.name,
     detail: { passScore: dto.passScore, maxAttempts: dto.maxAttempts, departmentCount: dto.departmentIds.length },
   });
-  return dto;
+  return getManagement(dto.id, operator);
 }
 
 /** 删除考试（已有成绩记录 → 1005）。 */
 export async function remove(id: string, operatorId: string): Promise<void> {
-  const current = await repo.findById(id);
-  if (!current) throw notFound('考试不存在或已被删除');
-  const recordCount = await repo.countRecords(id);
-  if (recordCount > 0) {
-    throw conflict('该考试已存在成绩记录，无法删除');
-  }
-  await repo.remove(id);
+  const current = await withTransaction(async conn => {
+    const row = await repo.findById(id, conn, true);
+    if (!row) throw notFound('考试不存在或已被删除');
+    if (await repo.countRecords(id, conn)) throw conflict('该考试已存在作答记录，无法删除');
+    await repo.remove(id, conn);
+    await papersRepo.remove(row.paper_id, conn);
+    return row;
+  });
   await auditService.record({
     actorId: operatorId,
     action: 'exam.delete',

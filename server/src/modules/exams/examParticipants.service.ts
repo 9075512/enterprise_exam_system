@@ -52,7 +52,7 @@ async function resolveUsers(examId: string, input: ExamAudienceInput, exec?: Sql
   const departmentIds = [...new Set([...(input.departmentIds ?? []), ...(template?.departmentIds ?? [])])];
   const includeUserIds = [...new Set([...(template?.includeUserIds ?? []), ...(input.includeUserIds ?? [])])];
   const exclude = new Set([...(template?.excludeUserIds ?? []), ...(input.excludeUserIds ?? [])]);
-  const expanded = template?.includeSubDepartments === false ? departmentIds : await departmentsService.expandDepartmentIds(departmentIds);
+  const expanded = template?.includeSubDepartments === false ? departmentIds : await departmentsService.expandDepartmentIds(departmentIds, exec);
   const selected = new Map<string, ExamParticipantDto['source']>();
   if (expanded.length) {
     const placeholders = expanded.map(() => '?').join(',');
@@ -170,16 +170,16 @@ export async function listParticipants(examId: string, materialize = false): Pro
   return rows.map(dto);
 }
 
-export async function assertParticipant(examId: string, userId: string): Promise<void> {
-  const exam = await query<Array<RowDataPacket & { audience_mode: string; department_ids: unknown; department_id: string | null }>>(
+export async function assertParticipant(examId: string, userId: string, exec?: SqlExecutor): Promise<void> {
+  const exam = await runQuery<Array<RowDataPacket & { audience_mode: string; department_ids: unknown; department_id: string | null }>>(exec,
     `SELECT e.audience_mode, e.department_ids, u.department_id FROM exams e JOIN users u ON u.id = ? WHERE e.id = ? LIMIT 1`, [userId, examId]);
   if (!exam[0]) throw notFound('考试不存在');
   if (exam[0].audience_mode === 'frozen') {
-    const rows = await query<Array<RowDataPacket & { c: number }>>(`SELECT COUNT(*) AS c FROM exam_participants WHERE exam_id = ? AND user_id = ?`, [examId, userId]);
+    const rows = await runQuery<Array<RowDataPacket & { c: number }>>(exec, `SELECT COUNT(*) AS c FROM exam_participants WHERE exam_id = ? AND user_id = ?`, [examId, userId]);
     if (!Number(rows[0]?.c)) throw forbidden('你不在本次考试的生效名单中');
     return;
   }
-  const ancestors = await departmentsService.getAncestorIds(exam[0].department_id ?? '');
+  const ancestors = await departmentsService.getAncestorIds(exam[0].department_id ?? '', exec);
   const allowed = parseJsonColumn<string[]>(exam[0].department_ids, []).some((id) => ancestors.includes(id));
   if (!allowed) throw forbidden('你不在本次考试的参与范围中');
 }

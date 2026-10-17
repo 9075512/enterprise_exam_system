@@ -68,6 +68,7 @@ declare module 'vue' {
     ElTreeSelect: typeof import('element-plus/es')['ElTreeSelect']
     ElUpload: typeof import('element-plus/es')['ElUpload']
     EmptyState: typeof import('./components/common/EmptyState.vue')['default']
+    ExamQuestionComposer: typeof import('./components/exams/ExamQuestionComposer.vue')['default']
     ExamScopeSelect: typeof import('./components/common/ExamScopeSelect.vue')['default']
     LoadingDots: typeof import('./components/common/LoadingDots.vue')['default']
     LoadingSkeleton: typeof import('./components/common/LoadingSkeleton.vue')['default']

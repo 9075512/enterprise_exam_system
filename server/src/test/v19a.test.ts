@@ -1,3 +1,4 @@
+import { examContent, createPaperFixture } from './examFixtures.js';
 /**
  * v1.9④ 考务队列按「考试维度」打通 —— 集成测试。
  *
@@ -57,7 +58,7 @@ async function createExam(
     .set(bearer(admin))
     .send({
       name,
-      paperId,
+      ...(await examContent(paperId)),
       departmentIds,
       startTime: new Date(Date.now() - 3600_000).toISOString(),
       endTime: new Date(Date.now() + 3600_000).toISOString(),
@@ -133,7 +134,7 @@ beforeAll(async () => {
   shortQuestionId = q.body.data.id as string;
 
   // 2) 含简答卷：单选 40 + 简答 30 = 70
-  const pShort = await request(app).post('/api/papers').set(bearer(author)).send({
+  const pShort = await createPaperFixture({
     name: 'v1.9④ 含简答卷',
     description: '',
     bankIds: ['bank-security'],
@@ -146,7 +147,7 @@ beforeAll(async () => {
   paperShort = pShort.body.data.id as string;
 
   // 3) 纯客观卷：单选 100（及格线设 100 → 答 0 分即可申请补考）
-  const pPlain = await request(app).post('/api/papers').set(bearer(author)).send({
+  const pPlain = await createPaperFixture({
     name: 'v1.9④ 纯客观卷',
     description: '',
     bankIds: ['bank-security'],

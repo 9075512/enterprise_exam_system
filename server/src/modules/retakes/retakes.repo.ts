@@ -80,8 +80,8 @@ export async function hasActiveByExamAndUser(examId: string, userId: string): Pr
 }
 
 /** 是否存在该考试×考生的「已通过」申请（决定是否多授一次答题机会）。 */
-export async function hasApprovedByExamAndUser(examId: string, userId: string): Promise<boolean> {
-  const rows = await query<RowDataPacket[]>(
+export async function hasApprovedByExamAndUser(examId: string, userId: string, exec?: SqlExecutor): Promise<boolean> {
+  const rows = await runQuery<RowDataPacket[]>(exec,
     `SELECT COUNT(*) AS c FROM exam_retakes WHERE exam_id = ? AND user_id = ? AND status = 'approved'`,
     [examId, userId],
   );

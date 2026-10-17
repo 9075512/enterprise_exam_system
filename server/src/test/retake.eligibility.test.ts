@@ -1,3 +1,4 @@
+import { examContent, createPaperFixture } from './examFixtures.js';
 /**
  * 补考资格边界 —— 集成测试（2026-10-15 放开次数限制后新增）。
  *
@@ -44,7 +45,7 @@ async function createExam(name: string, departmentIds: string[], passScore: numb
     .set(bearer(admin))
     .send({
       name,
-      paperId: paper,
+      ...(await examContent(paper)),
       departmentIds,
       startTime: new Date(Date.now() - 3600_000).toISOString(),
       endTime: new Date(Date.now() + 3600_000).toISOString(),
@@ -104,7 +105,7 @@ beforeAll(async () => {
   await prepareTestDb();
 
   // 纯客观卷：单选 100 分（及格线设 100 → 不作答即不及格）
-  const p = await request(app).post('/api/papers').set(bearer(author)).send({
+  const p = await createPaperFixture({
     name: '补考资格边界卷',
     description: '',
     bankIds: ['bank-security'],

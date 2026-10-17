@@ -1,3 +1,4 @@
+import { examContent, createPaperFixture } from './examFixtures.js';
 /**
  * 集成测试：考试 / 记录 / 报表 / 组卷 / 题库级联 等核心链路的 HTTP 行为。
  * 通过 supertest 直接驱动 Express 应用，数据落在测试库 enterprise_exam_system_test。
@@ -64,7 +65,7 @@ describe('考试系统集成测试', () => {
         .set(bearer(admin))
         .send({
           name: '仅市场部考试',
-          paperId: 'paper-demo',
+          ...(await examContent('paper-demo')),
           departmentIds: ['dept-mkt'],
           startTime: new Date(Date.now() - 3600_000).toISOString(),
           endTime: new Date(Date.now() + 3600_000).toISOString(),
@@ -100,7 +101,7 @@ describe('考试系统集成测试', () => {
         .set(bearer(admin))
         .send({
           name: '未来考试',
-          paperId: 'paper-demo',
+          ...(await examContent('paper-demo')),
           departmentIds: ['dept-rd'],
           startTime: new Date(Date.now() + 3600_000).toISOString(),
           endTime: new Date(Date.now() + 7200_000).toISOString(),
@@ -120,7 +121,7 @@ describe('考试系统集成测试', () => {
         .set(bearer(admin))
         .send({
           name: '过去考试',
-          paperId: 'paper-demo',
+          ...(await examContent('paper-demo')),
           departmentIds: ['dept-rd'],
           startTime: new Date(Date.now() - 7200_000).toISOString(),
           endTime: new Date(Date.now() - 3600_000).toISOString(),
@@ -154,7 +155,7 @@ describe('考试系统集成测试', () => {
           .set(bearer(admin))
           .send({
             name: '管理员恢复策略考试',
-            paperId: 'paper-demo',
+            ...(await examContent('paper-demo')),
             departmentIds: ['dept-rd'],
             startTime: new Date(Date.now() - 3600_000).toISOString(),
             endTime: new Date(Date.now() + 3600_000).toISOString(),
@@ -278,7 +279,7 @@ describe('考试系统集成测试', () => {
         .set(bearer(admin))
         .send({
           name: '详情展示字段专用考试',
-          paperId: 'paper-demo',
+          ...(await examContent('paper-demo')),
           departmentIds: ['dept-rd'],
           startTime: new Date(Date.now() - 3600_000).toISOString(),
           endTime: new Date(Date.now() + 3600_000).toISOString(),
@@ -325,7 +326,9 @@ describe('考试系统集成测试', () => {
       const update = await request(app)
         .put(`/api/exams/${detailExamId}`)
         .set(bearer(admin))
-        .send({ ...exam.body.data, includeUserIds: ['user-nodept'] });
+        .send({ name: exam.body.data.name, ...(await examContent(exam.body.data.paperId)), departmentIds: exam.body.data.departmentIds,
+          startTime: exam.body.data.startTime, endTime: exam.body.data.endTime, durationMinutes: exam.body.data.durationMinutes,
+          passScore: exam.body.data.passScore, maxAttempts: exam.body.data.maxAttempts, includeUserIds: ['user-nodept'] });
       expect(update.body.code).toBe(0);
 
       const start = await request(app).post(`/api/exams/${detailExamId}/start`).set(bearer(nodept));
@@ -365,7 +368,7 @@ describe('考试系统集成测试', () => {
         .set(bearer(admin))
         .send({
           name,
-          paperId: 'paper-demo',
+          ...(await examContent('paper-demo')),
           departmentIds: ['dept-rd'],
           startTime: new Date(Date.now() - 3600_000).toISOString(),
           endTime: new Date(Date.now() + 3600_000).toISOString(),
@@ -457,7 +460,7 @@ describe('考试系统集成测试', () => {
   describe('组卷抽题（数量不足返回 shortages）', () => {
     it('抽题数量超出库存 → questions 为空且返回缺口明细', async () => {
       const res = await request(app)
-        .post('/api/papers/draw-questions')
+        .post('/api/exams/draw-questions')
         .set(bearer(admin))
         .send({ bankIds: ['bank-security'], rules: { single: { count: 999, score: 5 } } });
       expect(res.body.code).toBe(0);
@@ -468,7 +471,7 @@ describe('考试系统集成测试', () => {
 
     it('抽题充足 → 返回指定数量题目且无缺口', async () => {
       const res = await request(app)
-        .post('/api/papers/draw-questions')
+        .post('/api/exams/draw-questions')
         .set(bearer(admin))
         .send({ bankIds: ['bank-security'], rules: { single: { count: 2, score: 5 }, judge: { count: 2, score: 5 } } });
       expect(res.body.code).toBe(0);
@@ -504,10 +507,7 @@ describe('考试系统集成测试', () => {
     });
 
     it('用其中 1 道题建立试卷（形成引用）', async () => {
-      const res = await request(app)
-        .post('/api/papers')
-        .set(bearer(author))
-        .send({ name: '级联引用卷', description: '', bankIds: [bankId], questions: [{ questionId: q1Id, score: 5 }] });
+      const res = await createPaperFixture({ name: '级联引用卷', description: '', bankIds: [bankId], questions: [{ questionId: q1Id, score: 5 }] });
       expect(res.body.code).toBe(0);
     });
 

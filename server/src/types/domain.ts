@@ -403,6 +403,14 @@ export type ExamStatus = 'not_started' | 'ongoing' | 'ended';
 
 /** 考试 DTO */
 export interface ExamDto {
+  /** 管理接口附加信息；考生接口不返回出题人权限信息。 */
+  questionCount?: number;
+  totalScore?: number;
+  authors?: Array<{ id: string; name: string }>;
+  canReadQuestions?: boolean;
+  canEditQuestions?: boolean;
+  questionsLocked?: boolean;
+  questionEditReason?: string;
   id: string;
   name: string;
   paperId: string;

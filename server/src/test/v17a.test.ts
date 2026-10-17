@@ -1,3 +1,4 @@
+import { examContent, createPaperFixture } from './examFixtures.js';
 /**
  * v1.7① 考试运营闭环 集成测试。
  * 1) 试卷 PDF 导出：考生版/答案版；author 仅能导出被授权题库来源的试卷。
@@ -35,7 +36,7 @@ async function createExam(name: string, maxAttempts = 1): Promise<string> {
     .set(bearer(admin))
     .send({
       name,
-      paperId: 'paper-demo',
+      ...(await examContent('paper-demo')),
       departmentIds: ['dept-rd', 'dept-mkt'],
       startTime: new Date(Date.now() - 3600_000).toISOString(),
       endTime: new Date(Date.now() + 3600_000).toISOString(),
@@ -72,7 +73,7 @@ describe('v1.7① 考试运营闭环', () => {
   describe('试卷 PDF 导出', () => {
     it('考生版导出：响应头 + %PDF 魔数', async () => {
       const res = await request(app)
-        .get('/api/papers/paper-demo/export-pdf')
+        .get('/api/exams/exam-demo/export-pdf')
         .set(bearer(admin))
         .buffer(true)
         .parse(binaryParser as never);
@@ -86,7 +87,7 @@ describe('v1.7① 考试运营闭环', () => {
 
     it('答案版导出（withAnswer=1）成功', async () => {
       const res = await request(app)
-        .get('/api/papers/paper-demo/export-pdf')
+        .get('/api/exams/exam-demo/export-pdf')
         .query({ withAnswer: 1 })
         .set(bearer(author))
         .buffer(true)
@@ -119,14 +120,16 @@ describe('v1.7① 考试运营闭环', () => {
         });
       expect(q.body.code).toBe(0);
 
-      const paper = await request(app)
-        .post('/api/papers')
-        .set(bearer(admin))
-        .send({ name: '未授权试卷P', description: '', bankIds: [bankId], questions: [{ questionId: q.body.data.id, score: 10 }] });
+      const paper = await createPaperFixture({ name: '未授权试卷P', description: '', bankIds: [bankId], questions: [{ questionId: q.body.data.id, score: 10 }] });
       expect(paper.body.code).toBe(0);
 
+      const exam = await request(app).post('/api/exams').set(bearer(admin)).send({
+        name: 'PDF 考试', ...(await examContent(paper.body.data.id)), departmentIds: ['dept-rd'],
+        startTime: new Date(Date.now() + 3600_000).toISOString(), endTime: new Date(Date.now() + 7200_000).toISOString(), durationMinutes: 30, passScore: 6,
+      });
+      expect(exam.body.code).toBe(0);
       const res = await request(app)
-        .get(`/api/papers/${paper.body.data.id}/export-pdf`)
+        .get(`/api/exams/${exam.body.data.id}/export-pdf`)
         .set(bearer(author))
         .buffer(true)
         .parse(binaryParser as never);

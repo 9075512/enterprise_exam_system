@@ -1,3 +1,4 @@
+import { examContent } from './examFixtures.js';
 /**
  * v1.6④ 数据运营与审计 集成测试。
  * 1) 操作审计日志：用户/权限写操作落日志，可过滤查询。
@@ -30,7 +31,7 @@ async function createExam(name: string): Promise<string> {
     .set(bearer(admin))
     .send({
       name,
-      paperId: 'paper-demo',
+      ...(await examContent('paper-demo')),
       departmentIds: ['dept-rd'],
       startTime: new Date(Date.now() - 3600_000).toISOString(),
       endTime: new Date(Date.now() + 3600_000).toISOString(),
@@ -81,7 +82,7 @@ describe('v1.6④ 数据运营与审计', () => {
       const res = await request(app)
         .put('/api/permissions/menus')
         .set(bearer(admin))
-        .send({ grants: { admin: ['dashboard', 'settings', 'permissions'], author: ['banks', 'papers'], examinee: ['my-exams', 'my-scores'] } });
+        .send({ grants: { admin: ['dashboard', 'settings', 'permissions'], author: ['banks', 'exams'], examinee: ['my-exams', 'my-scores'] } });
       expect(res.body.code).toBe(0);
 
       const logs = await request(app).get('/api/audit-logs').query({ targetType: 'permission' }).set(bearer(admin));

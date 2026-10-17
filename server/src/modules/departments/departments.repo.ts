@@ -3,7 +3,7 @@
  * v1.6③ 起支持多级科室树（parent_id 自引用）。
  */
 import type { RowDataPacket } from 'mysql2/promise';
-import { query } from '../../db/pool.js';
+import { query, runQuery, type SqlExecutor } from '../../db/pool.js';
 
 /** `departments` 表原始行。 */
 export interface DepartmentRow extends RowDataPacket {
@@ -17,8 +17,8 @@ export interface DepartmentRow extends RowDataPacket {
 const COLUMNS = 'id, name, description, parent_id, created_at';
 
 /** 全部科室（按 created_at 升序）。 */
-export async function list(): Promise<DepartmentRow[]> {
-  return query<DepartmentRow[]>(`SELECT ${COLUMNS} FROM departments ORDER BY created_at ASC`);
+export async function list(exec?: SqlExecutor): Promise<DepartmentRow[]> {
+  return runQuery<DepartmentRow[]>(exec, `SELECT ${COLUMNS} FROM departments ORDER BY created_at ASC`);
 }
 
 /** 按 id 查询。 */

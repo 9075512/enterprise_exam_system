@@ -1,6 +1,6 @@
 /**
  * 考试模块 —— 路由层。
- * 权限：列表/新建/编辑/删除 = admin；我的考试/开考 = examinee；详情 = 登录。
+ * 管理员维护考试；指定出题人按题库权限维护题目；考生仅能读取本人可参加的考试。
  */
 import { Router } from 'express';
 import { asyncHandler } from '../../utils/asyncHandler.js';
@@ -9,7 +9,9 @@ import { authRequired } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/role.js';
 import { ok } from '../../utils/response.js';
 import { monitorPushDisabled } from '../../utils/errors.js';
-import { examSchema, examExceptionSchema, examExtendSchema } from './exams.schema.js';
+import { drawSchema } from '../papers/papers.schema.js';
+import * as papersService from '../papers/papers.service.js';
+import { examQuestionsSchema, examSchema, examExceptionSchema, examExtendSchema } from './exams.schema.js';
 import type { ExamInput, ExamExceptionInput, ExamExtendInput } from './exams.schema.js';
 import * as examsService from './exams.service.js';
 import * as recordsService from '../records/records.service.js';
@@ -32,12 +34,22 @@ examsRouter.get(
   }),
 );
 
-/** GET /api/exams —— 全部考试（admin）。 */
+/** 考试管理：管理员全部、出题人仅被分配的考试。 */
 examsRouter.get(
   '/',
-  requireRole('admin'),
-  asyncHandler(async (_req, res) => ok(res, await examsService.list())),
+  requireRole('admin', 'author'),
+  asyncHandler(async (req, res) => ok(res, await examsService.list(req.user!))),
 );
+
+examsRouter.post('/draw-questions', requireRole('admin', 'author'), validate(drawSchema, 'body'), asyncHandler(async (req, res) => ok(res, await papersService.drawQuestions(req.body, req.user!))));
+examsRouter.get('/:id/questions', requireRole('admin', 'author'), asyncHandler(async (req, res) => ok(res, await examsService.getQuestions(req.params.id, req.user!))));
+examsRouter.put('/:id/questions', requireRole('admin', 'author'), validate(examQuestionsSchema, 'body'), asyncHandler(async (req, res) => ok(res, await examsService.saveQuestions(req.params.id, req.body, req.user!))));
+examsRouter.get('/:id/export-pdf', requireRole('admin', 'author'), asyncHandler(async (req, res) => {
+  const result = await examsService.exportQuestions(req.params.id, req.query.withAnswer === '1', req.user!);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(result.filename)}`);
+  res.send(result.buffer);
+}));
 
 /** POST /api/exams —— 新建考试（admin）。 */
 examsRouter.post(
@@ -93,7 +105,13 @@ examsRouter.get(
 /** GET /api/exams/:id —— 考试详情（登录）。 */
 examsRouter.get(
   '/:id',
-  asyncHandler(async (req, res) => ok(res, await examsService.getById(req.params.id))),
+  asyncHandler(async (req, res) => {
+    if (req.user!.role === 'examinee') {
+      await participantsService.assertParticipant(req.params.id, req.user!.id);
+      return ok(res, await examsService.getById(req.params.id));
+    }
+    return ok(res, await examsService.getManagement(req.params.id, req.user!));
+  }),
 );
 
 /** PUT /api/exams/:id —— 编辑考试（admin）。 */

@@ -1,3 +1,4 @@
+import { examContent, createPaperFixture } from './examFixtures.js';
 /**
  * v1.7② 题库与数据运营深化 集成测试。
  * 1) 知识点标签：增删改查、题库内/全局按标签过滤、标签列表、按标签配比抽题与缺口。
@@ -63,10 +64,7 @@ async function createPaper(
   bankIds: string[],
   questions: Array<{ questionId: string; score: number }>,
 ): Promise<string> {
-  const res = await request(app)
-    .post('/api/papers')
-    .set(bearer(admin))
-    .send({ name, description: '', bankIds, questions });
+  const res = await createPaperFixture({ name, description: '', bankIds, questions });
   expect(res.body.code).toBe(0);
   return res.body.data.id as string;
 }
@@ -78,7 +76,7 @@ async function createExam(name: string, paperId: string, departmentIds: string[]
     .set(bearer(admin))
     .send({
       name,
-      paperId,
+      ...(await examContent(paperId)),
       departmentIds,
       startTime: new Date(Date.now() - 3600_000).toISOString(),
       endTime: new Date(Date.now() + 3600_000).toISOString(),
@@ -174,7 +172,7 @@ describe('v1.7② 题库与数据运营深化', () => {
 
     it('按标签配比抽题：命中标签题目', async () => {
       const res = await request(app)
-        .post('/api/papers/draw-questions')
+        .post('/api/exams/draw-questions')
         .set(bearer(admin))
         .send({
           bankIds: ['bank-security'],
@@ -191,7 +189,7 @@ describe('v1.7② 题库与数据运营深化', () => {
 
     it('题型 + 标签混合抽题不重复', async () => {
       const res = await request(app)
-        .post('/api/papers/draw-questions')
+        .post('/api/exams/draw-questions')
         .set(bearer(admin))
         .send({
           bankIds: ['bank-security'],
@@ -205,7 +203,7 @@ describe('v1.7② 题库与数据运营深化', () => {
 
     it('标签存量不足 → 返回 tagShortages 且不生成任何题目', async () => {
       const res = await request(app)
-        .post('/api/papers/draw-questions')
+        .post('/api/exams/draw-questions')
         .set(bearer(admin))
         .send({
           bankIds: ['bank-security'],
@@ -279,26 +277,10 @@ describe('v1.7② 题库与数据运营深化', () => {
     });
   });
 
-  describe('Q2 试卷克隆', () => {
-    it('克隆试卷：题量/总分一致，名称为「原名（副本）」', async () => {
-      const res = await request(app)
-        .post('/api/papers/paper-demo/clone')
-        .set(bearer(admin))
-        .send({});
-      expect(res.body.code).toBe(0);
-      expect(res.body.data.name).toContain('副本');
-      expect(res.body.data.questions).toHaveLength(10);
-      expect(res.body.data.totalScore).toBe(100);
-      expect(res.body.data.id).not.toBe('paper-demo');
-    });
-
-    it('克隆可自定义名称', async () => {
-      const res = await request(app)
-        .post('/api/papers/paper-demo/clone')
-        .set(bearer(admin))
-        .send({ name: '克隆卷（自定义名）' });
-      expect(res.body.code).toBe(0);
-      expect(res.body.data.name).toBe('克隆卷（自定义名）');
+  describe('独立试卷管理已合并', () => {
+    it('旧克隆接口返回 404，避免产生独立试卷', async () => {
+      const res = await request(app).post('/api/papers/paper-demo/clone').set(bearer(admin)).send({});
+      expect(res.status).toBe(404);
     });
   });
 

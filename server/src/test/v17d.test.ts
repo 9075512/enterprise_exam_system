@@ -1,3 +1,4 @@
+import { examContent, createPaperFixture } from './examFixtures.js';
 /**
  * v1.7③-b 安全与合规加固 · S1（简答富文本/图片作答 + 评分细则）与 S2（题库授权批量维护）集成测试。
  *
@@ -110,10 +111,7 @@ beforeAll(async () => {
   shortQuestionId = q.body.data.id as string;
 
   // 2) 组卷（仅该简答题）→ 建考
-  const paper = await request(app)
-    .post('/api/papers')
-    .set(bearer(admin))
-    .send({
+  const paper = await createPaperFixture({
       name: 'v17d 简答富文本试卷',
       description: '',
       bankIds: ['bank-security'],
@@ -127,7 +125,7 @@ beforeAll(async () => {
     .set(bearer(admin))
     .send({
       name: 'v17d 简答富文本考试',
-      paperId,
+      ...(await examContent(paperId)),
       departmentIds: ['dept-rd'],
       startTime: new Date(Date.now() - 3600_000).toISOString(),
       endTime: new Date(Date.now() + 3600_000).toISOString(),
@@ -234,9 +232,9 @@ describe('S1 富文本作答链路', () => {
     // 新建第 2 次作答（先提升次数上限）
     const exam = await request(app).put(`/api/exams/${examId}`).set(bearer(admin)).send({
       name: 'v17d 简答富文本考试',
-      paperId,
+      ...(await examContent(paperId)),
       departmentIds: ['dept-rd'],
-      startTime: new Date(Date.now() - 3600_000).toISOString(),
+      startTime: (await request(app).get(`/api/exams/${examId}`).set(bearer(admin))).body.data.startTime,
       endTime: new Date(Date.now() + 3600_000).toISOString(),
       durationMinutes: 30,
       passScore: 6,

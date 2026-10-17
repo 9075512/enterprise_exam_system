@@ -265,6 +265,7 @@ export async function seed(conn: Connection): Promise<void> {
       now,
     ],
   );
+  await conn.query("INSERT IGNORE INTO exam_authors (exam_id, user_id) VALUES ('exam-demo', 'user-author')");
   // exam_records / import_batches 不写数据。
 
   // 9. 系统设置（全局单行，id = 1）。

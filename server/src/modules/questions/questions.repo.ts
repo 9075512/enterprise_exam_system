@@ -118,9 +118,9 @@ export async function findById(id: string, exec?: SqlExecutor): Promise<Question
 }
 
 /** 按 id 集合批量查询。 */
-export async function findByIds(ids: string[]): Promise<QuestionRow[]> {
+export async function findByIds(ids: string[], exec?: SqlExecutor): Promise<QuestionRow[]> {
   if (ids.length === 0) return [];
-  return query<QuestionRow[]>(
+  return runQuery<QuestionRow[]>(exec,
     `SELECT ${COLUMNS} FROM questions WHERE id IN (${ids.map(() => '?').join(', ')})`,
     ids,
   );

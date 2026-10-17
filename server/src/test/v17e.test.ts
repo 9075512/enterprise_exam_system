@@ -1,3 +1,4 @@
+import { examContent } from './examFixtures.js';
 /**
  * v1.7④ 工程化与稳定性 集成测试。
  *
@@ -88,7 +89,7 @@ beforeAll(async () => {
     .set(bearer(admin))
     .send({
       name: 'v17e 监考考试',
-      paperId: 'paper-demo',
+      ...(await examContent('paper-demo')),
       departmentIds: ['dept-rd'],
       startTime: new Date(Date.now() - 3600_000).toISOString(),
       endTime: new Date(Date.now() + 3 * 3600_000).toISOString(),
@@ -359,7 +360,7 @@ describe('S3 通知模板可配置', () => {
         .set(bearer(admin))
         .send({
           name: 'v17e 模板通知考试',
-          paperId: 'paper-demo',
+          ...(await examContent('paper-demo')),
           departmentIds: ['dept-rd'],
           startTime: new Date(Date.now() + 3600_000).toISOString(),
           endTime: new Date(Date.now() + 7200_000).toISOString(),

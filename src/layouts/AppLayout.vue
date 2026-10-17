@@ -23,6 +23,16 @@ interface MenuExposed {
 
 const route = useRoute();
 const isPracticeRoute = computed(() => route.path.startsWith('/exam/practice'));
+const isExamManagementRoute = computed(() => route.path.startsWith('/admin/exams'));
+const examViewport = window.matchMedia?.('(max-width: 700px)');
+const isSmallExamViewport = ref(examViewport?.matches ?? false);
+const examNavOpen = ref(false);
+const isExamMobile = computed(() => isExamManagementRoute.value && isSmallExamViewport.value);
+function syncExamViewport(event: MediaQueryListEvent): void { isSmallExamViewport.value = event.matches; examNavOpen.value = false; }
+function closeExamNavOnEscape(event: KeyboardEvent): void { if (event.key === 'Escape') examNavOpen.value = false; }
+onMounted(() => { examViewport?.addEventListener('change', syncExamViewport); window.addEventListener('keydown', closeExamNavOnEscape); });
+onUnmounted(() => { examViewport?.removeEventListener('change', syncExamViewport); window.removeEventListener('keydown', closeExamNavOnEscape); });
+watch(() => route.path, () => { examNavOpen.value = false; });
 const moduleTone = computed(() => {
   const path = route.path;
   if (/users|departments|home-config/.test(path)) return 'teal';
@@ -263,12 +273,15 @@ const pwdVisible = ref(false);
     class="layout"
     :class="{
       'is-practice-route': isPracticeRoute,
+      'is-exam-management': isExamManagementRoute,
+      'is-exam-nav-open': isExamMobile && examNavOpen,
       'is-examinee-layout': isExaminee,
       'is-focused-examinee-route': isFocusedExamineeRoute,
     }"
     :data-module-tone="moduleTone"
   >
-    <aside class="layout__aside" :class="{ 'is-collapsed': app.sidebarCollapsed }">
+    <button v-if="isExamMobile && examNavOpen" class="layout__exam-nav-backdrop" type="button" aria-label="关闭导航" @click="examNavOpen = false" />
+    <aside id="app-main-navigation" aria-label="主导航" class="layout__aside" :class="{ 'is-collapsed': !isExamMobile && app.sidebarCollapsed }" :inert="isExamMobile && !examNavOpen ? true : undefined">
       <div class="layout__brand">
         <span class="layout__brand-mark">考</span>
         <span class="layout__brand-name" :title="brandName">
@@ -281,7 +294,7 @@ const pwdVisible = ref(false);
         :key="menusKey"
         :default-active="activeMenu"
         :default-openeds="openedGroups"
-        :collapse="app.sidebarCollapsed"
+        :collapse="!isExamMobile && app.sidebarCollapsed"
         :collapse-transition="false"
         :unique-opened="true"
         router
@@ -348,7 +361,7 @@ const pwdVisible = ref(false);
       </div>
     </aside>
 
-    <div class="layout__main">
+    <div class="layout__main" :inert="isExamMobile && examNavOpen ? true : undefined">
       <header v-if="isExaminee && !isFocusedExamineeRoute" class="layout__mobile-header">
         <div class="layout__mobile-brand">
           <span class="layout__mobile-mark">考</span>
@@ -378,11 +391,13 @@ const pwdVisible = ref(false);
         <el-button
           text
           class="layout__collapse"
-          :title="app.sidebarCollapsed ? '展开侧栏' : '收起侧栏'"
-          :aria-label="app.sidebarCollapsed ? '展开侧栏' : '收起侧栏'"
-          @click="app.toggleSidebar()"
+          :title="isExamMobile ? (examNavOpen ? '收起导航' : '展开导航') : app.sidebarCollapsed ? '展开侧栏' : '收起侧栏'"
+          :aria-label="isExamMobile ? (examNavOpen ? '收起导航' : '展开导航') : app.sidebarCollapsed ? '展开侧栏' : '收起侧栏'"
+          :aria-expanded="isExamMobile ? examNavOpen : !app.sidebarCollapsed"
+          aria-controls="app-main-navigation"
+          @click="isExamMobile ? (examNavOpen = !examNavOpen) : app.toggleSidebar()"
         >
-          <el-icon :size="18"><component :is="app.sidebarCollapsed ? Expand : Fold" /></el-icon>
+          <el-icon :size="18"><component :is="isExamMobile || app.sidebarCollapsed ? Expand : Fold" /></el-icon>
         </el-button>
         <el-breadcrumb separator="/">
           <el-breadcrumb-item v-for="(title, index) in breadcrumbs" :key="index">
@@ -391,7 +406,7 @@ const pwdVisible = ref(false);
         </el-breadcrumb>
         <div class="layout__spacer" />
         <!-- 全局搜索（设计稿 .search + ⌘K 提示） -->
-        <button type="button" class="layout__search" @click="openSearch">
+        <button type="button" aria-label="搜索菜单与功能" class="layout__search" @click="openSearch">
           <el-icon class="layout__search-ic"><Search /></el-icon>
           <span class="layout__search-ph">搜索菜单与功能</span>
           <kbd class="layout__kbd">{{ searchShortcut }}</kbd>
@@ -935,6 +950,18 @@ const pwdVisible = ref(false);
   &__mobile-nav,
   &__mobile-backtop {
     display: none;
+  }
+
+  @media (max-width: 700px) {
+    &.is-exam-management {
+      .layout__aside { position: fixed; inset: 0 auto 0 0; z-index: 90; width: $sidebar-width; transform: translateX(-100%); transition: transform $transition-base; }
+      &.is-exam-nav-open .layout__aside { transform: translateX(0); }
+      .layout__exam-nav-backdrop { position: fixed; inset: 0; z-index: 80; border: 0; background: rgba($text-primary, 0.32); }
+      .layout__main { width: 100%; }
+      .layout__content { padding: 16px; }
+      .layout__header { padding: 0 12px; gap: 8px; }
+      .layout__header :deep(.el-breadcrumb) { min-width: 0; white-space: nowrap; }
+    }
   }
 
   // 手机考生端使用统一的移动信息架构，而不是只在练题路由切换外壳。

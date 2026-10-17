@@ -62,8 +62,11 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'admin/exams',
         component: () => import('@/views/admin/ExamManagePage.vue'),
-        meta: { roles: ['admin'], menuKey: 'exams', title: '考试管理' },
+        meta: { roles: ['admin', 'author'], menuKey: 'exams', title: '考试管理' },
       },
+      { path: 'admin/exams/new', component: () => import('@/views/admin/ExamEditorPage.vue'), meta: { roles: ['admin'], menuKey: 'exams', title: '新建考试' } },
+      { path: 'admin/exams/:id/edit', component: () => import('@/views/admin/ExamEditorPage.vue'), meta: { roles: ['admin', 'author'], menuKey: 'exams', title: '编辑考试' } },
+      { path: 'admin/exams/:id/preview', component: () => import('@/views/author/PaperPreviewPage.vue'), meta: { roles: ['admin', 'author'], menuKey: 'exams', title: '题目预览' } },
       {
         path: 'admin/exams/:id/monitor',
         component: () => import('@/views/admin/ExamMonitorPage.vue'),
@@ -140,21 +143,7 @@ const routes: RouteRecordRaw[] = [
         redirect: (to) => ({ path: '/author/banks', query: { bankId: String(to.params.bankId) } }),
         meta: { roles: ['admin', 'author'], title: '科目题库' },
       },
-      {
-        path: 'author/papers',
-        component: () => import('@/views/author/PaperPage.vue'),
-        meta: { roles: ['admin', 'author'], menuKey: 'papers', title: '试卷管理' },
-      },
-      {
-        path: 'author/papers/composer',
-        component: () => import('@/views/author/PaperComposerPage.vue'),
-        meta: { roles: ['admin', 'author'], title: '组卷' },
-      },
-      {
-        path: 'author/papers/:paperId/preview',
-        component: () => import('@/views/author/PaperPreviewPage.vue'),
-        meta: { roles: ['admin', 'author'], title: '试卷预览' },
-      },
+      { path: 'author/papers/:legacyPath(.*)*', redirect: '/admin/exams' },
       // 考生
       {
         path: 'exam/home',

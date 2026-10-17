@@ -1,3 +1,4 @@
+import { examContent } from './examFixtures.js';
 /**
  * v1.6③ 组织与权限精细化 集成测试。
  * 1) 多级科室树：父科室考试覆盖子科室考生（级联授权）。
@@ -85,7 +86,7 @@ describe('v1.6③ 组织与权限精细化', () => {
         .set(bearer(admin))
         .send({
           name: '父科室覆盖子科室考试',
-          paperId: 'paper-demo',
+          ...(await examContent('paper-demo')),
           departmentIds: [parentDeptId],
           startTime: new Date(Date.now() - 3600_000).toISOString(),
           endTime: new Date(Date.now() + 3600_000).toISOString(),

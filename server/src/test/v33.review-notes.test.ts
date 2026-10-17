@@ -1,3 +1,4 @@
+import { examContent, createPaperFixture } from './examFixtures.js';
 /**
  * v3.3 阅卷「评语 + 标记存疑」全链路 集成测试。
  *
@@ -65,7 +66,7 @@ describe('v3.3 阅卷评语与标记存疑', () => {
   });
 
   it('组卷（单选 40 + 简答 30 + 简答 30 = 100）并发布考试', async () => {
-    const paper = await request(app).post('/api/papers').set(bearer(author)).send({
+    const paper = await createPaperFixture({
       name: 'v3.3 阅卷评语冒烟卷',
       description: '',
       bankIds: ['bank-security'],
@@ -80,7 +81,7 @@ describe('v3.3 阅卷评语与标记存疑', () => {
 
     const exam = await request(app).post('/api/exams').set(bearer(admin)).send({
       name: 'v3.3 阅卷评语冒烟考试',
-      paperId,
+      ...(await examContent(paperId)),
       departmentIds: ['dept-rd'],
       startTime: new Date(Date.now() - 3600_000).toISOString(),
       endTime: new Date(Date.now() + 3600_000).toISOString(),

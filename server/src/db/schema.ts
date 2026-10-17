@@ -160,9 +160,18 @@ export const DDL_STATEMENTS: readonly string[] = [
     created_by       VARCHAR(64)  NOT NULL,
     created_at       DATETIME(3)  NOT NULL,
     PRIMARY KEY (id),
-    KEY idx_exams_paper (paper_id),
+    UNIQUE KEY uk_exams_paper (paper_id),
     CONSTRAINT fk_exams_paper FOREIGN KEY (paper_id)
       REFERENCES papers(id) ON DELETE RESTRICT ON UPDATE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  `CREATE TABLE IF NOT EXISTS exam_authors (
+    exam_id VARCHAR(64) NOT NULL,
+    user_id VARCHAR(64) NOT NULL,
+    PRIMARY KEY (exam_id, user_id),
+    KEY idx_exam_authors_user (user_id),
+    CONSTRAINT fk_ea_exam FOREIGN KEY (exam_id) REFERENCES exams(id) ON DELETE CASCADE,
+    CONSTRAINT fk_ea_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
   // 9. 考试记录
@@ -862,6 +871,7 @@ export const TABLE_NAMES: readonly string[] = [
   'paper_questions',
   'paper_bank_refs',
   'exams',
+  'exam_authors',
   'exam_records',
   'import_batches',
   'system_settings',
