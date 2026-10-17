@@ -1,9 +1,7 @@
 <script setup lang="ts">
 /**
- * 试题批量编辑弹窗（v1.7②）。
- * - 仅提交被勾选的字段（知识点标签 / 默认分值 / 难度）；
- * - 标签支持「追加」与「覆盖」两种模式；
- * - 标签候选来自当前题库已有标签，可自由输入创建。
+ * 试题批量编辑弹窗。
+ * 题库管理不再维护知识点与默认分值，这里仅保留难度批量调整。
  */
 import { computed, reactive, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
@@ -15,8 +13,6 @@ const props = defineProps<{
   visible: boolean;
   /** 待编辑的题目 id 列表 */
   questionIds: string[];
-  /** 当前题库 id（用于加载标签候选） */
-  bankId: string;
 }>();
 
 const emit = defineEmits<{
@@ -29,52 +25,27 @@ const dialogVisible = computed<boolean>({
   set: (value) => emit('update:visible', value),
 });
 
-/** 知识点标签上限（与后端 MAX_TAGS 一致） */
-const MAX_TAGS = 10;
-
 const form = reactive({
-  /** 是否修改知识点标签 */
-  changeTags: false,
-  tags: [] as string[],
-  tagsMode: 'append' as 'append' | 'replace',
-  /** 是否修改默认分值 */
-  changeScore: false,
-  defaultScore: 10,
   /** 是否修改题目难度（v3.2；'' = 清除难度） */
   changeDifficulty: false,
   difficulty: '' as QuestionDifficulty | '',
 });
 
 const submitting = ref(false);
-const tagOptions = ref<string[]>([]);
-
-async function loadTagOptions(): Promise<void> {
-  try {
-    tagOptions.value = await questionsApi.tags(props.bankId ? [props.bankId] : undefined);
-  } catch {
-    tagOptions.value = [];
-  }
-}
 
 /** 每次打开重置表单 */
 watch(
   () => props.visible,
   (visible) => {
     if (!visible) return;
-    form.changeTags = false;
-    form.tags = [];
-    form.tagsMode = 'append';
-    form.changeScore = false;
-    form.defaultScore = 10;
     form.changeDifficulty = false;
     form.difficulty = '';
-    void loadTagOptions();
   },
 );
 
 /** 未勾选任何字段时提交按钮禁用 */
 const canSubmit = computed<boolean>(
-  () => form.changeTags || form.changeScore || form.changeDifficulty,
+  () => form.changeDifficulty,
 );
 
 async function handleSubmit(): Promise<void> {
@@ -82,17 +53,7 @@ async function handleSubmit(): Promise<void> {
     ElMessage.warning('请至少选择一个要修改的字段');
     return;
   }
-  if (form.changeTags && form.tags.filter((t) => t.trim()).length === 0) {
-    ElMessage.warning('请填写至少一个知识点标签');
-    return;
-  }
-
   const payload: QuestionBatchEditInput = { ids: [...props.questionIds] };
-  if (form.changeTags) {
-    payload.tags = form.tags.map((t) => t.trim()).filter(Boolean).slice(0, MAX_TAGS);
-    payload.tagsMode = form.tagsMode;
-  }
-  if (form.changeScore) payload.defaultScore = form.defaultScore;
   if (form.changeDifficulty) payload.difficulty = form.difficulty || null;
 
   submitting.value = true;
@@ -127,38 +88,6 @@ function handleCancel(): void {
     </p>
 
     <el-form label-position="top">
-      <el-form-item>
-        <el-checkbox v-model="form.changeTags">修改知识点标签</el-checkbox>
-        <el-select
-          v-model="form.tags"
-          multiple
-          filterable
-          allow-create
-          default-first-option
-          :multiple-limit="MAX_TAGS"
-          :disabled="!form.changeTags"
-          placeholder="选择或输入知识点标签（回车创建）"
-          class="batch-select"
-        >
-          <el-option v-for="tag in tagOptions" :key="tag" :label="tag" :value="tag" />
-        </el-select>
-        <el-radio-group v-model="form.tagsMode" :disabled="!form.changeTags" class="batch-mode">
-          <el-radio value="append">追加到原标签</el-radio>
-          <el-radio value="replace">覆盖原标签</el-radio>
-        </el-radio-group>
-      </el-form-item>
-
-      <el-form-item>
-        <el-checkbox v-model="form.changeScore">修改默认分值</el-checkbox>
-        <el-input-number
-          v-model="form.defaultScore"
-          :min="0.5"
-          :max="100"
-          :step="0.5"
-          :disabled="!form.changeScore"
-        />
-      </el-form-item>
-
       <el-form-item>
         <el-checkbox v-model="form.changeDifficulty">修改难度</el-checkbox>
         <el-select
@@ -200,7 +129,4 @@ function handleCancel(): void {
   width: 100%;
 }
 
-.batch-mode {
-  margin-top: 8px;
-}
 </style>

@@ -623,14 +623,15 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
     gap: 12px;
     position: sticky;
     top: 76px;
+    height: calc(100dvh - 92px);
     max-height: calc(100dvh - 92px);
-    overflow: auto;
+    overflow: hidden;
   }
 
   // 答题卡上方的考生信息卡
   &__who {
     --el-card-padding: 10px 14px;
-    margin-bottom: 10px;
+    flex: 0 0 auto;
 
     :deep(.el-card__body) {
       display: flex;
@@ -675,11 +676,24 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
 
   &__sheet {
     --el-card-padding: 14px;
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    flex-direction: column;
+
+    :deep(.el-card__body) {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-gutter: stable;
+    }
   }
 
   /* 自动暂存说明 */
   &__note {
     display: flex;
+    flex: 0 0 auto;
     align-items: flex-start;
     gap: 8px;
     padding: 12px 14px;
@@ -709,8 +723,17 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
 
     &__aside {
       position: static;
+      height: auto;
       max-height: none;
       overflow: visible;
+    }
+
+    &__sheet {
+      flex: none;
+
+      :deep(.el-card__body) {
+        overflow: visible;
+      }
     }
   }
 

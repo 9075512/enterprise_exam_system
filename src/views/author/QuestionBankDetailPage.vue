@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * 题库详情页（W3-T4，PRD §7.4）。
- * 科目结构只读；本页聚焦试题健康度、筛选、分页与内容维护。
+ * 科目结构只读；本页聚焦题量概览、筛选、分页与内容维护。
  */
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -17,8 +17,6 @@ import {
   Collection,
   List as ListIcon,
   CircleCheck,
-  TrendCharts,
-  WarningFilled,
 } from '@element-plus/icons-vue';
 import * as banksApi from '@/api/banks';
 import * as questionsApi from '@/api/questions';
@@ -35,7 +33,6 @@ import {
 } from '@/constants';
 import { useSettingsStore } from '@/stores/settings';
 import { formatDateTime } from '@/utils/datetime';
-import { formatScore } from '@/utils/format';
 import BatchActionBar from '@/components/common/BatchActionBar.vue';
 import StatCard from '@/components/common/StatCard.vue';
 import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
@@ -63,10 +60,9 @@ const { data: bank, loading: bankLoading, refresh: refreshBank } = useRequest(()
 );
 const canEdit = computed<boolean>(() => bank.value?.canEdit === true);
 
-/* ------------------------------ 题目健康度统计（v3.3） ------------------------------ */
+/* ------------------------------ 题量与题型统计 ------------------------------ */
 /**
- * 顶部统计卡数据源（题型分布 / 平均正确率 / 待完善），全部由后端实时聚合。
- * 口径：平均正确率 = 该题库全部练题作答记录的正确占比；无任何作答 → null（前端显示「—」）。
+ * 复用后端统计结果展示总量与题型分布；正确率和知识点健康度不再在题库管理中展示。
  */
 const { data: stats, refresh: refreshStats } = useRequest(() =>
   banksApi.questionStats(bankId.value),
@@ -78,36 +74,11 @@ const typeCount = computed(
     stats.value?.byType ?? { single: 0, multiple: 0, judge: 0, fill: 0, short: 0 },
 );
 
-/** 平均正确率数值文案（不带 %，% 由 StatCard 的 unit 承担）；无作答 → 「—」，不造数 */
-const avgRateText = computed<string>(() => {
-  const v = stats.value?.avgCorrectRate;
-  if (v == null) return '—';
-  return Number.isInteger(v) ? String(v) : v.toFixed(1);
-});
-
-/** 待完善口径脚注（拆分「缺解析 / 未设知识点」，供统计卡 foot 使用） */
-const incompleteFoot = computed<string>(() => {
-  const s = stats.value;
-  if (!s) return '';
-  return `缺解析 ${s.missingAnalysisCount} · 未设知识点 ${s.missingTagsCount}`;
-});
-
 /* ------------------------------ 试题筛选 ------------------------------ */
 const filterType = ref<QuestionType | ''>('');
 const filterStatus = ref<'active' | 'disabled' | ''>('');
 const filterDifficulty = ref<QuestionDifficulty | ''>('');
-const filterTag = ref('');
 const filterKeyword = ref('');
-
-const tags = ref<string[]>([]);
-
-async function loadTags(): Promise<void> {
-  try {
-    tags.value = await questionsApi.tags([bankId.value]);
-  } catch {
-    tags.value = [];
-  }
-}
 
 /* ------------------------------ 试题分页 ------------------------------ */
 const {
@@ -126,7 +97,6 @@ const {
       type: filterType.value,
       status: filterStatus.value,
       difficulty: filterDifficulty.value,
-      tag: filterTag.value,
       keyword: filterKeyword.value.trim(),
       page: p,
       pageSize: ps,
@@ -140,7 +110,6 @@ const hasFilter = computed<boolean>(() =>
     filterType.value ||
       filterStatus.value ||
       filterDifficulty.value ||
-      filterTag.value ||
       filterKeyword.value.trim(),
   ),
 );
@@ -153,7 +122,6 @@ function onResetFilters(): void {
   filterType.value = '';
   filterStatus.value = '';
   filterDifficulty.value = '';
-  filterTag.value = '';
   filterKeyword.value = '';
   reset();
 }
@@ -163,7 +131,6 @@ function reloadAll(): void {
   void refreshBank();
   void refreshStats();
   void load();
-  void loadTags();
 }
 
 /* ------------------------------ 批量编辑（v1.7②） ------------------------------ */
@@ -278,79 +245,16 @@ function goBack(): void {
   void router.push('/author/banks');
 }
 
-/* ------------------------------ 正确率展示（v3.3） ------------------------------ */
-/** 正确率文案（整数不带小数，非整数保留 1 位） */
-function formatRate(rate: number): string {
-  return `${Number.isInteger(rate) ? rate : rate.toFixed(1)}%`;
-}
-
-/**
- * 正确率分档色调：≥80 主色 / 60–79 警示 / <60 错误。
- * 说明：设计稿示例色（61% 标红、48% 标琥珀）非单调，本实现按单调阈值工程化。
- * 文字一律走 `-text` 档（700），原色仅作进度条填充，符合 DESIGN-C 语义色铁律。
- */
-function rateTone(rate: number): 'primary' | 'warn' | 'err' {
-  if (rate >= 80) return 'primary';
-  if (rate >= 60) return 'warn';
-  return 'err';
-}
-
-/** 待完善判定：缺解析 或 未设置知识点（与后端 incompleteCount 同口径） */
-function isIncomplete(question: Question): boolean {
-  return !question.analysis?.trim() || !(question.tags?.length);
-}
-
-/** 待完善行高亮 */
-function rowClassName({ row }: { row: Question }): string {
-  return isIncomplete(row) ? 'row--incomplete' : '';
-}
-
-/* ------------------------------ 知识点分布 ------------------------------ */
-/**
- * 知识点分布：由当前页已加载的题目列表（Question[]）聚合。
- * - tags 多标签：一条题目在每个命中的知识点各计一次（故各知识点题数之和 ≥ 题目数）；
- * - tags 为空的题目归入「未打标签」并单独统计；
- * - 占比 = 该知识点题数 / 当前页题目数。
- *
- * 数据缺口：后端未提供整库知识点聚合接口，分布仅基于当前页已加载题目（随翻页/筛选变化）。
- */
-const knowledge = computed(() => {
-  const list = questions.value ?? [];
-  const total = list.length;
-  const counter = new Map<string, number>();
-  let untagged = 0;
-  for (const question of list) {
-    const questionTags = (question.tags ?? []).filter((tag) => tag && tag.trim());
-    if (questionTags.length === 0) {
-      untagged += 1;
-      continue;
-    }
-    for (const tag of questionTags) {
-      counter.set(tag, (counter.get(tag) ?? 0) + 1);
-    }
-  }
-  const percent = (count: number): number => (total > 0 ? Math.round((count / total) * 100) : 0);
-  const rows = Array.from(counter.entries())
-    .map(([name, count]) => ({ name, count, percent: percent(count) }))
-    .sort((a, b) => b.count - a.count);
-  if (untagged > 0) {
-    rows.push({ name: '未打标签', count: untagged, percent: percent(untagged) });
-  }
-  return { rows, total };
-});
-
 /** bankId 变化时重新初始化（同一组件实例内切换路由参数） */
 watch(bankId, () => {
   void refreshBank();
   void refreshStats();
-  loadTags();
   reset();
 });
 
 onMounted(() => {
   void settingsStore.load();
   void refreshStats();
-  loadTags();
   void load();
 });
 </script>
@@ -383,7 +287,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <!-- 题目健康度统计（v3.3；对齐设计稿 bank-detail.html 顶部五张卡：题型分布 / 平均正确率 / 待完善） -->
+    <!-- 题目概览：仅保留题量与题型分布。 -->
     <div class="bank-detail__stats">
       <StatCard density="compact" label="题目总数" :value="stats?.total ?? 0" unit="道" :icon="Collection" />
       <StatCard
@@ -399,27 +303,6 @@ onMounted(() => {
         :icon="CircleCheck"
       >
         <template v-if="typeCount.fill > 0" #foot>含填空 {{ typeCount.fill }} 道</template>
-      </StatCard>
-      <StatCard
-        density="compact"
-        label="平均正确率"
-        :value="avgRateText"
-        :unit="stats?.avgCorrectRate != null ? '%' : ''"
-        :icon="TrendCharts"
-      >
-        <template #foot>
-          {{ stats && stats.answeredCount > 0 ? `${stats.answeredCount} 道有练题作答` : '暂无练题作答' }}
-        </template>
-      </StatCard>
-      <StatCard
-        density="compact"
-        label="待完善"
-        :value="stats?.incompleteCount ?? 0"
-        unit="道"
-        tone="warning"
-        :icon="WarningFilled"
-      >
-        <template #foot>{{ incompleteFoot }}</template>
       </StatCard>
     </div>
 
@@ -468,16 +351,6 @@ onMounted(() => {
                 :value="opt.value"
               />
             </el-select>
-            <el-select
-              v-model="filterTag"
-              class="bank-detail__filter-item"
-              placeholder="全部知识点"
-              clearable
-              filterable
-            >
-              <el-option label="全部知识点" value="" />
-              <el-option v-for="t in tags" :key="t" :label="t" :value="t" />
-            </el-select>
             <el-button type="primary" :icon="Search" @click="onSearch">查询</el-button>
             <el-button :icon="Refresh" @click="onResetFilters">重置</el-button>
             <TableDensityToggle />
@@ -498,7 +371,6 @@ onMounted(() => {
             :data="questions"
             row-key="id"
             stripe
-            :row-class-name="rowClassName"
             @selection-change="onSelectionChange"
           >
             <el-table-column type="selection" width="46" reserve-selection />
@@ -525,51 +397,13 @@ onMounted(() => {
                 <span v-else class="bank-detail__muted">—</span>
               </template>
             </el-table-column>
-            <el-table-column label="知识点" min-width="150">
-              <template #default="{ row }">
-                <template v-if="row.tags?.length">
-                  <el-tag
-                    v-for="tag in row.tags"
-                    :key="tag"
-                    size="small"
-                    effect="plain"
-                    type="info"
-                    class="cell-tag"
-                  >
-                    {{ tag }}
-                  </el-tag>
-                </template>
-                <span v-else class="cell-tag--empty">未设置</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="默认分值" width="90" align="center">
-              <template #default="{ row }">{{ formatScore(row.defaultScore) }}</template>
-            </el-table-column>
-            <!-- 正确率（v3.3）：数值 + 内联进度条，三档单调着色；无作答 → 「—」 -->
-            <el-table-column label="正确率" width="130" align="center">
-              <template #default="{ row }">
-                <div v-if="row.correctRate != null" class="rate-cell">
-                  <span class="rate-cell__num" :class="`is-${rateTone(row.correctRate as number)}`">
-                    {{ formatRate(row.correctRate as number) }}
-                  </span>
-                  <span class="rate-cell__track">
-                    <i
-                      class="rate-cell__fill"
-                      :class="`is-${rateTone(row.correctRate as number)}`"
-                      :style="{ width: `${Math.min(row.correctRate as number, 100)}%` }"
-                    ></i>
-                  </span>
-                </div>
-                <span v-else class="bank-detail__muted">—</span>
-              </template>
-            </el-table-column>
             <el-table-column label="创建时间" width="160">
               <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
             </el-table-column>
             <el-table-column class-name="table-actions-cell" label="操作" width="120" fixed="right">
               <template #default="{ row }">
                 <el-button v-if="canEdit" type="primary" link @click="openEditQuestion(row as Question)">
-                  {{ isIncomplete(row as Question) ? '补齐' : '编辑' }}
+                  编辑
                 </el-button>
                 <el-button v-if="canEdit" type="danger" link @click="handleDeleteQuestion(row as Question)">删除</el-button>
               </template>
@@ -600,28 +434,6 @@ onMounted(() => {
         </el-card>
 
         <div class="bank-detail__extras">
-          <!-- 知识点分布（对齐设计稿 bank-detail.html「知识点分布」卡：名称 + 题数 + 进度条） -->
-          <el-card class="knowledge-card" shadow="never">
-            <template #header>
-              <div class="card-head">
-                <h3 class="card-head__title">知识点分布</h3>
-                <span class="card-head__sub">基于当前页 {{ knowledge.total }} 道</span>
-              </div>
-            </template>
-            <div v-if="knowledge.rows.length > 0" class="knowledge-card__bars">
-              <div v-for="row in knowledge.rows" :key="row.name" class="knowledge-card__item">
-                <div class="knowledge-card__bar-row">
-                  <span class="knowledge-card__name" :title="row.name">{{ row.name }}</span>
-                  <span class="knowledge-card__count num">{{ row.count }}（{{ row.percent }}%）</span>
-                </div>
-                <div class="knowledge-card__track">
-                  <i class="knowledge-card__fill" :style="{ width: `${row.percent}%` }"></i>
-                </div>
-              </div>
-            </div>
-            <p v-else class="knowledge-card__empty">当前页暂无可统计的题目</p>
-          </el-card>
-
           <!-- 批量导入模板（对齐设计稿形态：拖拽区 + 说明；点击打开已有导入弹窗，复用其模板下载） -->
           <el-card v-if="canEdit" class="import-card" shadow="never">
             <template #header>
@@ -664,7 +476,6 @@ onMounted(() => {
     <QuestionBatchEditDialog
       v-model:visible="batchVisible"
       :question-ids="selectedRows.map((q) => q.id)"
-      :bank-id="bankId"
       @saved="onBatchSaved"
     />
     <el-dialog v-model="migrateVisible" title="迁移试题" width="460px" append-to-body>
@@ -714,10 +525,10 @@ onMounted(() => {
     min-width: min(260px, 100%);
   }
 
-  // 顶部五张健康度统计卡（对齐设计稿 .grid.g5）
+  // 顶部三张题量统计卡
   &__stats {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
     margin: 12px 0;
   }
@@ -797,15 +608,6 @@ onMounted(() => {
   vertical-align: bottom;
 }
 
-.cell-tag {
-  margin: 0 4px 2px 0;
-
-  &--empty {
-    // 未设置知识点 → 待完善信号，用警示文本档（700，非原色）
-    color: $color-warning-text;
-  }
-}
-
 // 分页由 .table-card__pagination 统一控制间距，消除封装组件自带 margin 的双重叠加
 .table-card__pagination :deep(.data-table-pagination) {
   margin-top: 0;
@@ -837,58 +639,6 @@ onMounted(() => {
 
   &__sub {
     font-size: 12px;
-    color: $text-secondary;
-  }
-}
-
-.knowledge-card {
-  border-radius: $radius-lg;
-
-  &__bars {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  &__bar-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 6px;
-    font-size: 13px;
-  }
-
-  &__name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: $text-primary;
-  }
-
-  &__count {
-    flex: 0 0 auto;
-    color: $text-primary;
-    font-weight: 600;
-  }
-
-  &__track {
-    height: 6px;
-    border-radius: $radius-xs;
-    background: $color-neutral-bg;
-    overflow: hidden;
-  }
-
-  &__fill {
-    display: block;
-    height: 100%;
-    border-radius: $radius-xs;
-    background: $color-primary;
-  }
-
-  &__empty {
-    margin: 0;
-    font-size: 13px;
     color: $text-secondary;
   }
 }
@@ -943,69 +693,6 @@ onMounted(() => {
   &__cols {
     font-size: 12px;
     color: $text-secondary;
-  }
-}
-
-// 正确率单元格（v3.3）：数值 + 42px 内联进度条，三档单调着色
-.rate-cell {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-
-  &__num {
-    font-size: 12.5px;
-    font-variant-numeric: tabular-nums;
-
-    &.is-primary {
-      color: $text-primary;
-    }
-
-    &.is-warn {
-      color: $color-warning-text;
-    }
-
-    &.is-err {
-      color: $color-error-text;
-    }
-  }
-
-  &__track {
-    display: inline-block;
-    width: 42px;
-    height: 5px;
-    border-radius: $radius-xs;
-    background: $color-neutral-bg;
-    overflow: hidden;
-  }
-
-  &__fill {
-    display: block;
-    height: 100%;
-    border-radius: $radius-xs;
-
-    &.is-primary {
-      background: $color-primary;
-    }
-
-    &.is-warn {
-      background: $color-warning;
-    }
-
-    &.is-err {
-      background: $color-error;
-    }
-  }
-}
-
-// 待完善行高亮（对齐设计稿 table 行 background: var(--warn-s)）。
-// 双写类名 + 抬一级选择器压过 EP 斑马纹背景（EP 组件 CSS 懒加载、后于全局样式注入）。
-.bank-detail__main {
-  :deep(.el-table.el-table .row--incomplete > td.el-table__cell) {
-    background: $color-warning-bg;
-  }
-
-  :deep(.el-table.el-table--striped .el-table__body tr.row--incomplete > td.el-table__cell) {
-    background: $color-warning-bg;
   }
 }
 
