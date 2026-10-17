@@ -10,7 +10,7 @@
  *
  * 说明：数据落在测试库 enterprise_exam_system_test（setup-env 已注入）。
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import bcrypt from 'bcryptjs';
 import type { RowDataPacket } from 'mysql2/promise';
@@ -18,7 +18,7 @@ import type { RowDataPacket } from 'mysql2/promise';
 import { app } from '../app.js';
 import { prepareTestDb } from './db.js';
 import { closePool, query } from '../db/pool.js';
-import { nowDb, toDbDate } from '../utils/datetime.js';
+import { nowDb } from '../utils/datetime.js';
 import { DEFAULT_PRACTICE_SETTINGS } from '../modules/practice/practiceSettings.defaults.js';
 
 /* ============================ 常量 ============================ */
@@ -416,6 +416,9 @@ describe('D. 学习报告', () => {
   const RPT_USER = { id: 'user-qa-rpt', username: 'qa_rpt', password: 'qa-rpt-123' };
 
   beforeAll(async () => {
+    // 固定在北京时间零点后 30 秒，避免执行跨日，并覆盖「一分钟前属于昨天」的边界。
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-17T16:00:30.000Z'));
     const hash = await bcrypt.hash(RPT_USER.password, 10);
     await query(
       `INSERT INTO users (id, username, password_hash, name, role, department_id, status, created_at)
@@ -424,7 +427,7 @@ describe('D. 学习报告', () => {
       [RPT_USER.id, RPT_USER.username, hash, nowDb()],
     );
     // 直接落 6 条首答明细：3 对 3 错（分布在今天，科目取题目自带 subject）
-    const todayStart = toDbDate(new Date(Date.now() - 60 * 1000));
+    const answeredAt = nowDb();
     const rows: Array<[string, string, number]> = [
       ['pa-rpt-1', 'q-01', 1],
       ['pa-rpt-2', 'q-02', 1],
@@ -438,10 +441,14 @@ describe('D. 学习报告', () => {
         `INSERT INTO practice_answers (id, user_id, question_id, answer, is_correct, answered_at)
          VALUES (?, ?, ?, JSON_ARRAY(1), ?, ?)
          ON DUPLICATE KEY UPDATE id = id`,
-        [id, RPT_USER.id, qid, correct, todayStart],
+        [id, RPT_USER.id, qid, correct, answeredAt],
       );
     }
     token = await practiceLogin(RPT_USER.username, RPT_USER.password, '198.51.100.230');
+  });
+
+  afterAll(() => {
+    vi.useRealTimers();
   });
 
   it('summary：与 practice_answers 首答聚合一致（服务端权威）', async () => {
