@@ -170,8 +170,6 @@ function cellTitle(no: number, id: string): string {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 6px;
-    max-height: 220px;
-    overflow-y: auto;
   }
 
   &__cell {

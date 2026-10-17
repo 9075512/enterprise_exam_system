@@ -59,30 +59,16 @@ const form = reactive({
   analysis: '',
   /** 题目难度（v3.2；'' = 未标注） */
   difficulty: '' as QuestionDifficulty | '',
-  /** 知识点标签（v1.7②；最多 10 个） */
+  /** 历史知识点数据；题库管理已取消维护，编辑时仅原样保留。 */
   tags: [] as string[],
   /** 评分细则（v1.7③ S1；仅简答题生效，最多 10 档） */
   rubric: [] as RubricBand[],
 });
 
-/** 知识点标签上限（与后端 MAX_TAGS 一致） */
-const MAX_TAGS = 10;
-
 /** 评分细则档位上限（与后端 MAX_RUBRIC_BANDS 一致） */
 const MAX_RUBRIC_BANDS = 10;
 
 const submitting = ref(false);
-
-/** 已有知识点标签候选（用于快选；失败时静默降级为纯手输） */
-const tagOptions = ref<string[]>([]);
-
-async function loadTagOptions(): Promise<void> {
-  try {
-    tagOptions.value = await questionsApi.tags(props.bankId ? [props.bankId] : undefined);
-  } catch {
-    tagOptions.value = [];
-  }
-}
 
 /** 客观题（有选项、自动判分） */
 const isObjective = computed<boolean>(
@@ -145,7 +131,6 @@ watch(
   (visible) => {
     if (visible) {
       resetForm();
-      void loadTagOptions();
     }
   },
 );
@@ -226,7 +211,6 @@ function validateLocal(): string | null {
     if (form.type === 'multiple' && form.answer.length < 2) return '多选题至少设置两个正确答案';
   }
   if (!(form.defaultScore > 0)) return '分值必须为正数';
-  if (form.tags.length > MAX_TAGS) return `知识点标签最多 ${MAX_TAGS} 个`;
   if (form.type === 'short') {
     if (form.rubric.length > MAX_RUBRIC_BANDS) return `评分细则最多 ${MAX_RUBRIC_BANDS} 档`;
     for (const band of form.rubric) {
@@ -272,7 +256,7 @@ async function handleSubmit(): Promise<void> {
       defaultScore: form.defaultScore,
       analysis: form.analysis.trim(),
       difficulty: form.difficulty || null,
-      tags: form.tags.map((t) => t.trim()).filter(Boolean).slice(0, MAX_TAGS),
+      tags: [...form.tags],
       rubric:
         form.type === 'short'
           ? [...form.rubric]
@@ -416,10 +400,6 @@ function handleCancel(): void {
         />
       </el-form-item>
 
-      <el-form-item label="分值">
-        <el-input-number v-model="form.defaultScore" :min="0.5" :max="100" :step="0.5" />
-      </el-form-item>
-
       <!-- 评分细则（分档 rubric，v1.7③ S1；仅简答题） -->
       <el-form-item v-if="isShort" label="评分细则（选填）">
         <div class="rubric-list">
@@ -455,21 +435,6 @@ function handleCancel(): void {
             :label="opt.label"
             :value="opt.value"
           />
-        </el-select>
-      </el-form-item>
-
-      <el-form-item label="知识点标签">
-        <el-select
-          v-model="form.tags"
-          multiple
-          filterable
-          allow-create
-          default-first-option
-          :multiple-limit="MAX_TAGS"
-          placeholder="选择或输入知识点标签（回车创建，最多 10 个）"
-          class="tag-select"
-        >
-          <el-option v-for="tag in tagOptions" :key="tag" :label="tag" :value="tag" />
         </el-select>
       </el-form-item>
 
@@ -540,10 +505,6 @@ function handleCancel(): void {
     font-weight: 600;
     color: $text-secondary;
   }
-}
-
-.tag-select {
-  width: 100%;
 }
 
 .difficulty-select {
