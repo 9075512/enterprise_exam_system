@@ -1,3 +1,4 @@
+import { examContent, createPaperFixture } from './examFixtures.js';
 /**
  * v2.0② 考试端首页数据后端化 —— 集成测试。
  *
@@ -40,7 +41,7 @@ async function createExam(
     .set(bearer(admin))
     .send({
       name,
-      paperId: paperPlain,
+      ...(await examContent(paperPlain)),
       departmentIds,
       startTime: new Date(Date.now() + window.start).toISOString(),
       endTime: new Date(Date.now() + window.end).toISOString(),
@@ -95,7 +96,7 @@ beforeAll(async () => {
   await query(`DELETE FROM exam_records WHERE exam_id = 'exam-demo'`);
   await query(`DELETE FROM exams WHERE id = 'exam-demo'`);
 
-  const p = await request(app).post('/api/papers').set(bearer(author)).send({
+  const p = await createPaperFixture({
     name: 'v2.0② 纯客观卷',
     description: '',
     bankIds: ['bank-security'],

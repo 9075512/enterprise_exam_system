@@ -1,3 +1,4 @@
+import type { SqlExecutor } from '../../db/pool.js';
 /**
  * 科室模块 —— 业务逻辑层。
  * 规则（对齐 v1.0 + v1.6③ 多级科室树）：
@@ -121,8 +122,8 @@ export async function remove(id: string): Promise<void> {
 }
 
 /** 计算某科室的全部子孙科室 id（不含自身；BFS，防环）。 */
-async function getDescendantIds(id: string): Promise<string[]> {
-  const all = await repo.list();
+async function getDescendantIds(id: string, exec?: SqlExecutor): Promise<string[]> {
+  const all = await repo.list(exec);
   const byParent = new Map<string, string[]>();
   for (const d of all) {
     if (!d.parent_id) continue;
@@ -149,11 +150,11 @@ async function getDescendantIds(id: string): Promise<string[]> {
  * 展开科室集合：返回原集合 + 全部子孙科室 id（去重）。
  * 用于「考试参与科室按树级联授权」——选中父科室即覆盖其整棵子树。
  */
-export async function expandDepartmentIds(ids: string[]): Promise<string[]> {
+export async function expandDepartmentIds(ids: string[], exec?: SqlExecutor): Promise<string[]> {
   const result = new Set<string>(ids.filter(Boolean));
   for (const id of ids) {
     if (!id) continue;
-    const descendants = await getDescendantIds(id);
+    const descendants = await getDescendantIds(id, exec);
     for (const d of descendants) result.add(d);
   }
   return [...result];
@@ -163,9 +164,9 @@ export async function expandDepartmentIds(ids: string[]): Promise<string[]> {
  * 计算某科室的祖先链（含自身，自近及远），用于考生端考试可见性判断：
  * 若考生科室或任一祖先在被考试选中的科室集合内，即视为参与。
  */
-export async function getAncestorIds(departmentId: string): Promise<string[]> {
+export async function getAncestorIds(departmentId: string, exec?: SqlExecutor): Promise<string[]> {
   if (!departmentId) return [];
-  const all = await repo.list();
+  const all = await repo.list(exec);
   const byId = new Map(all.map((d) => [d.id, d]));
   const result: string[] = [];
   const seen = new Set<string>();

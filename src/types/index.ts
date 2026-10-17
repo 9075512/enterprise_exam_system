@@ -321,6 +321,14 @@ export type ExamMode = 'open' | 'closed';
 
 /** 考试 */
 export interface Exam {
+  /** 管理接口附加信息；考生接口不返回出题人权限信息。 */
+  questionCount?: number;
+  totalScore?: number;
+  authors?: Array<{ id: string; name: string }>;
+  canReadQuestions?: boolean;
+  canEditQuestions?: boolean;
+  questionsLocked?: boolean;
+  questionEditReason?: string;
   id: string;
   name: string;
   paperId: string;
@@ -630,7 +638,9 @@ export interface PaperSaveInput {
 export interface ExamSaveInput {
   id?: string;
   name: string;
-  paperId: string;
+  authorIds: string[];
+  bankIds: string[];
+  questions: PaperQuestion[];
   departmentIds: string[];
   includeUserIds?: string[];
   excludeUserIds?: string[];

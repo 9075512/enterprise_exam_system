@@ -1,3 +1,4 @@
+import { examContent, createPaperFixture } from './examFixtures.js';
 /**
  * v1.6② 端到端冒烟：填空 / 简答全链路业务闭环。
  *
@@ -71,7 +72,7 @@ describe('v1.6② 端到端冒烟：填空 / 简答全链路', () => {
   });
 
   it('出题人组卷（单选 40 + 填空 30 + 简答 30 = 100），题型按序排列', async () => {
-    const res = await request(app).post('/api/papers').set(bearer(author)).send({
+    const res = await createPaperFixture({
       name: 'v1.6 主观题冒烟卷',
       description: '',
       bankIds: ['bank-security'],
@@ -93,7 +94,7 @@ describe('v1.6② 端到端冒烟：填空 / 简答全链路', () => {
   it('管理员发布考试（研发部，作答上限 1 次）', async () => {
     const res = await request(app).post('/api/exams').set(bearer(admin)).send({
       name: 'v1.6 主观题冒烟考试',
-      paperId,
+      ...(await examContent(paperId)),
       departmentIds: ['dept-rd'],
       startTime: new Date(Date.now() - 3600_000).toISOString(),
       endTime: new Date(Date.now() + 3600_000).toISOString(),
@@ -216,7 +217,7 @@ describe('v1.6① 端到端冒烟：切屏事件上报 → 切屏审查', () => 
   it('考生开考、上报两次切屏事件后交卷', async () => {
     const exam = await request(app).post('/api/exams').set(bearer(admin)).send({
       name: 'v1.6 切屏冒烟考试',
-      paperId: 'paper-demo',
+      ...(await examContent('paper-demo')),
       departmentIds: ['dept-rd'],
       startTime: new Date(Date.now() - 3600_000).toISOString(),
       endTime: new Date(Date.now() + 3600_000).toISOString(),

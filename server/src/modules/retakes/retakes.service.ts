@@ -1,3 +1,4 @@
+import type { SqlExecutor } from '../../db/pool.js';
 /**
  * 补考 —— 业务逻辑层（申请-审批流）。
  *
@@ -39,8 +40,8 @@ function mapRow(row: RetakeRow): RetakeDto {
 }
 
 /** 是否已授予补考机会（存在「已通过」申请）。 */
-export async function isRetakeGranted(examId: string, userId: string): Promise<boolean> {
-  return repo.hasApprovedByExamAndUser(examId, userId);
+export async function isRetakeGranted(examId: string, userId: string, exec?: SqlExecutor): Promise<boolean> {
+  return repo.hasApprovedByExamAndUser(examId, userId, exec);
 }
 
 /** 考生发起补考申请。 */

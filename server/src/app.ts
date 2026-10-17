@@ -17,7 +17,6 @@ import { userImportRouter } from './modules/users/userImport.router.js';
 import { departmentsRouter } from './modules/departments/departments.router.js';
 import { banksRouter } from './modules/banks/banks.router.js';
 import { questionsRouter } from './modules/questions/questions.router.js';
-import { papersRouter } from './modules/papers/papers.router.js';
 import { importQuestionsRouter, importBatchesRouter } from './modules/import/import.router.js';
 import { examsRouter } from './modules/exams/exams.router.js';
 import { recordsRouter } from './modules/records/records.router.js';
@@ -84,7 +83,6 @@ export function createApp(): Express {
     api.use('/import-batches', importBatchesRouter);
     api.use('/banks', banksRouter);
     api.use('/questions', questionsRouter);
-    api.use('/papers', papersRouter);
     api.use('/exams', examsRouter);
     api.use('/records', recordsRouter);
     api.use('/reports', reportsRouter);

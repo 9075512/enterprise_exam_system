@@ -18,6 +18,8 @@ import { CREATE_DATABASE_SQL, DB_NAME, DDL_STATEMENTS, TABLE_NAMES } from './sch
 import { seed } from './seed.js';
 
 const reset = process.argv.includes('--reset');
+const schemaOnly = process.argv.includes('--schema-only');
+const skipSeed = schemaOnly || process.argv.includes('--skip-seed');
 
 /** 逐表统计行数。 */
 async function countRows(conn: mysql.Connection): Promise<Record<string, number>> {
@@ -87,6 +89,10 @@ async function foreignDeleteRule(conn: mysql.Connection, table: string, constrai
  */
 async function applyMigrations(conn: mysql.Connection): Promise<void> {
   const changes: string[] = [];
+  if (!(await indexExists(conn, 'exams', 'uk_exams_paper'))) {
+    await conn.query('ALTER TABLE exams ADD UNIQUE KEY uk_exams_paper (paper_id)');
+    changes.push('exams.uk_exams_paper');
+  }
 
   if (!(await columnExists(conn, 'exams', 'max_attempts'))) {
     await conn.query(`ALTER TABLE exams ADD COLUMN max_attempts INT NOT NULL DEFAULT 1 AFTER pass_score`);
@@ -313,7 +319,7 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     changes.push('question_banks.fk_banks_parent');
   }
 
-  await migrateLegacySubjects(conn, changes);
+  if (!schemaOnly) await migrateLegacySubjects(conn, changes);
 
   // 练题作答明细复合索引（幂等加索引；新库已含在 CREATE TABLE，旧库原地补建）
   if (!(await indexExists(conn, 'practice_answers', 'idx_pa_user_answered'))) {
@@ -653,16 +659,20 @@ async function main(): Promise<void> {
     // 增量升级：旧库原地补齐 max_attempts / attempt_no 与新唯一键（幂等）
     await applyMigrations(conn);
 
-    // 5. 事务内写入种子
-    await conn.beginTransaction();
-    try {
-      await seed(conn);
-      await conn.commit();
-    } catch (err) {
-      await conn.rollback();
-      throw err;
+    // 已有环境可仅升级结构，避免重新填入已主动删除的演示考试。
+    if (!skipSeed) {
+      await conn.beginTransaction();
+      try {
+        await seed(conn);
+        await conn.commit();
+      } catch (err) {
+        await conn.rollback();
+        throw err;
+      }
+      console.log('[db:init] 种子写入完成（幂等）');
+    } else {
+      console.log('[db:init] 已跳过种子数据（--skip-seed / --schema-only）');
     }
-    console.log('[db:init] 种子写入完成（幂等）');
 
     // 6. 摘要
     const counts = await countRows(conn);

@@ -1,6 +1,6 @@
 /** 考试 API（§4.5 考试 / 记录 / 报表） */
 import { del, get, post, put } from './http';
-import type { Exam, ExamException, ExamMonitor, ExamMy, ExamRecord, ExamSaveInput } from '@/types';
+import type { Exam, ExamException, ExamMonitor, ExamMy, ExamRecord, ExamSaveInput, PaperDetail, PaperQuestion, DrawResult, DrawRules, DrawTagRule } from '@/types';
 
 /** 考试保存入参（不含 id） */
 export type ExamPayload = Omit<ExamSaveInput, 'id'>;
@@ -77,3 +77,11 @@ export function forceSubmit(examId: string, userId: string): Promise<ExamRecord>
 export function extendTime(examId: string, userId: string, minutes: number): Promise<ExamException> {
   return post<ExamException>(`/exams/${examId}/monitor/${userId}/extend`, { minutes });
 }
+
+/** 管理端题目详情（含答案；仅管理员与获分配且有题库权限的出题人）。 */
+export function questions(id: string): Promise<PaperDetail> { return get('/exams/' + id + '/questions'); }
+export function saveQuestions(id: string, payload: { bankIds: string[]; questions: PaperQuestion[] }): Promise<Exam> { return put('/exams/' + id + '/questions', payload); }
+export function exportPdf(id: string, withAnswer: boolean): Promise<Blob> { return get('/exams/' + id + '/export-pdf', { withAnswer: withAnswer ? 1 : 0 }, { responseType: 'blob' }); }
+
+/** 抽题只生成前端工作态，不持久化内部试卷。 */
+export function drawQuestions(payload: { bankIds: string[]; rules: DrawRules; tagRules?: DrawTagRule[] }): Promise<DrawResult> { return post('/exams/draw-questions', payload); }

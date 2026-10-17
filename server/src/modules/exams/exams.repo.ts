@@ -3,6 +3,7 @@
  */
 import type { RowDataPacket } from 'mysql2/promise';
 import { query, runQuery, type SqlExecutor } from '../../db/pool.js';
+import { RECORD_SOURCE } from '../../db/recordSource.js';
 import type { ExamRow } from './exams.mapper.js';
 
 export type { ExamRow } from './exams.mapper.js';
@@ -16,8 +17,8 @@ export async function list(): Promise<ExamRow[]> {
 }
 
 /** 按 id 查询。 */
-export async function findById(id: string, exec?: SqlExecutor): Promise<ExamRow | null> {
-  const rows = await runQuery<ExamRow[]>(exec, `SELECT ${COLUMNS} FROM exams WHERE id = ? LIMIT 1`, [id]);
+export async function findById(id: string, exec?: SqlExecutor, lock = false): Promise<ExamRow | null> {
+  const rows = await runQuery<ExamRow[]>(exec, `SELECT ${COLUMNS} FROM exams WHERE id = ? LIMIT 1${lock ? ' FOR UPDATE' : ''}`, [id]);
   return rows[0] ?? null;
 }
 
@@ -51,8 +52,8 @@ export async function listForUser(userId: string, ancestorIds: string[]): Promis
 }
 
 /** 统计引用该 exams 的记录数（删除前校验）。 */
-export async function countRecords(examId: string): Promise<number> {
-  const rows = await query<RowDataPacket[]>(`SELECT COUNT(*) AS c FROM exam_records WHERE exam_id = ?`, [examId]);
+export async function countRecords(examId: string, exec?: SqlExecutor): Promise<number> {
+  const rows = await runQuery<RowDataPacket[]>(exec, `SELECT COUNT(*) AS c FROM ${RECORD_SOURCE} WHERE exam_id = ?`, [examId]);
   return Number(rows[0]?.c ?? 0);
 }
 
@@ -155,4 +156,13 @@ export async function update(
 /** 删除考试。 */
 export async function remove(id: string, exec?: SqlExecutor): Promise<void> {
   await runQuery(exec, `DELETE FROM exams WHERE id = ?`, [id]);
+}
+
+export async function listAuthors(examId: string, exec?: SqlExecutor): Promise<Array<{ id: string; name: string }>> {
+  const rows = await runQuery<RowDataPacket[]>(exec, 'SELECT u.id, u.name FROM exam_authors ea JOIN users u ON u.id = ea.user_id WHERE ea.exam_id = ? ORDER BY u.id', [examId]);
+  return rows.map(r => ({ id: String(r.id), name: String(r.name) }));
+}
+export async function replaceAuthors(examId: string, authorIds: string[], exec: SqlExecutor): Promise<void> {
+  await runQuery(exec, 'DELETE FROM exam_authors WHERE exam_id = ?', [examId]);
+  for (const id of new Set(authorIds)) await runQuery(exec, 'INSERT INTO exam_authors (exam_id, user_id) VALUES (?, ?)', [examId, id]);
 }

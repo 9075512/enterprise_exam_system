@@ -1,3 +1,4 @@
+import { examContent } from '../../test/examFixtures.js';
 /**
  * 集成测试：GET /api/records/my 的「按考试名称关键字筛选」服务端支持。
  * - 命中关键字 → 只返回匹配记录，total 同步变小；
@@ -25,7 +26,7 @@ async function createExam(name: string): Promise<string> {
     .set(bearer(admin))
     .send({
       name,
-      paperId: 'paper-demo',
+      ...(await examContent('paper-demo')),
       departmentIds: ['dept-rd'],
       startTime: new Date(Date.now() - 3600_000).toISOString(),
       endTime: new Date(Date.now() + 3600_000).toISOString(),

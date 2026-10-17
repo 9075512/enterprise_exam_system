@@ -1,13 +1,13 @@
 <script setup lang="ts">
 /**
- * 试卷预览页（W3-T6）。
+ * 题目预览页（W3-T6）。
  * 左栏逐题卡片（题干/选项/正确答案/解析/来源题库）；右栏「试卷信息 / 预览设置 / 题目结构」。
  * 预览设置仅切换本页显隐（纯前端，不落库）；题目结构按题型聚合，并与试卷总分做真实核对。
  */
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ArrowLeft, Edit } from '@element-plus/icons-vue';
-import * as papersApi from '@/api/papers';
+import * as examsApi from '@/api/exams';
 import { useRequest } from '@/composables/useRequest';
 import { QUESTION_TYPE_LABELS, QUESTION_TYPE_OPTIONS } from '@/constants';
 import { formatDateTime } from '@/utils/datetime';
@@ -20,15 +20,15 @@ import type { Question, QuestionType } from '@/types';
 const route = useRoute();
 const router = useRouter();
 
-const paperId = computed<string>(() => String(route.params.paperId ?? ''));
-const { data: paper, loading } = useRequest(() => papersApi.detail(paperId.value));
+const examId = computed<string>(() => String(route.params.id ?? ''));
+const { data: paper, loading } = useRequest(() => examsApi.questions(examId.value));
 
 function goBack(): void {
-  void router.push('/author/papers');
+  void router.push('/admin/exams');
 }
 
 function goEdit(): void {
-  void router.push(`/author/papers/composer?paperId=${paperId.value}`);
+  void router.push(`/admin/exams/${examId.value}/edit`);
 }
 
 function isCorrectAnswer(answer: readonly number[], index: number): boolean {
@@ -104,7 +104,7 @@ const totalMatches = computed<boolean>(
     <PageHeader title="试卷预览" :description="paper?.name || '查看试卷结构与题目明细'">
       <template #actions>
         <el-button :icon="ArrowLeft" @click="goBack">返回列表</el-button>
-        <el-button type="primary" :icon="Edit" :disabled="!paper" @click="goEdit">编辑试卷</el-button>
+        <el-button type="primary" :icon="Edit" :disabled="!paper" @click="goEdit">返回考试编辑</el-button>
       </template>
     </PageHeader>
 

@@ -1,3 +1,4 @@
+import { examContent } from '../../test/examFixtures.js';
 /**
  * 集成测试：GET /api/reports/exams/:id/export —— 成绩明细 XLSX 导出（可勾选列）。
  * - 响应为「裸二进制」，故用自定义 parser 收集 Buffer，再用 exceljs 读回工作簿断言；
@@ -59,7 +60,7 @@ async function createExam(name: string, maxAttempts = 1): Promise<string> {
     .set(bearer(admin))
     .send({
       name,
-      paperId: 'paper-demo',
+      ...(await examContent('paper-demo')),
       departmentIds: ['dept-rd'],
       startTime: new Date(Date.now() - 3600_000).toISOString(),
       endTime: new Date(Date.now() + 3600_000).toISOString(),

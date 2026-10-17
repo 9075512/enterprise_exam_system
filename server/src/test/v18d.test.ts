@@ -1,3 +1,4 @@
+import { examContent, createPaperFixture } from './examFixtures.js';
 /**
  * v1.8④ U4 —— 富文本附件对象存储 集成测试。
  *
@@ -244,10 +245,7 @@ describe('U4 作答链路（暂存即净化）', () => {
     expect(q.body.code).toBe(0);
     const questionId = q.body.data.id as string;
 
-    const paper = await request(app)
-      .post('/api/papers')
-      .set(bearer(admin))
-      .send({
+    const paper = await createPaperFixture({
         name: 'v18d 附件作答试卷',
         description: '',
         bankIds: ['bank-security'],
@@ -260,7 +258,7 @@ describe('U4 作答链路（暂存即净化）', () => {
       .set(bearer(admin))
       .send({
         name: 'v18d 附件作答考试',
-        paperId: paper.body.data.id,
+        ...(await examContent(paper.body.data.id)),
         departmentIds: ['dept-rd'],
         startTime: new Date(Date.now() - 3600_000).toISOString(),
         endTime: new Date(Date.now() + 3600_000).toISOString(),

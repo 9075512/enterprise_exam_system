@@ -2,6 +2,10 @@
  * 考试模块 —— zod 校验 schema（中文错误信息）。
  */
 import { z } from 'zod';
+export const examQuestionsSchema = z.object({
+  bankIds: z.array(z.string().min(1)).min(1, '请选择来源题库'),
+  questions: z.array(z.object({ questionId: z.string().min(1), score: z.number().finite().positive('每题分值必须为正数') })).min(1, '考试至少需要一道题目'),
+}).strict();
 
 /** ISO 日期字符串校验。 */
 const isoDate = (label: string) =>
@@ -12,7 +16,8 @@ const isoDate = (label: string) =>
 /** 新建 / 编辑考试入参。 */
 export const examSchema = z.object({
   name: z.string().min(1, '考试名称不能为空'),
-  paperId: z.string().min(1, '请选择关联试卷'),
+  authorIds: z.array(z.string().min(1).max(64)).max(100).default([]),
+  ...examQuestionsSchema.shape,
   departmentIds: z.array(z.string().min(1).max(64)).max(1000).default([]),
   includeUserIds: z.array(z.string().min(1).max(64)).max(5000).optional().default([]),
   excludeUserIds: z.array(z.string().min(1).max(64)).max(5000).optional().default([]),
@@ -30,7 +35,7 @@ export const examSchema = z.object({
     .enum(['open', 'closed'], { errorMap: () => ({ message: '考试形式只能为开卷或闭卷' }) })
     .optional()
     .default('closed'),
-});
+}).strict();
 
 export type ExamInput = z.infer<typeof examSchema>;
 

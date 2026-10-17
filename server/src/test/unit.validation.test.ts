@@ -1,3 +1,4 @@
+import { examContent } from './examFixtures.js';
 /**
  * 单元/集成测试：zod 校验失败的中文文案（全局 errorMap + 显式 message）。
  *
@@ -79,7 +80,7 @@ describe('zod 中文校验文案（全局 errorMap）', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           name: '文案测试考试',
-          paperId: 'paper-demo',
+          ...(await examContent('paper-demo')),
           departmentIds: ['dept-rd'],
           startTime: new Date().toISOString(),
           endTime: new Date().toISOString(),

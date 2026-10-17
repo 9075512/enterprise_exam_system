@@ -35,7 +35,6 @@ describe('getMenuGroups · 默认（未下发菜单权限）', () => {
     expect(map.resources).toEqual([
       'subjects',
       'banks',
-      'papers',
       'templates',
       'question-feedback',
       'duplicate-questions',
@@ -85,11 +84,10 @@ describe('getMenuGroups · 默认（未下发菜单权限）', () => {
     expect(groups.map((g) => g.key)).toEqual(['resources', 'exam-ops', 'learning']);
     expect(groups[0].items.map((i) => i.key)).toEqual([
       'banks',
-      'papers',
       'templates',
       'question-feedback',
     ]);
-    expect(groups[1].items.map((i) => i.key)).toEqual(['reviews']);
+    expect(groups[1].items.map((i) => i.key)).toEqual(['exams', 'reviews']);
     expect(groups[2].items.map((i) => i.key)).toEqual(['practice']);
   });
 

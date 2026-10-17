@@ -49,7 +49,6 @@ import * as appealsApi from '@/api/appeals';
 import * as banksApi from '@/api/banks';
 import * as departmentsApi from '@/api/departments';
 import * as examsApi from '@/api/exams';
-import * as papersApi from '@/api/papers';
 import * as recordsApi from '@/api/records';
 import * as reportsApi from '@/api/reports';
 import * as retakesApi from '@/api/retakes';
@@ -86,10 +85,9 @@ const stats = reactive({
   users: 0,
   banks: 0,
   questions: 0,
-  papers: 0,
+  exams: 0,
 });
 const exams = ref<Exam[]>([]);
-const paperNames = ref<Record<string, string>>({});
 
 /* ------------------------------ 看板筛选（v1.7②） ------------------------------ */
 const departments = ref<Department[]>([]);
@@ -129,7 +127,7 @@ const cards = [
   { key: 'departments', label: '科室数', icon: OfficeBuilding, tone: 'blue' },
   { key: 'users', label: '用户数', icon: User, tone: 'teal' },
   { key: 'banks', label: '题库 / 题目', icon: Collection, tone: 'violet' },
-  { key: 'papers', label: '试卷数', icon: Document, tone: 'amber' },
+  { key: 'exams', label: '考试数', icon: Document, tone: 'amber' },
 ] as const;
 
 function cardValue(key: (typeof cards)[number]['key']): string {
@@ -147,11 +145,10 @@ async function load(): Promise<void> {
   // 图表、待办独立加载；慢报表不应阻塞统计卡和考试列表的首屏。
   void loadDashboard();
   void loadTodos();
-  const [d, u, b, p, e] = await Promise.allSettled([
+  const [d, u, b, e] = await Promise.allSettled([
     departmentsApi.list(),
     usersApi.list(),
     banksApi.list(),
-    papersApi.list(),
     examsApi.list(),
   ]);
 
@@ -164,11 +161,8 @@ async function load(): Promise<void> {
     stats.banks = b.value.length;
     stats.questions = b.value.reduce((sum, item) => sum + item.questionCount, 0);
   }
-  if (p.status === 'fulfilled') {
-    stats.papers = p.value.length;
-    paperNames.value = Object.fromEntries(p.value.map((item) => [item.id, item.name]));
-  }
-  if (e.status === 'fulfilled') exams.value = e.value;
+
+  if (e.status === 'fulfilled') { exams.value = e.value; stats.exams = e.value.length; }
 
   hasLoaded.value = true;
   loading.value = false;
@@ -575,8 +569,8 @@ const tagOption = computed(() => wrongRateOption(dashboardData.value?.tagWrong ?
 
             <el-table v-else :data="recentExams" row-key="id" stripe>
               <el-table-column prop="name" label="考试名称" min-width="150" show-overflow-tooltip />
-              <el-table-column label="关联试卷" min-width="130" show-overflow-tooltip>
-                <template #default="{ row }">{{ paperNames[row.paperId] || row.paperId }}</template>
+              <el-table-column label="题目 / 总分" min-width="130" show-overflow-tooltip>
+                <template #default="{ row }">{{ row.questionCount }} 题 / {{ row.totalScore }} 分</template>
               </el-table-column>
               <el-table-column label="参与科室" width="90" align="center">
                 <template #default="{ row }">{{ row.departmentIds.length }}</template>
