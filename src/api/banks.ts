@@ -22,7 +22,7 @@ export interface BankPayload {
   parentId?: string | null;
   sortOrder?: number;
   status?: 'active' | 'disabled';
-  /** 是否对外开放练题（默认 false） */
+  /** 是否对外开放练题（新增默认 true） */
   allowPractice?: boolean;
   /** 授权出题人 id 列表（仅 admin 生效） */
   authorIds?: string[];

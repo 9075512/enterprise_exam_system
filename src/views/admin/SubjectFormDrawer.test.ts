@@ -1,8 +1,10 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia } from 'pinia';
-import ElementPlus from 'element-plus';
+import ElementPlus, { ElButton, ElCheckbox, ElFormItem, ElSelect, ElSwitch } from 'element-plus';
 import SubjectFormDrawer from './SubjectFormDrawer.vue';
+import { useAuthStore } from '@/stores/auth';
+import type { QuestionBank, User } from '@/types';
 
 vi.mock('@/api/users', () => ({ list: vi.fn(async () => []) }));
 vi.mock('@/api/departments', () => ({ list: vi.fn(async () => []) }));
@@ -17,7 +19,24 @@ vi.mock('@/api/banks', () => ({
 }));
 
 let wrapper: ReturnType<typeof mount>;
+beforeEach(() => { vi.clearAllMocks(); });
 afterEach(() => { wrapper?.unmount(); document.body.innerHTML = ''; });
+
+async function openDrawer(bank: QuestionBank | null = null, defaultParentId: string | null = null) {
+  const pinia = createPinia();
+  useAuthStore(pinia).currentUser = { id: 'admin', role: 'admin', name: '管理员' } as User;
+  wrapper = mount(SubjectFormDrawer, {
+    props: { visible: false, bank, tree: [], defaultParentId },
+    attachTo: document.body,
+    global: { plugins: [pinia, ElementPlus] },
+  });
+  await wrapper.setProps({ visible: true });
+  await flushPromises();
+}
+
+function item(label: string) {
+  return wrapper.findAllComponents(ElFormItem).find((field) => field.props('label') === label)!;
+}
 
 describe('树形科目编辑抽屉', () => {
   it('展示层级、状态与访问权限字段，不再展示题库分类', async () => {
@@ -36,12 +55,63 @@ describe('树形科目编辑抽屉', () => {
     expect(text).toContain('浏览部门');
     expect(text).toContain('浏览人员');
     expect(text).toContain('编辑人员');
-    expect(text).toContain('新增科目默认向管理员、出题人和考生开放预览');
+    expect(text).toContain('新增科目默认开放练题，并向全部部门和全部人员开放浏览');
     expect(text).not.toContain('题库分类');
 
     const previewAll = [...document.body.querySelectorAll('.el-checkbox')]
       .find((item) => item.textContent?.includes('所有人员均可预览'));
     expect(previewAll?.querySelector('input')).toHaveProperty('checked', true);
+    expect(wrapper.getComponent(ElSwitch).props('modelValue')).toBe(true);
+    expect(item('浏览部门').getComponent(ElSelect).props()).toMatchObject({ placeholder: '全部部门', disabled: true });
+    expect(item('浏览人员').getComponent(ElSelect).props()).toMatchObject({ placeholder: '全部人员', disabled: true });
     expect(banksApi.access).not.toHaveBeenCalled();
+  });
+
+  it('新增保存默认开放练题并以全部人员权限保存，不固化部门和人员快照', async () => {
+    banksApi.create.mockResolvedValue({ id: 'new-subject' });
+    banksApi.updateAccess.mockResolvedValue({});
+    await openDrawer();
+    await item('科目名称').get('input').setValue('新科目');
+    await wrapper.findAllComponents(ElButton).find((button) => button.text() === '保存')!.trigger('click');
+    await flushPromises();
+
+    expect(banksApi.create).toHaveBeenCalledWith(expect.objectContaining({ name: '新科目', allowPractice: true }));
+    expect(banksApi.updateAccess).toHaveBeenCalledWith('new-subject', expect.objectContaining({
+      permissionMode: 'override', viewAll: true, departmentIds: [], userIds: [],
+    }));
+  });
+
+  it('新增下级默认对所有人开放，延续上级编辑人员', async () => {
+    banksApi.access.mockResolvedValue({ effectiveViewAll: false, effectiveEditorIds: ['author-1'] });
+    await openDrawer(null, 'parent');
+    expect(banksApi.access).toHaveBeenCalledWith('parent');
+    expect(wrapper.getComponent(ElSwitch).props('modelValue')).toBe(true);
+    expect(item('浏览范围').getComponent(ElCheckbox).props('modelValue')).toBe(true);
+    expect(item('编辑人员').getComponent(ElSelect).props('modelValue')).toEqual(['author-1']);
+  });
+
+  it('编辑保留已关闭的练题开关和指定浏览范围', async () => {
+    banksApi.access.mockResolvedValue({
+      permissionMode: 'override', viewAll: false, includeChildDepartments: false,
+      departmentIds: ['dept-1'], userIds: ['user-1'], editorIds: [],
+    });
+    await openDrawer({ id: 'existing', name: '原科目', allowPractice: false } as QuestionBank);
+    expect(wrapper.getComponent(ElSwitch).props('modelValue')).toBe(false);
+    expect(item('浏览范围').getComponent(ElCheckbox).props('modelValue')).toBe(false);
+    expect(item('浏览部门').getComponent(ElSelect).props()).toMatchObject({ modelValue: ['dept-1'], disabled: false });
+    expect(item('浏览人员').getComponent(ElSelect).props()).toMatchObject({ modelValue: ['user-1'], disabled: false });
+  });
+
+  it('取消默认全部范围后可指定部门和人员，再次新增恢复默认值', async () => {
+    await openDrawer();
+    await item('浏览范围').getComponent(ElCheckbox).get('input').setValue(false);
+    await wrapper.getComponent(ElSwitch).get('input').setValue(false);
+    expect(item('浏览部门').getComponent(ElSelect).props('disabled')).toBe(false);
+    expect(item('浏览人员').getComponent(ElSelect).props('disabled')).toBe(false);
+    await wrapper.setProps({ visible: false });
+    await wrapper.setProps({ visible: true });
+    await flushPromises();
+    expect(wrapper.getComponent(ElSwitch).props('modelValue')).toBe(true);
+    expect(item('浏览范围').getComponent(ElCheckbox).props('modelValue')).toBe(true);
   });
 });

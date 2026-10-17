@@ -187,44 +187,46 @@ onMounted(() => void loadTree());
 </script>
 
 <template>
-  <div class="subject-manage page">
+  <div class="subject-manage subject-workspace page">
     <PageHeader title="科目管理" description="维护科目层级、状态、练题开放范围与数据权限">
       <template #actions>
-        <el-button :icon="Refresh" @click="loadTree()">刷新</el-button>
+        <el-button :icon="Refresh" :loading="loading" @click="loadTree()">刷新</el-button>
         <el-button type="primary" :icon="Plus" @click="openCreate(null)">新增根科目</el-button>
       </template>
     </PageHeader>
 
-    <div class="subject-manage__workspace">
-      <aside class="subject-manage__tree-panel">
-        <el-input v-model="keyword" clearable placeholder="搜索科目" :prefix-icon="Search" />
+    <div class="subject-manage__workspace subject-workspace__layout">
+      <aside class="subject-manage__tree-panel subject-workspace__sidebar" aria-label="科目目录">
+        <div class="subject-workspace__nav-heading"><h3>科目目录</h3><span>共 {{ flatMap.size }} 个</span></div>
+        <el-input v-model="keyword" clearable placeholder="搜索科目" aria-label="搜索科目" :prefix-icon="Search" />
         <el-tree
           ref="treeRef"
           v-loading="loading"
-          class="subject-manage__tree"
+          class="subject-manage__tree subject-workspace__tree"
           :data="tree"
           node-key="id"
           :props="{ label: 'name', children: 'children' }"
           :filter-node-method="filterNode"
+          :empty-text="loading ? '正在加载科目…' : keyword.trim() ? '未找到匹配科目' : '暂无科目'"
           highlight-current
           default-expand-all
           @node-click="selectNode"
         >
           <template #default="{ data }">
-            <span class="subject-node">
+            <span class="subject-node subject-workspace__node">
               <el-icon><Folder v-if="data.children.length" /><Collection v-else /></el-icon>
-              <span class="subject-node__name">{{ data.name }}</span>
-              <span v-if="!data.children.length" class="subject-node__count">{{ data.questionCount }}</span>
-              <span v-if="data.effectiveStatus === 'disabled'" class="subject-node__disabled">停</span>
+              <span class="subject-workspace__node-name" :title="data.name">{{ data.name }}</span>
+              <span v-if="!data.children.length" class="subject-workspace__node-count" :title="`${data.questionCount} 道题`">{{ data.questionCount }}</span>
+              <span v-if="data.effectiveStatus === 'disabled'" class="subject-workspace__node-disabled">停</span>
             </span>
           </template>
         </el-tree>
-        <el-button class="subject-manage__tree-add" text :icon="Plus" @click="openCreate(null)">
-          新增根科目
-        </el-button>
+        <div class="subject-workspace__nav-footer">
+          <el-button text :icon="Plus" @click="openCreate(null)">新增根科目</el-button>
+        </div>
       </aside>
 
-      <main class="subject-manage__detail">
+      <main class="subject-manage__detail subject-workspace__content">
         <EmptyState
           v-if="!loading && !selected"
           text="暂无科目"
@@ -242,7 +244,7 @@ onMounted(() => void loadTree());
                 </el-tag>
                 <el-tag effect="plain" type="info">{{ selected.isLeaf ? '叶子科目' : '目录科目' }}</el-tag>
               </div>
-              <p>{{ selectedPath }}</p>
+              <p class="subject-detail__path">{{ selectedPath }}</p>
             </div>
             <div class="subject-detail__actions">
               <el-button v-if="selected.isLeaf" :icon="Tickets" @click="viewQuestions">查看题目</el-button>
@@ -253,7 +255,7 @@ onMounted(() => void loadTree());
                 <span><el-button :icon="Plus" :disabled="selected.questionCount > 0" @click="openCreate(selected.id)">新增下级</el-button></span>
               </el-tooltip>
               <el-button type="primary" :icon="EditPen" @click="openEdit">编辑科目</el-button>
-              <el-button type="danger" plain :icon="Delete" @click="removeSelected">删除</el-button>
+              <el-button type="danger" plain :icon="Delete" @click="removeSelected">删除科目</el-button>
             </div>
           </header>
 
@@ -306,62 +308,25 @@ onMounted(() => void loadTree());
 
 <style scoped lang="scss">
 @use '@/styles/variables.scss' as *;
+@use '@/styles/subject-workspace.scss' as workspace;
 
-.subject-manage__workspace {
-  display: grid;
-  grid-template-columns: 256px minmax(0, 1fr);
-  min-height: 640px;
-  overflow: hidden;
-  border: 1px solid $border-color;
-  border-radius: $radius-lg;
-  background: #fff;
-}
-
-.subject-manage__tree-panel {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  padding: 16px 12px;
-  border-right: 1px solid $border-color;
-  background: #fbfdff;
-}
-
-.subject-manage__tree {
-  flex: 1;
-  min-height: 0;
-  margin-top: 12px;
-  background: transparent;
-}
-
-.subject-node {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 100%;
-  min-width: 0;
-}
-
-.subject-node__name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-.subject-node__count { color: $text-secondary; font-size: 12px; font-variant-numeric: tabular-nums; }
-.subject-node__disabled { color: $text-disabled; font-size: 11px; }
-.subject-manage__tree-add { width: 100%; margin-top: 10px; }
-
-.subject-manage__detail { min-width: 0; padding: 20px; }
+@include workspace.layout;
 
 .subject-detail__header {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
+  gap: 16px;
   padding-bottom: 18px;
   border-bottom: 1px solid $border-color;
 }
 
 .subject-detail__heading { min-width: 0; }
 .subject-detail__title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.subject-detail__title-row h2 { margin: 0; font-size: 22px; color: $text-primary; }
-.subject-detail__heading p { margin: 6px 0 0; color: $text-secondary; font-size: 12px; }
-.subject-detail__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.subject-detail__title-row h2 { min-width: 0; margin: 0; font-size: 22px; color: $text-primary; overflow-wrap: anywhere; }
+.subject-detail__heading p { margin: 8px 0 0; color: $text-secondary; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.subject-detail__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .subject-detail__actions :deep(.el-button + .el-button) { margin-left: 0; }
 
 .subject-detail__metrics {
@@ -378,41 +343,36 @@ onMounted(() => void loadTree());
   background: $bg-page;
 }
 .subject-metric span { display: block; font-size: 12px; color: $text-secondary; }
-.subject-metric strong { display: block; margin-top: 5px; font-size: 18px; color: $text-primary; font-variant-numeric: tabular-nums; }
+.subject-metric strong { display: block; margin-top: 8px; font-size: 22px; color: $text-primary; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 
 .subject-detail__grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
   gap: 16px;
   margin-top: 16px;
 }
 .subject-detail__card { border-radius: $radius-lg; }
+.subject-detail__card :deep(.el-card__header) { padding: 16px 18px; background: $bg-page; }
+.subject-detail__card :deep(.el-card__body) { padding: 12px 18px; }
 .subject-detail__card h3 { margin: 0; font-size: 15px; color: $text-primary; }
 .subject-detail__list { margin: 0; }
 .subject-detail__list > div { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid $border-color; }
 .subject-detail__list > div:last-child { border-bottom: 0; }
 .subject-detail__list > .is-block { flex-direction: column; gap: 6px; }
-.subject-detail__list dt { color: $text-secondary; font-size: 13px; }
+.subject-detail__list dt { flex-shrink: 0; color: $text-secondary; font-size: 13px; }
 .subject-detail__list dd { margin: 0; color: $text-primary; font-size: 13px; text-align: right; overflow-wrap: anywhere; }
 .subject-detail__list .is-block dd { text-align: left; }
 .subject-detail__tags { display: flex; flex-wrap: wrap; gap: 6px; }
 
-@media (max-width: 1200px) {
-  .subject-manage__workspace { grid-template-columns: 224px minmax(0, 1fr); }
+@container subject-content (min-width: 1000px) {
+  .subject-detail__header { grid-template-columns: minmax(0, 1fr) auto; }
+}
+
+@container subject-content (max-width: 560px) {
   .subject-detail__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .subject-detail__grid { grid-template-columns: 1fr; }
-}
-
-@media (max-width: 900px) {
-  .subject-manage__workspace { grid-template-columns: 1fr; }
-  .subject-manage__tree-panel { max-height: 280px; border-right: 0; border-bottom: 1px solid $border-color; }
-  .subject-manage__tree { overflow: auto; }
-  .subject-detail__header { flex-direction: column; }
-  .subject-detail__actions { justify-content: flex-start; }
-}
-
-@media (max-width: 640px) {
-  .subject-manage__detail { padding: 14px; }
-  .subject-detail__metrics { grid-template-columns: 1fr; }
+  .subject-metric { padding: 12px; }
+  .subject-detail__actions > .el-button,
+  .subject-detail__actions > span { flex: 1 1 calc(50% - 8px); }
+  .subject-detail__actions > span .el-button { width: 100%; }
 }
 </style>

@@ -9,6 +9,7 @@ import { requireRole } from '../../middleware/role.js';
 import { ok } from '../../utils/response.js';
 import {
   bankSchema,
+  bankCreateSchema,
   bankListQuerySchema,
   bankQuestionsQuerySchema,
   migrateQuestionsSchema,
@@ -45,7 +46,7 @@ banksRouter.get('/migration-report', requireRole('admin'), asyncHandler(async (_
 banksRouter.post(
   '/',
   requireRole('admin'),
-  validate(bankSchema, 'body'),
+  validate(bankCreateSchema, 'body'),
   asyncHandler(async (req, res) => {
     const body = req.body as {
       name: string;

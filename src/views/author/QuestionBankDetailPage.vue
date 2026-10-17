@@ -280,7 +280,6 @@ onMounted(() => {
         <p v-if="bank.description">{{ bank.description }}</p>
       </div>
       <div class="bank-overview__meta">
-        <span>题目 <strong>{{ bank.questionCount }}</strong></span>
         <span>创建人 <strong>{{ bank.createdBy || '—' }}</strong></span>
         <span>授权出题人 <strong>{{ bank.authorNames?.length ? bank.authorNames.join('、') : '未授权' }}</strong></span>
         <span>创建于 <strong>{{ formatDateTime(bank.createdAt) }}</strong></span>
@@ -316,44 +315,50 @@ onMounted(() => {
             </div>
           </div>
 
-          <div class="table-card__toolbar-filters bank-detail__filter">
-            <el-input
-              v-model="filterKeyword"
-              class="bank-detail__filter-keyword"
-              placeholder="按题干搜索"
-              clearable
-              :prefix-icon="Search"
-              @keyup.enter="onSearch"
-            />
-            <el-select v-model="filterType" class="bank-detail__filter-item" placeholder="全部题型" clearable>
-              <el-option label="全部题型" value="" />
-              <el-option
-                v-for="opt in QUESTION_TYPE_OPTIONS"
-                :key="opt.value"
-                :label="opt.label"
-                :value="opt.value"
+          <div class="bank-detail__filter" role="search" aria-label="试题筛选">
+            <div class="bank-detail__filter-search">
+              <el-input
+                v-model="filterKeyword"
+                class="bank-detail__filter-keyword"
+                placeholder="按题干搜索"
+                aria-label="按题干搜索"
+                clearable
+                :prefix-icon="Search"
+                @keyup.enter="onSearch"
               />
-            </el-select>
-            <el-select v-model="filterStatus" class="bank-detail__filter-item" placeholder="全部状态" clearable>
-              <el-option label="启用" value="active"/><el-option label="停用" value="disabled"/>
-            </el-select>
-            <el-select
-              v-model="filterDifficulty"
-              class="bank-detail__filter-item"
-              placeholder="全部难度"
-              clearable
-            >
-              <el-option label="全部难度" value="" />
-              <el-option
-                v-for="opt in QUESTION_DIFFICULTY_OPTIONS"
-                :key="opt.value"
-                :label="opt.label"
-                :value="opt.value"
-              />
-            </el-select>
-            <el-button type="primary" :icon="Search" @click="onSearch">查询</el-button>
-            <el-button :icon="Refresh" @click="onResetFilters">重置</el-button>
-            <TableDensityToggle />
+              <el-button type="primary" :icon="Search" @click="onSearch">查询</el-button>
+              <el-button :icon="Refresh" @click="onResetFilters">重置</el-button>
+            </div>
+            <div class="bank-detail__filter-options">
+              <el-select v-model="filterType" class="bank-detail__filter-item" placeholder="全部题型" aria-label="题型" clearable>
+                <el-option label="全部题型" value="" />
+                <el-option
+                  v-for="opt in QUESTION_TYPE_OPTIONS"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
+              </el-select>
+              <el-select v-model="filterStatus" class="bank-detail__filter-item" placeholder="全部状态" aria-label="状态" clearable>
+                <el-option label="启用" value="active"/><el-option label="停用" value="disabled"/>
+              </el-select>
+              <el-select
+                v-model="filterDifficulty"
+                class="bank-detail__filter-item"
+                placeholder="全部难度"
+                aria-label="难度"
+                clearable
+              >
+                <el-option label="全部难度" value="" />
+                <el-option
+                  v-for="opt in QUESTION_DIFFICULTY_OPTIONS"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
+              </el-select>
+              <TableDensityToggle />
+            </div>
           </div>
 
           <BatchActionBar v-if="canEdit" :count="selectedRows.length" noun="道试题" @clear="clearSelection">
@@ -433,32 +438,17 @@ onMounted(() => {
           </div>
         </el-card>
 
-        <div class="bank-detail__extras">
-          <!-- 批量导入模板（对齐设计稿形态：拖拽区 + 说明；点击打开已有导入弹窗，复用其模板下载） -->
-          <el-card v-if="canEdit" class="import-card" shadow="never">
-            <template #header>
-              <h3 class="card-head__title">批量导入模板</h3>
-            </template>
-            <div
-              class="import-card__dropzone"
-              role="button"
-              tabindex="0"
-              @click="openImport"
-              @keyup.enter="openImport"
-            >
-              <el-icon class="import-card__icon"><UploadFilled /></el-icon>
-              <p class="import-card__title">点击打开批量导入，按模板上传 Excel</p>
+        <aside v-if="canEdit" class="import-card" aria-label="批量导入提示">
+            <el-icon class="import-card__icon"><UploadFilled /></el-icon>
+            <div class="import-card__body">
+              <h3 class="import-card__title">使用 Excel 快速导入试题</h3>
               <p class="import-card__hint">
                 支持 .xlsx，单次最多 {{ settingsStore.settings.importMaxRows }} 行 · 单文件 ≤
-                {{ settingsStore.settings.importMaxFileMb }}MB
+                {{ settingsStore.settings.importMaxFileMb }}MB，可在导入弹窗下载模板
               </p>
             </div>
-            <div class="import-card__actions">
-              <el-button :icon="Upload" @click="openImport">打开批量导入</el-button>
-              <span class="import-card__cols">含题干 / 题型 / 选项 / 答案 / 解析列，弹窗内可下载模板</span>
-            </div>
-          </el-card>
-        </div>
+            <el-button :icon="Upload" @click="openImport">打开批量导入</el-button>
+        </aside>
     </section>
 
     <QuestionFormDialog
@@ -489,6 +479,8 @@ onMounted(() => {
 @use '@/styles/variables.scss' as *;
 
 .bank-detail {
+  container: bank-detail / inline-size;
+  min-width: 0;
   &__back {
     margin-bottom: 12px;
   }
@@ -513,38 +505,58 @@ onMounted(() => {
   }
 
   &__filter {
-    margin-bottom: 12px;
+    display: grid;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 14px;
+    border: 1px solid $border-color;
+    border-radius: $radius-base;
+    background: $bg-page;
+  }
+
+  &__filter-search,
+  &__filter-options {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    min-width: 0;
+
+    .el-button + .el-button { margin-left: 0; }
   }
 
   &__filter-item {
-    width: 140px;
+    flex: 1 1 110px;
+    width: 0;
+    min-width: 100px;
   }
 
   &__filter-keyword {
-    flex: 1 1 260px;
-    min-width: min(260px, 100%);
+    flex: 1 1 180px;
+    min-width: 0;
   }
 
   // 顶部三张题量统计卡
   &__stats {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-    margin: 12px 0;
+    gap: 12px;
+    margin: 20px 0;
   }
 }
 
 .bank-overview {
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 18px;
-  padding: 2px 2px 12px;
+  gap: 14px;
+  padding-bottom: 20px;
   border-bottom: 1px solid $border-color;
 }
 
 .bank-overview__heading {
-  min-width: 180px;
+  min-width: 0;
   flex: 1;
 }
 
@@ -561,7 +573,7 @@ onMounted(() => {
   margin: 0;
   overflow: hidden;
   color: $text-primary;
-  font-size: 20px;
+  font-size: 22px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -578,20 +590,20 @@ onMounted(() => {
 }
 
 .bank-overview__meta {
-  display: flex;
-  flex: 0 1 auto;
-  align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px 16px;
-  max-width: 64%;
+  width: 100%;
   color: $text-secondary;
   font-size: 12px;
 }
 
 .bank-overview__meta span {
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
+
+.bank-overview__meta span:last-child { grid-column: 1 / -1; }
 
 .bank-overview__meta strong {
   margin-left: 4px;
@@ -613,58 +625,22 @@ onMounted(() => {
   margin-top: 0;
 }
 
-.bank-detail__extras {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
-  gap: 16px;
-  margin-top: 16px;
-}
-
 .bank-detail__muted {
   color: $text-disabled;
 }
 
-.card-head {
+.import-card {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-
-  &__title {
-    margin: 0;
-    font-size: 13.5px;
-    font-weight: 600;
-    color: $text-primary;
-  }
-
-  &__sub {
-    font-size: 12px;
-    color: $text-secondary;
-  }
-}
-
-.import-card {
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px dashed $color-primary-border;
   border-radius: $radius-lg;
+  background: $color-primary-soft;
 
-  &__dropzone {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    padding: 24px 16px;
-    text-align: center;
-    cursor: pointer;
-    border: 1px dashed $line-strong;
-    border-radius: $radius-sm;
-    background: $bg-page;
-    transition: border-color $transition-fast;
-
-    &:hover,
-    &:focus-visible {
-      border-color: $color-primary;
-      outline: none;
-    }
-  }
+  &__body { flex: 1 1 200px; min-width: 0; }
 
   &__icon {
     font-size: 26px;
@@ -678,37 +654,30 @@ onMounted(() => {
   }
 
   &__hint {
-    margin: 0;
+    margin: 5px 0 0;
     font-size: 12px;
     color: $text-secondary;
-  }
-
-  &__actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 12px;
-  }
-
-  &__cols {
-    font-size: 12px;
-    color: $text-secondary;
+    line-height: 1.7;
   }
 }
 
-@media (max-width: 1100px) {
+@container bank-detail (min-width: 720px) {
+  .bank-overview__meta { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .bank-overview__meta span:last-child { grid-column: auto; }
+}
+
+@container bank-detail (max-width: 560px) {
   .bank-detail__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .bank-overview { flex-direction: column; gap: 10px; }
-  .bank-overview__meta { justify-content: flex-start; max-width: none; }
-}
-
-@media (min-width: 1101px) and (max-width: 1450px) {
-  .bank-detail__stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-
-@media (max-width: 640px) {
-  .bank-detail__stats { grid-template-columns: 1fr; }
-  .bank-detail__filter-item { width: 100%; }
+  .bank-detail__stats > :first-child { grid-column: 1 / -1; }
+  .bank-detail__filter-options .density-toggle { margin-left: auto; }
   .bank-detail__filter-keyword { flex-basis: 100%; }
+}
+
+@container bank-detail (max-width: 360px) {
+  .bank-overview__meta { grid-template-columns: minmax(0, 1fr); }
+  .bank-detail__toolbar-actions { width: 100%; }
+  .bank-detail__toolbar-actions .el-button { flex: 1 1 auto; }
+  .bank-detail__filter-item { flex-basis: 100%; }
+  .bank-detail__stats { gap: 8px; }
 }
 </style>
