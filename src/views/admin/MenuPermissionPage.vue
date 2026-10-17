@@ -9,10 +9,12 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { getMenuPermissions, updateMenuPermissions } from '@/api/permissions';
+import * as usersApi from '@/api/users';
+import { menuOverridesApi } from '@/api/coreFeatures';
 import { ROLE_LABELS } from '@/constants';
 import { groupKeyOf, groupOrderOf, groupTextOf } from '@/layouts/menuConfig';
 import PageHeader from '@/components/common/PageHeader.vue';
-import type { MenuGrants, MenuPermission, Role } from '@/types';
+import type { MenuGrants, MenuPermission, Role, User } from '@/types';
 
 const ROLES: Role[] = ['admin', 'author', 'examinee'];
 
@@ -26,6 +28,10 @@ const grants = reactive<MenuGrants>({ admin: [], author: [], examinee: [] });
  * 不参与上方矩阵的勾选与保存逻辑（矩阵始终同时编辑三个角色）。
  */
 const selectedRole = ref<Role>('admin');
+const users = ref<User[]>([]);
+const overrideUserId = ref('');
+const overrideDraft = reactive<Record<string, '' | 'allow' | 'deny'>>({});
+const overrideSaving = ref(false);
 
 /** 所选角色已授权菜单数（复用 grants / catalog 既有状态） */
 const grantedCount = computed<number>(() => grants[selectedRole.value].length);
@@ -52,7 +58,27 @@ function spanMethod({ rowIndex, columnIndex }: { rowIndex: number; columnIndex: 
 
 onMounted(() => {
   void load();
+  void usersApi.list().then((rows) => { users.value = rows; });
 });
+
+async function loadOverrides(): Promise<void> {
+  for (const key of Object.keys(overrideDraft)) delete overrideDraft[key];
+  if (!overrideUserId.value) return;
+  const rows = await menuOverridesApi.list(overrideUserId.value);
+  for (const item of rows) overrideDraft[item.menuKey] = item.effect;
+}
+
+async function saveOverrides(): Promise<void> {
+  if (!overrideUserId.value) { ElMessage.warning('请先选择用户'); return; }
+  overrideSaving.value = true;
+  try {
+    await menuOverridesApi.replace(overrideUserId.value, catalog.value.flatMap((item) => {
+      const effect = overrideDraft[item.key];
+      return effect ? [{ menuKey: item.key, effect }] : [];
+    }));
+    ElMessage.success('个人菜单例外已保存');
+  } finally { overrideSaving.value = false; }
+}
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -209,6 +235,13 @@ async function handleSave(): Promise<void> {
         </el-table>
       </el-card>
     </div>
+
+    <el-card class="menu-permission-page__panel" shadow="never">
+      <template #header><div class="menu-permission-page__head"><span class="menu-permission-page__head-title">个人菜单例外</span><span class="menu-permission-page__head-meta">在基础角色权限之上设置允许或拒绝；管理员必备菜单不可拒绝</span></div></template>
+      <div style="display:flex;gap:12px;margin-bottom:14px"><el-select v-model="overrideUserId" filterable clearable placeholder="选择用户" style="width:260px" @change="loadOverrides"><el-option v-for="user in users" :key="user.id" :label="`${user.name}（${user.username}）`" :value="user.id"/></el-select><el-button type="primary" :loading="overrideSaving" :disabled="!overrideUserId" @click="saveOverrides">保存个人例外</el-button></div>
+      <el-table v-if="overrideUserId" :data="groupedCatalog" row-key="key" size="small" border><el-table-column prop="name" label="菜单" min-width="180"/><el-table-column label="个人例外" width="220"><template #default="{ row }"><el-radio-group v-model="overrideDraft[row.key]"><el-radio-button value="">继承角色</el-radio-button><el-radio-button value="allow">允许</el-radio-button><el-radio-button value="deny" :disabled="users.find(u=>u.id===overrideUserId)?.role==='admin' && row.adminRequired">拒绝</el-radio-button></el-radio-group></template></el-table-column></el-table>
+      <p v-else class="menu-permission-page__hint">选择用户后配置个人菜单允许/拒绝例外。</p>
+    </el-card>
   </div>
 </template>
 

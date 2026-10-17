@@ -268,9 +268,9 @@ onMounted(load);
     </div>
 
     <!-- 公告与轮播 -->
-    <ContentBoard scope="exam" />
+    <ContentBoard class="exam-home__content-board" scope="exam" />
 
-    <LoadingSkeleton v-if="loading" :rows="4" />
+    <LoadingSkeleton v-if="loading" class="exam-home__loading" :rows="4" />
 
     <template v-else>
       <!-- 统计 -->
@@ -278,6 +278,7 @@ onMounted(load);
         <StatCard
           v-for="item in stats"
           :key="item.key"
+          :class="`exam-home__stat--${item.key}`"
           :label="item.label"
           :value="item.value"
           :unit="item.unit"
@@ -289,7 +290,7 @@ onMounted(load);
       <!-- 两列独立排列，避免侧栏高度把主栏后续卡片推到底部。 -->
       <div class="exam-home__columns" :class="{ 'exam-home__columns--single': !hasSidebar }">
         <div class="exam-home__stack">
-          <el-card class="exam-home__card" shadow="never">
+          <el-card class="exam-home__card exam-home__card--upcoming" shadow="never">
             <template #header>
               <h3 class="exam-home__card-title">即将开始</h3>
               <el-button class="exam-home__card-link" link type="primary" @click="go('/exam/my')">
@@ -341,7 +342,7 @@ onMounted(load);
               @action="go('/exam/my')"
             />
           </el-card>
-          <el-card v-if="trend.length > 0" class="exam-home__card" shadow="never">
+          <el-card v-if="trend.length > 0" class="exam-home__card exam-home__card--trend" shadow="never">
             <template #header>
               <h3 class="exam-home__card-title">成绩趋势</h3>
               <span class="exam-home__card-sub">近 {{ chart?.dots.length ?? 0 }} 场</span>
@@ -410,7 +411,7 @@ onMounted(load);
           </el-card>
         </div>
         <div v-if="hasSidebar" class="exam-home__stack">
-          <el-card v-if="shortcuts.length > 0" class="exam-home__card" shadow="never">
+          <el-card v-if="shortcuts.length > 0" class="exam-home__card exam-home__card--shortcuts" shadow="never">
             <template #header>
               <h3 class="exam-home__card-title">快捷入口</h3>
             </template>
@@ -428,7 +429,7 @@ onMounted(load);
               </button>
             </div>
           </el-card>
-          <el-card v-if="notices.length > 0" class="exam-home__card" shadow="never">
+          <el-card v-if="notices.length > 0" class="exam-home__card exam-home__card--notices" shadow="never">
             <template #header>
               <h3 class="exam-home__card-title">最新公告</h3>
               <el-button class="exam-home__card-link" link type="primary" @click="go('/notifications')">
@@ -455,7 +456,7 @@ onMounted(load);
               </button>
             </div>
           </el-card>
-          <el-card v-if="recommendedBanks.length > 0" class="exam-home__card" shadow="never">
+          <el-card v-if="recommendedBanks.length > 0" class="exam-home__card exam-home__card--banks" shadow="never">
             <template #header>
               <h3 class="exam-home__card-title">推荐练题</h3>
             </template>
@@ -470,7 +471,7 @@ onMounted(load);
               </template>
             </PagedOverview>
           </el-card>
-          <el-card v-if="recentScores.length > 0" class="exam-home__card" shadow="never">
+          <el-card v-if="recentScores.length > 0" class="exam-home__card exam-home__card--scores" shadow="never">
             <template #header>
               <h3 class="exam-home__card-title">最近成绩</h3>
               <el-button class="exam-home__card-link" link type="primary" @click="go('/exam/scores')">
@@ -565,6 +566,11 @@ onMounted(load);
     grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
     gap: 14px;
     margin-bottom: 16px;
+
+    // 首页统计卡统一使用白底，状态仅通过左侧色条与图标色区分。
+    :deep(.stat-card.stat-card) {
+      background: $bg-paper;
+    }
   }
 
   &__columns {
@@ -994,6 +1000,238 @@ onMounted(load);
   @media (max-width: 1080px) {
     &__columns {
       grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (max-width: 900px) {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    /* 移动端先呈现任务与状态，再呈现运营内容和次要信息。 */
+    &__hero {
+      order: 1;
+      position: relative;
+      overflow: hidden;
+      padding: 14px;
+      margin-bottom: 0;
+      border: 1px solid $color-primary-border;
+      background: linear-gradient(135deg, $bg-paper 0%, $color-primary-soft 100%);
+      color: $text-primary;
+    }
+
+    &__hero-title {
+      margin-bottom: 4px;
+      font-size: 17px;
+    }
+
+    &__hero-text {
+      padding-right: 4px;
+      color: $text-secondary;
+      font-size: 12px;
+      line-height: 1.55;
+      opacity: 1;
+    }
+
+    &__hero-act {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-top: 10px;
+
+      :deep(.el-button) {
+        width: 100%;
+        height: 34px;
+        margin: 0;
+        border-color: $color-primary-border;
+        background: $bg-paper;
+        color: $color-primary;
+      }
+
+      :deep(.el-button:first-child) {
+        border-color: $color-primary;
+        background: $color-primary;
+        color: #fff;
+      }
+    }
+
+    &__loading {
+      order: 2;
+    }
+
+    &__stats {
+      order: 2;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 0;
+
+      :deep(.stat-card.stat-card .el-card__body) {
+        padding: 11px 12px;
+      }
+
+      :deep(.stat-card__top) {
+        gap: 8px;
+      }
+
+      :deep(.stat-card__icon) {
+        flex-basis: 30px;
+        width: 30px;
+        height: 30px;
+        font-size: 17px;
+      }
+
+      :deep(.stat-card__label) {
+        font-size: 12px;
+      }
+
+      :deep(.stat-card__value) {
+        margin-top: 4px;
+        font-size: 26px;
+        line-height: 1.2;
+      }
+    }
+
+    /* 5 个指标不再留下孤立空位，及格率占满最后一行。 */
+    &__stat--passRate {
+      grid-column: 1 / -1;
+
+      :deep(.el-card__body) {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      :deep(.stat-card__value) {
+        flex: 0 0 auto;
+        margin-top: 0;
+      }
+    }
+
+    &__content-board {
+      order: 0;
+      margin-bottom: 0;
+    }
+
+    /* display: contents 让两列中的卡片可在移动端按任务优先级重新排序。 */
+    &__columns,
+    &__stack {
+      display: contents;
+    }
+
+    &__card {
+      min-width: 0;
+
+      :deep(.el-card__header) {
+        min-height: 42px;
+        padding: 10px 12px;
+      }
+
+      :deep(.el-card__body) {
+        padding: 12px;
+      }
+
+      &--upcoming { order: 3; }
+      &--shortcuts { order: 5; }
+      &--scores { order: 6; }
+      &--notices { order: 7; }
+      &--trend { order: 8; }
+      &--banks { order: 9; }
+    }
+
+    &__exam {
+      padding: 12px;
+    }
+
+    &__exam-top {
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    &__exam-top :deep(.el-button) {
+      width: 100%;
+      margin: 0;
+    }
+
+    &__exam-name-row {
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    &__exam-foot {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px 10px;
+      margin-top: 10px;
+
+      span:first-child {
+        grid-column: 1 / -1;
+      }
+    }
+
+    &__shortcuts {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    &__shortcut {
+      min-width: 0;
+      padding: 10px 4px;
+    }
+
+    &__shortcut-text {
+      max-width: 100%;
+      overflow: hidden;
+      font-size: 11.5px;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    &__chart {
+      height: 142px;
+    }
+
+    /* 最近成绩改成移动端三列列表，取消横向滚动。 */
+    &__tbl {
+      display: block;
+      width: 100%;
+      min-width: 0;
+
+      thead {
+        display: none;
+      }
+
+      tbody {
+        display: block;
+      }
+
+      tr {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 0;
+        border-bottom: 1px solid $border-color;
+
+        &:first-child {
+          padding-top: 0;
+        }
+
+        &:last-child {
+          padding-bottom: 0;
+          border-bottom: 0;
+        }
+      }
+
+      td {
+        display: block;
+        height: auto;
+        padding: 0;
+        border-bottom: 0;
+      }
+    }
+
+    &__tbl-name {
+      max-width: none;
     }
   }
 }

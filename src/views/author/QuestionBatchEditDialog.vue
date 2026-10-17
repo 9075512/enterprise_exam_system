@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * 试题批量编辑弹窗（v1.7②）。
- * - 仅提交被勾选的字段（科目 / 知识点标签 / 默认分值），未勾选字段后端保持原值；
+ * - 仅提交被勾选的字段（知识点标签 / 默认分值 / 难度）；
  * - 标签支持「追加」与「覆盖」两种模式；
  * - 标签候选来自当前题库已有标签，可自由输入创建。
  */
@@ -33,9 +33,6 @@ const dialogVisible = computed<boolean>({
 const MAX_TAGS = 10;
 
 const form = reactive({
-  /** 是否修改科目 */
-  changeSubject: false,
-  subject: '',
   /** 是否修改知识点标签 */
   changeTags: false,
   tags: [] as string[],
@@ -64,8 +61,6 @@ watch(
   () => props.visible,
   (visible) => {
     if (!visible) return;
-    form.changeSubject = false;
-    form.subject = '';
     form.changeTags = false;
     form.tags = [];
     form.tagsMode = 'append';
@@ -79,7 +74,7 @@ watch(
 
 /** 未勾选任何字段时提交按钮禁用 */
 const canSubmit = computed<boolean>(
-  () => form.changeSubject || form.changeTags || form.changeScore || form.changeDifficulty,
+  () => form.changeTags || form.changeScore || form.changeDifficulty,
 );
 
 async function handleSubmit(): Promise<void> {
@@ -93,7 +88,6 @@ async function handleSubmit(): Promise<void> {
   }
 
   const payload: QuestionBatchEditInput = { ids: [...props.questionIds] };
-  if (form.changeSubject) payload.subject = form.subject.trim();
   if (form.changeTags) {
     payload.tags = form.tags.map((t) => t.trim()).filter(Boolean).slice(0, MAX_TAGS);
     payload.tagsMode = form.tagsMode;
@@ -133,15 +127,6 @@ function handleCancel(): void {
     </p>
 
     <el-form label-position="top">
-      <el-form-item>
-        <el-checkbox v-model="form.changeSubject">修改科目</el-checkbox>
-        <el-input
-          v-model="form.subject"
-          :disabled="!form.changeSubject"
-          placeholder="留空将写入「未分类」"
-        />
-      </el-form-item>
-
       <el-form-item>
         <el-checkbox v-model="form.changeTags">修改知识点标签</el-checkbox>
         <el-select

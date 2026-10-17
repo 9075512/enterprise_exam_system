@@ -35,13 +35,13 @@ function mapBatchRow(row: BatchRow): BatchDto {
   };
 }
 
-/** 解析预览：读取目标题库分类，逐行校验（author 需授权）。 */
+/** 解析预览：使用目标题库名称作为科目默认值，逐行校验（author 需授权）。 */
 export async function preview(buffer: Buffer, bankId: string, operator: Operator): Promise<PreviewResult> {
   const bank = await banksRepo.findById(bankId);
   if (!bank) throw notFound('题库不存在或已被删除');
   await bankAuth.assertBankAccess(bankId, operator);
 
-  const result = await parseQuestionWorkbook(buffer, bank.category);
+  const result = await parseQuestionWorkbook(buffer, bank.name);
   const settings = await getSettings();
   if (result.totalRows > settings.importMaxRows) {
     throw fileInvalid(`单次导入不得超过 ${settings.importMaxRows} 行（当前共 ${result.totalRows} 行）`);
@@ -126,6 +126,8 @@ export async function commit(
             id: genId('q-'),
             bankId: input.bankId,
             ...normalized,
+            subject: bank.name,
+            subjectId: bank.id,
             createdBy: operator.id,
             createdAt: nowDb(),
           },

@@ -1,10 +1,9 @@
 <script setup lang="ts">
 /**
- * 移动端练题进度点（轻量替代考试答题卡）。
- * 每个点表示一题：未答（中性）/ 答对（绿）/ 答错（红）；当前题高亮放大为胶囊。
- * 视觉：冷静蓝 · 商务风（去光晕，仅以实色区分状态）。
+ * 练题进度条（轻量替代考试答题卡）。
+ * PC 与移动端统一展示连续进度，题量再多也不会换行或撑高工具栏。
  */
-import { computed, ref, watch, nextTick } from 'vue';
+import { computed } from 'vue';
 
 const props = withDefaults(
   defineProps<{
@@ -20,42 +19,33 @@ const props = withDefaults(
   { variant: 'on-light' },
 );
 
-/** 归一化状态数组（补齐长度）。 */
-const normalized = computed<Array<'unanswered' | 'correct' | 'wrong'>>(() => {
-  const out: Array<'unanswered' | 'correct' | 'wrong'> = [];
-  for (let i = 0; i < props.total; i += 1) out.push(props.marks[i] ?? 'unanswered');
-  return out;
+/** 仅统计题目总数范围内已经判分的题目。 */
+const answered = computed<number>(() => {
+  let count = 0;
+  for (let i = 0; i < props.total; i += 1) {
+    const mark = props.marks[i] ?? 'unanswered';
+    if (mark !== 'unanswered') count += 1;
+  }
+  return count;
 });
-
-const container = ref<HTMLElement | null>(null);
-watch([container, () => props.current, () => props.total], async () => {
-  await nextTick();
-  const root = container.value;
-  const active = root?.querySelector<HTMLElement>('.is-current');
-  if (!root || !active) return;
-  const top = active.offsetTop;
-  const bottom = top + active.offsetHeight;
-  if (top < root.scrollTop) root.scrollTop = top;
-  else if (bottom > root.scrollTop + root.clientHeight) root.scrollTop = bottom - root.clientHeight;
-}, { flush: 'post' });
+const percent = computed<number>(() => (
+  props.total > 0 ? Math.min(100, Math.round((answered.value / props.total) * 100)) : 0
+));
 </script>
 
 <template>
   <div
-    ref="container"
     class="progress-dots"
     :class="`progress-dots--${variant}`"
     role="progressbar"
-    :aria-valuenow="current + 1"
-    :aria-valuemin="1"
+    :aria-valuenow="answered"
+    :aria-valuemin="0"
     :aria-valuemax="total"
   >
-    <span
-      v-for="(mark, i) in normalized"
-      :key="i"
-      class="progress-dots__dot"
-      :class="[`progress-dots__dot--${mark}`, { 'is-current': i === current }]"
-    />
+    <span class="progress-dots__track" aria-hidden="true">
+      <span class="progress-dots__fill" :style="{ width: `${percent}%` }" />
+    </span>
+    <span class="progress-dots__label">已完成 {{ answered }} / {{ total }}</span>
   </div>
 </template>
 
@@ -63,62 +53,49 @@ watch([container, () => props.current, () => props.total], async () => {
 @use '@/styles/variables.scss' as *;
 
 .progress-dots {
-  position: relative;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
-  max-height: 60px;
-  overflow-y: auto;
+  gap: 10px;
+  overflow: hidden;
 
-  &__dot {
-    flex: 0 0 auto;
-    width: 22px;
-    height: 4px;
-    border-radius: 2px;
-    transition: background-color $transition-fast;
-  }
-}
-
-/* 浅色底（内容区）配色：中性 / 答对 / 答错 / 当前（设计图 .m-dots） */
-.progress-dots--on-light .progress-dots__dot {
-  background: $practice-surface-3;
-
-  &--correct {
-    background: $color-success;
+  &__track {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 3px;
+    background: $practice-surface-3;
   }
 
-  &--wrong {
-    background: $color-error;
-  }
-
-  &.is-current {
+  &__fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
     background: $practice-primary;
+    transition: width $transition-base;
   }
 
-  &--correct.is-current {
-    background: $color-success;
-  }
-
-  &--wrong.is-current {
-    background: $color-error;
+  &__label {
+    flex: 0 0 auto;
+    font-size: 11px;
+    color: $text-secondary;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
 }
 
-/* 深色底（顶部栏）配色 */
-.progress-dots--on-dark .progress-dots__dot {
-  background: rgba(255, 255, 255, 0.4);
-
-  &--correct {
-    background: $color-success-bg;
+.progress-dots--on-dark {
+  .progress-dots__track {
+    background: rgba(255, 255, 255, 0.35);
   }
 
-  &--wrong {
-    background: $color-error-bg;
-  }
-
-  &.is-current {
+  .progress-dots__fill {
     background: #fff;
+  }
+
+  .progress-dots__label {
+    color: rgba(255, 255, 255, 0.82);
   }
 }
 </style>

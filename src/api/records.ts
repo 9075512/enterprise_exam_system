@@ -66,6 +66,11 @@ export function addCheatEvent(id: string, awaySeconds: number): Promise<null> {
   return post<null>(`/records/${id}/cheat-events`, { awaySeconds });
 }
 
+/** 管理员放行一次异常退出后的续考。 */
+export function allowResume(id: string): Promise<ExamRecord> {
+  return post<ExamRecord>(`/records/${id}/allow-resume`);
+}
+
 /** 交卷判分（幂等） */
 export function submit(id: string, auto = false): Promise<ExamRecord> {
   return post<ExamRecord>(`/records/${id}/submit`, { auto });

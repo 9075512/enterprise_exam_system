@@ -7,12 +7,14 @@ import * as banksRepo from '../banks/banks.repo.js';
 import * as bankAuth from '../banks/bankAuth.js';
 import type { Operator } from '../banks/bankAuth.js';
 import { mapQuestionRow } from './question.mapper.js';
-import { badRequest, notFound } from '../../utils/errors.js';
+import { badRequest, notFound, conflict } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
 import { nowDb } from '../../utils/datetime.js';
 import { normalizePaging, buildPage } from '../../utils/pagination.js';
 import { parseJsonColumn } from '../../utils/json.js';
 import type { Page, QuestionDto, QuestionType, QuestionDifficulty, RubricBand, BankQuestionStatsDto } from '../../types/domain.js';
+import { query } from '../../db/pool.js';
+import type { RowDataPacket } from 'mysql2/promise';
 
 /** 选项数量上下限（判断题固定 2 项，不受上限约束）。 */
 const MAX_OPTIONS = 6;
@@ -196,6 +198,8 @@ export async function listByBank(
     difficulty?: QuestionDifficulty;
     tag?: string;
     keyword?: string;
+    subjectId?: string;
+    status?: 'active' | 'disabled';
     page?: number;
     pageSize?: number;
   },
@@ -203,12 +207,14 @@ export async function listByBank(
 ): Promise<Page<QuestionDto>> {
   const bank = await banksRepo.findById(bankId);
   if (!bank) throw notFound('题库不存在或已被删除');
-  await bankAuth.assertBankAccess(bankId, operator);
+  await bankAuth.assertBankView(bankId, operator);
   const paging = normalizePaging(filter.page, filter.pageSize);
   const queryFilter = {
     bankId,
     type: filter.type,
     subject: filter.subject,
+    subjectId: filter.subjectId,
+    status: filter.status,
     difficulty: filter.difficulty,
     tag: filter.tag,
     keyword: filter.keyword,
@@ -237,7 +243,7 @@ export async function bankQuestionStats(
 ): Promise<BankQuestionStatsDto> {
   const bank = await banksRepo.findById(bankId);
   if (!bank) throw notFound('题库不存在或已被删除');
-  await bankAuth.assertBankAccess(bankId, operator);
+  await bankAuth.assertBankView(bankId, operator);
   const [stats, practice] = await Promise.all([
     repo.statsByBank(bankId),
     repo.practiceStatsByBank(bankId),
@@ -262,6 +268,8 @@ export async function listGlobal(
     difficulty?: QuestionDifficulty;
     tag?: string;
     keyword?: string;
+    subjectId?: string;
+    status?: 'active' | 'disabled';
     page?: number;
     pageSize?: number;
   },
@@ -273,6 +281,8 @@ export async function listGlobal(
     bankIds,
     type: filter.type,
     subject: filter.subject,
+    subjectId: filter.subjectId,
+    status: filter.status ?? 'active',
     difficulty: filter.difficulty,
     tag: filter.tag,
     keyword: filter.keyword,
@@ -294,7 +304,8 @@ export async function listGlobal(
 /** 全部科目（去重排序，可限定题库集合；author 限定到被授权题库）。 */
 export async function listSubjects(bankIds?: string[], operator?: Operator): Promise<string[]> {
   const accessible = operator ? await resolveAccessibleBankIds(bankIds, operator) : bankIds;
-  return repo.listSubjects(accessible && accessible.length > 0 ? accessible : undefined);
+  if (accessible && accessible.length === 0) return [];
+  return repo.listSubjects(accessible);
 }
 
 /** 全部知识点标签（去重排序，可限定题库集合；author 限定到被授权题库，v1.7②）。 */
@@ -328,6 +339,8 @@ export async function create(
     defaultScore?: number;
     analysis?: string;
     subject?: string;
+    subjectId?: string | null;
+    status?: 'active' | 'disabled';
     difficulty?: unknown;
     tags?: string[];
     rubric?: unknown;
@@ -342,7 +355,7 @@ export async function create(
 
   const normalized = normalizeQuestion(input);
   const id = genId('q-');
-  await repo.insert({ id, bankId, ...normalized, createdBy: operator.id, createdAt: nowDb() });
+  await repo.insert({ id, bankId, ...normalized, subject: bank.name, subjectId: bank.id, status: input.status ?? 'active', createdBy: operator.id, createdAt: nowDb() });
   const created = await repo.findById(id);
   return mapQuestionRow(created!);
 }
@@ -359,6 +372,8 @@ export async function update(
     defaultScore?: number;
     analysis?: string;
     subject?: string;
+    subjectId?: string | null;
+    status?: 'active' | 'disabled';
     difficulty?: unknown;
     tags?: string[];
     rubric?: unknown;
@@ -378,16 +393,18 @@ export async function update(
   }
 
   const normalized = normalizeQuestion(input);
-  await repo.update(id, { bankId, ...normalized });
+  await repo.update(id, { bankId, ...normalized, subject: bank.name, subjectId: bank.id, status: input.status ?? current.status });
   const updated = await repo.findById(id);
   return mapQuestionRow(updated!);
 }
 
-/** 删除试题（author 需授权其归属题库；试卷引用关系由外键 CASCADE 连带移除，历史快照不受影响）。 */
+/** 删除试题：被任何试卷引用时禁止物理删除，只能停用。 */
 export async function remove(id: string, operator: Operator): Promise<void> {
   const current = await repo.findById(id);
   if (!current) throw notFound('试题不存在或已被删除');
   await bankAuth.assertBankAccess(current.bank_id, operator);
+  const refs = await query<Array<RowDataPacket & { c: number }>>(`SELECT COUNT(*) AS c FROM paper_questions WHERE question_id = ?`, [id]);
+  if (Number(refs[0]?.c ?? 0) > 0) throw conflict('试题已被试卷引用，不能物理删除，请改为停用');
   await repo.remove(id);
 }
 
@@ -399,8 +416,6 @@ const MAX_BATCH = 500;
 /** 批量编辑入参：仅修改显式提供的字段。 */
 export interface BatchEditInput {
   ids: string[];
-  /** 目标科目（省略 = 不改） */
-  subject?: string;
   /** 知识点标签（省略 = 不改；tagsMode=append 时与现有标签合并去重） */
   tags?: string[];
   /** 标签写入模式：append（追加，默认）/ replace（覆盖） */
@@ -412,7 +427,7 @@ export interface BatchEditInput {
 }
 
 /**
- * 批量编辑试题（科目 / 知识点标签 / 默认分值）。
+ * 批量编辑试题（知识点标签 / 默认分值 / 难度）。
  * - 仅修改显式传入的字段，未传字段保持原值（题干、选项、答案等一律不动）；
  * - author 需对其归属题库授权（逐题校验，任一无权即整体失败）；
  * - 标签追加模式按题读取现有标签后再合并去重（保序）。
@@ -432,15 +447,13 @@ export async function batchEdit(
     await bankAuth.assertBankAccess(row.bank_id, operator);
   }
 
-  const hasSubject = input.subject !== undefined;
   const hasTags = input.tags !== undefined;
   const hasScore = input.defaultScore !== undefined;
   const hasDifficulty = input.difficulty !== undefined;
-  if (!hasSubject && !hasTags && !hasScore && !hasDifficulty) {
+  if (!hasTags && !hasScore && !hasDifficulty) {
     throw badRequest('请至少选择一个要修改的字段');
   }
 
-  const nextSubject = hasSubject ? String(input.subject ?? '').trim() || '未分类' : undefined;
   const nextScore = hasScore ? normalizeScore(input.defaultScore) : undefined;
   const nextTags = hasTags ? normalizeTags(input.tags) : undefined;
   const nextDifficulty = hasDifficulty ? normalizeDifficulty(input.difficulty) : undefined;
@@ -462,7 +475,9 @@ export async function batchEdit(
       answer: parseJsonColumn<number[] | string[]>(row.answer, []),
       defaultScore: nextScore ?? Number(row.default_score),
       analysis: row.analysis ?? '',
-      subject: nextSubject ?? row.subject,
+      subject: row.subject,
+      subjectId: row.bank_id,
+      status: row.status,
       difficulty: hasDifficulty ? (nextDifficulty ?? null) : (row.difficulty ?? null),
       tags: mergedTags,
       rubric: parseJsonColumn<RubricBand[]>(row.rubric, []),

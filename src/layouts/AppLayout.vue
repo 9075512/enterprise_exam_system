@@ -1,11 +1,11 @@
 <script setup lang="ts">
 /**
- * 应用主布局（W2-T6）：可折叠侧栏 + 白色顶栏（面包屑 + 用户下拉）+ 卡片化内容区。
+ * 应用主布局：管理/出题/PC 考生使用桌面框架；900px 以下的考生端切换为移动框架。
  */
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
-import { ArrowDown, Bell, Expand, Fold, Key, Lock, QuestionFilled, Search, SwitchButton } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
+import { ArrowDown, Bell, Expand, Fold, Key, Lock, QuestionFilled, Search, SwitchButton, User } from '@element-plus/icons-vue';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
 import { useSettingsStore } from '@/stores/settings';
@@ -13,7 +13,8 @@ import { usePermissionsStore } from '@/stores/permissions';
 import { getUnreadCount } from '@/api/notifications';
 import { ROLE_LABELS } from '@/constants';
 import AccountSecurityDialog from '@/components/account/AccountSecurityDialog.vue';
-import { MENU_GROUP_DEFS, getMenuGroups, getMenuItems } from './menuConfig';
+import ChangePasswordDialog from '@/components/account/ChangePasswordDialog.vue';
+import { MENU_GROUP_DEFS, getMenuGroups, getMenuItems, type MenuItem } from './menuConfig';
 
 /** el-menu 实例（用于跨分组导航时同步展开态） */
 interface MenuExposed {
@@ -21,6 +22,7 @@ interface MenuExposed {
 }
 
 const route = useRoute();
+const isPracticeRoute = computed(() => route.path.startsWith('/exam/practice'));
 const moduleTone = computed(() => {
   const path = route.path;
   if (/users|departments|home-config/.test(path)) return 'teal';
@@ -34,9 +36,23 @@ const auth = useAuthStore();
 const app = useAppStore();
 const settingsStore = useSettingsStore();
 const permissions = usePermissionsStore();
+const isExaminee = computed(() => auth.currentUser?.role === 'examinee');
+/** 练题作答是沉浸式页面，移动端隐藏通用头部和底栏，由作答页自己的工具栏接管。 */
+const isFocusedExamineeRoute = computed(() =>
+  isExaminee.value && (route.name === 'practice-session' || route.name === 'practice-reans'),
+);
 
 /** 侧边栏品牌名（系统简称）；设置加载失败时 store 保留默认值 */
-const brandName = computed(() => settingsStore.settings.systemShortName || '在线考试系统');
+const brandName = computed(() => settingsStore.settings.systemShortName);
+
+// 浏览器标题跟随后台“系统全称”，管理员保存品牌设置后无需重新构建前端。
+watch(
+  () => settingsStore.settings.systemName,
+  (name) => {
+    if (name.trim()) document.title = name.trim();
+  },
+  { immediate: true },
+);
 
 /** 站内信未读数 */
 const unreadCount = ref(0);
@@ -124,6 +140,33 @@ const menuItems = computed(() =>
   auth.currentUser ? getMenuItems(auth.currentUser.role, permissions.myMenus) : [],
 );
 
+/** 手机考生端的一级任务导航；消息中心保留在顶部铃铛入口。 */
+const mobileNavItems = computed(() => {
+  const order = ['home', 'my-exams', 'practice', 'my-scores'];
+  const items = order
+    .map((key) => menuItems.value.find((item) => item.key === key))
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
+  const profileItem: MenuItem = {
+    key: 'profile',
+    text: '我的',
+    path: '/profile',
+    icon: User,
+    roles: ['examinee'],
+    group: 'examinee',
+  };
+  return [...items, profileItem];
+});
+
+/** 移动端底栏导航：重复点击当前页时回到顶部，其余情况立即切换路由。 */
+async function navigateMobile(path: string): Promise<void> {
+  if (route.path === path) {
+    document.querySelector<HTMLElement>('.layout__content')?.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+  await router.push(path);
+}
+
 /** 当前角色可见菜单（按分组，用于侧栏渲染） */
 const menuGroups = computed(() =>
   auth.currentUser ? getMenuGroups(auth.currentUser.role, permissions.myMenus) : [],
@@ -140,6 +183,12 @@ const menusKey = computed(() =>
 /** 高亮项：优先精确匹配路由；二级页（如监考监控）回退到 meta.menuKey 对应的菜单 */
 const activeMenu = computed(() => {
   if (menuItems.value.some((m) => m.path === route.path)) return route.path;
+  // 成绩明细由管理员和考生共用，根据当前角色回落到各自的成绩菜单。
+  if (route.path.startsWith('/score-detail/')) {
+    const scoreKey = auth.currentUser?.role === 'examinee' ? 'my-scores' : 'scores';
+    const scoreMenu = menuItems.value.find((m) => m.key === scoreKey);
+    if (scoreMenu) return scoreMenu.path;
+  }
   const key = route.meta.menuKey as string | undefined;
   return menuItems.value.find((m) => m.key === key)?.path ?? route.path;
 });
@@ -150,16 +199,28 @@ const activeGroupKey = computed(() => {
   return hit?.group ?? '';
 });
 
+/** 考生端侧栏扁平化（设计稿 examinee 导航无折叠子菜单，全部一级项平铺） */
+const flatMenu = computed(() => auth.currentUser?.role === 'examinee');
+
 /** 初始展开：当前页所在分组（只有 1 项的组不渲染子菜单，无需展开） */
 const openedGroups = computed(() =>
-  menuGroups.value.filter((g) => g.items.length > 1 && g.key === activeGroupKey.value).map((g) => g.key),
+  flatMenu.value
+    ? []
+    : menuGroups.value
+      .filter((g) => (g.items.length > 1 || g.key === 'learning') && g.key === activeGroupKey.value)
+      .map((g) => g.key),
 );
 
 /** 仅在二级菜单组之间跳转时联动展开（避免同组内点击反复开关） */
 const menuRef = ref<MenuExposed>();
-watch(activeGroupKey, (key) => {
+watch([activeGroupKey, flatMenu], async ([key, isFlat]) => {
+  // 考生端菜单全部平铺，不存在 el-sub-menu；调用 open 会触发 Element Plus 空索引异常。
+  if (isFlat || !key) return;
   const group = menuGroups.value.find((g) => g.key === key);
-  if (group && group.items.length > 1) menuRef.value?.open(key);
+  if (!group || (group.items.length <= 1 && group.key !== 'learning')) return;
+  await nextTick();
+  if (flatMenu.value || activeGroupKey.value !== key) return;
+  menuRef.value?.open(key);
 });
 const userName = computed(() => auth.currentUser?.name ?? '');
 /** 侧栏角色行（设计稿考生显示「考生 · 科室」，其余角色仅职称） */
@@ -170,12 +231,10 @@ const roleLabel = computed(() => {
   if (u.role === 'examinee' && u.departmentName) return `${base} · ${u.departmentName}`;
   return base;
 });
-
-/** 考生端侧栏扁平化（设计稿 examinee 导航无折叠子菜单，全部一级项平铺） */
-const flatMenu = computed(() => auth.currentUser?.role === 'examinee');
 const breadcrumbs = computed(() =>
   route.matched.filter((r) => r.meta && r.meta.title).map((r) => String(r.meta.title)),
 );
+const mobileTitle = computed(() => breadcrumbs.value.at(-1) || brandName.value);
 
 /** 用户下拉命令 */
 async function handleCommand(command: unknown): Promise<void> {
@@ -187,6 +246,8 @@ async function handleCommand(command: unknown): Promise<void> {
     pwdVisible.value = true;
   } else if (command === 'security') {
     securityVisible.value = true;
+  } else if (command === 'profile') {
+    await router.push('/profile');
   }
 }
 
@@ -195,53 +256,22 @@ const securityVisible = ref(false);
 
 // 修改密码对话框
 const pwdVisible = ref(false);
-const pwdFormRef = ref<FormInstance>();
-const pwdLoading = ref(false);
-const pwdForm = reactive({ oldPassword: '', newPassword: '', confirmPassword: '' });
-// 密码最小长度可配置（系统设置），规则随设置动态生成
-const pwdRules = computed<FormRules>(() => ({
-  oldPassword: [{ required: true, message: '请输入旧密码', trigger: 'blur' }],
-  newPassword: [
-    { required: true, message: '请输入新密码', trigger: 'blur' },
-    {
-      min: settingsStore.settings.minPasswordLength,
-      message: `新密码长度不能少于 ${settingsStore.settings.minPasswordLength} 位`,
-      trigger: 'blur',
-    },
-  ],
-  confirmPassword: [{ required: true, message: '请再次输入新密码', trigger: 'blur' }],
-}));
-
-async function submitPassword(): Promise<void> {
-  if (!pwdFormRef.value) return;
-  const valid = await pwdFormRef.value.validate().catch(() => false);
-  if (!valid) return;
-  if (pwdForm.newPassword !== pwdForm.confirmPassword) {
-    ElMessage.error('两次输入的密码不一致');
-    return;
-  }
-  pwdLoading.value = true;
-  try {
-    await auth.changePassword(pwdForm.oldPassword, pwdForm.newPassword);
-    ElMessage.success('密码修改成功');
-    pwdVisible.value = false;
-    pwdForm.oldPassword = '';
-    pwdForm.newPassword = '';
-    pwdForm.confirmPassword = '';
-  } catch {
-    // http 拦截器已统一提示
-  } finally {
-    pwdLoading.value = false;
-  }
-}
 </script>
 
 <template>
-  <div class="layout" :data-module-tone="moduleTone">
+  <div
+    class="layout"
+    :class="{
+      'is-practice-route': isPracticeRoute,
+      'is-examinee-layout': isExaminee,
+      'is-focused-examinee-route': isFocusedExamineeRoute,
+    }"
+    :data-module-tone="moduleTone"
+  >
     <aside class="layout__aside" :class="{ 'is-collapsed': app.sidebarCollapsed }">
       <div class="layout__brand">
         <span class="layout__brand-mark">考</span>
-        <span class="layout__brand-name">
+        <span class="layout__brand-name" :title="brandName">
           {{ brandName }}
           <small>EXAM CENTER</small>
         </span>
@@ -267,8 +297,8 @@ async function submitPassword(): Promise<void> {
           </template>
 
           <template v-else>
-            <!-- 组内只有 1 项 → 直接渲染为顶层菜单项，不套一层折叠 -->
-            <el-menu-item v-if="group.items.length === 1" :index="group.items[0].path">
+            <!-- 普通单项组直接平铺；学习中心保留二级结构，让“考试 / 练题”产品边界清晰可见。 -->
+            <el-menu-item v-if="group.items.length === 1 && group.key !== 'learning'" :index="group.items[0].path">
               <el-icon><component :is="group.items[0].icon" /></el-icon>
               <template #title>{{ group.items[0].text }}</template>
             </el-menu-item>
@@ -300,6 +330,9 @@ async function submitPassword(): Promise<void> {
           </span>
           <template #dropdown>
             <el-dropdown-menu>
+              <el-dropdown-item command="profile">
+                <el-icon><User /></el-icon> 个人中心
+              </el-dropdown-item>
               <el-dropdown-item command="password">
                 <el-icon><Key /></el-icon> 修改密码
               </el-dropdown-item>
@@ -316,6 +349,31 @@ async function submitPassword(): Promise<void> {
     </aside>
 
     <div class="layout__main">
+      <header v-if="isExaminee && !isFocusedExamineeRoute" class="layout__mobile-header">
+        <div class="layout__mobile-brand">
+          <span class="layout__mobile-mark">考</span>
+          <div class="layout__mobile-heading">
+            <small>{{ brandName }}</small>
+            <strong>{{ mobileTitle }}</strong>
+          </div>
+        </div>
+        <div class="layout__mobile-actions">
+          <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99">
+            <button type="button" class="layout__mobile-icon" aria-label="消息中心" @click="openNotifications">
+              <el-icon><Bell /></el-icon>
+            </button>
+          </el-badge>
+          <button
+            type="button"
+            class="layout__mobile-avatar"
+            aria-label="进入个人中心"
+            @click="handleCommand('profile')"
+          >
+            {{ userName.slice(0, 1) }}
+          </button>
+        </div>
+      </header>
+
       <header class="layout__header">
         <el-button
           text
@@ -354,23 +412,30 @@ async function submitPassword(): Promise<void> {
       </main>
     </div>
 
-    <el-dialog v-model="pwdVisible" title="修改密码" width="420px" append-to-body>
-      <el-form ref="pwdFormRef" :model="pwdForm" :rules="pwdRules" label-width="96px">
-        <el-form-item label="旧密码" prop="oldPassword">
-          <el-input v-model="pwdForm.oldPassword" type="password" show-password />
-        </el-form-item>
-        <el-form-item label="新密码" prop="newPassword">
-          <el-input v-model="pwdForm.newPassword" type="password" show-password />
-        </el-form-item>
-        <el-form-item label="确认新密码" prop="confirmPassword">
-          <el-input v-model="pwdForm.confirmPassword" type="password" show-password />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="pwdVisible = false">取消</el-button>
-        <el-button type="primary" :loading="pwdLoading" @click="submitPassword">确定</el-button>
-      </template>
-    </el-dialog>
+    <nav v-if="isExaminee && !isFocusedExamineeRoute" class="layout__mobile-nav" aria-label="考生导航">
+      <button
+        v-for="item in mobileNavItems"
+        :key="item.key"
+        type="button"
+        class="layout__mobile-nav-item"
+        :class="{ 'is-active': activeMenu === item.path }"
+        :aria-current="activeMenu === item.path ? 'page' : undefined"
+        @click="navigateMobile(item.path)"
+      >
+        <el-icon><component :is="item.icon" /></el-icon>
+        <span>{{ item.text.replace('我的', '') || item.text }}</span>
+      </button>
+    </nav>
+
+    <el-backtop
+      v-if="isExaminee && !isFocusedExamineeRoute"
+      class="layout__mobile-backtop"
+      :visibility-height="600"
+      aria-label="返回顶部"
+      title="返回顶部"
+    />
+
+    <ChangePasswordDialog v-model="pwdVisible" />
 
     <!-- 全局搜索面板（⌘K） -->
     <el-dialog v-model="searchVisible" width="520px" append-to-body class="layout__search-dialog">
@@ -463,8 +528,8 @@ async function submitPassword(): Promise<void> {
     flex-shrink: 0;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 0 16px;
+    gap: 8px;
+    padding: 0 12px;
     border-bottom: 1px solid $sidebar-border;
     overflow: hidden;
   }
@@ -484,15 +549,17 @@ async function submitPassword(): Promise<void> {
   }
 
   &__brand-name {
+    flex: 1;
     min-width: 0;
-    max-width: 160px;
-    overflow: hidden;
+    max-width: none;
+    overflow: visible;
     font-size: 13.5px;
     font-weight: 600;
     line-height: 1.2;
+    letter-spacing: -0.01em;
     color: $sidebar-text-active;
     white-space: nowrap;
-    text-overflow: ellipsis;
+    text-overflow: clip;
     transition: opacity $transition-fast, transform $transition-fast;
 
     // 英文副标题（设计稿 .side__name small）
@@ -861,6 +928,210 @@ async function submitPassword(): Promise<void> {
     > :deep(*) {
       min-width: 0;
       max-width: 100%;
+    }
+  }
+
+  &__mobile-header,
+  &__mobile-nav,
+  &__mobile-backtop {
+    display: none;
+  }
+
+  // 手机考生端使用统一的移动信息架构，而不是只在练题路由切换外壳。
+  @media (max-width: 900px) {
+    &.is-examinee-layout {
+      height: auto;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow: visible;
+
+      .layout__aside,
+      .layout__header {
+        display: none;
+      }
+
+      .layout__main,
+      .layout__content {
+        min-height: 100vh;
+        min-height: 100dvh;
+        overflow: visible;
+      }
+
+      .layout__main {
+        width: 100%;
+      }
+
+      .layout__mobile-header {
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        height: calc(58px + env(safe-area-inset-top));
+        padding: env(safe-area-inset-top) 16px 0;
+        box-sizing: border-box;
+        background: rgba(255, 255, 255, 0.96);
+        border-bottom: 1px solid $border-color;
+        backdrop-filter: blur(12px);
+      }
+
+      .layout__mobile-brand,
+      .layout__mobile-actions {
+        display: flex;
+        align-items: center;
+      }
+
+      .layout__mobile-brand { min-width: 0; gap: 10px; }
+      .layout__mobile-actions { flex: 0 0 auto; gap: 10px; }
+      .layout__mobile-mark {
+        display: grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        flex: 0 0 30px;
+        border-radius: 8px;
+        background: $color-primary;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .layout__mobile-heading {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        line-height: 1.2;
+
+        small {
+          overflow: hidden;
+          color: $text-secondary;
+          font-size: 10px;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        strong {
+          overflow: hidden;
+          color: $text-primary;
+          font-size: 15px;
+          font-weight: 650;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+      }
+      .layout__mobile-icon,
+      .layout__mobile-avatar {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        border: 1px solid $border-color;
+        border-radius: 50%;
+        background: $bg-paper;
+        color: $text-secondary;
+      }
+      .layout__mobile-avatar {
+        border-color: $color-primary-border;
+        background: $color-primary-soft;
+        color: $color-primary;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .layout__content {
+        padding: 14px 12px calc(76px + env(safe-area-inset-bottom));
+        scrollbar-gutter: auto;
+        scroll-padding-bottom: calc(82px + env(safe-area-inset-bottom));
+        background: $bg-page;
+      }
+
+      // 长列表仅渲染视口附近的卡片；不支持该属性的浏览器会自然回退为普通渲染。
+      .layout__content :deep(.my-exam__item),
+      .layout__content :deep(.my-score__mobile-card),
+      .layout__content :deep(.my-retake__mobile-card),
+      .layout__content :deep(.notif__item),
+      .layout__content :deep(.sd__q),
+      .layout__content :deep(.wb__item),
+      .layout__content :deep(.fav__item) {
+        content-visibility: auto;
+        contain-intrinsic-size: auto 180px;
+      }
+
+      .layout__mobile-nav {
+        position: fixed;
+        inset: auto 0 0;
+        z-index: 50;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        padding: 5px 6px calc(5px + env(safe-area-inset-bottom));
+        background: rgba(255, 255, 255, 0.97);
+        border-top: 1px solid $border-color;
+        box-shadow: 0 -4px 18px rgba(15, 23, 42, 0.06);
+        backdrop-filter: blur(12px);
+        isolation: isolate;
+        pointer-events: auto;
+      }
+      .layout__mobile-nav-item {
+        position: relative;
+        z-index: 1;
+        min-width: 0;
+        height: 50px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        padding: 0 2px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: $text-secondary;
+        font-size: 10px;
+        cursor: pointer;
+        touch-action: manipulation;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+
+        .el-icon { font-size: 19px; }
+        &.is-active { background: $color-primary-soft; color: $color-primary; font-weight: 650; }
+      }
+
+      .layout__mobile-backtop {
+        right: 14px !important;
+        bottom: calc(70px + env(safe-area-inset-bottom)) !important;
+        z-index: 49;
+        display: grid;
+        width: 38px;
+        height: 38px;
+        border: 1px solid $color-primary-border;
+        background: $bg-paper;
+        color: $color-primary;
+        box-shadow: 0 2px 10px rgba(15, 23, 42, 0.1);
+      }
+
+      :deep(.page-header) {
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+      :deep(.page-header__title) { display: none; }
+      :deep(.page-header__text) { flex-basis: 100%; }
+      :deep(.page-header__desc) { margin-top: 0; line-height: 1.55; }
+      :deep(.page-header__actions) { width: 100%; margin-left: 0; }
+      :deep(.stat-card .el-card__body) { padding: 12px; }
+
+      &.is-practice-route .layout__content,
+      &.is-focused-examinee-route .layout__content {
+        padding: 0;
+        background: $practice-bg;
+      }
+
+      &.is-focused-examinee-route {
+        .layout__main,
+        .layout__content { min-height: 100vh; min-height: 100dvh; }
+      }
     }
   }
 }

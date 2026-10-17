@@ -11,6 +11,7 @@
  * 注意：绝不触碰本机已有的 `exam_system` 库（另一个项目）。
  */
 import mysql from 'mysql2/promise';
+import { createHash } from 'node:crypto';
 import { env } from '../config/env.js';
 import { fromDbDate } from '../utils/datetime.js';
 import { CREATE_DATABASE_SQL, DB_NAME, DDL_STATEMENTS, TABLE_NAMES } from './schema.js';
@@ -56,6 +57,15 @@ async function indexExists(conn: mysql.Connection, table: string, index: string)
     [DB_NAME, table, index],
   );
   return Number(rows[0]?.c ?? 0) > 0;
+}
+
+async function foreignDeleteRule(conn: mysql.Connection, table: string, constraint: string): Promise<string | null> {
+  const [rows] = await conn.query<mysql.RowDataPacket[]>(
+    `SELECT DELETE_RULE FROM information_schema.REFERENTIAL_CONSTRAINTS
+      WHERE CONSTRAINT_SCHEMA = ? AND TABLE_NAME = ? AND CONSTRAINT_NAME = ? LIMIT 1`,
+    [DB_NAME, table, constraint],
+  );
+  return rows[0] ? String(rows[0].DELETE_RULE) : null;
 }
 
 /**
@@ -133,10 +143,47 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     changes.push('questions.difficulty');
   }
 
+  // 核心功能补齐：多级科目 + 试题状态。
+  if (!(await columnExists(conn, 'questions', 'subject_id'))) {
+    await conn.query(`ALTER TABLE questions ADD COLUMN subject_id VARCHAR(64) NULL AFTER subject`);
+    changes.push('questions.subject_id');
+  }
+  if (!(await columnExists(conn, 'questions', 'status'))) {
+    await conn.query(
+      `ALTER TABLE questions ADD COLUMN status ENUM('active','disabled') NOT NULL DEFAULT 'active' AFTER subject_id`,
+    );
+    changes.push('questions.status');
+  }
+  if (!(await indexExists(conn, 'questions', 'idx_questions_subject_id'))) {
+    await conn.query(`ALTER TABLE questions ADD KEY idx_questions_subject_id (subject_id)`);
+    changes.push('questions.idx_questions_subject_id');
+  }
+  if (!(await indexExists(conn, 'questions', 'idx_questions_status'))) {
+    await conn.query(`ALTER TABLE questions ADD KEY idx_questions_status (status)`);
+    changes.push('questions.idx_questions_status');
+  }
+
+  // 被试卷引用的题目禁止物理删除：存量库把早期 CASCADE 外键收紧为 RESTRICT。
+  if ((await foreignDeleteRule(conn, 'paper_questions', 'fk_pq_question')) !== 'RESTRICT') {
+    if (await foreignDeleteRule(conn, 'paper_questions', 'fk_pq_question')) {
+      await conn.query(`ALTER TABLE paper_questions DROP FOREIGN KEY fk_pq_question`);
+    }
+    await conn.query(`ALTER TABLE paper_questions ADD CONSTRAINT fk_pq_question FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE RESTRICT ON UPDATE CASCADE`);
+    changes.push('paper_questions.fk_pq_question RESTRICT');
+  }
+
   // v1.5：用户邮箱（邮件通知接收地址，可空）
   if (!(await columnExists(conn, 'users', 'email'))) {
     await conn.query(`ALTER TABLE users ADD COLUMN email VARCHAR(120) NULL AFTER department_id`);
     changes.push('users.email');
+  }
+  if (!(await columnExists(conn, 'users', 'position_id'))) {
+    await conn.query(`ALTER TABLE users ADD COLUMN position_id VARCHAR(64) NULL AFTER department_id`);
+    changes.push('users.position_id');
+  }
+  if (!(await indexExists(conn, 'users', 'idx_users_position'))) {
+    await conn.query(`ALTER TABLE users ADD KEY idx_users_position (position_id)`);
+    changes.push('users.idx_users_position');
   }
 
   // v1.7③：账号安全 —— 密码最后修改时间（密码有效期策略用）
@@ -163,6 +210,18 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     changes.push('exam_records.attempt_no');
   }
 
+  // 考试参考人员冻结规则：存量考试默认 dynamic，零回归保留旧口径。
+  if (!(await columnExists(conn, 'exams', 'audience_mode'))) {
+    await conn.query(
+      `ALTER TABLE exams ADD COLUMN audience_mode ENUM('dynamic','frozen') NOT NULL DEFAULT 'dynamic' AFTER exam_mode`,
+    );
+    changes.push('exams.audience_mode');
+  }
+  if (!(await columnExists(conn, 'exams', 'audience_rules'))) {
+    await conn.query(`ALTER TABLE exams ADD COLUMN audience_rules JSON NULL AFTER audience_mode`);
+    changes.push('exams.audience_rules');
+  }
+
   // 先建新唯一键（可同时充当外键 fk_records_exam 的索引），再删旧唯一键
   if (!(await indexExists(conn, 'exam_records', 'uk_records_exam_user_attempt'))) {
     await conn.query(
@@ -183,6 +242,36 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     );
     changes.push('question_banks.allow_practice');
   }
+
+  // 树形科目题库：question_banks 同时承载目录节点与叶子题库。
+  const bankTreeColumns: Array<[string, string]> = [
+    ['parent_id', `VARCHAR(64) NULL AFTER allow_practice`],
+    ['sort_order', `INT NOT NULL DEFAULT 0 AFTER parent_id`],
+    ['status', `ENUM('active','disabled') NOT NULL DEFAULT 'active' AFTER sort_order`],
+    ['permission_mode', `ENUM('inherit','override') NOT NULL DEFAULT 'inherit' AFTER status`],
+    ['view_all', `TINYINT(1) NOT NULL DEFAULT 0 AFTER permission_mode`],
+    ['include_child_departments', `TINYINT(1) NOT NULL DEFAULT 1 AFTER view_all`],
+    ['updated_at', `DATETIME(3) NULL AFTER created_at`],
+  ];
+  for (const [column, ddl] of bankTreeColumns) {
+    if (!(await columnExists(conn, 'question_banks', column))) {
+      await conn.query(`ALTER TABLE question_banks ADD COLUMN ${column} ${ddl}`);
+      changes.push(`question_banks.${column}`);
+    }
+  }
+  await conn.query(`UPDATE question_banks SET updated_at = created_at WHERE updated_at IS NULL`);
+  await conn.query(`ALTER TABLE question_banks MODIFY updated_at DATETIME(3) NOT NULL`);
+  if (!(await indexExists(conn, 'question_banks', 'idx_banks_parent_sort'))) {
+    await conn.query(`ALTER TABLE question_banks ADD KEY idx_banks_parent_sort (parent_id, sort_order, name)`);
+    changes.push('question_banks.idx_banks_parent_sort');
+  }
+  if (!(await foreignDeleteRule(conn, 'question_banks', 'fk_banks_parent'))) {
+    await conn.query(`ALTER TABLE question_banks ADD CONSTRAINT fk_banks_parent
+      FOREIGN KEY (parent_id) REFERENCES question_banks(id) ON DELETE RESTRICT ON UPDATE CASCADE`);
+    changes.push('question_banks.fk_banks_parent');
+  }
+
+  await migrateLegacySubjects(conn, changes);
 
   // 练题作答明细复合索引（幂等加索引；新库已含在 CREATE TABLE，旧库原地补建）
   if (!(await indexExists(conn, 'practice_answers', 'idx_pa_user_answered'))) {
@@ -214,6 +303,17 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     if (!(await columnExists(conn, table, 'review_notes'))) {
       await conn.query(`ALTER TABLE ${table} ADD COLUMN review_notes JSON NULL AFTER cheat_events`);
       changes.push(`${table}.review_notes`);
+    }
+  }
+
+  for (const table of ['exam_records', 'exam_records_archive'] as const) {
+    if (!(await columnExists(conn, table, 'grade_label'))) {
+      await conn.query(`ALTER TABLE ${table} ADD COLUMN grade_label VARCHAR(32) NOT NULL DEFAULT '' AFTER score`);
+      changes.push(`${table}.grade_label`);
+    }
+    if (!(await columnExists(conn, table, 'resume_allowed'))) {
+      await conn.query(`ALTER TABLE ${table} ADD COLUMN resume_allowed TINYINT(1) NOT NULL DEFAULT 0 AFTER grade_label`);
+      changes.push(`${table}.resume_allowed`);
     }
   }
 
@@ -250,6 +350,12 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     changes.push('practice_wrong_book.correct_streak');
   }
 
+  // 统一口径：科目就是题库，科目名=题库名，科目 id=题库 id。
+  await conn.query(`UPDATE questions q
+    JOIN question_banks b ON b.id = q.bank_id
+    SET q.subject = b.name, q.subject_id = b.id
+    WHERE q.subject_id IS NULL OR q.subject_id <> q.bank_id OR q.subject <> b.name`);
+
   // v1.6：菜单权限目录新增「人工阅卷」（defaultRoles: admin/author）。
   // 若已有角色权限行（admin 曾在菜单权限页保存过），需把新菜单合并进去，否则会看不到新入口。
   // v1.7①：新增「成绩复核」（admin）。
@@ -258,6 +364,7 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
   // v1.9⑦：新增「首页」（examinee，考生默认落地页）。
   // v2.0⑥：新增「首页配置」（admin，考生首页科室级个性化）。
   const NEW_MENU_KEYS: Record<string, string[]> = {
+    subjects: ['admin'],
     reviews: ['admin', 'author'],
     appeals: ['admin'],
     'login-logs': ['admin'],
@@ -267,6 +374,12 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
     'my-retakes': ['examinee'],
     'exam-messages': ['examinee'],
     'home-config': ['admin'],
+    'org-extensions': ['admin'],
+    templates: ['admin', 'author'],
+    'question-feedback': ['admin', 'author'],
+    'duplicate-questions': ['admin'],
+    'practice-monitor': ['admin'],
+    practice: ['admin', 'author', 'examinee'],
   };
   const [menuRows] = await conn.query<mysql.RowDataPacket[]>(`SELECT role, menu_keys FROM menu_permissions`);
   for (const mr of menuRows) {
@@ -294,6 +407,170 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
       ? '[db:init] 结构升级：无需变更（已是最新）'
       : `[db:init] 结构升级完成：${changes.join('、')}`,
   );
+}
+
+/**
+ * 把旧 subjects/subject_grants 尽可能投影到 question_banks 树。
+ * 所有 id 均由旧 id/分类稳定派生，INSERT IGNORE + UPSERT 保证重复执行幂等。
+ */
+async function migrateLegacySubjects(conn: mysql.Connection, changes: string[]): Promise<void> {
+  const [subjects] = await conn.query<mysql.RowDataPacket[]>(
+    `SELECT id, name, parent_id, sort_order, status, created_at, updated_at FROM subjects ORDER BY created_at, id`,
+  );
+  const [banksBefore] = await conn.query<mysql.RowDataPacket[]>(
+    `SELECT b.id, b.name, b.category, b.parent_id, b.allow_practice, b.created_by,
+            (SELECT COUNT(*) FROM questions q WHERE q.bank_id = b.id) AS question_count
+       FROM question_banks b`,
+  );
+  const report: Record<string, unknown> = {
+    migrationKey: 'subject-to-bank-tree-v1',
+    matched: [] as unknown[],
+    createdDirectories: [] as unknown[],
+    categoryDirectories: [] as unknown[],
+    conflicts: [] as unknown[],
+    unresolvedGrants: [] as unknown[],
+    generatedAt: new Date().toISOString(),
+  };
+  const matched = report.matched as Array<Record<string, unknown>>;
+  const createdDirectories = report.createdDirectories as Array<Record<string, unknown>>;
+  const conflicts = report.conflicts as Array<Record<string, unknown>>;
+  const byParent = new Map<string, string[]>();
+  for (const subject of subjects) {
+    if (!subject.parent_id) continue;
+    const ids = byParent.get(String(subject.parent_id)) ?? [];
+    ids.push(String(subject.id));
+    byParent.set(String(subject.parent_id), ids);
+  }
+  const bankBySubject = new Map<string, string>();
+  const claimedBankIds = new Set<string>();
+  for (const subject of subjects) {
+    const subjectId = String(subject.id);
+    const candidates = banksBefore.filter((b) => String(b.created_by) !== 'legacy-migration' && String(b.name) === String(subject.name));
+    const isLeaf = !(byParent.get(subjectId)?.length);
+    const candidateId = candidates.length === 1 ? String(candidates[0].id) : '';
+    const reusable = isLeaf && candidates.length === 1 && !claimedBankIds.has(candidateId);
+    if (reusable) {
+      bankBySubject.set(subjectId, candidateId);
+      claimedBankIds.add(candidateId);
+      matched.push({ subjectId, bankId: candidateId, name: String(subject.name) });
+      continue;
+    }
+    if (candidates.length > 1) {
+      conflicts.push({ subjectId, name: String(subject.name), bankIds: candidates.map((b) => String(b.id)) });
+    } else if (isLeaf && candidateId && claimedBankIds.has(candidateId)) {
+      conflicts.push({ subjectId, name: String(subject.name), bankIds: [candidateId], reason: 'bank-already-matched' });
+    }
+    const stableId = `legacy-${subjectId}`.slice(0, 64);
+    await conn.query(
+      `INSERT IGNORE INTO question_banks
+        (id, name, description, category, allow_practice, parent_id, sort_order, status,
+         permission_mode, view_all, include_child_departments, created_by, created_at, updated_at)
+       VALUES (?, ?, '', 'legacy', 0, NULL, ?, ?, 'inherit', 0, 1, 'legacy-migration', ?, ?)`,
+      [stableId, String(subject.name), Number(subject.sort_order ?? 0), String(subject.status ?? 'active'), subject.created_at, subject.updated_at],
+    );
+    bankBySubject.set(subjectId, stableId);
+    createdDirectories.push({ subjectId, bankId: stableId, name: String(subject.name), reason: isLeaf ? 'unmatched-leaf' : 'directory' });
+  }
+  for (const subject of subjects) {
+    const bankId = bankBySubject.get(String(subject.id));
+    const parentBankId = subject.parent_id ? bankBySubject.get(String(subject.parent_id)) ?? null : null;
+    if (!bankId) continue;
+    await conn.query(
+      `UPDATE question_banks SET parent_id = ?, sort_order = ?, status = ?, updated_at = GREATEST(updated_at, ?)
+        WHERE id = ?`,
+      [parentBankId, Number(subject.sort_order ?? 0), String(subject.status ?? 'active'), subject.updated_at, bankId],
+    );
+  }
+
+  // 老题库未匹配科目时，按历史 category 生成根目录归组；无法判断的保留根级并写报告。
+  const usedBanks = new Set(bankBySubject.values());
+  const categoryDirectories = report.categoryDirectories as Array<Record<string, unknown>>;
+  for (const bank of banksBefore) {
+    const bankId = String(bank.id);
+    // 迁移器自己生成的目录不能再次按 category 归组，否则重复执行时会产生目录套目录，
+    // 极端情况下还会尝试把 legacy 分类目录挂到自身。
+    if (usedBanks.has(bankId) || bank.parent_id || String(bank.created_by) === 'legacy-migration') continue;
+    const category = String(bank.category ?? '').trim();
+    if (!category || category === '未分类') {
+      conflicts.push({ bankId, name: String(bank.name), reason: 'no-subject-or-category' });
+      continue;
+    }
+    const hash = createHash('sha1').update(category).digest('hex').slice(0, 24);
+    const dirId = `legacy-category-${hash}`;
+    await conn.query(
+      `INSERT IGNORE INTO question_banks
+        (id, name, description, category, allow_practice, parent_id, sort_order, status,
+         permission_mode, view_all, include_child_departments, created_by, created_at, updated_at)
+       VALUES (?, ?, '', 'legacy', 0, NULL, 0, 'active', 'inherit', 0, 1, 'legacy-migration', NOW(3), NOW(3))`,
+      [dirId, category],
+    );
+    await conn.query(`UPDATE question_banks SET parent_id = ? WHERE id = ? AND parent_id IS NULL`, [dirId, bankId]);
+    categoryDirectories.push({ category, bankId: dirId, childBankId: bankId });
+  }
+
+  // 迁移旧数据时保留既有权限语义：已有编辑人继续可编辑；旧开放练题库视为全员可浏览。
+  await conn.query(`UPDATE question_banks b SET b.permission_mode = 'override'
+    WHERE b.permission_mode = 'inherit' AND (b.allow_practice = 1 OR EXISTS (SELECT 1 FROM bank_authors ba WHERE ba.bank_id = b.id))`);
+  await conn.query(`UPDATE question_banks SET view_all = 1 WHERE allow_practice = 1 AND permission_mode = 'override'`);
+
+  // 将旧 grants 的最终结果展开为具体用户；deny 会在旧算法中扣除。
+  const [users] = await conn.query<mysql.RowDataPacket[]>(`SELECT id, role, department_id, position_id FROM users WHERE status = 'active'`);
+  const [memberships] = await conn.query<mysql.RowDataPacket[]>(`SELECT group_id, user_id FROM user_group_members`);
+  const groupsByUser = new Map<string, Set<string>>();
+  for (const row of memberships) {
+    const set = groupsByUser.get(String(row.user_id)) ?? new Set<string>();
+    set.add(String(row.group_id)); groupsByUser.set(String(row.user_id), set);
+  }
+  const [grants] = await conn.query<mysql.RowDataPacket[]>(`SELECT subject_id, principal_type, principal_id, effect, can_view, can_edit FROM subject_grants`);
+  const unresolvedGrants = report.unresolvedGrants as Array<Record<string, unknown>>;
+  for (const grant of grants) {
+    const type = String(grant.principal_type);
+    const id = String(grant.principal_id);
+    const matchedUser = users.some((user) => {
+      if (type === 'user') return String(user.id) === id;
+      if (type === 'role') return String(user.role) === id;
+      if (type === 'position') return String(user.position_id ?? '') === id;
+      if (type === 'group') return groupsByUser.get(String(user.id))?.has(id) === true;
+      return false;
+    });
+    if (!matchedUser) unresolvedGrants.push({
+      subjectId: String(grant.subject_id), principalType: type, principalId: id,
+      effect: String(grant.effect), reason: 'no-active-user-resolved',
+    });
+  }
+  const subjectParent = new Map(subjects.map((s) => [String(s.id), s.parent_id ? String(s.parent_id) : null]));
+  const hasPermission = (user: mysql.RowDataPacket, subjectId: string, action: 'view' | 'edit'): boolean => {
+    const lineage: string[] = []; let cursor: string | null = subjectId; const seen = new Set<string>();
+    while (cursor && !seen.has(cursor)) { seen.add(cursor); lineage.push(cursor); cursor = subjectParent.get(cursor) ?? null; }
+    const principals = new Set([`role:${String(user.role)}`, `user:${String(user.id)}`]);
+    if (user.position_id) principals.add(`position:${String(user.position_id)}`);
+    for (const gid of groupsByUser.get(String(user.id)) ?? []) principals.add(`group:${gid}`);
+    const applies = (g: mysql.RowDataPacket) => Boolean(Number(action === 'view' ? g.can_view : g.can_edit));
+    if (grants.some((g) => lineage.includes(String(g.subject_id)) && String(g.principal_type) === 'user' && String(g.principal_id) === String(user.id) && String(g.effect) === 'deny' && applies(g))) return false;
+    for (const sid of lineage) {
+      const level = grants.filter((g) => String(g.subject_id) === sid && applies(g) && principals.has(`${String(g.principal_type)}:${String(g.principal_id)}`));
+      if (level.some((g) => String(g.principal_type) === 'user' && String(g.effect) === 'allow')) return true;
+      if (level.some((g) => String(g.effect) === 'deny')) return false;
+      if (level.some((g) => String(g.effect) === 'allow')) return true;
+    }
+    return false;
+  };
+  for (const subject of subjects) {
+    const bankId = bankBySubject.get(String(subject.id));
+    if (!bankId) continue;
+    const viewers = users.filter((u) => hasPermission(u, String(subject.id), 'view'));
+    const editors = users.filter((u) => (String(u.role) === 'author' || String(u.role) === 'admin') && hasPermission(u, String(subject.id), 'edit'));
+    if (viewers.length || editors.length) await conn.query(`UPDATE question_banks SET permission_mode = 'override' WHERE id = ?`, [bankId]);
+    for (const user of viewers) await conn.query(`INSERT IGNORE INTO bank_view_users (bank_id, user_id, created_at) VALUES (?, ?, NOW(3))`, [bankId, String(user.id)]);
+    for (const user of editors) if (String(user.role) === 'author') await conn.query(`INSERT IGNORE INTO bank_authors (bank_id, user_id, created_at) VALUES (?, ?, NOW(3))`, [bankId, String(user.id)]);
+  }
+
+  await conn.query(
+    `INSERT INTO bank_tree_migration_reports (migration_key, report_json, updated_at) VALUES ('subject-to-bank-tree-v1', ?, NOW(3))
+     ON DUPLICATE KEY UPDATE report_json = VALUES(report_json), updated_at = VALUES(updated_at)`,
+    [JSON.stringify(report)],
+  );
+  if (subjects.length > 0) changes.push('legacy subjects -> question_banks tree (idempotent)');
 }
 
 async function main(): Promise<void> {

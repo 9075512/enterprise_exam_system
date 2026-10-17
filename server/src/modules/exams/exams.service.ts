@@ -19,6 +19,8 @@ import { parseJsonColumn } from '../../utils/json.js';
 import { getSettings } from '../settings/settings.service.js';
 import { notifyEvent } from '../../utils/notify.js';
 import * as auditService from '../audit/audit.service.js';
+import * as participantsService from './examParticipants.service.js';
+import { withTransaction } from '../../db/pool.js';
 import type {
   CheatEvent,
   ExamDto,
@@ -37,6 +39,9 @@ async function validateExamInput(input: {
   name: string;
   paperId: string;
   departmentIds: string[];
+  includeUserIds?: string[];
+  excludeUserIds?: string[];
+  audienceTemplateId?: string | null;
   startTime: string;
   endTime: string;
   durationMinutes: number;
@@ -51,6 +56,7 @@ async function validateExamInput(input: {
   name: string;
   paperId: string;
   departmentIds: string[];
+  audienceRules: { includeUserIds: string[]; excludeUserIds: string[]; audienceTemplateId: string | null };
   startTime: string;
   endTime: string;
   durationMinutes: number;
@@ -68,7 +74,9 @@ async function validateExamInput(input: {
   const paper = await papersRepo.findById(input.paperId);
   if (!paper) throw notFound('关联试卷不存在或已被删除');
 
-  if (input.departmentIds.length === 0) throw badRequest('请至少选择一个参与科室');
+  if (input.departmentIds.length === 0 && !(input.includeUserIds?.length) && !input.audienceTemplateId) {
+    throw badRequest('请至少选择一个参与科室、指定人员或抽考模板');
+  }
 
   const start = new Date(input.startTime).getTime();
   const end = new Date(input.endTime).getTime();
@@ -90,6 +98,11 @@ async function validateExamInput(input: {
     name,
     paperId: input.paperId,
     departmentIds: input.departmentIds,
+    audienceRules: {
+      includeUserIds: [...new Set(input.includeUserIds ?? [])],
+      excludeUserIds: [...new Set(input.excludeUserIds ?? [])],
+      audienceTemplateId: input.audienceTemplateId ?? null,
+    },
     startTime: toDbDate(input.startTime),
     endTime: toDbDate(input.endTime),
     durationMinutes,
@@ -123,7 +136,7 @@ export async function listForExaminee(userId: string, departmentId: string): Pro
   const ancestorIds = await departmentsService.getAncestorIds(departmentId);
   if (ancestorIds.length === 0) return [];
   const [rows, records, retakes, settings, exceptionRows] = await Promise.all([
-    repo.listForAncestors(ancestorIds),
+    repo.listForUser(userId, ancestorIds),
     recordsRepo.listByUser(userId),
     retakesRepo.listExamStatusByUser(userId),
     getSettings(),
@@ -134,16 +147,17 @@ export async function listForExaminee(userId: string, departmentId: string): Pro
   const statusMap = new Map<string, RecordStatus>();
   const usedMap = new Map<string, number>();
   const inProgressSet = new Set<string>();
-  const latestSubmitted = new Map<string, number>(); // exam_id → 最近一次已交卷分数
+  const latestSubmitted = new Map<string, number>(); // exam_id → 规则选定的有效分数
   const prevAttempt = new Map<string, number>(); // exam_id → 已交卷的最大 attempt_no
   for (const r of records) {
     if (r.status === 'submitted' || r.status === 'pending_review') {
       usedMap.set(r.exam_id, (usedMap.get(r.exam_id) ?? 0) + 1);
       if (!statusMap.has(r.exam_id)) statusMap.set(r.exam_id, 'submitted');
       const attemptNo = Number(r.attempt_no);
-      if (attemptNo > (prevAttempt.get(r.exam_id) ?? 0)) {
-        latestSubmitted.set(r.exam_id, Number(r.score));
-        prevAttempt.set(r.exam_id, attemptNo);
+      if (settings.retakeScorePolicy === 'highest') {
+        latestSubmitted.set(r.exam_id, Math.max(latestSubmitted.get(r.exam_id) ?? Number.NEGATIVE_INFINITY, Number(r.score)));
+      } else if (attemptNo > (prevAttempt.get(r.exam_id) ?? 0)) {
+        latestSubmitted.set(r.exam_id, Number(r.score)); prevAttempt.set(r.exam_id, attemptNo);
       }
     }
   }
@@ -200,7 +214,15 @@ export async function listForExaminee(userId: string, departmentId: string): Pro
 export async function create(input: Parameters<typeof validateExamInput>[0], operatorId: string): Promise<ExamDto> {
   const data = await validateExamInput(input);
   const id = genId('exam-');
-  await repo.insert({ id, ...data, createdBy: operatorId, createdAt: nowDb() });
+  await withTransaction(async (conn) => {
+    await repo.insert({ id, ...data, createdBy: operatorId, createdAt: nowDb() }, conn);
+    await participantsService.freezeParticipants(id, {
+      departmentIds: data.departmentIds,
+      includeUserIds: data.audienceRules.includeUserIds,
+      excludeUserIds: data.audienceRules.excludeUserIds,
+      audienceTemplateId: data.audienceRules.audienceTemplateId,
+    }, conn);
+  });
   const created = await repo.findById(id);
   const dto = mapExamRow(created!);
 
@@ -231,7 +253,15 @@ export async function update(
   const current = await repo.findById(id);
   if (!current) throw notFound('考试不存在或已被删除');
   const data = await validateExamInput(input);
-  await repo.update(id, data);
+  await withTransaction(async (conn) => {
+    await repo.update(id, data, conn);
+    await participantsService.freezeParticipants(id, {
+      departmentIds: data.departmentIds,
+      includeUserIds: data.audienceRules.includeUserIds,
+      excludeUserIds: data.audienceRules.excludeUserIds,
+      audienceTemplateId: data.audienceRules.audienceTemplateId,
+    }, conn);
+  });
   const updated = await repo.findById(id);
   const dto = mapExamRow(updated!);
   await auditService.record({
@@ -409,6 +439,7 @@ function buildMonitorRow(
     score: record ? Number(record.score) : 0,
     autoSubmitted: Boolean(record && Number(record.auto_submitted)),
     recordId: record?.id ?? '',
+    resumeAllowed: Boolean(record?.resume_allowed),
   };
 }
 
@@ -433,10 +464,14 @@ export async function getMonitor(examId: string): Promise<ExamMonitorDto> {
   const settings = await getSettings();
 
   const expanded = await departmentsService.expandDepartmentIds(exam.departmentIds);
-  const [roster, recordRows] = await Promise.all([
-    usersRepo.listByDepartmentsAndRole(expanded, 'examinee'),
+  const [participantRows, dynamicRoster, recordRows] = await Promise.all([
+    exam.audienceMode === 'frozen' ? participantsService.listParticipants(examId) : Promise.resolve([]),
+    exam.audienceMode === 'dynamic' ? usersRepo.listByDepartmentsAndRole(expanded, 'examinee') : Promise.resolve([]),
     monitorRepo.listLatestByExam(examId),
   ]);
+  const roster = exam.audienceMode === 'frozen'
+    ? participantRows.map((p) => ({ id: p.userId, username: p.username, name: p.userName, departmentName: p.departmentName }))
+    : dynamicRoster;
 
   const recordMap = new Map<string, MonitorRecordRow>();
   for (const r of recordRows) recordMap.set(r.user_id, r);

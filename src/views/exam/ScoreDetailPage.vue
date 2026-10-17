@@ -14,10 +14,11 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import dayjs from 'dayjs';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { ArrowLeft, CircleCheck, CircleClose, Clock, Refresh } from '@element-plus/icons-vue';
 import * as examsApi from '@/api/exams';
 import * as recordsApi from '@/api/records';
+import { feedbackApi } from '@/api/coreFeatures';
 import { useRequest } from '@/composables/useRequest';
 import { useAuthStore } from '@/stores/auth';
 import { useSettingsStore } from '@/stores/settings';
@@ -37,6 +38,16 @@ const settingsStore = useSettingsStore();
 
 const recordId = String(route.params.recordId ?? '');
 const isAdmin = computed<boolean>(() => auth.currentUser?.role === 'admin');
+
+async function reportQuestion(questionId: string): Promise<void> {
+  try {
+    const { value } = await ElMessageBox.prompt('请说明题干、选项、答案或解析存在的问题', '题目纠错反馈', {
+      inputType: 'textarea', inputPlaceholder: '请输入问题描述', inputValidator: (v) => Boolean(v.trim()) || '请输入问题描述',
+    });
+    await feedbackApi.create({ questionId, source: 'exam', sourceRefId: recordId, category: '题目纠错', content: value.trim() });
+    ElMessage.success('反馈已提交');
+  } catch { /* 用户取消或请求错误已统一提示 */ }
+}
 
 const { data: exams } = useRequest(() => (isAdmin.value ? examsApi.list() : examsApi.my()));
 const examMap = computed<Record<string, { id: string; name: string; passScore: number }>>(() =>
@@ -342,14 +353,9 @@ onMounted(async () => {
   void settingsStore.load();
   try {
     const rec = await recordsApi.detail(recordId);
-    if (rec.status === 'in_progress') {
-      // 未交卷记录：考生返回答题页；管理员无答题入口，渲染提示态
-      if (!isAdmin.value) {
-        ElMessage.info('该考试尚未交卷，已为你返回答题页');
-        void router.replace(`/exam/taking/${recordId}`);
-        return;
-      }
-      record.value = rec;
+    if (rec.status === 'in_progress' || !rec.submittedAt) {
+      ElMessage.warning('该考试尚未交卷，暂不能查看成绩明细');
+      await router.replace(isAdmin.value ? '/admin/scores' : '/exam/scores');
       return;
     }
     record.value = rec;
@@ -492,6 +498,7 @@ onMounted(async () => {
                 <span v-else class="sd__bdg sd__bdg--ok">
                   得分 {{ formatScore(subjectiveScore(item.questionId) ?? 0) }} / {{ formatScore(item.score) }}
                 </span>
+                <el-button v-if="!isAdmin" link type="primary" size="small" @click="reportQuestion(item.questionId)">题目纠错</el-button>
                 <!-- 存疑为阅卷内部标记，仅管理员可见（考生视角接口已过滤掉该字段） -->
                 <span
                   v-if="isAdmin && reviewNote(item.questionId)?.doubtful"
@@ -1430,6 +1437,155 @@ onMounted(async () => {
 
     &__ans-grid {
       grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (max-width: 900px) {
+    &__back {
+      min-height: 32px;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+
+    &__result {
+      :deep(.el-card__body) {
+        padding: 14px;
+      }
+    }
+
+    &__hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 16px;
+    }
+
+    &__hero-score {
+      align-items: baseline;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    &__score {
+      font-size: 34px;
+    }
+
+    &__score-total,
+    &__passline {
+      padding-bottom: 0;
+    }
+
+    &__passline {
+      flex-basis: 100%;
+    }
+
+    &__hero-meta {
+      line-height: 1.6;
+      overflow-wrap: anywhere;
+    }
+
+    &__hero-side {
+      width: auto;
+      gap: 0;
+      border-top: 1px solid $border-color;
+
+      > div {
+        min-width: 0;
+        padding: 12px 8px 4px 0;
+
+        &:nth-child(even) {
+          padding-left: 12px;
+          border-left: 1px solid $border-color;
+        }
+      }
+    }
+
+    &__detail {
+      :deep(.el-card__header) {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 8px;
+        padding: 12px;
+      }
+
+      :deep(.el-card__body) {
+        padding: 12px;
+      }
+
+      .sd__card-title {
+        grid-column: 1;
+        white-space: nowrap;
+      }
+
+      .sd__sub {
+        grid-column: 1;
+      }
+    }
+
+    &__seg {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+      margin-left: 0;
+
+      button {
+        padding: 0 8px;
+      }
+    }
+
+    &__expand {
+      grid-column: 1 / -1;
+      width: 100%;
+      margin-left: 0;
+    }
+
+    &__q {
+      padding: 12px;
+    }
+
+    &__q-head .sd__bdg {
+      margin-left: 0;
+    }
+
+    &__q-head :deep(.el-button) {
+      margin-left: auto;
+    }
+
+    &__fill {
+      align-items: stretch;
+      flex-wrap: wrap;
+    }
+
+    &__fill-no {
+      flex-basis: 100%;
+    }
+
+    &__aside {
+      gap: 10px;
+    }
+
+    &__side-card {
+      :deep(.el-card__header),
+      :deep(.el-card__body) {
+        padding: 12px;
+      }
+    }
+  }
+
+  @media (max-width: 380px) {
+    &__detail {
+      :deep(.el-card__header) {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    &__seg {
+      grid-column: 1;
+      grid-row: auto;
+      width: 100%;
+
+      button {
+        flex: 1;
+      }
     }
   }
 }

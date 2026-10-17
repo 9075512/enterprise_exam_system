@@ -230,7 +230,6 @@ describe('S4 题库复制', () => {
     const created = await request(app).post('/api/banks').set(bearer(admin)).send({
       name: 'v17e 未授权题库',
       description: '',
-      category: '测试',
       allowPractice: false,
       authorIds: [],
     });

@@ -298,7 +298,7 @@ export async function setupTwoFactor(
   await repo.setTwoFactorSecret(userId, secret);
   return {
     secret,
-    otpauthUrl: otpauthUrl(secret, row.username, settings.systemShortName || '在线考试系统'),
+    otpauthUrl: otpauthUrl(secret, row.username, settings.systemShortName),
   };
 }
 

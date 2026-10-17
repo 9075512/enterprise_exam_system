@@ -1,8 +1,8 @@
 /**
- * 练题鉴权守卫（练题专属 JWT，独立 secret）。
+ * 练题鉴权守卫（兼容练题专属 JWT 与主系统 JWT）。
  *
- * 与内网 `middleware/auth.ts` 的 `authRequired` 平行但**完全隔离**：
- * - 使用 `PRACTICE_JWT_SECRET` 校验（**不**接受内网 JWT）；
+ * - 独立练题端继续使用 `PRACTICE_JWT_SECRET`；
+ * - 合并后的考试端可直接使用内网 JWT，无需二次登录；
  * - 校验通过挂载 `req.practiceUser = { id, role }`；
  * - 失败统一 1002/401。
  *
@@ -12,6 +12,7 @@ import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
 import { unauthorized } from '../utils/errors.js';
+import { resolveUser } from './auth.js';
 import { findUserStatusById } from '../modules/practice/practice.repo.js';
 import type { PracticeAuthUser } from '../types/express.js';
 import type { Role } from '../types/domain.js';
@@ -61,8 +62,14 @@ export async function practiceAuthRequired(req: Request, _res: Response, next: N
     }
     user = { id: String(decoded.sub), role: (decoded as unknown as PracticeJwtPayload).role };
   } catch {
-    next(unauthorized());
-    return;
+    // 合并到考试端后，主系统登录态也可直接访问练题接口；主系统令牌仍由
+    // auth.resolveUser 完整校验（含 2FA scope 与登录会话撤销状态）。
+    const resolved = await resolveUser(req);
+    if (!resolved.ok) {
+      next(unauthorized(resolved.message));
+      return;
+    }
+    user = { id: resolved.user.id, role: resolved.user.role };
   }
 
   // 即时停用校验（只读 users）

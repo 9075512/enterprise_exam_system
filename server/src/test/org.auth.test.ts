@@ -100,7 +100,7 @@ describe('v1.6③ 组织与权限精细化', () => {
       expect(ids).toContain(examId);
     });
 
-    it('父科室考生（挂在父节点）也能看到父科室考试', async () => {
+    it('冻结后新增的父科室考生需重新生成名单才可见考试', async () => {
       const user = await request(app)
         .post('/api/users')
         .set(bearer(admin))
@@ -113,24 +113,40 @@ describe('v1.6③ 组织与权限精细化', () => {
       expect(user.body.code).toBe(0);
       const parentToken = signToken({ sub: user.body.data.id, role: 'examinee', departmentId: parentDeptId });
 
-      const mine = await request(app).get('/api/exams/my').set(bearer(parentToken));
-      const ids = (mine.body.data as Array<{ id: string }>).map((x) => x.id);
-      expect(ids).toContain(examId);
+      const before = await request(app).get('/api/exams/my').set(bearer(parentToken));
+      const beforeIds = (before.body.data as Array<{ id: string }>).map((x) => x.id);
+      expect(beforeIds).not.toContain(examId);
+
+      const regenerate = await request(app)
+        .post(`/api/exams/${examId}/participants/regenerate`)
+        .set(bearer(admin));
+      expect(regenerate.body.code).toBe(0);
+      expect(regenerate.body.data.some((item: { userId: string }) => item.userId === user.body.data.id)).toBe(true);
+
+      const after = await request(app).get('/api/exams/my').set(bearer(parentToken));
+      const afterIds = (after.body.data as Array<{ id: string }>).map((x) => x.id);
+      expect(afterIds).toContain(examId);
     });
   });
 
-  describe('出题人题库授权：未授权不可访问，授权后可访问', () => {
+  describe('出题人题库授权：默认可预览，授权后可编辑', () => {
     let privateBankId = '';
     let author2Id = '';
 
-    it('管理员创建私有题库（不授权任何出题人）与第二个出题人', async () => {
+    it('管理员创建默认公开预览的题库（不授权任何出题人）与第二个出题人', async () => {
       const bank = await request(app)
         .post('/api/banks')
         .set(bearer(admin))
-        .send({ name: '私有题库', description: '', category: '私有', authorIds: [] });
+        .send({ name: '私有题库', description: '', authorIds: [] });
       expect(bank.body.code).toBe(0);
       privateBankId = bank.body.data.id;
       expect(bank.body.data.authorIds).toEqual([]);
+
+      const access = await request(app)
+        .get(`/api/banks/${privateBankId}/access`)
+        .set(bearer(admin));
+      expect(access.body.code).toBe(0);
+      expect(access.body.data).toMatchObject({ permissionMode: 'override', viewAll: true });
 
       const author = await request(app)
         .post('/api/users')
@@ -140,25 +156,31 @@ describe('v1.6③ 组织与权限精细化', () => {
       author2Id = author.body.data.id;
     });
 
-    it('未授权出题人看不到私有题库（列表隔离）', async () => {
+    it('未授权出题人可以在列表中预览题库', async () => {
       const token = signToken({ sub: author2Id, role: 'author', departmentId: '' });
       const res = await request(app).get('/api/banks').set(bearer(token));
       const ids = (res.body.data as Array<{ id: string }>).map((b) => b.id);
-      expect(ids).not.toContain(privateBankId);
+      expect(ids).toContain(privateBankId);
     });
 
-    it('未授权出题人访问私有题库详情 → 403 / 1003', async () => {
+    it('未授权出题人可以查看详情但不能编辑题目', async () => {
       const token = signToken({ sub: author2Id, role: 'author', departmentId: '' });
-      const res = await request(app).get(`/api/banks/${privateBankId}`).set(bearer(token));
-      expect(res.status).toBe(403);
-      expect(res.body.code).toBe(1003);
+      const detail = await request(app).get(`/api/banks/${privateBankId}`).set(bearer(token));
+      expect(detail.body.code).toBe(0);
+
+      const createQuestion = await request(app)
+        .post('/api/questions')
+        .set(bearer(token))
+        .send({ bankId: privateBankId, type: 'single', stem: '无权编辑', options: ['A', 'B'], answer: [0] });
+      expect(createQuestion.status).toBe(403);
+      expect(createQuestion.body.code).toBe(1003);
     });
 
     it('授权后出题人可见并可访问', async () => {
       await request(app)
         .put(`/api/banks/${privateBankId}`)
         .set(bearer(admin))
-        .send({ name: '私有题库', description: '', category: '私有', authorIds: [author2Id] });
+        .send({ name: '私有题库', description: '', authorIds: [author2Id] });
 
       const token = signToken({ sub: author2Id, role: 'author', departmentId: '' });
       const list = await request(app).get('/api/banks').set(bearer(token));

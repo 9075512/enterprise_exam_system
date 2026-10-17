@@ -417,6 +417,15 @@ html[data-density='compact'] {
   }
 }
 
+// Element Plus 锁定弹窗背景时会以内联 width 补偿桌面滚动条。
+// 移动端页面由 body 自身滚动，不需要该补偿；保留 overflow 锁定，仅阻止横向收缩跳动。
+@media (max-width: 900px) {
+  body[class*='-parent--hidden'] {
+    width: 100% !important;
+    padding-right: 0 !important;
+  }
+}
+
 // 分页：方形小页码 + 选中主色实底（设计稿 .pager/.pg）
 // 与 EP 默认的差异：EP 选中态只把「文字」染主色，设计稿是主色实底 + 白字。
 .el-pagination.el-pagination {
@@ -450,6 +459,21 @@ html[data-density='compact'] {
     &:hover {
       background-color: $color-primary;
       color: #fff;
+    }
+  }
+}
+
+// 移动端只保留翻页所需的核心控件，避免总数、每页条数和跳页输入挤成两行。
+@media (max-width: 900px) {
+  .el-pagination.el-pagination {
+    flex-wrap: nowrap;
+    justify-content: center;
+    gap: 6px;
+
+    .el-pagination__total,
+    .el-pagination__sizes,
+    .el-pagination__jump {
+      display: none;
     }
   }
 }

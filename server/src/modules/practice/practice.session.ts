@@ -19,6 +19,8 @@ export interface PracticeSessionPayload {
   qids: string[];
   /** 练题方式 */
   mode: 'sequence' | 'random';
+  /** 落库监控会话 id；兼容旧令牌时可缺省。 */
+  sid?: string;
 }
 
 /** 签发练习会话令牌。 */

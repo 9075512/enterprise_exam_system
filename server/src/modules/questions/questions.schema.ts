@@ -39,6 +39,8 @@ export const questionSchema = z.object({
   defaultScore: z.coerce.number().optional().default(10),
   analysis: z.string().optional().default(''),
   subject: z.string().optional().default(''),
+  subjectId: z.string().min(1).max(64).nullable().optional(),
+  status: z.enum(['active', 'disabled']).optional(),
   // 题目难度（v3.2；null / 省略 = 未标注）
   difficulty: difficultyEnum.nullish(),
   // 知识点标签（v1.7②；最多 10 个，单个 ≤32 字，service 层再归一化）
@@ -63,6 +65,8 @@ export const questionListQuerySchema = z.object({
   type: typeQuery,
   difficulty: z.preprocess((v) => (v === '' ? undefined : v), difficultyEnum.optional()),
   subject: z.string().optional().default(''),
+  subjectId: z.string().optional(),
+  status: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['active', 'disabled']).optional()),
   tag: z.string().optional().default(''),
   keyword: z.string().optional().default(''),
   ...paginationQuery,
@@ -73,11 +77,10 @@ export const subjectsQuerySchema = z.object({
   bankIds: bankIdsQuery,
 });
 
-/** 批量编辑试题入参（v1.7②：科目 / 知识点标签 / 默认分值）。 */
+/** 批量编辑试题入参（科目由题库唯一决定）。 */
 export const batchEditSchema = z
   .object({
     ids: z.array(z.string().min(1, '试题 ID 不能为空')).min(1, '请至少选择一道试题').max(500, '单次最多批量编辑 500 道试题'),
-    subject: z.string().optional(),
     tags: z.array(z.string()).max(10, '知识点标签最多 10 个').optional(),
     tagsMode: z.enum(['append', 'replace'], { errorMap: () => ({ message: '标签写入模式不合法' }) }).optional(),
     defaultScore: z.coerce.number().positive('分值必须为正数').optional(),
@@ -86,7 +89,6 @@ export const batchEditSchema = z
   })
   .refine(
     (v) =>
-      v.subject !== undefined ||
       v.tags !== undefined ||
       v.defaultScore !== undefined ||
       v.difficulty !== undefined,
@@ -94,3 +96,9 @@ export const batchEditSchema = z
   );
 
 export type QuestionInput = z.infer<typeof questionSchema>;
+
+export const questionBatchSchema = z.object({
+  ids: z.array(z.string().min(1).max(64)).min(1).max(500),
+  action: z.enum(['enable', 'disable', 'migrate', 'delete', 'validate']),
+  targetBankId: z.string().max(64).optional(),
+});

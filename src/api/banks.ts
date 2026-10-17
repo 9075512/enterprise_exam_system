@@ -6,6 +6,8 @@ import type {
   BankDetail,
   BankQuestionStats,
   QuestionBank,
+  BankTreeNode,
+  BankAccessConfig,
   Question,
   QuestionDifficulty,
   QuestionType,
@@ -17,17 +19,30 @@ import type {
 export interface BankPayload {
   name: string;
   description?: string;
-  category?: string;
+  parentId?: string | null;
+  sortOrder?: number;
+  status?: 'active' | 'disabled';
   /** 是否对外开放练题（默认 false） */
   allowPractice?: boolean;
   /** 授权出题人 id 列表（仅 admin 生效） */
   authorIds?: string[];
 }
 
+export interface BankAccessPayload {
+  permissionMode: 'inherit' | 'override';
+  viewAll?: boolean;
+  includeChildDepartments?: boolean;
+  departmentIds?: string[];
+  userIds?: string[];
+  editorIds?: string[];
+}
+
 /** 题库内试题查询参数 */
 export interface BankQuestionsQuery {
   type?: QuestionType | '';
   subject?: string;
+  subjectId?: string;
+  status?: 'active' | 'disabled' | '';
   /** 题目难度（v3.2） */
   difficulty?: QuestionDifficulty | '';
   /** 知识点标签（v1.7②） */
@@ -38,8 +53,20 @@ export interface BankQuestionsQuery {
 }
 
 /** 题库列表（含 questionCount） */
-export function list(filter: { category?: string; keyword?: string } = {}): Promise<QuestionBank[]> {
-  return get<QuestionBank[]>('/banks', { category: filter.category, keyword: filter.keyword });
+export function list(filter: { keyword?: string } = {}): Promise<QuestionBank[]> {
+  return get<QuestionBank[]>('/banks', { keyword: filter.keyword });
+}
+
+export function tree(): Promise<BankTreeNode[]> {
+  return get<BankTreeNode[]>('/banks/tree');
+}
+
+export function access(id: string): Promise<BankAccessConfig> {
+  return get<BankAccessConfig>(`/banks/${id}/access`);
+}
+
+export function updateAccess(id: string, payload: BankAccessPayload): Promise<BankAccessConfig> {
+  return put<BankAccessConfig>(`/banks/${id}/access`, payload);
 }
 
 /** 新建题库 */
@@ -67,6 +94,8 @@ export function questions(bankId: string, query: BankQuestionsQuery = {}): Promi
   return get<Page<Question>>(`/banks/${bankId}/questions`, {
     type: query.type || undefined,
     subject: query.subject || undefined,
+    subjectId: query.subjectId || undefined,
+    status: query.status || undefined,
     difficulty: query.difficulty || undefined,
     tag: query.tag || undefined,
     keyword: query.keyword || undefined,
@@ -77,8 +106,7 @@ export function questions(bankId: string, query: BankQuestionsQuery = {}): Promi
 
 /**
  * 迁移试题到其他题库（P1）。
- * 注意：后端路由 `POST /api/banks/:id/questions/migrate` 尚未实现，调用将 404；
- * 保留此函数以便后端补齐后前端零改动接入。
+ * 后端以事务执行迁移，并同时校验源、目标题库权限。
  */
 export function migrate(
   bankId: string,

@@ -15,11 +15,13 @@ import {
   bankAuthorsBatchSchema,
   bankCloneSchema,
   bankPracticeBatchSchema,
+  bankAccessSchema,
 } from './banks.schema.js';
 import type { BankAuthorBatchInput, BankCloneInput, BankPracticeBatchInput } from './banks.schema.js';
 import * as banksService from './banks.service.js';
 import * as questionsService from '../questions/questions.service.js';
 import { normalizePaging } from '../../utils/pagination.js';
+import * as bankAccessService from './bankAccess.service.js';
 
 export const banksRouter = Router();
 
@@ -30,20 +32,27 @@ banksRouter.get(
   '/',
   validate(bankListQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
-    const { category, keyword } = req.query as unknown as { category: string; keyword: string };
-    return ok(res, await banksService.list({ category, keyword }, req.user!));
+    const { keyword } = req.query as unknown as { keyword: string };
+    return ok(res, await banksService.list({ keyword }, req.user!));
   }),
 );
+
+/** GET /api/banks/tree —— 当前用户可见的科目题库树。 */
+banksRouter.get('/tree', asyncHandler(async (req, res) => ok(res, await banksService.tree(req.user!))));
+banksRouter.get('/migration-report', requireRole('admin'), asyncHandler(async (_req, res) => ok(res, await banksService.migrationReport())));
 
 /** POST /api/banks —— 新建题库。 */
 banksRouter.post(
   '/',
+  requireRole('admin'),
   validate(bankSchema, 'body'),
   asyncHandler(async (req, res) => {
     const body = req.body as {
       name: string;
       description: string;
-      category: string;
+      parentId?: string | null;
+      sortOrder: number;
+      status: 'active' | 'disabled';
       allowPractice: boolean;
       authorIds?: string[];
     };
@@ -60,12 +69,15 @@ banksRouter.get(
 /** PUT /api/banks/:id —— 编辑题库。 */
 banksRouter.put(
   '/:id',
+  requireRole('admin'),
   validate(bankSchema, 'body'),
   asyncHandler(async (req, res) => {
     const body = req.body as {
       name: string;
       description: string;
-      category: string;
+      parentId?: string | null;
+      sortOrder: number;
+      status: 'active' | 'disabled';
       allowPractice: boolean;
       authorIds?: string[];
     };
@@ -73,9 +85,23 @@ banksRouter.put(
   }),
 );
 
+/** GET/PUT /api/banks/:id/access —— 科目权限配置（仅管理员维护）。 */
+banksRouter.get(
+  '/:id/access',
+  requireRole('admin'),
+  asyncHandler(async (req, res) => ok(res, await bankAccessService.getAccessConfig(req.params.id))),
+);
+banksRouter.put(
+  '/:id/access',
+  requireRole('admin'),
+  validate(bankAccessSchema, 'body'),
+  asyncHandler(async (req, res) => ok(res, await bankAccessService.setAccessConfig(req.params.id, req.body))),
+);
+
 /** DELETE /api/banks/:id?cascade=true —— 删除题库（有题须 cascade）。 */
 banksRouter.delete(
   '/:id',
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const cascade = String(req.query.cascade ?? '') === 'true';
     await banksService.remove(req.params.id, cascade, req.user!);
@@ -91,6 +117,8 @@ banksRouter.get(
     const q = req.query as unknown as {
       type?: 'single' | 'multiple' | 'judge' | 'fill' | 'short';
       subject: string;
+      subjectId?: string;
+      status?: 'active' | 'disabled';
       difficulty?: 'low' | 'medium' | 'high';
       tag: string;
       keyword: string;
@@ -101,6 +129,8 @@ banksRouter.get(
     const result = await questionsService.listByBank(req.params.id, {
       type: q.type,
       subject: q.subject,
+      subjectId: q.subjectId,
+      status: q.status,
       difficulty: q.difficulty,
       tag: q.tag,
       keyword: q.keyword,

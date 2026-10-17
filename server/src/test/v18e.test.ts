@@ -76,7 +76,6 @@ async function createBank(name: string): Promise<string> {
   const res = await request(app).post('/api/banks').set(bearer(admin)).send({
     name,
     description: '',
-    category: '测试',
     allowPractice: false,
     authorIds: [],
   });

@@ -67,6 +67,13 @@ recordsRouter.get(
   ),
 );
 
+/** POST /api/records/:id/allow-resume —— 管理员恢复异常退出续考。 */
+recordsRouter.post(
+  '/:id/allow-resume',
+  requireRole('admin'),
+  asyncHandler(async (req, res) => ok(res, await recordsService.allowResume(req.params.id, req.user!.id))),
+);
+
 /** GET /api/records?examId= —— 某场考试全部记录（admin，分页）。 */
 recordsRouter.get(
   '/',

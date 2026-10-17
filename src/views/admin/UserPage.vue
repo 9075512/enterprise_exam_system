@@ -8,6 +8,7 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import { Plus, Search, Refresh, Upload } from '@element-plus/icons-vue';
 import * as departmentsApi from '@/api/departments';
 import * as usersApi from '@/api/users';
+import { groupsApi, positionsApi } from '@/api/coreFeatures';
 import { useRequest } from '@/composables/useRequest';
 import { useConfirm } from '@/composables/useConfirm';
 import { validateAndFocus } from '@/composables/useFormFocus';
@@ -21,16 +22,19 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
 import TableActions from '@/components/common/TableActions.vue';
 import UserImportDialog from '@/views/admin/UserImportDialog.vue';
-import type { Role, User } from '@/types';
+import type { Position, Role, User, UserGroup } from '@/types';
 
 const { confirm } = useConfirm();
 const settingsStore = useSettingsStore();
 
 /** 批量导入账号弹窗 */
 const importDialogVisible = ref(false);
+const positions = ref<Position[]>([]);
+const groups = ref<UserGroup[]>([]);
 
 onMounted(() => {
   void settingsStore.load();
+  void Promise.all([positionsApi.list(), groupsApi.list()]).then(([p, g]) => { positions.value = p; groups.value = g; });
 });
 
 /* ------------------------------ 科室映射 ------------------------------ */
@@ -79,6 +83,8 @@ const form = reactive({
   name: '',
   role: 'examinee' as Role,
   departmentId: '',
+  positionId: '',
+  groupIds: [] as string[],
   email: '',
   status: 'active' as User['status'],
   password: '',
@@ -123,6 +129,8 @@ function openCreate(): void {
   form.name = '';
   form.role = 'examinee';
   form.departmentId = '';
+  form.positionId = '';
+  form.groupIds = [];
   form.email = '';
   form.status = 'active';
   form.password = '';
@@ -136,6 +144,8 @@ function openEdit(user: User): void {
   form.name = user.name;
   form.role = user.role;
   form.departmentId = user.departmentId;
+  form.positionId = user.positionId;
+  form.groupIds = [...user.groupIds];
   form.email = user.email;
   form.status = user.status;
   form.password = '';
@@ -160,6 +170,8 @@ async function handleSubmit(): Promise<void> {
       name: form.name.trim(),
       role: form.role,
       departmentId: form.departmentId,
+      positionId: form.positionId,
+      groupIds: form.groupIds,
       email: form.email.trim() ? form.email.trim() : undefined,
       status: form.status,
       password: form.password ? form.password : undefined,
@@ -248,6 +260,8 @@ async function handleToggleStatus(user: User): Promise<void> {
       name: user.name,
       role: user.role,
       departmentId: user.departmentId,
+      positionId: user.positionId,
+      groupIds: user.groupIds,
       email: user.email,
       status: next,
     });
@@ -336,6 +350,8 @@ async function handleDelete(user: User): Promise<void> {
         <el-table-column label="所属科室" min-width="140">
           <template #default="{ row }">{{ departmentNameMap[row.departmentId] || '—' }}</template>
         </el-table-column>
+        <el-table-column label="岗位" min-width="120"><template #default="{ row }">{{ row.positionName || '—' }}</template></el-table-column>
+        <el-table-column label="用户组" min-width="160"><template #default="{ row }"><el-tag v-for="gid in row.groupIds" :key="gid" size="small" effect="plain">{{ groups.find(g => g.id === gid)?.name || gid }}</el-tag><span v-if="!row.groupIds.length">—</span></template></el-table-column>
         <el-table-column label="邮箱" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">{{ row.email || '—' }}</template>
         </el-table-column>
@@ -409,6 +425,12 @@ async function handleDelete(user: User): Promise<void> {
             :render-after-expand="false"
             default-expand-all
           />
+        </el-form-item>
+        <el-form-item label="岗位">
+          <el-select v-model="form.positionId" clearable class="user-page__full"><el-option v-for="p in positions" :key="p.id" :label="p.name" :value="p.id" /></el-select>
+        </el-form-item>
+        <el-form-item label="用户组">
+          <el-select v-model="form.groupIds" multiple clearable class="user-page__full"><el-option v-for="g in groups" :key="g.id" :label="g.name" :value="g.id" /></el-select>
         </el-form-item>
         <el-form-item label="邮箱" prop="email">
           <el-input v-model="form.email" maxlength="120" placeholder="用于邮件通知，可留空" />

@@ -12,6 +12,8 @@ export interface ExamRow extends RowDataPacket {
   name: string;
   paper_id: string;
   department_ids: unknown;
+  audience_mode?: string;
+  audience_rules?: unknown;
   start_time: string;
   end_time: string;
   duration_minutes: number | string;
@@ -34,11 +36,16 @@ function nullableBool(value: number | boolean | null | undefined): boolean | nul
 
 /** 映射为对外 DTO（JSON 列归一、时间转 ISO）。 */
 export function mapExamRow(row: ExamRow): ExamDto {
+  const rules = parseJsonColumn<{ includeUserIds?: string[]; excludeUserIds?: string[]; audienceTemplateId?: string | null }>(row.audience_rules, {});
   return {
     id: row.id,
     name: row.name,
     paperId: row.paper_id,
     departmentIds: parseJsonColumn<string[]>(row.department_ids, []),
+    includeUserIds: rules.includeUserIds ?? [],
+    excludeUserIds: rules.excludeUserIds ?? [],
+    audienceTemplateId: rules.audienceTemplateId ?? null,
+    audienceMode: row.audience_mode === 'frozen' ? 'frozen' : 'dynamic',
     startTime: fromDbDateSafe(row.start_time),
     endTime: fromDbDateSafe(row.end_time),
     durationMinutes: Number(row.duration_minutes),

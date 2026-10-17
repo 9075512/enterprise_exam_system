@@ -16,6 +16,7 @@ import DataTablePagination from './DataTablePagination.vue';
 import EmptyState from './EmptyState.vue';
 import LoadingSkeleton from './LoadingSkeleton.vue';
 import PageHeader from './PageHeader.vue';
+import StatCard from './StatCard.vue';
 import StatusTag from './StatusTag.vue';
 
 vi.mock('@/api/settings', () => ({
@@ -53,6 +54,17 @@ describe('PageHeader', () => {
   it('actions 具名插槽内容渲染在右侧区域', () => {
     const wrapper = mountWith(PageHeader, { title: 'T' }, { actions: '<button class="probe">新增</button>' });
     expect(wrapper.find('.page-header__actions .probe').text()).toBe('新增');
+  });
+});
+
+describe('StatCard', () => {
+  it('仅在显式指定时启用紧凑密度', () => {
+    const compact = mountWith(StatCard, { label: '题目总数', value: 12, unit: '道', density: 'compact' });
+    const normal = mountWith(StatCard, { label: '题目总数', value: 12 });
+    expect(compact.find('.stat-card').classes()).toContain('stat-card--compact');
+    expect(compact.text()).toContain('12道');
+    expect(normal.find('.stat-card').classes()).toContain('stat-card--default');
+    expect(normal.find('.stat-card').classes()).not.toContain('stat-card--compact');
   });
 });
 
@@ -268,5 +280,16 @@ describe('DataTablePagination', () => {
 
     expect(wrapper.emitted('update:page')?.[0]).toEqual([3]);
     expect(wrapper.emitted('update:pageSize')?.[0]).toEqual([50]);
+  });
+
+  it('移动端使用紧凑的上一页 / 页码 / 下一页导航', async () => {
+    const wrapper = mountWith(DataTablePagination, { total: 45, page: 2, pageSize: 20 });
+    expect(wrapper.find('.data-table-pagination__summary').text()).toBe('共 45 条');
+    expect(wrapper.find('.data-table-pagination__current').text()).toBe('2 / 3');
+
+    const buttons = wrapper.findAll('.data-table-pagination__button');
+    await buttons[0].trigger('click');
+    await buttons[1].trigger('click');
+    expect(wrapper.emitted('update:page')).toEqual([[1], [3]]);
   });
 });

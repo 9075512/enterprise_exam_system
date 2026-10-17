@@ -212,7 +212,9 @@ async function handleSaveExit(): Promise<void> {
   if (submitted.value) return;
   try {
     await ElMessageBox.confirm(
-      '暂存并退出？已作答内容会保留，再次进入可从当前进度继续（倒计时不会暂停）。',
+      settingsStore.settings.abnormalExitResumePolicy === 'admin_required'
+        ? '暂存并退出？已作答内容会保留，但再次进入需要管理员恢复（倒计时不会暂停）。'
+        : '暂存并退出？已作答内容会保留，再次进入可从当前进度继续（倒计时不会暂停）。',
       '暂存退出',
       { type: 'info', confirmButtonText: '暂存并退出', cancelButtonText: '继续作答' },
     );
@@ -305,23 +307,28 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
 
         <div class="taking__bar-sp" />
 
-        <span v-if="cheatCount > 0" class="taking__cheat">
-          <el-icon><Warning /></el-icon>
-          切屏 {{ cheatCount }} 次 / {{ cheatAwayTotal }} 秒
-        </span>
-        <span v-if="record.extraMinutes" class="taking__extra">含加时 {{ record.extraMinutes }} 分钟</span>
-
-        <CountdownTimer :remaining-seconds="remaining" />
-
-        <div class="taking__progress" role="img" :aria-label="`作答进度 ${progressPercent}%`">
-          <span class="taking__progress-fill" :style="{ width: `${progressPercent}%` }" />
+        <div class="taking__status">
+          <span v-if="cheatCount > 0" class="taking__cheat">
+            <el-icon><Warning /></el-icon>
+            切屏 {{ cheatCount }} 次 / {{ cheatAwayTotal }} 秒
+          </span>
+          <span v-if="record.extraMinutes" class="taking__extra">含加时 {{ record.extraMinutes }} 分钟</span>
+          <CountdownTimer :remaining-seconds="remaining" />
         </div>
-        <span class="taking__progress-text">已答 {{ answeredCount }} / {{ questions.length }}</span>
 
-        <el-button :disabled="submitted" @click="handleSaveExit">暂存退出</el-button>
-        <el-button type="primary" :loading="submitting" :disabled="submitted" @click="handleSubmit">
-          交卷
-        </el-button>
+        <div class="taking__progress-wrap">
+          <div class="taking__progress" role="img" :aria-label="`作答进度 ${progressPercent}%`">
+            <span class="taking__progress-fill" :style="{ width: `${progressPercent}%` }" />
+          </div>
+          <span class="taking__progress-text">已答 {{ answeredCount }} / {{ questions.length }}</span>
+        </div>
+
+        <div class="taking__bar-actions">
+          <el-button :disabled="submitted" @click="handleSaveExit">暂存退出</el-button>
+          <el-button type="primary" :loading="submitting" :disabled="submitted" @click="handleSubmit">
+            交卷
+          </el-button>
+        </div>
       </header>
 
       <!-- 主体：左答题区 + 右吸顶答题卡（设计稿 .ans-wrap） -->
@@ -377,7 +384,11 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
 
           <div class="taking__note">
             <el-icon class="taking__note-icon"><InfoFilled /></el-icon>
-            <span>作答内容自动暂存；异常退出后重新进入可继续作答，倒计时不暂停。</span>
+            <span>
+              作答内容自动暂存；{{ settingsStore.settings.abnormalExitResumePolicy === 'admin_required'
+                ? '退出后需管理员恢复方可继续作答'
+                : '异常退出后重新进入可继续作答' }}，倒计时不暂停。
+            </span>
           </div>
         </aside>
       </div>
@@ -486,6 +497,15 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
   &__bar-sp {
     flex: 1;
     min-width: 8px;
+  }
+
+  &__status,
+  &__progress-wrap,
+  &__bar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
   }
 
   &__cheat {
@@ -692,6 +712,75 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
       max-height: none;
       overflow: visible;
     }
+  }
+
+  @media (max-width: 900px) {
+    padding-bottom: calc(70px + env(safe-area-inset-bottom));
+
+    &__bar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px 12px;
+      height: auto;
+      min-height: 70px;
+      padding: 9px 12px;
+      box-sizing: border-box;
+    }
+
+    &__brand { min-width: 0; }
+    &__mark { flex-basis: 28px; width: 28px; height: 28px; }
+    &__name { font-size: 14px; }
+    &__sub,
+    &__bar-sp,
+    &__cheat,
+    &__extra { display: none; }
+
+    &__status {
+      justify-content: flex-end;
+
+      :deep(.countdown) {
+        height: 32px;
+        padding-inline: 10px;
+        white-space: nowrap;
+      }
+    }
+
+    &__progress-wrap {
+      grid-column: 1 / -1;
+      width: 100%;
+    }
+    &__progress { flex: 1 1 auto; width: auto; }
+    &__progress-text { font-size: 11px; }
+
+    &__bar-actions {
+      position: fixed;
+      inset: auto 0 0;
+      z-index: 120;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+      background: rgba(255, 255, 255, 0.97);
+      border-top: 1px solid $border-color;
+      backdrop-filter: blur(12px);
+
+      :deep(.el-button) {
+        width: 100%;
+        height: 40px;
+        margin-left: 0;
+      }
+    }
+
+    &__wrap {
+      display: block;
+      padding: 12px 12px 20px;
+    }
+    &__main { gap: 10px; }
+    &__questions { gap: 10px; }
+    &__question { scroll-margin-top: 92px; }
+
+    // 手机按连续作答流展示，不渲染桌面右侧答题卡及考生信息。
+    &__aside { display: none; }
+    &__watermark { gap: 52px 64px; padding: 40px 12px; }
   }
 }
 </style>

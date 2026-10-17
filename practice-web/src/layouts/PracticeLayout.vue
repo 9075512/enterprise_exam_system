@@ -9,7 +9,8 @@
  *   优先用 `visualViewport.height` 计算可用高度，退化为 `100dvh`，最后兜底 `100vh`；
  * - 底部使用 `env(safe-area-inset-bottom)` 处理全面屏安全区。
  */
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import PracticeTabBar from '@/views/practice/components/PracticeTabBar.vue';
 
 /** 是否显示底部导航栏（练题首页 / 错题本 / 报告 / 我的 开启；登录页与作答页不显示） */
@@ -18,6 +19,8 @@ const props = withDefaults(defineProps<{ tabbar?: boolean; bare?: boolean }>(), 
   tabbar: false,
   bare: false,
 });
+const route = useRoute();
+const integrated = computed(() => route.path.startsWith('/exam/practice'));
 
 /** 动态视口高度样式（`--practice-vh`），由 visualViewport 计算得出。 */
 const layoutStyle = ref<Record<string, string>>({});
@@ -62,6 +65,13 @@ onBeforeUnmount(() => {
     </main>
 
     <PracticeTabBar v-if="props.tabbar" />
+    <el-backtop
+      v-if="props.tabbar && !integrated"
+      class="practice-layout__backtop"
+      :visibility-height="600"
+      aria-label="返回顶部"
+      title="返回顶部"
+    />
   </div>
 </template>
 
@@ -164,6 +174,25 @@ onBeforeUnmount(() => {
   /* 有底部导航栏时：为内容区预留避让空间（56px 导航 + 18px 间距） */
   &.is-tabbar &__main {
     padding-bottom: calc(74px + env(safe-area-inset-bottom));
+  }
+
+  &__main :deep(.fav__item),
+  &__main :deep(.wb__item),
+  &__main :deep(.rpt__bank) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 180px;
+  }
+
+  &__backtop {
+    right: 14px !important;
+    bottom: calc(70px + env(safe-area-inset-bottom)) !important;
+    z-index: 29;
+    width: 38px;
+    height: 38px;
+    border: 1px solid $practice-border-soft;
+    background: $bg-paper;
+    color: $practice-primary;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.1);
   }
 }
 </style>

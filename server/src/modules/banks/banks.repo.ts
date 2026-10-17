@@ -11,25 +11,31 @@ export interface BankRow extends RowDataPacket {
   description: string;
   category: string;
   allow_practice: number | boolean;
+  parent_id: string | null;
+  sort_order: number | string;
+  status: 'active' | 'disabled';
+  permission_mode: 'inherit' | 'override';
+  view_all: number | boolean;
+  include_child_departments: number | boolean;
   created_by: string;
   created_at: string;
+  updated_at: string;
 }
 
 /** 带派生统计的行（列表/详情用）。 */
 export interface BankRowWithCount extends BankRow {
   question_count: number | string;
+  child_count: number | string;
 }
 
-const COLUMNS = 'b.id, b.name, b.description, b.category, b.allow_practice, b.created_by, b.created_at';
+const COLUMNS = `b.id, b.name, b.description, b.category, b.allow_practice,
+  b.parent_id, b.sort_order, b.status, b.permission_mode, b.view_all,
+  b.include_child_departments, b.created_by, b.created_at, b.updated_at`;
 
-/** 列表（含派生 questionCount，可按分类/关键字过滤）。 */
-export async function list(filter: { category?: string; keyword?: string } = {}): Promise<BankRowWithCount[]> {
+/** 列表（含派生 questionCount，可按关键字过滤）。 */
+export async function list(filter: { keyword?: string } = {}): Promise<BankRowWithCount[]> {
   const conditions: string[] = [];
   const params: string[] = [];
-  if (filter.category && filter.category.trim() !== '') {
-    conditions.push('b.category = ?');
-    params.push(filter.category.trim());
-  }
   if (filter.keyword && filter.keyword.trim() !== '') {
     conditions.push('(b.name LIKE ? OR b.description LIKE ?)');
     const like = `%${filter.keyword.trim()}%`;
@@ -37,12 +43,13 @@ export async function list(filter: { category?: string; keyword?: string } = {})
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   return query<BankRowWithCount[]>(
-    `SELECT ${COLUMNS}, COUNT(q.id) AS question_count
+    `SELECT ${COLUMNS}, COUNT(DISTINCT q.id) AS question_count,
+            (SELECT COUNT(*) FROM question_banks c WHERE c.parent_id = b.id) AS child_count
        FROM question_banks b
        LEFT JOIN questions q ON q.bank_id = b.id
        ${where}
        GROUP BY b.id
-       ORDER BY b.created_at ASC`,
+       ORDER BY b.sort_order ASC, b.name ASC, b.created_at ASC`,
     params,
   );
 }
@@ -50,7 +57,8 @@ export async function list(filter: { category?: string; keyword?: string } = {})
 /** 按 id 查询（含 questionCount）。 */
 export async function findById(id: string): Promise<BankRowWithCount | null> {
   const rows = await query<BankRowWithCount[]>(
-    `SELECT ${COLUMNS}, COUNT(q.id) AS question_count
+    `SELECT ${COLUMNS}, COUNT(DISTINCT q.id) AS question_count,
+            (SELECT COUNT(*) FROM question_banks c WHERE c.parent_id = b.id) AS child_count
        FROM question_banks b
        LEFT JOIN questions q ON q.bank_id = b.id
        WHERE b.id = ?
@@ -95,6 +103,11 @@ export async function insert(
     description: string;
     category: string;
     allowPractice: boolean;
+    parentId?: string | null;
+    sortOrder?: number;
+    status?: 'active' | 'disabled';
+    permissionMode?: 'inherit' | 'override';
+    viewAll?: boolean;
     createdBy: string;
     createdAt: string;
   },
@@ -102,23 +115,38 @@ export async function insert(
 ): Promise<void> {
   await runQuery(
     exec,
-    `INSERT INTO question_banks (id, name, description, category, allow_practice, created_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [row.id, row.name, row.description, row.category, row.allowPractice ? 1 : 0, row.createdBy, row.createdAt],
+    `INSERT INTO question_banks
+      (id, name, description, category, allow_practice, parent_id, sort_order, status,
+       permission_mode, view_all, include_child_departments, created_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+    [row.id, row.name, row.description, row.category, row.allowPractice ? 1 : 0,
+      row.parentId ?? null, row.sortOrder ?? 0, row.status ?? 'active', row.permissionMode ?? 'inherit',
+      row.viewAll ? 1 : 0,
+      row.createdBy, row.createdAt, row.createdAt],
   );
 }
 
 /** 更新题库。 */
 export async function update(
   id: string,
-  row: { name: string; description: string; category: string; allowPractice: boolean },
+  row: { name: string; description: string; allowPractice: boolean; parentId: string | null; sortOrder: number; status: 'active' | 'disabled' },
   exec?: SqlExecutor,
 ): Promise<void> {
   await runQuery(
     exec,
-    `UPDATE question_banks SET name = ?, description = ?, category = ?, allow_practice = ? WHERE id = ?`,
-    [row.name, row.description, row.category, row.allowPractice ? 1 : 0, id],
+    `UPDATE question_banks SET name = ?, description = ?, allow_practice = ?, parent_id = ?,
+      sort_order = ?, status = ?, updated_at = NOW(3) WHERE id = ?`,
+    [row.name, row.description, row.allowPractice ? 1 : 0, row.parentId, row.sortOrder, row.status, id],
   );
+}
+
+/** 同一父级下名称查重（parentId=null 时显式 IS NULL）。 */
+export async function findSiblingByName(name: string, parentId: string | null): Promise<BankRow | null> {
+  const rows = await query<BankRow[]>(
+    `SELECT ${COLUMNS} FROM question_banks b WHERE b.name = ? AND ${parentId ? 'b.parent_id = ?' : 'b.parent_id IS NULL'} LIMIT 1`,
+    parentId ? [name, parentId] : [name],
+  );
+  return rows[0] ?? null;
 }
 
 /** 批量设置「对外开放练题」开关（仅改 allow_practice 一列）。 */
@@ -157,8 +185,10 @@ export async function migrateQuestions(
   const placeholders = questionIds.map(() => '?').join(',');
   const result = await runQuery(
     exec,
-    `UPDATE questions SET bank_id = ? WHERE id IN (${placeholders}) AND bank_id = ?`,
-    [targetBankId, ...questionIds, sourceBankId],
+    `UPDATE questions
+        SET bank_id = ?, subject_id = ?, subject = (SELECT name FROM question_banks WHERE id = ?)
+      WHERE id IN (${placeholders}) AND bank_id = ?`,
+    [targetBankId, targetBankId, targetBankId, ...questionIds, sourceBankId],
   );
   return Number((result as { affectedRows?: number }).affectedRows ?? 0);
 }

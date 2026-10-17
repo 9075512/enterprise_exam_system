@@ -14,6 +14,14 @@ import { z } from 'zod';
 
 /** 完整系统设置校验（PUT /settings 入参，所有字段必填）。 */
 export const settingsSchema = z.object({
+  gradeBands: z.array(z.object({
+    name: z.string().trim().min(1).max(20),
+    minPercent: z.number().min(0).max(100),
+  })).min(1).max(20).refine((bands) => new Set(bands.map((b) => b.name)).size === bands.length, '成绩等级名称不能重复'),
+  reviewAnonymous: z.boolean(),
+  scoreDetailVisible: z.boolean(),
+  retakeScorePolicy: z.enum(['latest', 'highest']),
+  abnormalExitResumePolicy: z.enum(['auto', 'admin_required']),
   bankCategories: z.array(z.string().trim().min(1, '分类名称不能为空').max(60, '分类名称不能超过 60 字'))
     .min(1, '请至少保留一个题库分类').max(100, '题库分类最多 100 个')
     .refine((values) => new Set(values).size === values.length, '题库分类不能重复')

@@ -135,6 +135,57 @@ describe('考试系统集成测试', () => {
     });
   });
 
+  describe('异常退出需管理员恢复', () => {
+    it('管理员恢复策略只放行一次再次进入', async () => {
+      const settings = await request(app).get('/api/settings').set(bearer(admin));
+      expect(settings.body.code).toBe(0);
+      const original = settings.body.data as Record<string, unknown>;
+      let examId = '';
+      let recordId = '';
+      try {
+        const saved = await request(app)
+          .put('/api/settings')
+          .set(bearer(admin))
+          .send({ ...original, abnormalExitResumePolicy: 'admin_required' });
+        expect(saved.body.code).toBe(0);
+
+        const created = await request(app)
+          .post('/api/exams')
+          .set(bearer(admin))
+          .send({
+            name: '管理员恢复策略考试',
+            paperId: 'paper-demo',
+            departmentIds: ['dept-rd'],
+            startTime: new Date(Date.now() - 3600_000).toISOString(),
+            endTime: new Date(Date.now() + 3600_000).toISOString(),
+            durationMinutes: 30,
+            passScore: 60,
+          });
+        expect(created.body.code).toBe(0);
+        examId = created.body.data.id as string;
+
+        const started = await request(app).post(`/api/exams/${examId}/start`).set(bearer(zs));
+        expect(started.body.code).toBe(0);
+        recordId = started.body.data.id as string;
+
+        const firstEnter = await request(app).get(`/api/records/${recordId}`).set(bearer(zs));
+        expect(firstEnter.body.code).toBe(0);
+        const blocked = await request(app).get(`/api/records/${recordId}`).set(bearer(zs));
+        expect(blocked.status).toBe(403);
+        expect(blocked.body.code).toBe(1003);
+
+        const allow = await request(app).post(`/api/records/${recordId}/allow-resume`).set(bearer(admin));
+        expect(allow.body.code).toBe(0);
+        const resumed = await request(app).get(`/api/records/${recordId}`).set(bearer(zs));
+        expect(resumed.body.code).toBe(0);
+      } finally {
+        if (recordId) await query(`DELETE FROM exam_records WHERE id = ?`, [recordId]);
+        if (examId) await request(app).delete(`/api/exams/${examId}`).set(bearer(admin));
+        await request(app).put('/api/settings').set(bearer(admin)).send(original);
+      }
+    });
+  });
+
   describe('开考 / 续考 / 交卷 幂等与判分', () => {
     let zsRecordId = '';
 
@@ -268,6 +319,14 @@ describe('考试系统集成测试', () => {
         ['user-nodept', 'nodept', 'x', '无科室考生', nowDb()],
       );
       const nodept = signToken({ sub: 'user-nodept', role: 'examinee', departmentId: '' });
+
+      // 冻结名单不会因后来新增用户而自动漂移；通过考试范围显式追加后再开考。
+      const exam = await request(app).get(`/api/exams/${detailExamId}`).set(bearer(admin));
+      const update = await request(app)
+        .put(`/api/exams/${detailExamId}`)
+        .set(bearer(admin))
+        .send({ ...exam.body.data, includeUserIds: ['user-nodept'] });
+      expect(update.body.code).toBe(0);
 
       const start = await request(app).post(`/api/exams/${detailExamId}/start`).set(bearer(nodept));
       expect(start.body.code).toBe(0);
@@ -425,8 +484,8 @@ describe('考试系统集成测试', () => {
     it('创建题库并新增 2 道试题', async () => {
       const b = await request(app)
         .post('/api/banks')
-        .set(bearer(author))
-        .send({ name: '级联删除测试库', description: '', category: '云测试' });
+        .set(bearer(admin))
+        .send({ name: '级联删除测试库', description: '', authorIds: ['user-author'] });
       expect(b.body.code).toBe(0);
       bankId = b.body.data.id;
 
@@ -453,19 +512,116 @@ describe('考试系统集成测试', () => {
     });
 
     it('非级联删除有题题库 → 409 / 1005 且提示影响面', async () => {
-      const res = await request(app).delete(`/api/banks/${bankId}`).set(bearer(author));
+      const res = await request(app).delete(`/api/banks/${bankId}`).set(bearer(admin));
       expect(res.status).toBe(409);
       expect(res.body.code).toBe(1005);
       expect(res.body.message).toContain('2 道试题');
       expect(res.body.message).toContain('1 道已被 1 份试卷引用');
     });
 
-    it('级联删除 → 成功，题库不再存在（404/1004）', async () => {
-      const res = await request(app).delete(`/api/banks/${bankId}?cascade=true`).set(bearer(author));
-      expect(res.body.code).toBe(0);
+    it('即使请求级联，被试卷引用的题目也禁止物理删除', async () => {
+      const res = await request(app).delete(`/api/banks/${bankId}?cascade=true`).set(bearer(admin));
+      expect(res.status).toBe(409);
+      expect(res.body.code).toBe(1005);
+      expect(res.body.message).toContain('试卷引用');
       const detail = await request(app).get(`/api/banks/${bankId}`).set(bearer(author));
-      expect(detail.status).toBe(404);
-      expect(detail.body.code).toBe(1004);
+      expect(detail.body.code).toBe(0);
+    });
+  });
+
+  describe('树形科目题库（层级 / 叶子约束 / 权限继承）', () => {
+    let rootId = '';
+    let leafId = '';
+    let folderId = '';
+    let descendantId = '';
+
+    it('仅管理员可建科目，子科目默认继承根科目的编辑人员', async () => {
+      const denied = await request(app)
+        .post('/api/banks')
+        .set(bearer(author))
+        .send({ name: '越权创建科目' });
+      expect(denied.status).toBe(403);
+
+      const root = await request(app)
+        .post('/api/banks')
+        .set(bearer(admin))
+        .send({ name: '树测试根科目', sortOrder: 90, authorIds: ['user-author'] });
+      expect(root.body.code).toBe(0);
+      rootId = root.body.data.id;
+
+      const leaf = await request(app)
+        .post('/api/banks')
+        .set(bearer(admin))
+        .send({ name: '树测试叶子题库', parentId: rootId, sortOrder: 1, allowPractice: true });
+      expect(leaf.body.code).toBe(0);
+      leafId = leaf.body.data.id;
+
+      const folder = await request(app)
+        .post('/api/banks')
+        .set(bearer(admin))
+        .send({ name: '树测试目录', parentId: rootId, sortOrder: 2 });
+      folderId = folder.body.data.id;
+      const descendant = await request(app)
+        .post('/api/banks')
+        .set(bearer(admin))
+        .send({ name: '树测试孙级题库', parentId: folderId });
+      descendantId = descendant.body.data.id;
+
+      const tree = await request(app).get('/api/banks/tree').set(bearer(author));
+      const rootNode = tree.body.data.find((node: { id: string }) => node.id === rootId);
+      expect(rootNode).toMatchObject({ isLeaf: false, canView: true, canEdit: true });
+      expect(rootNode.children.map((node: { id: string }) => node.id)).toEqual([leafId, folderId]);
+
+      const leaves = await request(app).get('/api/banks').set(bearer(author));
+      const ids = leaves.body.data.map((bank: { id: string }) => bank.id);
+      expect(ids).toEqual(expect.arrayContaining([leafId, descendantId]));
+      expect(ids).not.toContain(rootId);
+      expect(ids).not.toContain(folderId);
+    });
+
+    it('拦截循环移动、同级重名及在非空叶子下新增子科目', async () => {
+      const cycle = await request(app)
+        .put(`/api/banks/${rootId}`)
+        .set(bearer(admin))
+        .send({ name: '树测试根科目', parentId: descendantId, sortOrder: 90, status: 'active', authorIds: ['user-author'] });
+      expect(cycle.status).toBe(400);
+      expect(cycle.body.code).toBe(1001);
+
+      const duplicate = await request(app)
+        .post('/api/banks')
+        .set(bearer(admin))
+        .send({ name: '树测试叶子题库', parentId: rootId });
+      expect(duplicate.status).toBe(409);
+      expect(duplicate.body.code).toBe(1005);
+
+      const question = await request(app)
+        .post('/api/questions')
+        .set(bearer(author))
+        .send({ bankId: leafId, type: 'judge', stem: '树形题库叶子约束题', options: [], answer: [0], subject: '旧客户端伪造科目' });
+      expect(question.body.data.subject).toBe('树测试叶子题库');
+
+      const child = await request(app)
+        .post('/api/banks')
+        .set(bearer(admin))
+        .send({ name: '不应创建的下级', parentId: leafId });
+      expect(child.status).toBe(409);
+      expect(child.body.code).toBe(1005);
+    });
+
+    it('上级停用后后代视为停用，作者直连也被拒绝', async () => {
+      const disabled = await request(app)
+        .put(`/api/banks/${rootId}`)
+        .set(bearer(admin))
+        .send({ name: '树测试根科目', parentId: null, sortOrder: 90, status: 'disabled', authorIds: ['user-author'] });
+      expect(disabled.body.code).toBe(0);
+
+      const tree = await request(app).get('/api/banks/tree').set(bearer(admin));
+      const rootNode = tree.body.data.find((node: { id: string }) => node.id === rootId);
+      expect(rootNode.children[0].effectiveStatus).toBe('disabled');
+
+      const direct = await request(app).get(`/api/banks/${leafId}`).set(bearer(author));
+      expect(direct.status).toBe(403);
+      expect(direct.body.code).toBe(1003);
     });
   });
 

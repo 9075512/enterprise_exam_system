@@ -65,4 +65,13 @@ function open(): void {
   flex-wrap: wrap;
   gap: 8px;
 }
+@media (max-width: 600px) {
+  .el-pagination {
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+  :deep(.el-pagination__total) {
+    display: none;
+  }
+}
 </style>

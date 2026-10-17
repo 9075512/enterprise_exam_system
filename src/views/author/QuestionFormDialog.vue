@@ -28,8 +28,6 @@ const props = defineProps<{
   bankId: string;
   /** 传入即为编辑模式 */
   question?: Question | null;
-  /** 新建时「科目」默认继承题库分类 */
-  defaultSubject?: string;
 }>();
 
 const emit = defineEmits<{
@@ -59,7 +57,6 @@ const form = reactive({
   shortAnswer: '',
   defaultScore: 10,
   analysis: '',
-  subject: '',
   /** 题目难度（v3.2；'' = 未标注） */
   difficulty: '' as QuestionDifficulty | '',
   /** 知识点标签（v1.7②；最多 10 个） */
@@ -125,7 +122,6 @@ function resetForm(): void {
     }
     form.defaultScore = q.defaultScore;
     form.analysis = q.analysis;
-    form.subject = q.subject;
     form.difficulty = q.difficulty ?? '';
     form.tags = [...(q.tags ?? [])];
     form.rubric = (q.rubric ?? []).map((b) => ({ ...b }));
@@ -138,7 +134,6 @@ function resetForm(): void {
     form.shortAnswer = '';
     form.defaultScore = 10;
     form.analysis = '';
-    form.subject = props.defaultSubject ?? '';
     form.difficulty = '';
     form.tags = [];
     form.rubric = [];
@@ -276,7 +271,6 @@ async function handleSubmit(): Promise<void> {
       answer,
       defaultScore: form.defaultScore,
       analysis: form.analysis.trim(),
-      subject: form.subject.trim() || props.defaultSubject || '',
       difficulty: form.difficulty || null,
       tags: form.tags.map((t) => t.trim()).filter(Boolean).slice(0, MAX_TAGS),
       rubric:
@@ -452,9 +446,6 @@ function handleCancel(): void {
         </div>
       </el-form-item>
 
-      <el-form-item label="科目">
-        <el-input v-model="form.subject" placeholder="默认继承题库分类，可修改" />
-      </el-form-item>
 
       <el-form-item label="难度">
         <el-select v-model="form.difficulty" clearable placeholder="未标注" class="difficulty-select">

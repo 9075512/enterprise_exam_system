@@ -1,7 +1,7 @@
 /**
  * v1.7② 题库与数据运营深化 集成测试。
  * 1) 知识点标签：增删改查、题库内/全局按标签过滤、标签列表、按标签配比抽题与缺口。
- * 2) 批量编辑：追加/覆盖标签、改科目、改分值、权限隔离。
+ * 2) 批量编辑：追加/覆盖标签、科目字段归一、改分值、权限隔离。
  * 3) 试卷克隆：题量与总分一致、名称规则。
  * 4) 看板下钻：科室（含子树）+ 时间范围筛选、知识点错题归因。
  * 5) 审计导出与保留：xlsx / csv 导出、非法列、保留天数、按策略清理。
@@ -122,7 +122,7 @@ describe('v1.7② 题库与数据运营深化', () => {
     const bankRes = await request(app)
       .post('/api/banks')
       .set(bearer(admin))
-      .send({ name: '私有题库（未授权出题人）', description: '', category: '测试', authorIds: [] });
+      .send({ name: '私有题库（未授权出题人）', description: '', authorIds: [] });
     expect(bankRes.body.code).toBe(0);
     privateBankId = bankRes.body.data.id as string;
     privateQId = await createQuestion(privateBankId, '私有题', ['私有标签']);
@@ -221,7 +221,7 @@ describe('v1.7② 题库与数据运营深化', () => {
   });
 
   describe('Q2 批量编辑', () => {
-    it('追加标签 + 改科目 + 改分值', async () => {
+    it('追加标签 + 忽略旧客户端科目值 + 改分值', async () => {
       const res = await request(app)
         .post('/api/questions/batch-edit')
         .set(bearer(admin))
@@ -240,7 +240,7 @@ describe('v1.7② 题库与数据运营深化', () => {
       expect(ids).toEqual(expect.arrayContaining([batchQ1, batchQ2]));
 
       const item = list.body.data.list.find((q: { id: string }) => q.id === batchQ1);
-      expect(item.subject).toBe('批量改后科目');
+      expect(item.subject).toBe('安全知识题库');
       expect(item.defaultScore).toBe(7);
       // 追加模式保留原标签
       expect(item.tags).toEqual(expect.arrayContaining(['密码', '新增标签']));

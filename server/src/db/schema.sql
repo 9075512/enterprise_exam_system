@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS users (
   name          VARCHAR(64)  NOT NULL,
   role          ENUM('admin','author','examinee') NOT NULL,
   department_id VARCHAR(64)  NULL,
+  position_id   VARCHAR(64)  NULL,
   email         VARCHAR(120) NULL,
   status        ENUM('active','disabled') NOT NULL DEFAULT 'active',
   password_changed_at DATETIME(3) NULL,
@@ -39,6 +40,7 @@ CREATE TABLE IF NOT EXISTS users (
   PRIMARY KEY (id),
   UNIQUE KEY uk_users_username (username),
   KEY idx_users_department (department_id),
+  KEY idx_users_position (position_id),
   CONSTRAINT fk_users_department FOREIGN KEY (department_id)
     REFERENCES departments(id) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -50,10 +52,20 @@ CREATE TABLE IF NOT EXISTS question_banks (
   description   VARCHAR(255) NOT NULL DEFAULT '',
   category      VARCHAR(64)  NOT NULL DEFAULT '未分类',
   allow_practice TINYINT(1)  NOT NULL DEFAULT 0,
+  parent_id     VARCHAR(64)  NULL,
+  sort_order    INT          NOT NULL DEFAULT 0,
+  status        ENUM('active','disabled') NOT NULL DEFAULT 'active',
+  permission_mode ENUM('inherit','override') NOT NULL DEFAULT 'inherit',
+  view_all      TINYINT(1)   NOT NULL DEFAULT 0,
+  include_child_departments TINYINT(1) NOT NULL DEFAULT 1,
   created_by    VARCHAR(64)  NOT NULL,
   created_at    DATETIME(3)  NOT NULL,
+  updated_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
-  KEY idx_banks_category (category)
+  KEY idx_banks_category (category),
+  KEY idx_banks_parent_sort (parent_id, sort_order, name),
+  CONSTRAINT fk_banks_parent FOREIGN KEY (parent_id)
+    REFERENCES question_banks(id) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 4. 试题（1:N 归属题库；options/answer 为 JSON）
@@ -67,6 +79,8 @@ CREATE TABLE IF NOT EXISTS questions (
   default_score DECIMAL(6,1) NOT NULL DEFAULT 10.0,
   analysis      TEXT         NULL,
   subject       VARCHAR(64)  NOT NULL DEFAULT '未分类',
+  subject_id    VARCHAR(64)  NULL,
+  status        ENUM('active','disabled') NOT NULL DEFAULT 'active',
   difficulty    ENUM('low','medium','high') NULL,
   tags          JSON         NULL,
   rubric        JSON         NULL,
@@ -76,6 +90,8 @@ CREATE TABLE IF NOT EXISTS questions (
   KEY idx_questions_bank (bank_id),
   KEY idx_questions_type (type),
   KEY idx_questions_subject (subject),
+  KEY idx_questions_subject_id (subject_id),
+  KEY idx_questions_status (status),
   CONSTRAINT fk_questions_bank FOREIGN KEY (bank_id)
     REFERENCES question_banks(id) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -91,7 +107,7 @@ CREATE TABLE IF NOT EXISTS papers (
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 6. 试卷题目（题目引用 + 分值 + 顺序；外键级联随题/卷删除）
+-- 6. 试卷题目（题目引用 + 分值 + 顺序；被引用题目禁止物理删除）
 CREATE TABLE IF NOT EXISTS paper_questions (
   paper_id      VARCHAR(64)  NOT NULL,
   question_id   VARCHAR(64)  NOT NULL,
@@ -102,7 +118,7 @@ CREATE TABLE IF NOT EXISTS paper_questions (
   CONSTRAINT fk_pq_paper FOREIGN KEY (paper_id)
     REFERENCES papers(id) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT fk_pq_question FOREIGN KEY (question_id)
-    REFERENCES questions(id) ON DELETE CASCADE ON UPDATE CASCADE
+    REFERENCES questions(id) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 7. 试卷-题库关联（来源题库，用于回显与追溯；多对多）
@@ -133,6 +149,8 @@ CREATE TABLE IF NOT EXISTS exams (
   allow_retake     TINYINT(1)   NULL,
   allow_appeal     TINYINT(1)   NULL,
   exam_mode        ENUM('open','closed') NOT NULL DEFAULT 'closed',
+  audience_mode    ENUM('dynamic','frozen') NOT NULL DEFAULT 'dynamic',
+  audience_rules   JSON NULL,
   created_by       VARCHAR(64)  NOT NULL,
   created_at       DATETIME(3)  NOT NULL,
   PRIMARY KEY (id),
@@ -155,6 +173,8 @@ CREATE TABLE IF NOT EXISTS exam_records (
   submitted_at    DATETIME(3)  NULL,
   auto_submitted  TINYINT(1)   NOT NULL DEFAULT 0,
   score           DECIMAL(7,1) NOT NULL DEFAULT 0.0,
+  grade_label     VARCHAR(32) NOT NULL DEFAULT '',
+  resume_allowed  TINYINT(1) NOT NULL DEFAULT 0,
   subjective_scores JSON       NOT NULL,
   cheat_events    JSON         NOT NULL,
   review_notes    JSON         NULL,
@@ -382,6 +402,35 @@ CREATE TABLE IF NOT EXISTS bank_authors (
     REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 科目题库浏览部门（permission_mode=override 时生效）
+CREATE TABLE IF NOT EXISTS bank_view_departments (
+  bank_id       VARCHAR(64) NOT NULL,
+  department_id VARCHAR(64) NOT NULL,
+  created_at    DATETIME(3) NOT NULL,
+  PRIMARY KEY (bank_id, department_id),
+  KEY idx_bvd_department (department_id),
+  CONSTRAINT fk_bvd_bank FOREIGN KEY (bank_id) REFERENCES question_banks(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_bvd_department FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 科目题库浏览人员（permission_mode=override 时生效）
+CREATE TABLE IF NOT EXISTS bank_view_users (
+  bank_id    VARCHAR(64) NOT NULL,
+  user_id    VARCHAR(64) NOT NULL,
+  created_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (bank_id, user_id),
+  KEY idx_bvu_user (user_id),
+  CONSTRAINT fk_bvu_bank FOREIGN KEY (bank_id) REFERENCES question_banks(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_bvu_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS bank_tree_migration_reports (
+  migration_key VARCHAR(64) NOT NULL,
+  report_json   JSON        NOT NULL,
+  updated_at    DATETIME(3) NOT NULL,
+  PRIMARY KEY (migration_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- 25. 操作审计日志（v1.6④；actor 弱关联无外键——被审计对象/操作者可能已删除，日志须自包含）
 CREATE TABLE IF NOT EXISTS audit_logs (
   id          VARCHAR(64)  NOT NULL,
@@ -489,6 +538,8 @@ CREATE TABLE IF NOT EXISTS exam_records_archive (
   submitted_at      DATETIME(3)  NULL,
   auto_submitted    TINYINT(1)   NOT NULL DEFAULT 0,
   score             DECIMAL(7,1) NOT NULL DEFAULT 0.0,
+  grade_label       VARCHAR(32) NOT NULL DEFAULT '',
+  resume_allowed    TINYINT(1) NOT NULL DEFAULT 0,
   subjective_scores JSON         NOT NULL,
   cheat_events      JSON         NOT NULL,
   review_notes      JSON         NULL,
@@ -612,4 +663,92 @@ CREATE TABLE IF NOT EXISTS home_dept_configs (
   updated_by        VARCHAR(64) NULL,
   updated_at        DATETIME(3) NOT NULL,
   PRIMARY KEY (department_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 38-49. 科目、组织权限、模板、冻结名单、题目反馈与练题监管
+CREATE TABLE IF NOT EXISTS subjects (
+  id VARCHAR(64) NOT NULL, name VARCHAR(120) NOT NULL, parent_id VARCHAR(64) NULL,
+  sort_order INT NOT NULL DEFAULT 0, status ENUM('active','disabled') NOT NULL DEFAULT 'active',
+  created_at DATETIME(3) NOT NULL, updated_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (id), UNIQUE KEY uk_subject_parent_name (parent_id, name), KEY idx_subject_parent (parent_id),
+  CONSTRAINT fk_subject_parent FOREIGN KEY (parent_id) REFERENCES subjects(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS positions (
+  id VARCHAR(64) NOT NULL, name VARCHAR(120) NOT NULL, description VARCHAR(255) NOT NULL DEFAULT '',
+  created_at DATETIME(3) NOT NULL, updated_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (id), UNIQUE KEY uk_position_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS user_groups (
+  id VARCHAR(64) NOT NULL, name VARCHAR(120) NOT NULL, description VARCHAR(255) NOT NULL DEFAULT '',
+  created_at DATETIME(3) NOT NULL, updated_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (id), UNIQUE KEY uk_user_group_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS user_group_members (
+  group_id VARCHAR(64) NOT NULL, user_id VARCHAR(64) NOT NULL, created_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (group_id,user_id), KEY idx_ugm_user (user_id),
+  CONSTRAINT fk_ugm_group FOREIGN KEY (group_id) REFERENCES user_groups(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_ugm_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS subject_grants (
+  id VARCHAR(64) NOT NULL, subject_id VARCHAR(64) NOT NULL,
+  principal_type ENUM('role','group','position','user') NOT NULL, principal_id VARCHAR(64) NOT NULL,
+  effect ENUM('allow','deny') NOT NULL DEFAULT 'allow', can_view TINYINT(1) NOT NULL DEFAULT 1, can_edit TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME(3) NOT NULL, updated_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (id), UNIQUE KEY uk_subject_grant (subject_id,principal_type,principal_id), KEY idx_subject_grant_principal (principal_type,principal_id),
+  CONSTRAINT fk_subject_grant_subject FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS menu_overrides (
+  user_id VARCHAR(64) NOT NULL, menu_key VARCHAR(64) NOT NULL, effect ENUM('allow','deny') NOT NULL, updated_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (user_id,menu_key), CONSTRAINT fk_menu_override_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS paper_templates (
+  id VARCHAR(64) NOT NULL, name VARCHAR(120) NOT NULL, description VARCHAR(255) NOT NULL DEFAULT '', config JSON NOT NULL,
+  created_by VARCHAR(64) NOT NULL, created_at DATETIME(3) NOT NULL, updated_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (id), KEY idx_paper_template_creator (created_by)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS audience_templates (
+  id VARCHAR(64) NOT NULL, name VARCHAR(120) NOT NULL, description VARCHAR(255) NOT NULL DEFAULT '', rules JSON NOT NULL,
+  created_by VARCHAR(64) NOT NULL, created_at DATETIME(3) NOT NULL, updated_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (id), KEY idx_audience_template_creator (created_by)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS exam_participants (
+  exam_id VARCHAR(64) NOT NULL, user_id VARCHAR(64) NOT NULL, source ENUM('department','template','include','legacy') NOT NULL,
+  admission_no VARCHAR(64) NOT NULL, created_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (exam_id,user_id), UNIQUE KEY uk_exam_admission_no (exam_id,admission_no), KEY idx_exam_participant_user (user_id),
+  CONSTRAINT fk_exam_participant_exam FOREIGN KEY (exam_id) REFERENCES exams(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_exam_participant_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS question_feedback (
+  id VARCHAR(64) NOT NULL, question_id VARCHAR(64) NOT NULL, user_id VARCHAR(64) NOT NULL,
+  source ENUM('exam','practice') NOT NULL, source_ref_id VARCHAR(64) NULL, category VARCHAR(32) NOT NULL, content VARCHAR(1000) NOT NULL,
+  status ENUM('pending','processing','resolved','closed') NOT NULL DEFAULT 'pending', reply VARCHAR(1000) NOT NULL DEFAULT '',
+  handled_by VARCHAR(64) NULL, handled_at DATETIME(3) NULL, created_at DATETIME(3) NOT NULL, updated_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (id), KEY idx_feedback_question (question_id), KEY idx_feedback_status_created (status,created_at),
+  CONSTRAINT fk_feedback_question FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS practice_sessions (
+  id VARCHAR(64) NOT NULL, user_id VARCHAR(64) NOT NULL, bank_id VARCHAR(64) NULL, mode VARCHAR(24) NOT NULL,
+  question_count INT NOT NULL DEFAULT 0, answered_count INT NOT NULL DEFAULT 0, correct_count INT NOT NULL DEFAULT 0,
+  status ENUM('active','completed','exited') NOT NULL DEFAULT 'active', started_at DATETIME(3) NOT NULL,
+  last_seen_at DATETIME(3) NOT NULL, ended_at DATETIME(3) NULL,
+  PRIMARY KEY (id), KEY idx_practice_session_active (status,last_seen_at), KEY idx_practice_session_user (user_id,started_at),
+  KEY idx_practice_session_bank (bank_id,started_at), CONSTRAINT fk_practice_session_bank FOREIGN KEY (bank_id) REFERENCES question_banks(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS practice_session_answers (
+  session_id VARCHAR(64) NOT NULL, question_id VARCHAR(64) NOT NULL, answer JSON NOT NULL,
+  is_correct TINYINT(1) NOT NULL, answered_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (session_id,question_id), KEY idx_psa_question (question_id),
+  CONSTRAINT fk_psa_session FOREIGN KEY (session_id) REFERENCES practice_sessions(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_psa_question FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -20,7 +20,16 @@ import {
 
 /** 全部设置的默认值（数值类直接复用既有常量，保证单一来源） */
 export const SETTINGS_DEFAULTS: SystemSettings = {
-  bankCategories: ['未分类', '安全知识', '企业文化'],
+  gradeBands: [
+    { name: '优秀', minPercent: 90 },
+    { name: '良好', minPercent: 80 },
+    { name: '及格', minPercent: 60 },
+    { name: '不及格', minPercent: 0 },
+  ],
+  reviewAnonymous: false,
+  scoreDetailVisible: true,
+  retakeScorePolicy: 'latest',
+  abnormalExitResumePolicy: 'auto',
   examDefaultDuration: 60,
   examDefaultPassScore: 60,
   examDefaultMaxAttempts: 1,
@@ -49,10 +58,10 @@ export const SETTINGS_DEFAULTS: SystemSettings = {
   defaultPageSize: PAGE_SIZE_DEFAULT,
   importMaxRows: IMPORT_MAX_ROWS,
   importMaxFileMb: IMPORT_MAX_FILE_MB,
-  systemName: '企业内部在线考试系统',
-  systemShortName: '在线考试系统',
+  systemName: 'XX煤矿考试学习系统',
+  systemShortName: 'XX煤矿考试学习系统',
   loginSlogan: '让考核更简单，让能力看得见。',
-  copyright: '© 2026 Enterprise Exam System',
+  copyright: '© 2026 XX煤矿考试学习系统',
   retakeDefaultEnabled: false,
   appealEnabled: true,
   appealWindowDays: 7,

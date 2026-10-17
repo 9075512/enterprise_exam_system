@@ -8,7 +8,7 @@ import type { ExamRow } from './exams.mapper.js';
 export type { ExamRow } from './exams.mapper.js';
 
 const COLUMNS =
-  'id, name, paper_id, department_ids, start_time, end_time, duration_minutes, pass_score, max_attempts, shuffle_enabled, shuffle_options, allow_retake, allow_appeal, exam_mode, created_by, created_at';
+  'id, name, paper_id, department_ids, audience_mode, audience_rules, start_time, end_time, duration_minutes, pass_score, max_attempts, shuffle_enabled, shuffle_options, allow_retake, allow_appeal, exam_mode, created_by, created_at';
 
 /** 全部考试（按开始时间倒序）。 */
 export async function list(): Promise<ExamRow[]> {
@@ -35,6 +35,21 @@ export async function listForAncestors(ancestorIds: string[]): Promise<ExamRow[]
   );
 }
 
+/** 冻结考试按人员表判断；旧 dynamic 考试继续按科室祖先链判断。 */
+export async function listForUser(userId: string, ancestorIds: string[]): Promise<ExamRow[]> {
+  const dynamic = ancestorIds.length
+    ? `OR (e.audience_mode = 'dynamic' AND (${ancestorIds.map(() => `JSON_CONTAINS(e.department_ids, JSON_QUOTE(?))`).join(' OR ')}))`
+    : '';
+  return query<ExamRow[]>(
+    `SELECT ${COLUMNS.split(', ').map((c) => `e.${c}`).join(', ')} FROM exams e
+     WHERE (e.audience_mode = 'frozen' AND EXISTS (
+       SELECT 1 FROM exam_participants ep WHERE ep.exam_id = e.id AND ep.user_id = ?
+     )) ${dynamic}
+     ORDER BY e.start_time DESC`,
+    [userId, ...ancestorIds],
+  );
+}
+
 /** 统计引用该 exams 的记录数（删除前校验）。 */
 export async function countRecords(examId: string): Promise<number> {
   const rows = await query<RowDataPacket[]>(`SELECT COUNT(*) AS c FROM exam_records WHERE exam_id = ?`, [examId]);
@@ -48,6 +63,7 @@ export async function insert(
     name: string;
     paperId: string;
     departmentIds: string[];
+    audienceRules: Record<string, unknown>;
     startTime: string;
     endTime: string;
     durationMinutes: number;
@@ -66,13 +82,14 @@ export async function insert(
   await runQuery(
     exec,
     `INSERT INTO exams
-       (id, name, paper_id, department_ids, start_time, end_time, duration_minutes, pass_score, max_attempts, shuffle_enabled, shuffle_options, allow_retake, allow_appeal, exam_mode, created_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, name, paper_id, department_ids, audience_mode, audience_rules, start_time, end_time, duration_minutes, pass_score, max_attempts, shuffle_enabled, shuffle_options, allow_retake, allow_appeal, exam_mode, created_by, created_at)
+     VALUES (?, ?, ?, ?, 'frozen', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       row.id,
       row.name,
       row.paperId,
       JSON.stringify(row.departmentIds),
+      JSON.stringify(row.audienceRules),
       row.startTime,
       row.endTime,
       row.durationMinutes,
@@ -96,6 +113,7 @@ export async function update(
     name: string;
     paperId: string;
     departmentIds: string[];
+    audienceRules: Record<string, unknown>;
     startTime: string;
     endTime: string;
     durationMinutes: number;
@@ -112,12 +130,13 @@ export async function update(
   await runQuery(
     exec,
     `UPDATE exams
-       SET name = ?, paper_id = ?, department_ids = ?, start_time = ?, end_time = ?, duration_minutes = ?, pass_score = ?, max_attempts = ?, shuffle_enabled = ?, shuffle_options = ?, allow_retake = ?, allow_appeal = ?, exam_mode = ?
+       SET name = ?, paper_id = ?, department_ids = ?, audience_mode = 'frozen', audience_rules = ?, start_time = ?, end_time = ?, duration_minutes = ?, pass_score = ?, max_attempts = ?, shuffle_enabled = ?, shuffle_options = ?, allow_retake = ?, allow_appeal = ?, exam_mode = ?
      WHERE id = ?`,
     [
       row.name,
       row.paperId,
       JSON.stringify(row.departmentIds),
+      JSON.stringify(row.audienceRules),
       row.startTime,
       row.endTime,
       row.durationMinutes,

@@ -50,6 +50,16 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: ['admin'], menuKey: 'users', title: '用户管理' },
       },
       {
+        path: 'admin/subjects',
+        component: () => import('@/views/admin/SubjectManagePage.vue'),
+        meta: { roles: ['admin'], menuKey: 'subjects', title: '科目管理' },
+      },
+      { path: 'admin/org-extensions', component: () => import('@/views/admin/OrgExtensionsPage.vue'), meta: { roles: ['admin'], menuKey: 'org-extensions', title: '组织扩展' } },
+      { path: 'admin/templates', component: () => import('@/views/admin/TemplateManagePage.vue'), meta: { roles: ['admin', 'author'], menuKey: 'templates', title: '模板管理' } },
+      { path: 'admin/question-feedback', component: () => import('@/views/admin/QuestionFeedbackPage.vue'), meta: { roles: ['admin', 'author'], menuKey: 'question-feedback', title: '题目反馈' } },
+      { path: 'admin/duplicate-questions', component: () => import('@/views/admin/DuplicateQuestionsPage.vue'), meta: { roles: ['admin'], menuKey: 'duplicate-questions', title: '重复题审计' } },
+      { path: 'admin/practice-monitor', component: () => import('@/views/admin/PracticeMonitorPage.vue'), meta: { roles: ['admin'], menuKey: 'practice-monitor', title: '练题监控' } },
+      {
         path: 'admin/exams',
         component: () => import('@/views/admin/ExamManagePage.vue'),
         meta: { roles: ['admin'], menuKey: 'exams', title: '考试管理' },
@@ -127,8 +137,8 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'author/banks/:bankId',
-        component: () => import('@/views/author/QuestionBankDetailPage.vue'),
-        meta: { roles: ['admin', 'author'], title: '题库详情' },
+        redirect: (to) => ({ path: '/author/banks', query: { bankId: String(to.params.bankId) } }),
+        meta: { roles: ['admin', 'author'], title: '科目题库' },
       },
       {
         path: 'author/papers',
@@ -178,12 +188,69 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/common/NotificationCenterPage.vue'),
         meta: { roles: ['admin', 'author', 'examinee'], menuKey: 'exam-messages', title: '消息中心' },
       },
+      {
+        path: 'profile',
+        name: 'profile',
+        component: () => import('@/views/common/ProfilePage.vue'),
+        meta: { roles: ['admin', 'author', 'examinee'], title: '个人中心' },
+      },
+      // 考试与练题共用主登录态；PC 保留考试系统框架，移动端由练题布局接管导航。
+      {
+        path: 'exam/practice',
+        name: 'practice-home',
+        component: () => import('@practice/views/practice/PracticeHomePage.vue'),
+        meta: { roles: ['admin', 'author', 'examinee'], menuKey: 'practice', title: '在线练题' },
+      },
+      {
+        path: 'exam/practice/banks/:bankId',
+        name: 'practice-session',
+        component: () => import('@practice/views/practice/PracticeSessionPage.vue'),
+        meta: { roles: ['admin', 'author', 'examinee'], menuKey: 'practice', title: '开始练题' },
+      },
+      {
+        path: 'exam/practice/reans',
+        name: 'practice-reans',
+        component: () => import('@practice/views/practice/PracticeSessionPage.vue'),
+        meta: { roles: ['admin', 'author', 'examinee'], menuKey: 'practice', title: '再次练习' },
+      },
+      {
+        path: 'exam/practice/wrong-book',
+        name: 'practice-wrong-book',
+        component: () => import('@practice/views/practice/PracticeWrongBookPage.vue'),
+        meta: { roles: ['admin', 'author', 'examinee'], menuKey: 'practice', title: '错题本' },
+      },
+      {
+        path: 'exam/practice/report',
+        name: 'practice-report',
+        component: () => import('@practice/views/practice/PracticeReportPage.vue'),
+        meta: { roles: ['admin', 'author', 'examinee'], menuKey: 'practice', title: '学习报告' },
+      },
+      {
+        path: 'exam/practice/favorites',
+        name: 'practice-favorites',
+        component: () => import('@practice/views/practice/PracticeFavoritesPage.vue'),
+        meta: { roles: ['admin', 'author', 'examinee'], menuKey: 'practice', title: '收藏夹' },
+      },
+      {
+        path: 'exam/practice/profile',
+        name: 'practice-profile',
+        component: () => import('@practice/views/practice/PracticeProfilePage.vue'),
+        meta: { roles: ['admin', 'author', 'examinee'], menuKey: 'practice', title: '我的练题' },
+      },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ];
 
-const router = createRouter({ history: createWebHistory(), routes });
+const router = createRouter({
+  history: createWebHistory(),
+  routes,
+  // 页面主体在桌面端和移动端使用不同的滚动容器。路由前进时统一回到
+  // 页面顶部，避免从成绩列表等长页面进入详情后仍停留在旧滚动位置。
+  scrollBehavior(_to, _from, savedPosition) {
+    return savedPosition ?? { left: 0, top: 0 };
+  },
+});
 
 // 全局守卫（内网异步恢复会话 + 角色/菜单权限校验）
 installPageProgress(router);

@@ -15,6 +15,8 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { getPracticeSettings, updatePracticeSettings } from '@/api/settings';
 import { list as listBanks, setPracticeFlag } from '@/api/banks';
+import { practiceMonitorApi } from '@/api/coreFeatures';
+import { listAuditLogs } from '@/api/audit';
 import {
   DAILY_BANK_SCOPE_OPTIONS,
   DAILY_COUNT_MAX,
@@ -33,7 +35,8 @@ import {
   WRONG_AUTO_REMOVE_MIN,
 } from '@/constants/practiceSettings';
 import PageHeader from '@/components/common/PageHeader.vue';
-import type { PracticeSettings, QuestionBank, QuestionType } from '@/types';
+import { formatDateTime } from '@/utils/datetime';
+import type { AuditLog, PracticeMonitorSummary, PracticeSettings, QuestionBank, QuestionType } from '@/types';
 
 /** 题型多选项（每日一练题型范围） */
 const TYPE_OPTIONS: Array<{ label: string; value: QuestionType }> = [
@@ -45,6 +48,9 @@ const TYPE_OPTIONS: Array<{ label: string; value: QuestionType }> = [
 const practiceForm = reactive<PracticeSettings>({ ...PRACTICE_SETTINGS_DEFAULTS });
 const practiceLoading = ref(true);
 const practiceSaving = ref(false);
+const overview = ref<PracticeMonitorSummary | null>(null);
+const configLogs = ref<AuditLog[]>([]);
+const overviewLoading = ref(false);
 
 /* ------------------------------ 练题题库 ------------------------------ */
 
@@ -92,7 +98,24 @@ async function copyPracticeUrl(): Promise<void> {
 onMounted(() => {
   void loadPractice();
   void loadBanks();
+  void loadOverview();
+  void loadConfigLogs();
 });
+
+async function loadOverview(): Promise<void> {
+  overviewLoading.value = true;
+  try { overview.value = await practiceMonitorApi.overview(); }
+  finally { overviewLoading.value = false; }
+}
+
+async function loadConfigLogs(): Promise<void> {
+  const [settings, flags] = await Promise.all([
+    listAuditLogs({ action: 'practice.settings_update', page: 1, pageSize: 8 }),
+    listAuditLogs({ action: 'bank.practice_flag', page: 1, pageSize: 8 }),
+  ]);
+  configLogs.value = [...settings.list, ...flags.list]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 8);
+}
 
 async function loadPractice(): Promise<void> {
   practiceLoading.value = true;
@@ -111,6 +134,7 @@ async function handleSavePractice(): Promise<void> {
     const saved = await updatePracticeSettings({ ...practiceForm });
     Object.assign(practiceForm, saved);
     ElMessage.success('练题端配置已保存，练题端即时生效');
+    void loadConfigLogs();
   } catch {
     // 错误提示已由 http.ts 响应拦截器统一弹出
   } finally {
@@ -137,6 +161,7 @@ async function toggleBank(row: QuestionBank, value: boolean): Promise<void> {
     const hit = updated.find((b) => b.id === row.id);
     row.allowPractice = hit ? hit.allowPractice : value;
     ElMessage.success(value ? `已开放「${row.name}」到练题端` : `已关闭「${row.name}」的练题开放`);
+    void loadConfigLogs();
   } catch {
     // 失败时回滚开关显示（后端未变更）
     row.allowPractice = !value;
@@ -170,6 +195,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
     );
     await loadBanks();
     ElMessage.success(`已${actionText} ${targets.length} 个题库`);
+    void loadConfigLogs();
   } catch {
     // 错误提示已由 http.ts 响应拦截器统一弹出
   } finally {
@@ -296,9 +322,6 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
 
           <el-table :data="banks" row-key="id" stripe size="small" empty-text="暂无题库，请先在「题库管理」中创建">
             <el-table-column prop="name" label="题库名称" min-width="180" show-overflow-tooltip />
-            <el-table-column prop="category" label="分类" width="130" show-overflow-tooltip>
-              <template #default="{ row }">{{ row.category || '未分类' }}</template>
-            </el-table-column>
             <el-table-column prop="questionCount" label="题数" width="90" align="center" />
             <el-table-column label="对外开放练题" width="150" align="center">
               <template #default="{ row }">
@@ -602,7 +625,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
         </el-card>
       </div>
       <div class="practice-settings-page__stack">
-        <el-card class="practice-settings-page__panel" shadow="never">
+        <el-card v-loading="overviewLoading" class="practice-settings-page__panel" shadow="never">
           <template #header>
             <div class="practice-settings-page__head">
               <span class="practice-settings-page__head-title">访问链接</span>
@@ -661,23 +684,23 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
 
           <div class="practice-settings-page__kv">
             <span class="practice-settings-page__kv-k">累计练题人次</span>
-            <span class="practice-settings-page__kv-v practice-settings-page__kv-v--none">—</span>
+            <span class="practice-settings-page__kv-v">{{ overview?.sessionTotal ?? 0 }}</span>
           </div>
           <div class="practice-settings-page__kv">
             <span class="practice-settings-page__kv-k">日活跃学员</span>
-            <span class="practice-settings-page__kv-v practice-settings-page__kv-v--none">—</span>
+            <span class="practice-settings-page__kv-v">{{ overview?.dailyActiveUsers ?? 0 }}</span>
           </div>
           <div class="practice-settings-page__kv">
             <span class="practice-settings-page__kv-k">平均正确率</span>
-            <span class="practice-settings-page__kv-v practice-settings-page__kv-v--none">—</span>
+            <span class="practice-settings-page__kv-v">{{ (overview?.averageCorrectRate ?? 0).toFixed(1) }}%</span>
           </div>
           <div class="practice-settings-page__kv">
             <span class="practice-settings-page__kv-k">错题巩固完成率</span>
-            <span class="practice-settings-page__kv-v practice-settings-page__kv-v--none">—</span>
+            <span class="practice-settings-page__kv-v">{{ (overview?.wrongConsolidationRate ?? 0).toFixed(1) }}%</span>
           </div>
 
           <p class="practice-settings-page__footnote">
-            练题端学习统计由埋点汇总，管理端暂未接入该数据源，接入后在此展示。
+            数据来自练题会话与逐题作答日志；超过 90 秒无心跳的活动会话按离线统计。
           </p>
         </el-card>
         <el-card class="practice-settings-page__panel" shadow="never">
@@ -725,9 +748,13 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
             </div>
           </template>
 
-          <p class="practice-settings-page__empty">
-            配置变更留痕（开放 / 关闭题库、调整开关与题量等）将按时间倒序汇总展示；当前管理端暂未接入留痕数据源。
-          </p>
+          <el-table v-if="configLogs.length" :data="configLogs" size="small" stripe>
+            <el-table-column prop="actorName" label="操作人" width="100"/>
+            <el-table-column label="变更" min-width="160"><template #default="{ row }">{{ row.action === 'practice.settings_update' ? '更新练题配置' : '调整题库开放状态' }}</template></el-table-column>
+            <el-table-column prop="targetName" label="对象" min-width="120" show-overflow-tooltip/>
+            <el-table-column label="时间" width="165"><template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template></el-table-column>
+          </el-table>
+          <p v-else class="practice-settings-page__empty">暂无配置变更记录。</p>
         </el-card>
       </div>
     </div>

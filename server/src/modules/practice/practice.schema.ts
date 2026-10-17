@@ -151,6 +151,10 @@ export const practiceReportTrendQuerySchema = z.object({
 
 export type PracticeLoginInput = z.infer<typeof practiceLoginSchema>;
 export type PracticeSessionInput = z.infer<typeof practiceSessionSchema>;
+
+export const practiceSessionFinishSchema = z.object({
+  status: z.enum(['completed', 'exited']),
+});
 export type PracticeCheckInput = z.infer<typeof practiceCheckSchema>;
 export type PracticeProgressPutInput = z.infer<typeof practiceProgressPutSchema>;
 export type PracticeFavoriteInput = z.infer<typeof practiceFavoriteBodySchema>;

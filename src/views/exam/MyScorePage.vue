@@ -166,7 +166,15 @@ function exportCsv(): void {
   URL.revokeObjectURL(url);
 }
 
+function canViewDetail(record: ExamRecord): boolean {
+  return record.status !== 'in_progress' && Boolean(record.submittedAt);
+}
+
 function goDetail(record: ExamRecord): void {
+  if (!canViewDetail(record)) {
+    ElMessage.warning('该考试尚未交卷，暂不能查看成绩明细');
+    return;
+  }
   void router.push(`/score-detail/${record.id}`);
 }
 
@@ -287,6 +295,7 @@ async function submitAppeal(): Promise<void> {
         </div>
       </template>
 
+      <div class="my-score__desktop-table">
       <el-table v-loading="loading" :data="records" row-key="id" stripe>
         <el-table-column label="考试名称" min-width="220">
           <template #default="{ row }">
@@ -337,7 +346,8 @@ async function submitAppeal(): Promise<void> {
         </el-table-column>
         <el-table-column class-name="table-actions-cell" label="操作" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="goDetail(row as ExamRecord)">成绩明细</el-button>
+            <el-button v-if="canViewDetail(row as ExamRecord)" type="primary" link @click="goDetail(row as ExamRecord)">成绩明细</el-button>
+            <span v-else class="my-score__muted">未交卷</span>
             <el-button v-if="canAppeal(row as ExamRecord)" link @click="openAppeal(row as ExamRecord)">
               申请复核
             </el-button>
@@ -348,6 +358,43 @@ async function submitAppeal(): Promise<void> {
           <EmptyState :text="emptyText" :filtered="Boolean(filterKeyword.trim())" @clear="onReset" />
         </template>
       </el-table>
+      </div>
+
+      <div v-loading="loading" class="my-score__mobile-list">
+        <EmptyState
+          v-if="records.length === 0"
+          :text="emptyText"
+          :filtered="Boolean(filterKeyword.trim())"
+          @clear="onReset"
+        />
+        <article v-for="row in records" v-else :key="row.id" class="my-score__mobile-card">
+          <div class="my-score__mobile-head">
+            <div>
+              <div class="my-score__exam">{{ examName(row.examId) }}</div>
+              <div class="my-score__exam-sub">第 {{ row.attemptNo }} 次 · {{ formatDateTime(row.submittedAt) }}</div>
+            </div>
+            <div class="my-score__mobile-result">
+              <span class="my-score__score" :class="{ 'is-fail': isFail(row) }">{{ formatScore(row.score) }}</span>
+              <span>{{ isFail(row) ? '未及格' : '及格' }}</span>
+            </div>
+          </div>
+          <div class="my-score__mobile-meta">
+            <span v-if="passScoreOf(row.examId) !== null">及格线 {{ passScoreOf(row.examId) }} 分</span>
+            <span
+              v-if="appealMeta(row)"
+              class="my-score__badge"
+              :class="`my-score__badge--${appealMeta(row)!.tone}`"
+            >{{ appealMeta(row)!.text }}</span>
+            <span v-else class="my-score__muted">未申请复核</span>
+          </div>
+          <div class="my-score__mobile-actions">
+            <el-button v-if="canViewDetail(row)" type="primary" @click="goDetail(row)">成绩明细</el-button>
+            <el-button v-else disabled>未交卷</el-button>
+            <el-button v-if="canAppeal(row)" @click="openAppeal(row)">申请复核</el-button>
+            <span v-else-if="appealExpired(row)" class="my-score__muted">已超复核时限</span>
+          </div>
+        </article>
+      </div>
 
       <div class="my-score__pagination">
         <DataTablePagination
@@ -423,6 +470,8 @@ async function submitAppeal(): Promise<void> {
 @use '@/styles/variables.scss' as *;
 
 .my-score {
+  &__mobile-list { display: none; }
+
   &__stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -599,6 +648,27 @@ async function submitAppeal(): Promise<void> {
 
   &__appeal-tip {
     margin-top: 12px;
+  }
+
+  @media (max-width: 900px) {
+    &__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    &__panel :deep(.el-card__header) { flex-wrap: wrap; gap: 10px; }
+    &__panel-title { flex: 1 0 100%; white-space: nowrap; }
+    &__panel-act { width: 100%; margin-left: 0; }
+    &__filter-keyword { flex: 1; width: auto; min-width: 0; }
+    &__desktop-table { display: none; }
+    &__mobile-list { display: flex; flex-direction: column; gap: 10px; }
+    &__mobile-card {
+      padding: 14px;
+      border: 1px solid $border-color;
+      border-radius: $radius-base;
+      background: $bg-paper;
+    }
+    &__mobile-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    &__mobile-result { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 11px; color: $text-secondary; }
+    &__mobile-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; font-size: 12px; color: $text-secondary; }
+    &__mobile-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    &__pagination { justify-content: center; }
   }
 }
 </style>

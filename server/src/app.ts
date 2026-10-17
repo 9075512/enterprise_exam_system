@@ -34,6 +34,16 @@ import { attachmentsRouter } from './modules/attachments/attachments.router.js';
 import { practiceRouter } from './modules/practice/practice.router.js';
 import { contentRouter } from './modules/content/content.router.js';
 import { homeRouter } from './modules/home/home.router.js';
+import {
+  menuOverridesRouter,
+  positionsRouter,
+  subjectGrantsRouter,
+  subjectsRouter,
+  userGroupsRouter,
+} from './modules/coreCatalog/coreCatalog.router.js';
+import { audienceTemplatesRouter, paperTemplatesRouter } from './modules/templates/templates.router.js';
+import { questionFeedbackRouter } from './modules/questionFeedback/questionFeedback.router.js';
+import { practiceMonitorRouter } from './modules/practiceMonitor/practiceMonitor.router.js';
 import { practiceEdgeGuard } from './middleware/practiceEdge.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
@@ -90,6 +100,15 @@ export function createApp(): Express {
     api.use('/attachments', attachmentsRouter);
     api.use('/content', contentRouter);
     api.use('/home', homeRouter);
+    api.use('/subjects', subjectsRouter);
+    api.use('/positions', positionsRouter);
+    api.use('/user-groups', userGroupsRouter);
+    api.use('/subject-grants', subjectGrantsRouter);
+    api.use('/menu-overrides', menuOverridesRouter);
+    api.use('/paper-templates', paperTemplatesRouter);
+    api.use('/audience-templates', audienceTemplatesRouter);
+    api.use('/question-feedback', questionFeedbackRouter);
+    api.use('/practice-monitor', practiceMonitorRouter);
   }
 
   app.use('/api', api);

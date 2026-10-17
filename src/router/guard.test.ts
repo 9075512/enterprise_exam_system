@@ -23,9 +23,11 @@ function setup(role: Role | null, menus: string[]) {
       { path: '/no-access', component },
       { path: '/admin/dashboard', component, meta: { roles: ['admin'], menuKey: 'dashboard' } },
       { path: '/admin/users', component, meta: { roles: ['admin'], menuKey: 'users' } },
+      { path: '/admin/subjects', component, meta: { roles: ['admin'], menuKey: 'subjects' } },
       { path: '/author/banks', component, meta: { roles: ['admin', 'author'], menuKey: 'banks' } },
       { path: '/exam/home', component, meta: { roles: ['examinee'], menuKey: 'home' } },
       { path: '/exam/my', component, meta: { roles: ['examinee'], menuKey: 'my-exams' } },
+      { path: '/exam/practice', component, meta: { roles: ['admin', 'author', 'examinee'], menuKey: 'practice' } },
     ],
   });
   router.beforeEach(createAuthGuard(router));
@@ -63,6 +65,18 @@ describe('login navigation regression', () => {
     const router = setup('admin', ['users', 'dashboard']);
     await router.push('/login');
     expect(router.currentRoute.value.path).toBe('/admin/dashboard');
+  });
+
+  it('subject management is admin-only even when an author receives the menu key', async () => {
+    const router = setup('author', ['subjects', 'banks']);
+    await router.push('/admin/subjects');
+    expect(router.currentRoute.value.path).toBe('/author/banks');
+  });
+
+  it.each(['admin', 'author', 'examinee'] as Role[])('online practice accepts the %s role with practice permission', async (role) => {
+    const router = setup(role, ['practice']);
+    await router.push('/exam/practice');
+    expect(router.currentRoute.value.path).toBe('/exam/practice');
   });
 
   it('unauthenticated navigation preserves the requested destination', async () => {

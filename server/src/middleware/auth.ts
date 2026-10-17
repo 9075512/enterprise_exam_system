@@ -55,10 +55,10 @@ export function verifyChallengeToken(token: string): string | null {
 }
 
 /** 令牌解析结果：成功返回用户，失败返回可选的提示文案。 */
-type ResolveResult = { ok: true; user: AuthUser } | { ok: false; message?: string };
+export type ResolveResult = { ok: true; user: AuthUser } | { ok: false; message?: string };
 
 /** 解析 `Authorization: Bearer` 为当前用户（不含响应逻辑，供强弱两档中间件复用）。 */
-async function resolveUser(req: Request): Promise<ResolveResult> {
+export async function resolveUser(req: Request): Promise<ResolveResult> {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) return { ok: false };
   const token = header.slice('Bearer '.length).trim();

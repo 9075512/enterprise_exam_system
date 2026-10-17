@@ -14,6 +14,7 @@ import TableActions from '@/components/common/TableActions.vue';
 import * as departmentsApi from '@/api/departments';
 import * as examsApi from '@/api/exams';
 import * as papersApi from '@/api/papers';
+import { participantsApi } from '@/api/coreFeatures';
 import { useRequest } from '@/composables/useRequest';
 import { useConfirm } from '@/composables/useConfirm';
 import { EXAM_STATUS_LABELS } from '@/constants';
@@ -26,7 +27,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import StatusTag from '@/components/common/StatusTag.vue';
 import ExamFormDialog from './ExamFormDialog.vue';
 import ExamExceptionDialog from './ExamExceptionDialog.vue';
-import type { Exam, ExamStatus } from '@/types';
+import type { Exam, ExamParticipant, ExamStatus } from '@/types';
 
 const { confirm } = useConfirm();
 const router = useRouter();
@@ -107,6 +108,21 @@ function openExamQueue(exam: Exam, command: unknown): void {
 }
 
 const deleting = ref(false);
+const rosterVisible = ref(false);
+const roster = ref<ExamParticipant[]>([]);
+const rosterExam = ref<Exam | null>(null);
+
+async function openRoster(exam: Exam): Promise<void> {
+  rosterExam.value = exam;
+  roster.value = await participantsApi.list(exam.id);
+  rosterVisible.value = true;
+}
+
+async function exportTickets(exam: Exam): Promise<void> {
+  const blob = await participantsApi.ticketsPdf(exam.id);
+  const url = URL.createObjectURL(blob); const a = document.createElement('a');
+  a.href = url; a.download = `${exam.name}-准考证.pdf`; a.click(); URL.revokeObjectURL(url);
+}
 
 async function handleDelete(exam: Exam): Promise<void> {
   const ok = await confirm(`确定删除考试「${exam.name}」吗？已产生成绩记录的考试无法删除`, {
@@ -212,6 +228,8 @@ async function handleDelete(exam: Exam): Promise<void> {
               <el-button link @click="openEdit(row as Exam)">编辑</el-button>
               <template #more>
                 <el-dropdown-item @click="openExceptions(row as Exam)">特殊安排</el-dropdown-item>
+                <el-dropdown-item @click="openRoster(row as Exam)">生效名单</el-dropdown-item>
+                <el-dropdown-item @click="exportTickets(row as Exam)">导出准考证</el-dropdown-item>
                 <el-dropdown-item @click="openExamQueue(row as Exam, 'retakes')">补考管理</el-dropdown-item>
                 <el-dropdown-item @click="openExamQueue(row as Exam, 'appeals')">成绩复核</el-dropdown-item>
                 <el-dropdown-item @click="openExamQueue(row as Exam, 'reviews')">人工阅卷</el-dropdown-item>
@@ -241,6 +259,7 @@ async function handleDelete(exam: Exam): Promise<void> {
     />
 
     <ExamExceptionDialog v-model="exceptionVisible" :exam="exceptionExam" />
+    <el-dialog v-model="rosterVisible" :title="`${rosterExam?.name || ''}－生效名单`" width="760px"><el-table :data="roster" max-height="520"><el-table-column prop="admissionNo" label="准考证号" width="150"/><el-table-column prop="userName" label="姓名" width="120"/><el-table-column prop="username" label="账号" width="140"/><el-table-column prop="departmentName" label="科室"/><el-table-column prop="source" label="来源" width="100"/></el-table></el-dialog>
   </div>
 </template>
 

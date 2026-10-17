@@ -20,6 +20,8 @@ export interface ExamRecordRow extends RowDataPacket {
   submitted_at: string | null;
   auto_submitted: number | boolean;
   score: number | string;
+  grade_label?: string;
+  resume_allowed?: number | boolean;
   subjective_scores: unknown;
   cheat_events: unknown;
   review_notes: unknown;
@@ -58,6 +60,7 @@ export function mapRecordRow(row: ExamRecordRow): ExamRecordDto {
     submittedAt: fromDbDate(row.submitted_at),
     autoSubmitted: Boolean(row.auto_submitted),
     score: Number(row.score),
+    gradeLabel: row.grade_label ?? '',
     cheatEvents: parseJsonColumn<CheatEvent[]>(row.cheat_events, []),
   };
 }

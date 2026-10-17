@@ -30,7 +30,9 @@ const userName = computed<string>(() => practiceAuth.currentUser?.name ?? '');
 const hasMore = computed<boolean>(() => items.value.length < total.value);
 
 /** 题型中文名 */
-const TYPE_LABEL: Record<QuestionType, string> = { single: '单选题', multiple: '多选题', judge: '判断题' };
+const TYPE_LABEL: Record<string, string> = {
+  single: '单选题', multiple: '多选题', judge: '判断题', fill: '填空题', short: '简答题',
+};
 
 interface Group {
   bankId: string;

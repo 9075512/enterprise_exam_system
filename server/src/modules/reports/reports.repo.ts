@@ -38,6 +38,16 @@ export async function listLatestSubmittedByExam(examId: string): Promise<ExamRec
   );
 }
 
+/** 某场考试全部已交卷记录，服务层按补考取分策略选取每人最终成绩。 */
+export async function listSubmittedByExam(examId: string): Promise<ExamRecordRow[]> {
+  return query<ExamRecordRow[]>(
+    `SELECT ${RECORD_COLUMNS} FROM ${RECORD_SOURCE}
+      WHERE r.exam_id = ? AND r.status = 'submitted'
+      ORDER BY r.user_id, r.attempt_no DESC`,
+    [examId],
+  );
+}
+
 /** 导出数据源行：在记录详情行之上附加登录账号与试卷名（均可能为空）。 */
 export interface ScoreExportRawRow extends ExamRecordDetailRow {
   username: string | null;
@@ -69,6 +79,26 @@ export async function listLatestSubmittedWithUser(examId: string): Promise<Score
       WHERE r.exam_id = ? AND r.status = 'submitted'
       ORDER BY r.score DESC, u.name ASC`,
     [examId, examId],
+  );
+}
+
+/** 导出用全部已交卷记录，服务层按补考取分策略选取每人最终成绩。 */
+export async function listSubmittedWithUser(examId: string): Promise<ScoreExportRawRow[]> {
+  return query<ScoreExportRawRow[]>(
+    `SELECT r.id, r.exam_id, r.user_id, r.attempt_no, r.department_id, r.paper_snapshot, r.status,
+            r.answers, r.started_at, r.submitted_at, r.auto_submitted, r.score, r.cheat_events,
+            e.name AS exam_name, e.pass_score AS pass_score, p.name AS paper_name,
+            u.name AS user_name, u.username AS username,
+            COALESCE(d.name, du.name, '') AS department_name
+       FROM ${RECORD_SOURCE}
+       LEFT JOIN exams e ON e.id = r.exam_id
+       LEFT JOIN papers p ON p.id = e.paper_id
+       LEFT JOIN users u ON u.id = r.user_id
+       LEFT JOIN departments d ON d.id = r.department_id
+       LEFT JOIN departments du ON du.id = u.department_id
+      WHERE r.exam_id = ? AND r.status = 'submitted'
+      ORDER BY r.user_id, r.attempt_no DESC`,
+    [examId],
   );
 }
 

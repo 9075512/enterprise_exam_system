@@ -29,8 +29,20 @@ import type {
   ReportDto,
   WrongItem,
 } from '../../types/domain.js';
+import { getSettings } from '../settings/settings.service.js';
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
+
+function effectiveAttempts<T extends { user_id: string; attempt_no: number | string; score: number | string }>(rows: T[], policy: 'latest' | 'highest'): T[] {
+  const picked = new Map<string, T>();
+  for (const row of rows) {
+    const current = picked.get(row.user_id);
+    if (!current || (policy === 'highest'
+      ? Number(row.score) > Number(current.score) || (Number(row.score) === Number(current.score) && Number(row.attempt_no) > Number(current.attempt_no))
+      : Number(row.attempt_no) > Number(current.attempt_no))) picked.set(row.user_id, row);
+  }
+  return [...picked.values()];
+}
 
 /** 单场考试摘要：人数/平均分/最高/最低/及格率。 */
 function buildSummary(examId: string, records: ExamRecordDto[], passScore: number): ExamSummary {
@@ -120,7 +132,8 @@ export async function getReport(examId: string): Promise<ReportDto> {
   if (!examRow) throw notFound('考试不存在或已被删除');
   const passScore = Number(examRow.pass_score);
 
-  const records = (await repo.listLatestSubmittedByExam(examId)).map(mapRecordRow);
+  const settings = await getSettings();
+  const records = effectiveAttempts(await repo.listSubmittedByExam(examId), settings.retakeScorePolicy).map(mapRecordRow);
 
   const summary = buildSummary(examId, records, passScore);
   const bands = buildBands(records);
@@ -365,7 +378,9 @@ export async function exportScores(
   if (!examRow) throw notFound('考试不存在或已被删除');
 
   const picked = resolveExportColumns(columns);
-  const raws = await repo.listLatestSubmittedWithUser(examId);
+  const settings = await getSettings();
+  const raws = effectiveAttempts(await repo.listSubmittedWithUser(examId), settings.retakeScorePolicy)
+    .sort((a, b) => Number(b.score) - Number(a.score) || String(a.user_name ?? '').localeCompare(String(b.user_name ?? '')));
   const rows = buildExportRows(raws, tz);
 
   const buffer = await buildExportBuffer([{ name: '成绩明细', columns: picked, rows }]);
@@ -388,7 +403,9 @@ export async function exportScoresPdf(
   if (!examRow) throw notFound('考试不存在或已被删除');
 
   const picked = resolveExportColumns(columns);
-  const raws = await repo.listLatestSubmittedWithUser(examId);
+  const settings = await getSettings();
+  const raws = effectiveAttempts(await repo.listSubmittedWithUser(examId), settings.retakeScorePolicy)
+    .sort((a, b) => Number(b.score) - Number(a.score) || String(a.user_name ?? '').localeCompare(String(b.user_name ?? '')));
   const rows = buildExportRows(raws, tz);
   const summary = buildSummary(examId, raws.map(mapRecordRow), Number(examRow.pass_score));
   const subtitle =

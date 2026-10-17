@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 练题端底部导航栏（**四个** Tab：练题 / 错题本 / 报告 / 我的）。
+ * 练题端导航栏（练题 / 错题本 / 报告）。
  *
  * - 固定底部；`env(safe-area-inset-bottom)` 适配全面屏；
  * - 由页面向 `PracticeLayout` 传 `tabbar` 开启（登录页 / 作答页不显示）；
@@ -9,7 +9,7 @@
 import type { Component } from 'vue';
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Collection, Notebook, TrendCharts, User } from '@element-plus/icons-vue';
+import { Collection, Notebook, TrendCharts } from '@element-plus/icons-vue';
 import { usePracticeConfigStore } from '@/stores/practiceConfig';
 
 interface TabItem {
@@ -21,27 +21,32 @@ interface TabItem {
   match: string;
 }
 
-const TABS: TabItem[] = [
-  { key: 'home', text: '练题', path: '/practice/home', icon: Collection, match: '/practice/home' },
-  { key: 'wrong', text: '错题本', path: '/practice/wrong-book', icon: Notebook, match: '/practice/wrong-book' },
-  { key: 'report', text: '报告', path: '/practice/report', icon: TrendCharts, match: '/practice/report' },
-  { key: 'profile', text: '我的', path: '/practice/profile', icon: User, match: '/practice/profile' },
-];
-
 const route = useRoute();
 const router = useRouter();
 const configStore = usePracticeConfigStore();
+const integrated = computed(() => route.path.startsWith('/exam/practice'));
+const basePath = computed(() => integrated.value ? '/exam/practice' : '/practice');
+const homePath = computed(() => integrated.value ? basePath.value : `${basePath.value}/home`);
 
 /** 按后台「页面入口开关」过滤 Tab（错题本 / 报告可关闭，v1.9⑤） */
-const tabs = computed<TabItem[]>(() =>
-  TABS.filter((t) => {
+const tabs = computed<TabItem[]>(() => {
+  const base = basePath.value;
+  const items: TabItem[] = [
+    { key: 'home', text: '练题', path: homePath.value, icon: Collection, match: homePath.value },
+    { key: 'wrong', text: '错题本', path: `${base}/wrong-book`, icon: Notebook, match: `${base}/wrong-book` },
+    { key: 'report', text: '报告', path: `${base}/report`, icon: TrendCharts, match: `${base}/report` },
+  ];
+  return items.filter((t) => {
     if (t.key === 'wrong') return configStore.config.wrongBookEnabled;
     if (t.key === 'report') return configStore.config.reportEnabled;
     return true;
-  }),
-);
+  });
+});
 
-const activeKey = computed<string>(() => tabs.value.find((t) => route.path.startsWith(t.match))?.key ?? '');
+const activeKey = computed<string>(() => {
+  const exact = tabs.value.find((t) => t.key !== 'home' && route.path.startsWith(t.match));
+  return exact?.key ?? (route.path === homePath.value ? 'home' : '');
+});
 
 function go(tab: TabItem): void {
   if (activeKey.value === tab.key) return;
@@ -50,7 +55,7 @@ function go(tab: TabItem): void {
 </script>
 
 <template>
-  <nav class="tabbar" aria-label="练题导航">
+  <nav class="tabbar" :class="{ 'is-integrated': integrated }" aria-label="练题导航">
     <button
       v-for="tab in tabs"
       :key="tab.key"
@@ -107,6 +112,64 @@ function go(tab: TabItem): void {
 
   &__icon {
     font-size: 20px;
+  }
+}
+
+// 合并版 PC 使用内容区顶部子导航。
+@media (min-width: 901px) {
+  .tabbar.is-integrated {
+    position: static;
+    order: 1;
+    align-self: flex-start;
+    width: auto;
+    margin: 0;
+    padding: 4px;
+    gap: 4px;
+    border: 1px solid $border-color;
+    border-radius: $radius-sm;
+    background: $bg-paper;
+
+    .tabbar__item {
+      flex: none;
+      flex-direction: row;
+      gap: 6px;
+      width: auto;
+      height: 34px;
+      padding: 0 14px;
+      border-radius: $radius-xs;
+      font-size: 13px;
+
+      &.is-active { background: $practice-soft; }
+    }
+
+    .tabbar__icon { font-size: 16px; }
+  }
+}
+
+// 合并版移动端的一级导航由 AppLayout 统一提供；这里降级为练题模块内的横向二级导航。
+@media (max-width: 900px) {
+  .tabbar.is-integrated {
+    position: static;
+    z-index: 25;
+    order: 1;
+    width: auto;
+    margin: 8px 12px 0;
+    padding: 4px;
+    border: 1px solid $border-color;
+    border-radius: $practice-radius;
+    box-sizing: border-box;
+
+    .tabbar__item {
+      height: 36px;
+      flex-direction: row;
+      gap: 5px;
+      border-radius: $radius-xs;
+      font-size: 12px;
+
+      &.is-active { background: $practice-soft; }
+    }
+
+    .tabbar__icon { font-size: 16px; }
   }
 }
 </style>

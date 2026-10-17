@@ -16,6 +16,7 @@ import { requireRole } from '../../middleware/role.js';
 import { ok } from '../../utils/response.js';
 import * as settingsService from './settings.service.js';
 import * as practiceSettingsService from '../practice/practiceSettings.service.js';
+import * as auditService from '../audit/audit.service.js';
 
 export const settingsRouter = Router();
 
@@ -46,7 +47,16 @@ settingsRouter.put(
   authRequired,
   requireRole('admin'),
   asyncHandler(async (req, res) => {
+    const before = await practiceSettingsService.getPracticeSettings();
     const saved = await practiceSettingsService.updatePracticeSettings(req.body, req.user!.id);
+    await auditService.record({
+      actorId: req.user!.id,
+      action: 'practice.settings_update',
+      targetType: 'system',
+      targetId: 'practice-settings',
+      targetName: '练题端配置',
+      detail: { before, after: saved },
+    });
     return ok(res, saved);
   }),
 );

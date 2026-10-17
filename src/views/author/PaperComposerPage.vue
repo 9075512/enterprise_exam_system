@@ -6,7 +6,7 @@
  */
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import {
   Delete,
   Plus,
@@ -20,6 +20,7 @@ import {
 import * as banksApi from '@/api/banks';
 import * as papersApi from '@/api/papers';
 import * as questionsApi from '@/api/questions';
+import { templatesApi } from '@/api/coreFeatures';
 import { useRequest } from '@/composables/useRequest';
 import { usePagination } from '@/composables/usePagination';
 import {
@@ -48,6 +49,7 @@ import type {
   Question,
   QuestionDifficulty,
   QuestionType,
+  PaperTemplate,
 } from '@/types';
 
 /** 已选题目项（组卷工作态） */
@@ -74,6 +76,8 @@ const selectedBankIds = ref<string[]>([]);
 const mode = ref<'manual' | 'draw'>('manual');
 const selected = ref<SelectedQuestion[]>([]);
 const saving = ref(false);
+const paperTemplates = ref<PaperTemplate[]>([]);
+const selectedTemplateId = ref('');
 
 const hasBanks = computed<boolean>(() => selectedBankIds.value.length > 0);
 
@@ -91,6 +95,44 @@ const drawRules = reactive<Record<QuestionType, { count: number; score: number }
   fill: { count: 0, score: 4 },
   short: { count: 0, score: 5 },
 });
+
+async function loadPaperTemplates(): Promise<void> {
+  try { paperTemplates.value = await templatesApi.papers(); } catch { paperTemplates.value = []; }
+}
+
+function applyPaperTemplate(): void {
+  const template = paperTemplates.value.find((item) => item.id === selectedTemplateId.value);
+  if (!template) return;
+  const config = template.config as {
+    bankIds?: string[]; mode?: 'manual' | 'draw'; rules?: Partial<Record<QuestionType, { count: number; score: number }>>;
+    tagRules?: DrawTagRule[];
+  };
+  if (Array.isArray(config.bankIds)) selectedBankIds.value = [...config.bankIds];
+  if (config.mode === 'manual' || config.mode === 'draw') mode.value = config.mode;
+  for (const option of QUESTION_TYPE_OPTIONS) {
+    const rule = config.rules?.[option.value];
+    if (rule) Object.assign(drawRules[option.value], { count: Number(rule.count) || 0, score: Number(rule.score) || 1 });
+  }
+  if (Array.isArray(config.tagRules)) drawTagRules.value = config.tagRules.map((rule) => ({ ...rule }));
+  ElMessage.success(`已应用模板“${template.name}”`);
+}
+
+async function savePaperTemplate(): Promise<void> {
+  try {
+    const { value } = await ElMessageBox.prompt('保存当前题库范围、题型题量、分值和知识点配比', '保存组卷参数模板', {
+      inputPlaceholder: '请输入模板名称', inputValidator: (v) => Boolean(v.trim()) || '请输入模板名称',
+    });
+    await templatesApi.savePaper({ name: value.trim(), description: '', config: {
+      bankIds: [...selectedBankIds.value], mode: mode.value,
+      rules: Object.fromEntries(QUESTION_TYPE_OPTIONS.map((o) => [o.value, { ...drawRules[o.value] }])),
+      tagRules: drawTagRules.value.map((rule) => ({ ...rule })), targetDifficulty: paperTarget.value,
+      shuffleQuestions: settingsStore.settings.shuffleDefaultEnabled,
+      shuffleOptions: settingsStore.settings.shuffleOptionsDefault,
+    } });
+    await loadPaperTemplates();
+    ElMessage.success('组卷参数模板已保存');
+  } catch { /* 用户取消 */ }
+}
 const shortages = ref<DrawShortage[]>([]);
 const tagShortages = ref<DrawTagShortage[]>([]);
 const drawing = ref(false);
@@ -553,6 +595,7 @@ async function handleSave(): Promise<void> {
 /* ------------------------------ 编辑回填 ------------------------------ */
 onMounted(async () => {
   void settingsStore.load();
+  void loadPaperTemplates();
   if (!paperId.value) return;
   try {
     const detail = await papersApi.detail(paperId.value);
@@ -582,6 +625,8 @@ onMounted(async () => {
   <div class="composer">
     <PageHeader :title="paperId ? '编辑试卷' : '开始组卷'" description="从多个题库组合生成试卷">
       <template #actions>
+        <el-select v-model="selectedTemplateId" clearable placeholder="应用组卷模板" style="width:180px" @change="applyPaperTemplate"><el-option v-for="item in paperTemplates" :key="item.id" :label="item.name" :value="item.id"/></el-select>
+        <el-button @click="savePaperTemplate">保存为模板</el-button>
         <el-button :icon="ArrowLeft" @click="goBack">返回列表</el-button>
         <el-button type="primary" :loading="saving" @click="handleSave">保存试卷</el-button>
       </template>
@@ -613,7 +658,6 @@ onMounted(async () => {
               class="composer__bank-item"
             >
               <span class="composer__bank-name">{{ bank.name }}</span>
-              <el-tag size="small" type="info" effect="plain">{{ bank.category }}</el-tag>
               <span class="composer__bank-count">（{{ bank.questionCount }} 题）</span>
             </el-checkbox>
           </el-checkbox-group>

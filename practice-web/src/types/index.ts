@@ -62,8 +62,6 @@ export interface QuestionBank {
   id: string;
   name: string;
   description: string;
-  /** 分类 / 科目域 */
-  category: string;
   /** 是否对外开放练题（默认 false）；仅 true 的题库可在公网练题中被访问 */
   allowPractice: boolean;
   createdBy: string;
@@ -99,6 +97,8 @@ export interface Question {
   defaultScore: number;
   analysis: string;
   subject: string;
+  subjectId?: string | null;
+  status?: 'active' | 'disabled';
   createdBy: string;
   /** ISO 8601 */
   createdAt: string;
@@ -346,7 +346,6 @@ export interface QuestionSaveInput {
   answer: number[];
   defaultScore: number;
   analysis?: string;
-  subject?: string;
 }
 
 /** 试卷保存输入（新建/编辑共用） */
@@ -492,6 +491,17 @@ export interface PracticeBank {
   questionCount: number;
 }
 
+export interface PracticeBankTreeNode {
+  id: string;
+  name: string;
+  parentId: string | null;
+  sortOrder: number;
+  isLeaf: boolean;
+  questionCount: number;
+  description: string;
+  children: PracticeBankTreeNode[];
+}
+
 /** 练题题目（**不含** answer / analysis） */
 export interface PracticeQuestion {
   id: string;
@@ -505,6 +515,7 @@ export interface PracticeQuestion {
 
 /** 练习会话（无状态签名，零新表） */
 export interface PracticeSession {
+  id: string;
   sessionToken: string;
   questionIds: string[];
   total: number;
@@ -790,4 +801,18 @@ export interface Banner {
 export interface ContentFeed {
   announcements: Announcement[];
   banners: Banner[];
+}
+
+/** 管理端练题会话视图（开始练习时创建，心跳/作答时更新） */
+export interface PracticeSessionMonitor {
+  id: string;
+  bankId: string;
+  mode: string;
+  questionCount: number;
+  answeredCount: number;
+  correctCount: number;
+  status: 'active' | 'completed' | 'exited';
+  startedAt: string;
+  lastSeenAt: string;
+  endedAt: string | null;
 }

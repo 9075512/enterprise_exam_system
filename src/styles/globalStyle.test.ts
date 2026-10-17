@@ -97,6 +97,14 @@ describe('全局样式 · 无障碍护栏', () => {
   });
 });
 
+describe('全局样式 · 移动端弹窗稳定性', () => {
+  it('弹窗锁屏时禁用 body 滚动条宽度补偿，避免页面左右跳动', () => {
+    expect(scss).toMatch(
+      /body\[class\*=['"]-parent--hidden['"]\][\s\S]{0,160}width:\s*100%\s*!important[\s\S]{0,100}padding-right:\s*0\s*!important/,
+    );
+  });
+});
+
 /**
  * 批量操作条视觉护栏（设计规范 §8.3：blue-50 底 + blue-200 边、勾选后滑出）。
  * 把「必须用主色浅底 token、禁止硬编码与渐变」落成断言——有人改回十六进制或渐变即失败。

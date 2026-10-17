@@ -8,16 +8,26 @@ import { paginationQuery } from '../../utils/pagination.js';
 export const bankSchema = z.object({
   name: z.string().min(1, '题库名称不能为空'),
   description: z.string().optional().default(''),
-  category: z.string().optional().default('未分类'),
+  parentId: z.string().max(64).nullable().optional(),
+  sortOrder: z.number().int().min(0).max(999999).optional().default(0),
+  status: z.enum(['active', 'disabled']).optional().default('active'),
   /** 对外开放练题开关（默认关闭，安全默认） */
   allowPractice: z.boolean({ invalid_type_error: '对外开放练题开关必须为布尔值' }).optional().default(false),
   /** 授权出题人 id 列表（仅 admin 生效；author 新建/编辑时忽略） */
   authorIds: z.array(z.string()).optional(),
 });
 
+export const bankAccessSchema = z.object({
+  permissionMode: z.enum(['inherit', 'override']),
+  viewAll: z.boolean().optional().default(false),
+  includeChildDepartments: z.boolean().optional().default(true),
+  departmentIds: z.array(z.string().min(1).max(64)).max(5000).optional().default([]),
+  userIds: z.array(z.string().min(1).max(64)).max(5000).optional().default([]),
+  editorIds: z.array(z.string().min(1).max(64)).max(5000).optional().default([]),
+});
+
 /** 列表查询入参。 */
 export const bankListQuerySchema = z.object({
-  category: z.string().optional().default(''),
   keyword: z.string().optional().default(''),
 });
 
@@ -30,6 +40,8 @@ export const bankQuestionsQuerySchema = z.object({
       .optional(),
   ),
   subject: z.string().optional().default(''),
+  subjectId: z.string().optional(),
+  status: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['active', 'disabled']).optional()),
   /** 题目难度过滤（v3.2） */
   difficulty: z.preprocess(
     (v) => (v === '' ? undefined : v),
@@ -92,7 +104,7 @@ export type BankCloneInput = z.infer<typeof bankCloneSchema>;
 
 /**
  * 批量设置「对外开放练题」开关入参（仅 admin；练题端设置页使用）。
- * 只改 `allow_practice` 一列，不动名称/描述/分类，避免为改一个开关而提交整份题库表单。
+ * 只改 `allow_practice` 一列，不动名称或描述，避免为改一个开关而提交整份题库表单。
  */
 export const bankPracticeBatchSchema = z.object({
   bankIds: z

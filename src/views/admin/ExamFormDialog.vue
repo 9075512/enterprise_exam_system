@@ -7,10 +7,12 @@ import { computed, reactive, ref, watch } from 'vue';
 import dayjs from 'dayjs';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import * as examsApi from '@/api/exams';
+import * as usersApi from '@/api/users';
+import { templatesApi } from '@/api/coreFeatures';
 import { useSettingsStore } from '@/stores/settings';
 import { validateAndFocus } from '@/composables/useFormFocus';
 import { buildDepartmentTree } from '@/utils/departmentTree';
-import type { Department, Exam, ExamMode, Paper } from '@/types';
+import type { AudienceTemplate, Department, Exam, ExamMode, Paper, User } from '@/types';
 
 const props = defineProps<{
   visible: boolean;
@@ -40,10 +42,15 @@ const LOCAL_FORMAT = 'YYYY-MM-DD HH:mm:ss';
 
 const formRef = ref<FormInstance>();
 const submitting = ref(false);
+const examinees = ref<User[]>([]);
+const audienceTemplates = ref<AudienceTemplate[]>([]);
 const form = reactive({
   name: '',
   paperId: '',
   departmentIds: [] as string[],
+  includeUserIds: [] as string[],
+  excludeUserIds: [] as string[],
+  audienceTemplateId: null as string | null,
   startTime: '',
   endTime: '',
   durationMinutes: 60,
@@ -68,7 +75,6 @@ function toTri(v: boolean | null | undefined): TriState {
 const rules: FormRules = {
   name: [{ required: true, message: '请输入考试名称', trigger: 'blur' }],
   paperId: [{ required: true, message: '请选择关联试卷', trigger: 'change' }],
-  departmentIds: [{ required: true, type: 'array', min: 1, message: '请至少选择一个参与科室', trigger: 'change' }],
   startTime: [{ required: true, message: '请选择开始时间', trigger: 'change' }],
   endTime: [{ required: true, message: '请选择截止时间', trigger: 'change' }],
 };
@@ -79,6 +85,9 @@ function resetForm(): void {
     form.name = exam.name;
     form.paperId = exam.paperId;
     form.departmentIds = [...exam.departmentIds];
+    form.includeUserIds = [...exam.includeUserIds];
+    form.excludeUserIds = [...exam.excludeUserIds];
+    form.audienceTemplateId = exam.audienceTemplateId;
     form.startTime = dayjs(exam.startTime).format(LOCAL_FORMAT);
     form.endTime = dayjs(exam.endTime).format(LOCAL_FORMAT);
     form.durationMinutes = exam.durationMinutes;
@@ -93,6 +102,9 @@ function resetForm(): void {
     form.name = '';
     form.paperId = '';
     form.departmentIds = [];
+    form.includeUserIds = [];
+    form.excludeUserIds = [];
+    form.audienceTemplateId = null;
     form.startTime = '';
     form.endTime = '';
     form.durationMinutes = settingsStore.settings.examDefaultDuration;
@@ -111,6 +123,7 @@ watch(
   (visible) => {
     if (!visible) return;
     void settingsStore.load();
+    void Promise.all([usersApi.list({ role: 'examinee' }), templatesApi.audiences()]).then(([u, t]) => { examinees.value = u; audienceTemplates.value = t; });
     resetForm();
     formRef.value?.clearValidate();
   },
@@ -120,6 +133,10 @@ async function handleSubmit(): Promise<void> {
   if (!formRef.value) return;
   const valid = await validateAndFocus(formRef.value);
   if (!valid) return;
+  if (!form.departmentIds.length && !form.includeUserIds.length && !form.audienceTemplateId) {
+    ElMessage.warning('请至少选择参与科室、指定人员或抽考模板');
+    return;
+  }
 
   const start = new Date(form.startTime).getTime();
   const end = new Date(form.endTime).getTime();
@@ -134,6 +151,9 @@ async function handleSubmit(): Promise<void> {
       name: form.name.trim(),
       paperId: form.paperId,
       departmentIds: [...form.departmentIds],
+      includeUserIds: [...form.includeUserIds],
+      excludeUserIds: [...form.excludeUserIds],
+      audienceTemplateId: form.audienceTemplateId,
       startTime: new Date(form.startTime).toISOString(),
       endTime: new Date(form.endTime).toISOString(),
       durationMinutes: form.durationMinutes,
@@ -204,6 +224,16 @@ function handleCancel(): void {
           placeholder="请选择参与科室"
         />
         <span class="exam-form__hint">选择上级科室将自动覆盖其所有下级科室考生</span>
+      </el-form-item>
+      <el-form-item label="人员抽考模板">
+        <el-select v-model="form.audienceTemplateId" clearable class="exam-form__full" placeholder="可选；应用后立即解析并冻结名单"><el-option v-for="t in audienceTemplates" :key="t.id" :label="t.name" :value="t.id" /></el-select>
+      </el-form-item>
+      <el-form-item label="指定加入人员">
+        <el-select v-model="form.includeUserIds" multiple filterable class="exam-form__full" placeholder="可与科室、模板叠加"><el-option v-for="u in examinees" :key="u.id" :label="`${u.name}（${u.username}）`" :value="u.id" /></el-select>
+      </el-form-item>
+      <el-form-item label="指定排除人员">
+        <el-select v-model="form.excludeUserIds" multiple filterable class="exam-form__full" placeholder="排除优先于所有加入来源"><el-option v-for="u in examinees" :key="u.id" :label="`${u.name}（${u.username}）`" :value="u.id" /></el-select>
+        <span class="exam-form__hint">新建或重新保存后冻结最终名单；已有作答时仅允许追加，不能移除原人员。</span>
       </el-form-item>
 
       <el-row :gutter="12">

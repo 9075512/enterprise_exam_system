@@ -212,20 +212,30 @@ async function handleMarkAll(): Promise<void> {
         </div>
 
         <div v-if="filtered.length > PAGE_SIZE" class="notif__pager">
-          <span class="notif__pager-info">共 {{ filtered.length }} 条 · 每页 {{ PAGE_SIZE }} 条</span>
-          <button type="button" class="notif__pg" :disabled="page <= 1" aria-label="上一页" @click="page -= 1">
-            ‹
+          <span class="notif__pager-info">
+            共 {{ filtered.length }} 条<span class="notif__page-size"> · 每页 {{ PAGE_SIZE }} 条</span>
+          </span>
+          <button
+            type="button"
+            class="notif__pg notif__pg--nav"
+            :disabled="page <= 1"
+            aria-label="上一页"
+            @click="page -= 1"
+          >
+            <span class="notif__pg-arrow">‹</span>
+            <span class="notif__pg-label">上一页</span>
           </button>
           <span class="notif__pg is-on">{{ page }}</span>
           <span class="notif__pg-text">/ {{ totalPages }}</span>
           <button
             type="button"
-            class="notif__pg"
+            class="notif__pg notif__pg--nav"
             :disabled="page >= totalPages"
             aria-label="下一页"
             @click="page += 1"
           >
-            ›
+            <span class="notif__pg-arrow">›</span>
+            <span class="notif__pg-label">下一页</span>
           </button>
         </div>
       </el-card>
@@ -482,6 +492,16 @@ async function handleMarkAll(): Promise<void> {
     }
   }
 
+  @media (max-width: 900px) {
+    &__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    &__tabs { padding-inline: 8px; }
+    &__item { padding: 13px 12px; }
+    &__badge { position: static; align-self: flex-start; transform: none; }
+    &__foot { flex-wrap: wrap; }
+    &__pager { flex-wrap: nowrap; gap: 7px; padding-inline: 12px; }
+    &__pager-info { flex-basis: auto; white-space: nowrap; }
+  }
+
   /* 分页 */
   &__pager {
     display: flex;
@@ -530,6 +550,10 @@ async function handleMarkAll(): Promise<void> {
   &__pg-text {
     font-size: 12px;
     color: $text-secondary;
+  }
+
+  &__pg-label {
+    display: none;
   }
 
   /* 详情 */
@@ -592,6 +616,14 @@ async function handleMarkAll(): Promise<void> {
     &__row {
       grid-template-columns: minmax(0, 1fr);
     }
+  }
+
+  @media (max-width: 900px) {
+    &__pager { gap: 7px; }
+    &__pg.notif__pg--nav { min-width: 58px; }
+    &__pg-arrow,
+    &__page-size { display: none; }
+    &__pg-label { display: inline; }
   }
 }
 </style>

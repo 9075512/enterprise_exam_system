@@ -9,7 +9,7 @@ import type { QuestionType, QuestionDifficulty, RubricBand } from '../../types/d
 export type { QuestionRow } from './question.mapper.js';
 
 const COLUMNS =
-  'id, bank_id, type, stem, options, answer, default_score, analysis, subject, difficulty, tags, rubric, created_by, created_at';
+  'id, bank_id, type, stem, options, answer, default_score, analysis, subject, subject_id, status, difficulty, tags, rubric, created_by, created_at';
 
 /** 试题筛选条件。 */
 export interface QuestionFilter {
@@ -19,6 +19,9 @@ export interface QuestionFilter {
   bankIds?: string[];
   type?: QuestionType;
   subject?: string;
+  subjectId?: string;
+  subjectIds?: string[];
+  status?: 'active' | 'disabled';
   /** 按题目难度过滤（v3.2） */
   difficulty?: QuestionDifficulty;
   /** 按知识点标签过滤（v1.7②） */
@@ -44,6 +47,21 @@ function buildWhere(f: QuestionFilter): { where: string; params: string[] } {
   if (f.subject && f.subject.trim() !== '') {
     conds.push('subject = ?');
     params.push(f.subject.trim());
+  }
+  if (f.subjectId) {
+    conds.push('subject_id = ?');
+    params.push(f.subjectId);
+  }
+  if (f.subjectIds) {
+    if (f.subjectIds.length === 0) conds.push('1 = 0');
+    else {
+      conds.push(`subject_id IN (${f.subjectIds.map(() => '?').join(',')})`);
+      params.push(...f.subjectIds);
+    }
+  }
+  if (f.status) {
+    conds.push('status = ?');
+    params.push(f.status);
   }
   if (f.difficulty) {
     conds.push('difficulty = ?');
@@ -79,11 +97,15 @@ export async function countFiltered(f: QuestionFilter): Promise<number> {
   return Number(rows[0]?.c ?? 0);
 }
 
-/** 去重排序的科目列表。 */
+/** 科目即题库名称；只返回当前题库集合中已有试题的题库。 */
 export async function listSubjects(bankIds?: string[]): Promise<string[]> {
   const { where, params } = buildWhere({ bankIds });
   const rows = await query<RowDataPacket[]>(
-    `SELECT DISTINCT subject FROM questions ${where} ORDER BY subject ASC`,
+    `SELECT DISTINCT b.name AS subject
+       FROM questions q
+       JOIN question_banks b ON b.id = q.bank_id
+       ${where.replaceAll('bank_id', 'q.bank_id')}
+       ORDER BY b.name ASC`,
     params,
   );
   return rows.map((r) => String(r.subject));
@@ -115,7 +137,7 @@ export async function listAllByBank(bankId: string, exec?: SqlExecutor): Promise
 
 /** 统计指定题库集合内某题型的题数（抽题充足性判断）。 */
 export async function countByType(bankIds: string[], type: QuestionType): Promise<number> {
-  const { where, params } = buildWhere({ bankIds, type });
+  const { where, params } = buildWhere({ bankIds, type, status: 'active' });
   const rows = await query<RowDataPacket[]>(`SELECT COUNT(*) AS c FROM questions ${where}`, params);
   return Number(rows[0]?.c ?? 0);
 }
@@ -139,7 +161,7 @@ export async function drawByType(
   count: number,
   excludeIds?: string[],
 ): Promise<QuestionRow[]> {
-  const base = buildWhere({ bankIds, type });
+  const base = buildWhere({ bankIds, type, status: 'active' });
   const { where, params } = withExcludes(base.where, base.params, excludeIds);
   return query<QuestionRow[]>(
     `SELECT ${COLUMNS} FROM questions ${where} ORDER BY RAND() LIMIT ?`,
@@ -149,7 +171,7 @@ export async function drawByType(
 
 /** 统计指定题库集合内某知识点标签的题数（v1.7②）。 */
 export async function countByTag(bankIds: string[], tag: string): Promise<number> {
-  const { where, params } = buildWhere({ bankIds, tag });
+  const { where, params } = buildWhere({ bankIds, tag, status: 'active' });
   const rows = await query<RowDataPacket[]>(`SELECT COUNT(*) AS c FROM questions ${where}`, params);
   return Number(rows[0]?.c ?? 0);
 }
@@ -161,7 +183,7 @@ export async function drawByTag(
   count: number,
   excludeIds?: string[],
 ): Promise<QuestionRow[]> {
-  const base = buildWhere({ bankIds, tag });
+  const base = buildWhere({ bankIds, tag, status: 'active' });
   const { where, params } = withExcludes(base.where, base.params, excludeIds);
   return query<QuestionRow[]>(
     `SELECT ${COLUMNS} FROM questions ${where} ORDER BY RAND() LIMIT ?`,
@@ -284,6 +306,8 @@ export async function insert(
     defaultScore: number;
     analysis: string;
     subject: string;
+    subjectId: string | null;
+    status?: 'active' | 'disabled';
     difficulty: QuestionDifficulty | null;
     tags: string[];
     rubric: RubricBand[];
@@ -295,8 +319,8 @@ export async function insert(
   await runQuery(
     exec,
     `INSERT INTO questions
-       (id, bank_id, type, stem, options, answer, default_score, analysis, subject, difficulty, tags, rubric, created_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, bank_id, type, stem, options, answer, default_score, analysis, subject, subject_id, status, difficulty, tags, rubric, created_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       row.id,
       row.bankId,
@@ -307,6 +331,8 @@ export async function insert(
       row.defaultScore,
       row.analysis,
       row.subject,
+      row.subjectId,
+      row.status ?? 'active',
       row.difficulty,
       JSON.stringify(row.tags),
       JSON.stringify(row.rubric),
@@ -328,6 +354,8 @@ export async function update(
     defaultScore: number;
     analysis: string;
     subject: string;
+    subjectId: string | null;
+    status?: 'active' | 'disabled';
     difficulty: QuestionDifficulty | null;
     tags: string[];
     rubric: RubricBand[];
@@ -337,7 +365,7 @@ export async function update(
   await runQuery(
     exec,
     `UPDATE questions
-       SET bank_id = ?, type = ?, stem = ?, options = ?, answer = ?, default_score = ?, analysis = ?, subject = ?, difficulty = ?, tags = ?, rubric = ?
+       SET bank_id = ?, type = ?, stem = ?, options = ?, answer = ?, default_score = ?, analysis = ?, subject = ?, subject_id = ?, status = ?, difficulty = ?, tags = ?, rubric = ?
      WHERE id = ?`,
     [
       row.bankId,
@@ -348,6 +376,8 @@ export async function update(
       row.defaultScore,
       row.analysis,
       row.subject,
+      row.subjectId,
+      row.status ?? 'active',
       row.difficulty,
       JSON.stringify(row.tags),
       JSON.stringify(row.rubric),

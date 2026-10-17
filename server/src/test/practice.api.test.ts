@@ -2,7 +2,7 @@
  * 公网练题功能（增量）—— 集成 / 对抗性测试（QA 独立复验）。
  *
  * 覆盖（对齐架构 v1.4-rev §4、§10 与主理人验收清单）：
- *  1) 鉴权与越权：未登录 401；内网 JWT 不能解锁练题；练题 token 不能进考试域；伪造/过期 token 401。
+ *  1) 鉴权与越权：未登录 401；内网 JWT 可解锁练题；练题 token 不能进考试域；伪造/过期 token 401。
  *  2) 登录防护：统一失败文案、失败锁定 1011、验证码触发/校验 1012、限流 1010、登录只读 users。
  *  3) 内容边界：allow_practice 过滤、答案/解析不下发、会话内判分约束、会话过期。
  *  4) 判分口径：练题 check 与考试 grade 对同一题逐例一致（含多选漏选/错选/乱序/空答）。
@@ -166,12 +166,12 @@ describe('A. 鉴权与越权', () => {
     expect(bad.body.message).toBe('账号或密码不正确');
   });
 
-  it('携带内网 JWT 访问练题接口 → 401 / 1002（练题态与内网态隔离）', async () => {
+  it('携带内网 JWT 可直接访问练题接口（考试与练题共享主登录态）', async () => {
     const internal = signToken({ sub: 'user-zhangsan', role: 'examinee', departmentId: 'dept-rd' });
     for (const url of ['/api/practice/banks', '/api/practice/auth/me']) {
       const res = await request(app).get(url).set(bearer(internal));
-      expect(res.status, url).toBe(401);
-      expect(res.body.code, url).toBe(1002);
+      expect(res.status, url).toBe(200);
+      expect(res.body.code, url).toBe(0);
     }
   });
 

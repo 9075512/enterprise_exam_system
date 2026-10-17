@@ -8,7 +8,7 @@
  * 复用考试组件 `QuestionCard`（**不改其内部**）；不使用 CountdownTimer/VisibilityGuard/AnswerSheet。
  * 视觉：冷静蓝 · 商务风（细边框卡片、吸底实色操作栏、无渐变 / 无 emoji 装饰）。
  */
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
@@ -63,6 +63,19 @@ const answers = ref<Record<string, number[]>>({});
 const results = ref<Record<string, PracticeCheckResult>>({});
 const submitting = ref(false);
 const finished = ref(false);
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
+function stopHeartbeat(): void {
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  heartbeatTimer = null;
+}
+
+function startHeartbeat(): void {
+  stopHeartbeat();
+  heartbeatTimer = setInterval(() => {
+    if (session.value?.id) void practiceApi.heartbeatSession(session.value.id).catch(() => { /* 断线按 90 秒规则转离线 */ });
+  }, 30_000);
+}
 
 const currentQuestion = computed<PracticeQuestion | null>(() => questions.value[index.value] ?? null);
 const currentId = computed<string>(() => currentQuestion.value?.id ?? '');
@@ -172,9 +185,14 @@ function toQuestion(q: PracticeQuestion): Question {
     defaultScore: 0,
     analysis: '',
     subject: q.subject,
+    subjectId: null,
+    status: 'active',
+    difficulty: null,
+    tags: [],
+    rubric: [],
     createdBy: '',
     createdAt: '',
-  };
+  } as Question;
 }
 
 /** 初始化：生成会话 + 取题 */
@@ -222,6 +240,7 @@ async function init(): Promise<void> {
       });
     }
     session.value = s;
+    startHeartbeat();
     if (s.questionIds.length === 0) {
       questions.value = [];
       return;
@@ -235,9 +254,12 @@ async function init(): Promise<void> {
 }
 
 /** 选择题目的作答更新（已判分后锁定，避免改动首次结果） */
-function onAnswer(value: number[]): void {
+function onAnswer(value: number[] | string[]): void {
   if (!currentId.value || currentResult.value || submitting.value) return;
-  answers.value = { ...answers.value, [currentId.value]: value };
+  answers.value = {
+    ...answers.value,
+    [currentId.value]: value.filter((item): item is number => typeof item === 'number'),
+  };
 }
 
 /** 提交本题 → 即时判分 */
@@ -281,10 +303,23 @@ function redo(): void {
   answers.value = { ...answers.value, [qid]: [] };
 }
 
+async function reportQuestion(): Promise<void> {
+  if (!currentQuestion.value || !session.value?.id) return;
+  try {
+    const { value } = await ElMessageBox.prompt('请说明题干、选项、答案或解析存在的问题', '题目纠错反馈', {
+      inputType: 'textarea', inputPlaceholder: '请输入问题描述', inputValidator: (v) => Boolean(v.trim()) || '请输入问题描述',
+    });
+    await practiceApi.submitQuestionFeedback({ questionId: currentQuestion.value.id, sessionId: session.value.id, category: '题目纠错', content: value.trim() });
+    ElMessage.success('反馈已提交');
+  } catch { /* 用户取消或请求错误已统一提示 */ }
+}
+
 /** 下一题 / 结束 */
 function next(): void {
   if (isLast.value) {
     finished.value = true;
+    stopHeartbeat();
+    if (session.value?.id) void practiceApi.finishSession(session.value.id, 'completed').catch(() => { /* 统计失败不阻塞小结 */ });
     return;
   }
   index.value += 1;
@@ -301,6 +336,14 @@ function goWrongBook(): void {
   void router.push({ name: 'practice-reans' });
 }
 
+/** 结束会话是辅助上报，不阻塞用户离开当前页面。 */
+function finishExitedSession(): void {
+  stopHeartbeat();
+  if (session.value?.id) {
+    void practiceApi.finishSession(session.value.id, 'exited').catch(() => null);
+  }
+}
+
 /** 再练一次（重置并重新生成会话） */
 function restart(): void {
   void init();
@@ -309,13 +352,17 @@ function restart(): void {
 // 离开作答页二次确认（微信返回键 = 浏览器后退，保证状态一致）
 onBeforeRouteLeave(async () => {
   if (finished.value) return true;
-  if (index.value === 0 && Object.keys(results.value).length === 0) return true;
+  if (index.value === 0 && Object.keys(results.value).length === 0) {
+    finishExitedSession();
+    return true;
+  }
   try {
     await ElMessageBox.confirm('确认退出本次练习？', '退出练习', {
       confirmButtonText: '退出',
       cancelButtonText: '继续练习',
       type: 'warning',
     });
+    finishExitedSession();
     return true;
   } catch {
     return false;
@@ -323,6 +370,7 @@ onBeforeRouteLeave(async () => {
 });
 
 onMounted(init);
+onBeforeUnmount(stopHeartbeat);
 </script>
 
 <template>
@@ -442,6 +490,7 @@ onMounted(init);
           </el-button>
         </template>
         <template v-else>
+          <el-button size="large" @click="reportQuestion">题目纠错</el-button>
           <el-button size="large" class="session__redo" @click="redo">重做本题</el-button>
           <el-button type="primary" size="large" class="session__next" @click="next">
             {{ isLast ? '完成' : '下一题 ›' }}
@@ -604,7 +653,7 @@ onMounted(init);
 
   &__body {
     flex: 1;
-    padding: 14px;
+    padding: 14px 14px calc(82px + env(safe-area-inset-bottom));
   }
 
   &__card {
@@ -619,14 +668,17 @@ onMounted(init);
     }
   }
 
-  /* 吸底操作区：白底 + 上边框（设计图 .m-foot） */
+  /* 固定底部操作区：始终可提交，同时为全面屏安全区留出空间。 */
   &__actions {
-    position: sticky;
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
     bottom: 0;
-    z-index: 10;
+    z-index: 30;
     display: flex;
+    width: min(100%, 600px);
+    box-sizing: border-box;
     gap: 9px;
-    margin-top: auto;
     padding: 10px 14px calc(14px + env(safe-area-inset-bottom));
     background: $bg-paper;
     border-top: 1px solid $border-color;

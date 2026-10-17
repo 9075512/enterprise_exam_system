@@ -32,7 +32,6 @@ export interface OpenBankRow extends RowDataPacket {
   id: string;
   name: string;
   description: string;
-  category: string;
   question_count: number | string;
 }
 
@@ -110,9 +109,9 @@ export async function findUserStatusById(id: string): Promise<string | null> {
 /** 对外开放练题题库列表（`allow_practice = 1`）。 */
 export async function listOpenBanks(): Promise<OpenBankRow[]> {
   return query<OpenBankRow[]>(
-    `SELECT b.id, b.name, b.description, b.category, COUNT(q.id) AS question_count
+    `SELECT b.id, b.name, b.description, COUNT(q.id) AS question_count
        FROM question_banks b
-       LEFT JOIN questions q ON q.bank_id = b.id
+       LEFT JOIN questions q ON q.bank_id = b.id AND q.status = 'active'
        WHERE b.allow_practice = 1
        GROUP BY b.id
        ORDER BY b.created_at ASC`,
@@ -122,9 +121,9 @@ export async function listOpenBanks(): Promise<OpenBankRow[]> {
 /** 按 id 查开放题库（未开放 / 不存在返回 null，不暴露存在性）。 */
 export async function findOpenBankById(id: string): Promise<OpenBankRow | null> {
   const rows = await query<OpenBankRow[]>(
-    `SELECT b.id, b.name, b.description, b.category, COUNT(q.id) AS question_count
+    `SELECT b.id, b.name, b.description, COUNT(q.id) AS question_count
        FROM question_banks b
-       LEFT JOIN questions q ON q.bank_id = b.id
+       LEFT JOIN questions q ON q.bank_id = b.id AND q.status = 'active'
        WHERE b.id = ? AND b.allow_practice = 1
        GROUP BY b.id
        LIMIT 1`,
@@ -146,7 +145,7 @@ export async function listQuestionIds(params: {
   random?: boolean;
   limit?: number;
 }): Promise<string[]> {
-  const conditions: string[] = ['bank_id = ?'];
+  const conditions: string[] = ['bank_id = ?', "status = 'active'"];
   const args: Array<string | number> = [params.bankId];
   if (params.types && params.types.length > 0) {
     conditions.push(`type IN (${params.types.map(() => '?').join(',')})`);
@@ -170,7 +169,7 @@ export async function listBankQuestions(params: {
   page: number;
   pageSize: number;
 }): Promise<PracticeQuestionRow[]> {
-  const conditions: string[] = ['bank_id = ?'];
+  const conditions: string[] = ['bank_id = ?', "status = 'active'"];
   const args: Array<string | number> = [params.bankId];
   if (params.type) {
     conditions.push('type = ?');
@@ -197,7 +196,7 @@ export async function countBankQuestions(params: {
   type?: QuestionType;
   subject?: string;
 }): Promise<number> {
-  const conditions: string[] = ['bank_id = ?'];
+  const conditions: string[] = ['bank_id = ?', "status = 'active'"];
   const args: Array<string | number> = [params.bankId];
   if (params.type) {
     conditions.push('type = ?');
@@ -222,7 +221,7 @@ export async function listQuestionsByIds(ids: string[]): Promise<PracticeQuestio
     `SELECT q.id, q.bank_id, q.type, q.stem, q.options, q.subject
        FROM questions q
        JOIN question_banks b ON b.id = q.bank_id
-       WHERE q.id IN (${placeholders}) AND b.allow_practice = 1`,
+       WHERE q.id IN (${placeholders}) AND b.allow_practice = 1 AND q.status = 'active'`,
     ids,
   );
 }
@@ -233,7 +232,7 @@ export async function findQuestionForCheck(id: string): Promise<PracticeCheckQue
     `SELECT q.id, q.bank_id, q.type, q.answer, q.analysis
        FROM questions q
        JOIN question_banks b ON b.id = q.bank_id
-       WHERE q.id = ? AND b.allow_practice = 1
+       WHERE q.id = ? AND b.allow_practice = 1 AND q.status = 'active'
        LIMIT 1`,
     [id],
   );
@@ -429,14 +428,16 @@ export async function deleteWrongBookEntry(
 }
 
 /** 错题本条数（仅统计仍开放题库的题）。 */
-export async function countWrongBook(userId: string): Promise<number> {
+export async function countWrongBook(userId: string, allowedBankIds?: string[]): Promise<number> {
+  if (allowedBankIds && allowedBankIds.length === 0) return 0;
+  const scope = allowedBankIds ? ` AND q.bank_id IN (${allowedBankIds.map(() => '?').join(',')})` : '';
   const rows = await query<RowDataPacket[]>(
     `SELECT COUNT(*) AS c
        FROM practice_wrong_book wb
        JOIN questions q ON q.id = wb.question_id
        JOIN question_banks b ON b.id = q.bank_id
-       WHERE wb.user_id = ? AND b.allow_practice = 1`,
-    [userId],
+       WHERE wb.user_id = ? AND b.allow_practice = 1 AND q.status = 'active'${scope}`,
+    [userId, ...(allowedBankIds ?? [])],
   );
   return Number(rows[0]?.c ?? 0);
 }
@@ -446,7 +447,10 @@ export async function listWrongBook(
   userId: string,
   page: number,
   pageSize: number,
+  allowedBankIds?: string[],
 ): Promise<PracticeWrongRow[]> {
+  if (allowedBankIds && allowedBankIds.length === 0) return [];
+  const scope = allowedBankIds ? ` AND q.bank_id IN (${allowedBankIds.map(() => '?').join(',')})` : '';
   const offset = (page - 1) * pageSize;
   return query<PracticeWrongRow[]>(
     `SELECT wb.question_id, q.bank_id, q.type, q.stem, q.options, q.subject,
@@ -454,21 +458,23 @@ export async function listWrongBook(
        FROM practice_wrong_book wb
        JOIN questions q ON q.id = wb.question_id
        JOIN question_banks b ON b.id = q.bank_id
-       WHERE wb.user_id = ? AND b.allow_practice = 1
+       WHERE wb.user_id = ? AND b.allow_practice = 1 AND q.status = 'active'${scope}
        ORDER BY wb.last_wrong_at DESC
        LIMIT ? OFFSET ?`,
-    [userId, pageSize, offset],
+    [userId, ...(allowedBankIds ?? []), pageSize, offset],
   );
 }
 
 /** 错题本题目 id 列表（可按题库过滤），用于「从错题本再次练题」。 */
-export async function listWrongQuestionIds(userId: string, bankId?: string): Promise<string[]> {
-  const conditions: string[] = ['wb.user_id = ?', 'b.allow_practice = 1'];
+export async function listWrongQuestionIds(userId: string, bankId?: string, allowedBankIds?: string[]): Promise<string[]> {
+  if (allowedBankIds && allowedBankIds.length === 0) return [];
+  const conditions: string[] = ['wb.user_id = ?', 'b.allow_practice = 1', "q.status = 'active'"];
   const args: string[] = [userId];
   if (bankId && bankId.trim() !== '') {
     conditions.push('q.bank_id = ?');
     args.push(bankId.trim());
   }
+  if (allowedBankIds) { conditions.push(`q.bank_id IN (${allowedBankIds.map(() => '?').join(',')})`); args.push(...allowedBankIds); }
   const rows = await query<RowDataPacket[]>(
     `SELECT wb.question_id
        FROM practice_wrong_book wb
@@ -497,16 +503,18 @@ export interface PracticeFavoriteRow extends RowDataPacket {
 }
 
 /** 收藏夹条数（仅统计仍开放题库的题；可按题库过滤）。 */
-export async function countFavorites(userId: string, bankId = ''): Promise<number> {
+export async function countFavorites(userId: string, bankId = '', allowedBankIds?: string[]): Promise<number> {
+  if (allowedBankIds && allowedBankIds.length === 0) return 0;
   const scoped = bankId.trim();
   const extra = scoped === '' ? '' : ' AND q.bank_id = ?';
-  const args: string[] = scoped === '' ? [userId] : [userId, scoped];
+  const scope = allowedBankIds ? ` AND q.bank_id IN (${allowedBankIds.map(() => '?').join(',')})` : '';
+  const args: string[] = [...(scoped === '' ? [userId] : [userId, scoped]), ...(allowedBankIds ?? [])];
   const rows = await query<RowDataPacket[]>(
     `SELECT COUNT(*) AS c
        FROM practice_favorites f
        JOIN questions q ON q.id = f.question_id
        JOIN question_banks b ON b.id = q.bank_id
-      WHERE f.user_id = ? AND b.allow_practice = 1${extra}`,
+      WHERE f.user_id = ? AND b.allow_practice = 1 AND q.status = 'active'${extra}${scope}`,
     args,
   );
   return Number(rows[0]?.c ?? 0);
@@ -552,13 +560,15 @@ export async function deleteFavorite(
 }
 
 /** 收藏夹题目 id 列表（可按题库过滤），用于「练收藏题」。 */
-export async function listFavoriteQuestionIds(userId: string, bankId?: string): Promise<string[]> {
-  const conditions: string[] = ['f.user_id = ?', 'b.allow_practice = 1'];
+export async function listFavoriteQuestionIds(userId: string, bankId?: string, allowedBankIds?: string[]): Promise<string[]> {
+  if (allowedBankIds && allowedBankIds.length === 0) return [];
+  const conditions: string[] = ['f.user_id = ?', 'b.allow_practice = 1', "q.status = 'active'"];
   const args: string[] = [userId];
   if (bankId && bankId.trim() !== '') {
     conditions.push('q.bank_id = ?');
     args.push(bankId.trim());
   }
+  if (allowedBankIds) { conditions.push(`q.bank_id IN (${allowedBankIds.map(() => '?').join(',')})`); args.push(...allowedBankIds); }
   const rows = await query<RowDataPacket[]>(
     `SELECT f.question_id
        FROM practice_favorites f
@@ -577,17 +587,21 @@ export async function listFavorites(
   bankId: string,
   page: number,
   pageSize: number,
+  allowedBankIds?: string[],
 ): Promise<PracticeFavoriteRow[]> {
+  if (allowedBankIds && allowedBankIds.length === 0) return [];
   const scoped = bankId.trim();
   const extra = scoped === '' ? '' : ' AND q.bank_id = ?';
   const args: Array<string | number> = scoped === '' ? [userId] : [userId, scoped];
+  const scope = allowedBankIds ? ` AND q.bank_id IN (${allowedBankIds.map(() => '?').join(',')})` : '';
+  args.push(...(allowedBankIds ?? []));
   const offset = (page - 1) * pageSize;
   return query<PracticeFavoriteRow[]>(
     `SELECT f.question_id, q.bank_id, q.type, q.stem, q.options, q.subject, f.created_at
        FROM practice_favorites f
        JOIN questions q ON q.id = f.question_id
        JOIN question_banks b ON b.id = q.bank_id
-      WHERE f.user_id = ? AND b.allow_practice = 1${extra}
+      WHERE f.user_id = ? AND b.allow_practice = 1 AND q.status = 'active'${extra}${scope}
       ORDER BY f.created_at DESC
       LIMIT ? OFFSET ?`,
     [...args, pageSize, offset],
@@ -686,12 +700,11 @@ export async function listRandomQuestionIdsInBanks(params: {
   types: QuestionType[];
   limit: number;
 }): Promise<string[]> {
-  const conditions: string[] = ['b.allow_practice = 1'];
+  if (params.bankIds.length === 0) return [];
+  const conditions: string[] = ['b.allow_practice = 1', "q.status = 'active'"];
   const args: Array<string | number> = [];
-  if (params.bankIds.length > 0) {
-    conditions.push(`q.bank_id IN (${params.bankIds.map(() => '?').join(',')})`);
-    args.push(...params.bankIds);
-  }
+  conditions.push(`q.bank_id IN (${params.bankIds.map(() => '?').join(',')})`);
+  args.push(...params.bankIds);
   if (params.types.length > 0) {
     conditions.push(`q.type IN (${params.types.map(() => '?').join(',')})`);
     args.push(...params.types);
@@ -810,16 +823,19 @@ export async function countCompletedDailyTasks(userId: string): Promise<number> 
 /** 按科目聚合（仅开放题库），正确率升序。 */
 export async function listSubjectStats(
   userId: string,
+  allowedBankIds?: string[],
 ): Promise<Array<{ subject: string; done: number; correct: number }>> {
+  if (allowedBankIds && allowedBankIds.length === 0) return [];
+  const scope = allowedBankIds ? ` AND q.bank_id IN (${allowedBankIds.map(() => '?').join(',')})` : '';
   const rows = await query<RowDataPacket[]>(
     `SELECT q.subject AS subject, COUNT(*) AS done, COALESCE(SUM(pa.is_correct), 0) AS correct
        FROM practice_answers pa
        JOIN questions q ON q.id = pa.question_id
        JOIN question_banks b ON b.id = q.bank_id
-      WHERE pa.user_id = ? AND b.allow_practice = 1
+      WHERE pa.user_id = ? AND b.allow_practice = 1${scope}
       GROUP BY q.subject
       ORDER BY (COALESCE(SUM(pa.is_correct), 0) / COUNT(*)) ASC, done DESC`,
-    [userId],
+    [userId, ...(allowedBankIds ?? [])],
   );
   return rows.map((r) => ({
     subject: String(r.subject),
@@ -829,22 +845,24 @@ export async function listSubjectStats(
 }
 
 /** 按开放题库聚合概览（含该用户已练题数与题库总题数）。 */
-export async function listBankStats(userId: string): Promise<
+export async function listBankStats(userId: string, allowedBankIds?: string[]): Promise<
   Array<{ bankId: string; bankName: string; done: number; correct: number; totalCount: number }>
 > {
+  if (allowedBankIds && allowedBankIds.length === 0) return [];
+  const scope = allowedBankIds ? ` AND b.id IN (${allowedBankIds.map(() => '?').join(',')})` : '';
   const rows = await query<RowDataPacket[]>(
     `SELECT b.id AS bank_id,
             b.name AS bank_name,
             COUNT(pa.id) AS done,
             COALESCE(SUM(pa.is_correct), 0) AS correct,
-            (SELECT COUNT(*) FROM questions q2 WHERE q2.bank_id = b.id) AS total_count
+            (SELECT COUNT(*) FROM questions q2 WHERE q2.bank_id = b.id AND q2.status = 'active') AS total_count
        FROM question_banks b
        LEFT JOIN questions q ON q.bank_id = b.id
        LEFT JOIN practice_answers pa ON pa.question_id = q.id AND pa.user_id = ?
-      WHERE b.allow_practice = 1
+      WHERE b.allow_practice = 1${scope}
       GROUP BY b.id, b.name, b.created_at
       ORDER BY b.created_at ASC`,
-    [userId],
+    [userId, ...(allowedBankIds ?? [])],
   );
   return rows.map((r) => ({
     bankId: String(r.bank_id),
