@@ -4,7 +4,7 @@
  * 本布局只负责练题内容和二级练题导航，避免出现两套移动导航。
  */
 import { onBeforeUnmount, onMounted, ref } from 'vue';
-import PracticeTabBar from '@practice/views/practice/components/PracticeTabBar.vue';
+import PracticeTabBar from '@/views/practice/components/PracticeTabBar.vue';
 
 const props = withDefaults(defineProps<{ tabbar?: boolean; bare?: boolean }>(), {
   tabbar: false,

@@ -1,5 +1,7 @@
 # 企业内部在线考试系统 — 增量架构设计与任务分解：公网练题功能（v1.4 修订版）
 
+> **历史设计说明**：独立公网练题端已于 2026-10-17 下线，练题页面现并入主前端 `/exam/practice`，并与考试系统共用后端和登录态。本文仅保留早期设计决策记录，当前部署以 `docs/18-使用说明与部署教程.md` 为准。
+
 > 文档版本：v1.4-rev（增量 · 公网可访问练题模块 · **强制登录 + 复用内网账号**）｜ 架构师：高见远（Gao）｜ 日期：2025-10-22
 > 上游输入：`docs/05-PRD-practice-increment.md`（增量 PRD v1.4，许清楚）+ **用户拍板结论（2025-10-22）**
 > 基线文档：`docs/01-PRD.md`、`docs/02-architecture.md`（v1.0）、`docs/04-architecture-increment.md`（v1.3，**当前实现基线**）、`docs/class-diagram*.mermaid`、`docs/sequence-diagram*.mermaid`

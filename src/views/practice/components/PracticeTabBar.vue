@@ -24,17 +24,15 @@ interface TabItem {
 const route = useRoute();
 const router = useRouter();
 const configStore = usePracticeConfigStore();
-const integrated = computed(() => route.path.startsWith('/exam/practice'));
-const basePath = computed(() => integrated.value ? '/exam/practice' : '/practice');
-const homePath = computed(() => integrated.value ? basePath.value : `${basePath.value}/home`);
+const basePath = '/exam/practice';
+const homePath = basePath;
 
 /** 按后台「页面入口开关」过滤 Tab（错题本 / 报告可关闭，v1.9⑤） */
 const tabs = computed<TabItem[]>(() => {
-  const base = basePath.value;
   const items: TabItem[] = [
-    { key: 'home', text: '练题', path: homePath.value, icon: Collection, match: homePath.value },
-    { key: 'wrong', text: '错题本', path: `${base}/wrong-book`, icon: Notebook, match: `${base}/wrong-book` },
-    { key: 'report', text: '报告', path: `${base}/report`, icon: TrendCharts, match: `${base}/report` },
+    { key: 'home', text: '练题', path: homePath, icon: Collection, match: homePath },
+    { key: 'wrong', text: '错题本', path: `${basePath}/wrong-book`, icon: Notebook, match: `${basePath}/wrong-book` },
+    { key: 'report', text: '报告', path: `${basePath}/report`, icon: TrendCharts, match: `${basePath}/report` },
   ];
   return items.filter((t) => {
     if (t.key === 'wrong') return configStore.config.wrongBookEnabled;
@@ -45,7 +43,7 @@ const tabs = computed<TabItem[]>(() => {
 
 const activeKey = computed<string>(() => {
   const exact = tabs.value.find((t) => t.key !== 'home' && route.path.startsWith(t.match));
-  return exact?.key ?? (route.path === homePath.value ? 'home' : '');
+  return exact?.key ?? (route.path === homePath ? 'home' : '');
 });
 
 function go(tab: TabItem): void {
@@ -55,7 +53,7 @@ function go(tab: TabItem): void {
 </script>
 
 <template>
-  <nav class="tabbar" :class="{ 'is-integrated': integrated }" aria-label="练题导航">
+  <nav class="tabbar is-integrated" aria-label="练题导航">
     <button
       v-for="tab in tabs"
       :key="tab.key"

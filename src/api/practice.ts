@@ -2,7 +2,7 @@
  * 考试端内置练题 API。
  *
  * 这里使用主系统 http 实例与 `exam_sys.token`，因此考试和练题共享一次登录、
- * 同一套会话失效处理；独立 practice-web 仍保留原有兼容入口。
+ * 同一套会话失效处理；练题功能不再维护独立前端登录态。
  */
 import { del, get, post, put, type AppRequestConfig } from './http';
 import type {

@@ -626,7 +626,7 @@ onBeforeUnmount(stopHeartbeat);
     height: 26px;
     padding: 0 10px;
     border: 1px solid $line-strong;
-    border-radius: 99px;
+    border-radius: 99px; // radius-exception: favorite action pill
     background: $bg-paper;
     font-size: 11px;
     font-weight: 580;

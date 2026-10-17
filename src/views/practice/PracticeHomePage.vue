@@ -526,7 +526,7 @@ onMounted(load);
     align-items: center;
     height: 22px;
     padding: 0 9px;
-    border-radius: 99px;
+    border-radius: 99px; // radius-exception: status badge pill
     background: $practice-soft;
     font-size: 10.5px;
     font-weight: 600;
@@ -819,7 +819,7 @@ onMounted(load);
       align-items: center;
       height: 26px;
       padding: 0 10px;
-      border-radius: 99px;
+      border-radius: 99px; // radius-exception: section counter pill
       background: $practice-soft;
       color: $practice-primary;
       font-size: 11.5px;

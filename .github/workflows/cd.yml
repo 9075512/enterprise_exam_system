@@ -32,9 +32,7 @@ jobs:
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
       DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
       API_SERVICE: ${{ vars.API_SERVICE }}
-      PRACTICE_SERVICE: ${{ vars.PRACTICE_SERVICE }}
       API_HEALTHCHECK_URL: ${{ vars.API_HEALTHCHECK_URL }}
-      PRACTICE_HEALTHCHECK_URL: ${{ vars.PRACTICE_HEALTHCHECK_URL }}
       KEEP_RELEASES: ${{ vars.KEEP_RELEASES }}
       RUN_DB_MIGRATIONS: ${{ vars.RUN_DB_MIGRATIONS }}
       GH_TOKEN: ${{ github.token }}
@@ -68,13 +66,11 @@ jobs:
           RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
           set -Eeuo pipefail
-          mkdir -p bundle/web bundle/practice bundle/server
+          mkdir -p bundle/web bundle/server
           gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name web-dist --dir bundle/web
-          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name practice-dist --dir bundle/practice
           gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name server-dist --dir bundle/server
 
           test -f bundle/web/index.html
-          test -f bundle/practice/index.html
           test -f bundle/server/dist/index.js
           test -f bundle/server/package-lock.json
 
@@ -86,7 +82,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           archive="enterprise-exam-${RELEASE_SHA}.tar.gz"
-          tar -C bundle -czf "$archive" web practice server
+          tar -C bundle -czf "$archive" web server
           checksum="$(sha256sum "$archive" | awk '{print $1}')"
           echo "archive=$archive" >> "$GITHUB_OUTPUT"
           echo "checksum=$checksum" >> "$GITHUB_OUTPUT"
@@ -127,15 +123,13 @@ jobs:
           remote_archive="/tmp/${ARCHIVE}"
           scp "$ARCHIVE" "exam-deploy:${remote_archive}"
 
-          printf -v remote_command 'bash -s -- %q %q %q %q %q %q %q %q %q %q' \
+          printf -v remote_command 'bash -s -- %q %q %q %q %q %q %q %q' \
             "$remote_archive" \
             "$CHECKSUM" \
             "${DEPLOY_PATH:-/opt/enterprise-exam}" \
             "$RELEASE_SHA" \
             "${API_SERVICE:-enterprise-exam}" \
-            "${PRACTICE_SERVICE:-enterprise-practice}" \
             "${API_HEALTHCHECK_URL:-http://127.0.0.1:3001/api/health}" \
-            "${PRACTICE_HEALTHCHECK_URL:-http://127.0.0.1:3002/api/health}" \
             "${KEEP_RELEASES:-5}" \
             "${RUN_DB_MIGRATIONS:-false}"
 

@@ -270,7 +270,7 @@ onMounted(load);
     height: 26px;
     padding: 0 11px;
     border: 1px solid $line-strong;
-    border-radius: 99px;
+    border-radius: 99px; // radius-exception: filter chip pill
     background: $bg-paper;
     font-size: 12px;
     font-weight: 550;
