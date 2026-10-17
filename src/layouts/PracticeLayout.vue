@@ -35,7 +35,7 @@ onBeforeUnmount(() => {
     <header v-if="!props.bare" class="practice-layout__bar">
       <div class="practice-layout__brand">
         <span class="practice-layout__badge" aria-hidden="true">练</span>
-        <span class="practice-layout__title"><slot name="brand">在线练题</slot></span>
+        <span class="practice-layout__title"><slot name="brand">练题</slot></span>
       </div>
       <div class="practice-layout__actions"><slot name="actions" /></div>
     </header>

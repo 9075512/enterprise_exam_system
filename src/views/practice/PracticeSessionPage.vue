@@ -33,7 +33,7 @@ const router = useRouter();
 const configStore = usePracticeConfigStore();
 
 /** 是否为错题复习模式 */
-const isReans = computed<boolean>(() => Boolean(route.meta.reans));
+const isReans = computed<boolean>(() => route.name === 'practice-reans');
 
 /** 会话来源（二期）：daily = 每日一练；favorite = 收藏重练；其余为常规练题 */
 const source = computed<string>(() => (typeof route.query.source === 'string' ? route.query.source : ''));
@@ -333,7 +333,7 @@ function goHome(): void {
 
 /** 查看错题本 */
 function goWrongBook(): void {
-  void router.push({ name: 'practice-reans' });
+  void router.push({ name: 'practice-wrong-book' });
 }
 
 /** 结束会话是辅助上报，不阻塞用户离开当前页面。 */
@@ -425,7 +425,7 @@ onBeforeUnmount(stopHeartbeat);
         <el-button @click="restart">再练一次</el-button>
         <el-button type="primary" @click="goHome">返回首页</el-button>
       </div>
-      <el-button text class="summary__wrong" @click="goWrongBook">查看错题本 ›</el-button>
+      <el-button v-if="configStore.config.wrongBookEnabled" text class="summary__wrong" @click="goWrongBook">查看错题本 ›</el-button>
     </div>
 
     <!-- 作答中 -->

@@ -199,7 +199,7 @@ const routes: RouteRecordRaw[] = [
         path: 'exam/practice',
         name: 'practice-home',
         component: () => import('@/views/practice/PracticeHomePage.vue'),
-        meta: { roles: ['admin', 'author', 'examinee'], menuKey: 'practice', title: '在线练题' },
+        meta: { roles: ['admin', 'author', 'examinee'], menuKey: 'practice', title: '练题' },
       },
       {
         path: 'exam/practice/banks/:bankId',
