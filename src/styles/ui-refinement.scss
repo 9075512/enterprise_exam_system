@@ -91,7 +91,13 @@
 .dashboard.dashboard .dashboard__dept th, .dashboard.dashboard .dashboard__dept td { padding-block: 10px; }
 .dashboard.dashboard .dashboard__all-exams { font-size: 13px; font-weight: 600; }
 .layout.layout .layout__brand-mark { width: 34px; height: 34px; font-size: 18px; border-radius: 8px; }
-.layout.layout .layout__brand-name { font-size: 17px; font-weight: 700; }
+.layout.layout .layout__brand-name {
+  // 侧栏品牌名的可用宽度约 150px；14px 可完整容纳常见的 10 字中文系统简称，
+  // 同时保持单行展示，避免文字侵入右侧顶栏。
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
 .layout.layout .layout__brand-name small { font-size: 10px; letter-spacing: 1.8px; }
 .layout.layout .layout__menu { --el-menu-item-height: 44px; }
 .layout.layout .layout__menu > .el-menu-item, .layout.layout .layout__menu > .el-sub-menu > .el-sub-menu__title { margin-bottom: 6px; border-radius: 8px; }
