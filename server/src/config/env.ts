@@ -105,8 +105,6 @@ export const env = {
   PRACTICE_LOGIN_MAX_FAILS: toInt('PRACTICE_LOGIN_MAX_FAILS', 5),
   /** 锁定时长（分钟） */
   PRACTICE_LOGIN_LOCK_MINUTES: toInt('PRACTICE_LOGIN_LOCK_MINUTES', 15),
-  /** 失败多少次后要求验证码 */
-  PRACTICE_CAPTCHA_AFTER_FAILS: toInt('PRACTICE_CAPTCHA_AFTER_FAILS', 3),
   /** check 每设备每分钟上限 */
   PRACTICE_RATE_CHECK_PER_MIN: toInt('PRACTICE_RATE_CHECK_PER_MIN', 60),
   /** 题库列表/题目每设备每分钟上限 */

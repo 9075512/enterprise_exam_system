@@ -26,6 +26,7 @@ import { signToken } from '../middleware/auth.js';
 import { isAnswerCorrect } from '../utils/grading.js';
 import { grade } from '../modules/records/records.service.js';
 import { env } from '../config/env.js';
+import { DEFAULT_SETTINGS } from '../modules/settings/settings.defaults.js';
 import { __peekCaptchaAnswer } from '../utils/captcha.js';
 import { nowDb } from '../utils/datetime.js';
 import type { ExamRecordDto, QuestionType } from '../types/domain.js';
@@ -229,7 +230,7 @@ describe('B. 登录防护', () => {
     const ip = '203.0.113.10';
     const captchaIp = '198.51.100.60';
     const maxFails = env.PRACTICE_LOGIN_MAX_FAILS;
-    const captchaAfter = env.PRACTICE_CAPTCHA_AFTER_FAILS;
+    const captchaAfter = DEFAULT_SETTINGS.loginCaptchaAfterFails;
     const user = 'zhangsan';
 
     // 1) 前 captchaAfter 次失败 → 1002（无验证码要求）
@@ -264,7 +265,7 @@ describe('B. 登录防护', () => {
   it('验证码通过 + 正确密码 → 登录成功且解除失败计数', async () => {
     const ip = '203.0.113.20';
     const captchaIp = '198.51.100.61';
-    const captchaAfter = env.PRACTICE_CAPTCHA_AFTER_FAILS;
+    const captchaAfter = DEFAULT_SETTINGS.loginCaptchaAfterFails;
 
     for (let i = 0; i < captchaAfter; i += 1) {
       await login('wangwu', 'wrong-pw', { ip });
