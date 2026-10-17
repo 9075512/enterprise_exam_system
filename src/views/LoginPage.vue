@@ -681,15 +681,14 @@ function backToCredentials(): void {
     }
 
     &__headline {
-      display: -webkit-box;
+      display: block;
       margin: 30px 0 0;
-      max-width: 20em;
+      max-width: none;
       overflow: hidden;
-      font-size: clamp(23px, 6.7vw, 28px);
+      font-size: clamp(17px, 5.2vw, 21px);
       line-height: 1.3;
-      letter-spacing: -0.025em;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 2;
+      letter-spacing: -0.04em;
+      white-space: nowrap;
     }
 
     &__tagline {
