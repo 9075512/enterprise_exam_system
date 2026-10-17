@@ -3,7 +3,7 @@
  *
  * 键 = 账号 + IP（架构共享约定 §10-15）。行为：
  * ① 累计失败次数达到 `PRACTICE_LOGIN_MAX_FAILS` → 临时锁定（指数退避，封顶 24h），返回 1011/429；
- * ② 累计失败次数达到 `PRACTICE_CAPTCHA_AFTER_FAILS` → 要求并校验**图形验证码**（v1.7③ T1，
+ * ② 累计失败次数达到后台“系统设置”阈值 → 要求并校验**图形验证码**（v1.7③ T1，
  *    由 `utils/captcha` 统一提供），缺失或错误返回 1012/400。
  *
  * 说明：内存锁定在多实例下需共享存储；方案乙（单练题实例）场景足够。多实例时替换为 redis（接口不变）。
@@ -12,6 +12,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { env } from '../config/env.js';
 import { practiceCaptchaRequired, practiceLoginLocked } from '../utils/errors.js';
 import { verifyCaptcha } from '../utils/captcha.js';
+import { getSettings } from '../modules/settings/settings.service.js';
 
 /** 取客户端 IP（优先反代注入的 X-Forwarded-For 首个地址，退化到 socket）。 */
 export function clientIp(req: Request): string {
@@ -67,8 +68,8 @@ export function lockedRemainingMs(username: string, ip: string): number {
 }
 
 /** 是否已触发验证码要求（失败次数达到软阈值）。 */
-export function captchaRequired(username: string, ip: string): boolean {
-  return getFailState(loginKey(username, ip)).count >= env.PRACTICE_CAPTCHA_AFTER_FAILS;
+export function captchaRequired(username: string, ip: string, afterFails: number): boolean {
+  return getFailState(loginKey(username, ip)).count >= afterFails;
 }
 
 /* ------------------------------ 图形验证码（v1.7③ T1：替换自研算术） ------------------------------ */
@@ -79,7 +80,7 @@ export { issueCaptcha, verifyCaptcha } from '../utils/captcha.js';
  * 登录接口前置守卫：锁定校验 + 验证码校验。
  * 需在 `validate(loginSchema)` 之后使用（此时 `req.body` 已解析为带默认值的对象）。
  */
-export function practiceLoginGuard(req: Request, _res: Response, next: NextFunction): void {
+export async function practiceLoginGuard(req: Request, _res: Response, next: NextFunction): Promise<void> {
   const body = (req.body ?? {}) as { username?: string; captchaId?: string; captcha?: string };
   const username = String(body.username ?? '');
   const ip = clientIp(req);
@@ -91,13 +92,18 @@ export function practiceLoginGuard(req: Request, _res: Response, next: NextFunct
     return;
   }
 
-  if (captchaRequired(username, ip)) {
-    if (!body.captchaId || !body.captcha || !verifyCaptcha(body.captchaId, body.captcha)) {
-      next(practiceCaptchaRequired('请输入验证码'));
-      return;
+  try {
+    const settings = await getSettings();
+    if (captchaRequired(username, ip, settings.loginCaptchaAfterFails)) {
+      if (!body.captchaId || !body.captcha || !verifyCaptcha(body.captchaId, body.captcha)) {
+        next(practiceCaptchaRequired('请输入验证码'));
+        return;
+      }
     }
+    next();
+  } catch (err) {
+    next(err);
   }
-  next();
 }
 
 /* ------------------------------ 登录审计日志 ------------------------------ */
