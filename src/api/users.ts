@@ -6,7 +6,7 @@ import type { LoginSession, Role, User, UserSaveInput, UserStatus } from '@/type
 export interface UserPayload {
   username: string;
   name: string;
-  role: Role;
+  role?: Role;
   departmentId?: string;
   positionId?: string;
   groupIds?: string[];
@@ -16,8 +16,8 @@ export interface UserPayload {
 }
 
 /** 用户列表（可按角色/关键字过滤） */
-export function list(filter: { role?: Role; keyword?: string } = {}): Promise<User[]> {
-  return get<User[]>('/users', { role: filter.role, keyword: filter.keyword });
+export function list(filter: { role?: Role; groupId?: string; keyword?: string } = {}): Promise<User[]> {
+  return get<User[]>('/users', { role: filter.role, groupId: filter.groupId, keyword: filter.keyword });
 }
 
 /** 新建用户 */

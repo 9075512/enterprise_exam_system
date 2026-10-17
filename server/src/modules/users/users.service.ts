@@ -38,10 +38,30 @@ function normalizeEmail(email: string | undefined): string | null {
   return v === '' ? null : v;
 }
 
-/** 列表（可按角色 / 关键字过滤）。 */
-export async function list(filter: { role?: Role; keyword?: string }): Promise<UserDto[]> {
+/** 列表（可按用户组 / 角色 / 关键字过滤）。 */
+export async function list(filter: { role?: Role; groupId?: string; keyword?: string }): Promise<UserDto[]> {
   const rows = await repo.list(filter);
   return rows.map(mapUserRow);
+}
+
+/**
+ * 用户的角色由所属用户组派生。同一用户可属于多个组，但这些组必须绑定同一角色。
+ * 保留 role-only 入参仅为兼容旧客户端，其会自动归入对应默认角色组。
+ */
+async function resolveRoleFromGroups(groupIds: string[] | undefined, legacyRole?: Role): Promise<{ role: Role; groupIds: string[] }> {
+  const unique = [...new Set(groupIds ?? [])];
+  if (!unique.length) {
+    if (!legacyRole) throw badRequest('请至少选择一个用户组');
+    const defaultGroupId = `role-group-${legacyRole}`;
+    const defaultGroups = await repo.findGroupRoles([defaultGroupId]);
+    if (defaultGroups[0]?.role !== legacyRole) throw badRequest('默认角色组不存在，请先执行数据库初始化');
+    return { role: legacyRole, groupIds: [defaultGroupId] };
+  }
+  const groups = await repo.findGroupRoles(unique);
+  if (groups.length !== unique.length) throw badRequest('选择的用户组中包含不存在的项');
+  const roles = [...new Set(groups.map((group) => group.role))];
+  if (roles.length !== 1) throw badRequest('同一用户只能加入相同角色的用户组');
+  return { role: roles[0]!, groupIds: unique };
 }
 
 /** 新建用户。 */
@@ -49,7 +69,7 @@ export async function create(
   input: {
     username: string;
     name: string;
-    role: Role;
+    role?: Role;
     departmentId?: string;
     positionId?: string;
     groupIds?: string[];
@@ -64,8 +84,9 @@ export async function create(
   if (!username) throw badRequest('登录账号不能为空');
   if (!name) throw badRequest('姓名不能为空');
 
+  const membership = await resolveRoleFromGroups(input.groupIds, input.role);
   const departmentId = normalizeDepartmentId(input.departmentId);
-  if (input.role === 'examinee' && !departmentId) {
+  if (membership.role === 'examinee' && !departmentId) {
     throw badRequest('考生必须归属一个科室');
   }
   const email = normalizeEmail(input.email);
@@ -88,14 +109,14 @@ export async function create(
     username,
     passwordHash,
     name,
-    role: input.role,
+    role: membership.role,
     departmentId,
     positionId,
     email,
     status: input.status ?? 'active',
     createdAt: nowDb(),
   });
-  await repo.setGroups(id, input.groupIds ?? []);
+  await repo.setGroups(id, membership.groupIds);
   const created = await repo.findById(id);
   const dto = mapUserRow(created!);
   await auditService.record({
@@ -115,7 +136,7 @@ export async function update(
   input: {
     username: string;
     name: string;
-    role: Role;
+    role?: Role;
     departmentId?: string;
     positionId?: string;
     groupIds?: string[];
@@ -133,8 +154,9 @@ export async function update(
   const current = await repo.findById(id);
   if (!current) throw notFound('用户不存在或已被删除');
 
+  const membership = await resolveRoleFromGroups(input.groupIds, input.role);
   const departmentId = normalizeDepartmentId(input.departmentId);
-  if (input.role === 'examinee' && !departmentId) {
+  if (membership.role === 'examinee' && !departmentId) {
     throw badRequest('考生必须归属一个科室');
   }
   const email = normalizeEmail(input.email);
@@ -148,13 +170,13 @@ export async function update(
   await repo.update(id, {
     username,
     name,
-    role: input.role,
+    role: membership.role,
     departmentId,
     positionId,
     email,
     status: input.status ?? current.status,
   });
-  await repo.setGroups(id, input.groupIds ?? mapUserRow(current).groupIds);
+  await repo.setGroups(id, membership.groupIds);
   if (input.password && input.password !== '') {
     const settings = await getSettings();
     assertPassword(input.password, settings);
@@ -162,6 +184,7 @@ export async function update(
   }
   const updated = await repo.findById(id);
   const dto = mapUserRow(updated!);
+  if (current.role !== membership.role) await sessions.revokeAll(id);
   await auditService.record({
     actorId: operatorId,
     action: 'user.update',

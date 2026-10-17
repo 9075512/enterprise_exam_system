@@ -148,6 +148,30 @@ export async function seed(conn: Connection): Promise<void> {
     );
   }
 
+  // 2b. 默认角色组：用户的系统角色由所属用户组统一维护。
+  for (const group of [
+    { id: 'role-group-admin', name: '管理员组', role: 'admin', description: '拥有系统管理权限' },
+    { id: 'role-group-author', name: '出题人组', role: 'author', description: '拥有题库、试卷与阅卷权限' },
+    { id: 'role-group-examinee', name: '考生组', role: 'examinee', description: '参加考试与练题' },
+  ] as const) {
+    await conn.query(
+      `INSERT INTO user_groups (id, name, role, description, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE role = VALUES(role)`,
+      [group.id, group.name, group.role, group.description, now, now],
+    );
+  }
+  for (const user of SEED_USERS) {
+    await conn.query(
+      `INSERT IGNORE INTO user_group_members (group_id, user_id, created_at)
+       SELECT ?, ?, ? WHERE NOT EXISTS (
+         SELECT 1 FROM user_group_members gm JOIN user_groups g ON g.id = gm.group_id
+          WHERE gm.user_id = ? AND g.role = ?
+       )`,
+      [`role-group-${user.role}`, user.id, now, user.id, user.role],
+    );
+  }
+
   // 3. 题库（种子题库默认对外开放练题，保证练题端开箱即有可练内容）
   for (const b of [
     { id: 'bank-security', name: '安全知识题库', description: '公司信息安全相关题目', category: '安全知识' },

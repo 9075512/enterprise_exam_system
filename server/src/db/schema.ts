@@ -667,6 +667,7 @@ export const DDL_STATEMENTS: readonly string[] = [
   `CREATE TABLE IF NOT EXISTS user_groups (
     id          VARCHAR(64)  NOT NULL,
     name        VARCHAR(120) NOT NULL,
+    role        ENUM('admin','author','examinee') NOT NULL,
     description VARCHAR(255) NOT NULL DEFAULT '',
     created_at  DATETIME(3)  NOT NULL,
     updated_at  DATETIME(3)  NOT NULL,

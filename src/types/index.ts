@@ -1323,6 +1323,8 @@ export interface UserValidRow {
   row: number;
   username: string;
   name: string;
+  groupName: string;
+  groupId: string;
   role: Role;
   departmentName: string;
   departmentId: string;
@@ -1586,7 +1588,7 @@ export interface HomeConfigOverview {
 /* 核心功能补齐共享类型 */
 export interface Subject { id: string; name: string; parentId: string | null; sortOrder: number; status: 'active' | 'disabled'; createdAt: string; updatedAt: string }
 export interface Position { id: string; name: string; description: string; createdAt: string; updatedAt: string }
-export interface UserGroup { id: string; name: string; description: string; userIds: string[]; createdAt: string; updatedAt: string }
+export interface UserGroup { id: string; name: string; role: Role; description: string; userIds: string[]; createdAt: string; updatedAt: string }
 export type GrantPrincipalType = 'role' | 'group' | 'position' | 'user';
 export interface SubjectGrant { id: string; subjectId: string; principalType: GrantPrincipalType; principalId: string; effect: 'allow' | 'deny'; canView: boolean; canEdit: boolean }
 export interface MenuOverride { userId: string; menuKey: string; effect: 'allow' | 'deny' }

@@ -1,17 +1,17 @@
 /**
  * 用户批量导入 Excel 工具（exceljs）。
- * 列（A~F，6 列）：登录账号 / 姓名 / 角色 / 科室 / 邮箱 / 初始密码(可选)。
- * 科室按名称解析为 department_id（调用方传入 name→id 映射）；仅「考生」角色必填科室。
+ * 列（A~F，6 列）：登录账号 / 姓名 / 用户组 / 科室 / 邮箱 / 初始密码(可选)。
+ * 系统角色由用户组派生；科室按名称解析为 department_id，仅考生角色组必填科室。
  */
 import ExcelJS from 'exceljs';
 import { fileInvalid } from './errors.js';
 import type { Role, RowIssue, UserPreviewResult, UserValidRow } from '../types/domain.js';
 
 /** 用户导入模板表头。 */
-export const USER_IMPORT_HEADERS = ['登录账号', '姓名', '角色', '科室', '邮箱', '初始密码'] as const;
+export const USER_IMPORT_HEADERS = ['登录账号', '姓名', '用户组', '科室', '邮箱', '初始密码'] as const;
 
-/** 角色中文 → 枚举。 */
-const ROLE_MAP: Record<string, Role> = {
+/** 兼容旧模板：原「角色」值映射到对应默认用户组。 */
+const LEGACY_ROLE_MAP: Record<string, Role> = {
   管理员: 'admin',
   出题人: 'author',
   考生: 'examinee',
@@ -47,9 +47,9 @@ export async function buildUserTemplateBuffer(limits: { maxRows: number; maxFile
   const ws = wb.addWorksheet('用户导入');
   ws.addRow([...USER_IMPORT_HEADERS]);
   ws.getRow(1).font = { bold: true };
-  ws.addRow(['zhangsan', '张三', '考生', '内科', 'zhangsan@example.com', '']);
-  ws.addRow(['lisi', '李四', '出题人', '', 'lisi@example.com', '123456']);
-  ws.addRow(['wangwu', '王五', '管理员', '', '', '']);
+  ws.addRow(['zhangsan', '张三', '考生组', '内科', 'zhangsan@example.com', '']);
+  ws.addRow(['lisi', '李四', '出题人组', '', 'lisi@example.com', '123456']);
+  ws.addRow(['wangwu', '王五', '管理员组', '', '', '']);
   USER_IMPORT_HEADERS.forEach((_, i) => {
     ws.getColumn(i + 1).width = i === 4 ? 26 : 16;
   });
@@ -60,8 +60,8 @@ export async function buildUserTemplateBuffer(limits: { maxRows: number; maxFile
     '一、模板列说明（第 1 行为表头，请勿修改）',
     'A 登录账号（必填）：系统登录账号，全库唯一',
     'B 姓名（必填）：用户真实姓名',
-    'C 角色（必填）：管理员 / 出题人 / 考生（亦接受 admin / author / examinee）',
-    'D 科室（仅「考生」必填）：填写科室名称，须与系统内已有科室一致',
+    'C 用户组（必填）：填写系统内已有用户组名称，角色由该组自动确定',
+    'D 科室（仅考生角色组必填）：填写科室名称，须与系统内已有科室一致',
     'E 邮箱（选填）：用于邮件通知；留空则无',
     'F 初始密码（选填）：留空则使用系统默认密码',
     '',
@@ -78,7 +78,11 @@ export async function buildUserTemplateBuffer(limits: { maxRows: number; maxFile
 /** 解析用户导入工作簿（第 1 个 sheet），逐行校验。 */
 export async function parseUserWorkbook(
   buffer: Buffer,
-  opts: { departments: Map<string, string>; minPasswordLength: number },
+  opts: {
+    departments: Map<string, string>;
+    groups: Map<string, { id: string; name: string; role: Role }>;
+    minPasswordLength: number;
+  },
 ): Promise<UserPreviewResult> {
   const wb = new ExcelJS.Workbook();
   try {
@@ -102,19 +106,23 @@ export async function parseUserWorkbook(
     if (cells.every((c) => c === '')) continue;
     totalRows += 1;
 
-    const [username, name, roleRaw, department, email, password] = cells;
+    const [username, name, groupRaw, department, email, password] = cells;
     const rowErrors: RowIssue[] = [];
 
     if (!username) rowErrors.push({ row: r, column: '登录账号', value: username, reason: '登录账号不能为空' });
     if (!name) rowErrors.push({ row: r, column: '姓名', value: name, reason: '姓名不能为空' });
 
-    const role = ROLE_MAP[roleRaw.trim().toLowerCase()] ?? ROLE_MAP[roleRaw.trim()];
-    if (!role) {
-      rowErrors.push({ row: r, column: '角色', value: roleRaw, reason: `角色『${roleRaw}』不合法，仅支持 管理员/出题人/考生` });
+    let group = opts.groups.get(groupRaw);
+    if (!group) {
+      const legacyRole = LEGACY_ROLE_MAP[groupRaw.trim().toLowerCase()] ?? LEGACY_ROLE_MAP[groupRaw.trim()];
+      if (legacyRole) group = opts.groups.get(`role-group-${legacyRole}`);
+    }
+    if (!group) {
+      rowErrors.push({ row: r, column: '用户组', value: groupRaw, reason: `用户组『${groupRaw}』不存在，请先在系统中创建` });
     }
 
     let departmentId = '';
-    if (role === 'examinee') {
+    if (group?.role === 'examinee') {
       if (!department) {
         rowErrors.push({ row: r, column: '科室', value: department, reason: '考生必须填写科室' });
       } else {
@@ -154,7 +162,9 @@ export async function parseUserWorkbook(
       row: r,
       username,
       name,
-      role: role!,
+      groupName: group!.name,
+      groupId: group!.id,
+      role: group!.role,
       departmentName: department,
       departmentId,
       email,
