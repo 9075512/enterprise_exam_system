@@ -4,7 +4,7 @@
  * 分组是**纯展示层**结构：本文件只断言「可见菜单 → 分组 → 渲染结构」的映射，
  * 并锁死两条易被后续改动破坏的约定：
  *   1) 分组不改变菜单 key 集合（权限三重同步不破）；
- *   2) 普通单项组会平铺；学习中心保留“学习中心 → 在线练题”的二级结构。
+ *   2) 普通单项组会平铺；学习中心保留“学习中心 → 练题”的二级结构。
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -63,7 +63,7 @@ describe('getMenuGroups · 默认（未下发菜单权限）', () => {
     ]);
   });
 
-  it('examinee 同时看到在线练题与考生中心', () => {
+  it('examinee 同时看到练题与考生中心', () => {
     const groups = getMenuGroups('examinee');
     expect(groups.map((g) => g.key)).toEqual(['learning', 'examinee']);
     expect(groups[0].items.map((i) => i.key)).toEqual(['practice']);

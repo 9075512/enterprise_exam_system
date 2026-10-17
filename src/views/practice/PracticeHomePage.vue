@@ -90,7 +90,7 @@ function openBank(bank: PracticeBank): void {
 }
 
 function openTreeNode(node: PracticeBankTreeNode): void {
-  if (!node.isLeaf) return;
+  if (!node.isLeaf || node.questionCount <= 0) return;
   const bank = banks.value.find((item) => item.id === node.id);
   if (bank) openBank(bank);
 }
@@ -120,6 +120,7 @@ function goFavorites(): void {
 
 /** 开始今天的每日一练（作答页据 source=daily 走 /daily/session） */
 function goDaily(): void {
+  if (!dailyAvailable.value || daily.value?.completed) return;
   void router.push({
     name: 'practice-session',
     params: { bankId: 'daily' },

@@ -12,7 +12,7 @@
  * 因此菜单权限矩阵、路由 meta.menuKey、后端 requireRole 三重同步不受影响。
  *
  * 展示规则：普通分组仅 1 项时直接渲染为顶层菜单；“学习中心”固定保留二级结构，
- * 明确呈现“学习中心 → 在线练题”的产品入口。
+ * 明确呈现“学习中心 → 练题”的产品入口。
  */
 import type { Component } from 'vue';
 import {
@@ -99,7 +99,7 @@ const ALL_MENUS: MenuItem[] = [
   { key: 'home-config', text: '首页配置', path: '/admin/home-config', icon: HomeFilled, roles: ['admin'], group: 'exam-ops' },
   { key: 'practice-settings', text: '练题端设置', path: '/admin/practice-settings', icon: Notebook, roles: ['admin'], group: 'practice-ops' },
   { key: 'practice-monitor', text: '练题监控', path: '/admin/practice-monitor', icon: DataBoard, roles: ['admin'], group: 'practice-ops' },
-  { key: 'practice', text: '在线练题', path: '/exam/practice', icon: Notebook, roles: ['admin', 'author', 'examinee'], group: 'learning' },
+  { key: 'practice', text: '练题', path: '/exam/practice', icon: Notebook, roles: ['admin', 'author', 'examinee'], group: 'learning' },
   { key: 'departments', text: '科室管理', path: '/admin/departments', icon: OfficeBuilding, roles: ['admin'], group: 'system' },
   { key: 'users', text: '用户管理', path: '/admin/users', icon: User, roles: ['admin'], group: 'system' },
   { key: 'org-extensions', text: '组织扩展', path: '/admin/org-extensions', icon: OfficeBuilding, roles: ['admin'], group: 'system' },

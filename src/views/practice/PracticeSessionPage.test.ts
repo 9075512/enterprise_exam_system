@@ -5,7 +5,7 @@ import QuestionCard from '@/views/exam/components/QuestionCard.vue';
 import PracticeLoading from '@/components/common/PracticeLoading.vue';
 
 const mocks = vi.hoisted(() => ({
-  route: { meta: {} as Record<string, unknown>, params: { bankId: 'bank-1' }, query: {} as Record<string, string> },
+  route: { name: 'practice-session', meta: {} as Record<string, unknown>, params: { bankId: 'bank-1' }, query: {} as Record<string, string> },
   api: { createSession: vi.fn(), dailySession: vi.fn(), favoritesReans: vi.fn(), wrongReans: vi.fn(),
     questionsByIds: vi.fn(), favoriteIds: vi.fn(), daily: vi.fn(), check: vi.fn(), saveProgress: vi.fn() },
 }));
@@ -31,7 +31,7 @@ async function answer() {
 }
 beforeEach(() => {
   Object.values(mocks.api).forEach(fn => fn.mockReset());
-  mocks.route.params = { bankId: 'bank-1' }; mocks.route.query = {}; mocks.route.meta = {};
+  mocks.route.name = 'practice-session'; mocks.route.params = { bankId: 'bank-1' }; mocks.route.query = {}; mocks.route.meta = {};
   const session = { sessionToken: 'session', questionIds: ['q1'], total: 1 };
   for (const key of ['createSession', 'dailySession', 'favoritesReans', 'wrongReans'] as const) mocks.api[key].mockResolvedValue(session);
   mocks.api.questionsByIds.mockResolvedValue([{ id: 'q1', bankId: 'bank-1', type: 'judge', stem: '题目', options: ['正确', '错误'], subject: '' }]);
@@ -45,11 +45,12 @@ afterEach(() => wrapper?.unmount());
 describe('练题来源与异步反馈', () => {
   it.each(['daily', 'favorite', 'wrong'])('%s 会话判分后不向占位题库保存进度', async source => {
     mocks.route.params.bankId = source;
-    if (source === 'wrong') mocks.route.meta.reans = true;
+    if (source === 'wrong') mocks.route.name = 'practice-reans';
     else mocks.route.query.source = source;
     mountPage(); await flushPromises(); await answer();
     expect(mocks.api.check).toHaveBeenCalledWith({ sessionToken: 'session', questionId: 'q1', answer: [0] });
     expect(mocks.api.saveProgress).not.toHaveBeenCalled();
+    if (source === 'wrong') expect(mocks.api.wrongReans).toHaveBeenCalledWith(undefined);
     expect(wrapper.find('.session__next').exists()).toBe(true);
   });
   it('普通题库练习仍保存进度，后台失败不清除判分结果', async () => {
