@@ -7,11 +7,9 @@ expected_checksum="${2:?缺少发布包校验值}"
 deploy_root="${3:?缺少部署根目录}"
 release_id="${4:?缺少版本号}"
 api_service="${5:?缺少完整后端服务名}"
-practice_service="${6:?缺少练题后端服务名}"
-api_health_url="${7:?缺少完整后端健康检查地址}"
-practice_health_url="${8:?缺少练题后端健康检查地址}"
-keep_releases="${9:-5}"
-run_db_migrations="${10:-false}"
+api_health_url="${6:?缺少完整后端健康检查地址}"
+keep_releases="${7:-5}"
+run_db_migrations="${8:-false}"
 
 if [[ "$deploy_root" != /* || "$deploy_root" == "/" ]]; then
   echo "拒绝不安全的部署根目录：$deploy_root" >&2
@@ -75,7 +73,6 @@ restart_one() {
 
 restart_services() {
   restart_one "$api_service"
-  restart_one "$practice_service"
 }
 
 healthcheck() {
@@ -96,15 +93,10 @@ if [[ ! -s "$shared_dir/server.env" ]]; then
   echo "缺少 $shared_dir/server.env，请先按 deploy/server.env.example 配置" >&2
   exit 3
 fi
-if [[ "$practice_service" != '-' && ! -s "$shared_dir/practice.env" ]]; then
-  echo "缺少 $shared_dir/practice.env，请先按 deploy/practice.env.example 配置" >&2
-  exit 3
-fi
 if [[ -d "$release_dir" && -L "$current_link" && "$(readlink -f "$current_link")" == "$release_dir" ]]; then
   echo "版本已处于活动状态，重新执行服务探活：$release_id"
   restart_services
   healthcheck "$api_health_url"
-  healthcheck "$practice_health_url"
   exit 0
 fi
 if [[ -e "$release_dir" ]]; then
@@ -122,7 +114,6 @@ mkdir "$release_dir"
 created_release=true
 tar -xzf "$archive" -C "$release_dir"
 test -f "$release_dir/web/index.html"
-test -f "$release_dir/practice/index.html"
 test -f "$release_dir/server/dist/index.js"
 test -f "$release_dir/server/package-lock.json"
 
@@ -144,7 +135,6 @@ switched=true
 
 restart_services
 healthcheck "$api_health_url"
-healthcheck "$practice_health_url"
 
 switched=false
 created_release=false

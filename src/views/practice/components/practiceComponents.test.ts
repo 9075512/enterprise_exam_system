@@ -21,10 +21,6 @@ function buildRouter() {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/practice/home', component: { template: '<div />' } },
-      { path: '/practice/wrong-book', component: { template: '<div />' } },
-      { path: '/practice/report', component: { template: '<div />' } },
-      { path: '/practice/profile', component: { template: '<div />' } },
       { path: '/exam/practice', component: { template: '<div />' } },
       { path: '/exam/practice/wrong-book', component: { template: '<div />' } },
       { path: '/exam/practice/report', component: { template: '<div />' } },
@@ -33,7 +29,7 @@ function buildRouter() {
   });
 }
 
-async function mountTabBar(path = '/practice/home', pinia = createPinia()) {
+async function mountTabBar(path = '/exam/practice', pinia = createPinia()) {
   setActivePinia(pinia);
   const router = buildRouter();
   await router.push(path);
@@ -60,13 +56,13 @@ describe('PracticeTabBar', () => {
     setActivePinia(pinia);
     const config = usePracticeConfigStore();
     config.config = { ...config.config, wrongBookEnabled: false, reportEnabled: false };
-    const { wrapper } = await mountTabBar('/practice/home', pinia);
+    const { wrapper } = await mountTabBar('/exam/practice', pinia);
     const texts = wrapper.findAll('.tabbar__item .tabbar__text').map((n) => n.text());
     expect(texts).toEqual(['练题']);
   });
 
   it('当前路由对应 Tab 标记为激活并设 aria-current="page"', async () => {
-    const { wrapper } = await mountTabBar('/practice/report');
+    const { wrapper } = await mountTabBar('/exam/practice/report');
     const active = wrapper.findAll('.tabbar__item').filter((n) => n.classes().includes('is-active'));
     expect(active).toHaveLength(1);
     expect(active[0].text()).toContain('报告');
@@ -74,18 +70,18 @@ describe('PracticeTabBar', () => {
   });
 
   it('点击非当前 Tab 触发路由跳转，点击当前 Tab 不跳转', async () => {
-    const { wrapper, router } = await mountTabBar('/practice/home');
+    const { wrapper, router } = await mountTabBar('/exam/practice');
     const push = vi.spyOn(router, 'push');
 
     await wrapper.findAll('.tabbar__item')[1].trigger('click');
-    expect(push).toHaveBeenCalledWith('/practice/wrong-book');
+    expect(push).toHaveBeenCalledWith('/exam/practice/wrong-book');
 
     push.mockClear();
     await wrapper.findAll('.tabbar__item')[0].trigger('click');
     expect(push).not.toHaveBeenCalled();
   });
 
-  it('合并到考试端后切换为 /exam/practice 路径并标记桌面集成样式', async () => {
+  it('使用主系统 /exam/practice 路径并标记集成样式', async () => {
     const { wrapper, router } = await mountTabBar('/exam/practice');
     expect(wrapper.find('.tabbar').classes()).toContain('is-integrated');
     const push = vi.spyOn(router, 'push');

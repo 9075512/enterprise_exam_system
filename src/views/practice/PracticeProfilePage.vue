@@ -3,11 +3,11 @@
  * 练题端 · 我的页（底部导航第 3 个 Tab）。
  *
  * - 展示当前练题账号信息（复用内网账号）与练题统计（学习报告总览，与报告页同口径）；
- * - 提供退出登录（练题登录态，不影响内网登录）；
+ * - 提供退出登录（与主系统共用登录态）；
  * - 仅移动端；视觉与其余练题页一致（冷静蓝 · 商务风）。
  */
 import { computed, onMounted, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRouter } from 'vue-router';
 import { ElMessageBox } from 'element-plus';
 import { SwitchButton, TrendCharts } from '@element-plus/icons-vue';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
@@ -18,8 +18,6 @@ import { usePracticeConfigStore } from '@/stores/practiceConfig';
 import type { Role } from '@/types';
 
 const router = useRouter();
-const route = useRoute();
-const integrated = computed(() => route.path.startsWith('/exam/practice'));
 const practiceAuth = usePracticeAuthStore();
 const configStore = usePracticeConfigStore();
 /** 练题端公开配置（页面入口开关，v1.9⑤） */
@@ -78,10 +76,10 @@ function goReport(): void {
   void router.push({ name: 'practice-report' });
 }
 
-/** 退出练题登录（二次确认；不影响内网登录态） */
+/** 退出当前系统账号（二次确认） */
 async function handleLogout(): Promise<void> {
   try {
-    await ElMessageBox.confirm(integrated.value ? '确认退出当前系统账号？' : '确认退出当前练题账号？', '退出登录', {
+    await ElMessageBox.confirm('确认退出当前系统账号？', '退出登录', {
       confirmButtonText: '退出',
       cancelButtonText: '取消',
       type: 'warning',
@@ -91,7 +89,7 @@ async function handleLogout(): Promise<void> {
   }
   practiceAuth.logout();
   configStore.reset();
-  void router.replace(integrated.value ? '/login' : '/practice');
+  void router.replace('/login');
 }
 
 onMounted(loadStats);
@@ -378,7 +376,7 @@ onMounted(loadStats);
     align-items: center;
     height: 19px;
     padding: 0 7px;
-    border-radius: 99px;
+    border-radius: 99px; // radius-exception: status badge pill
     background: $practice-soft;
     font-size: 10.5px;
     font-weight: 620;

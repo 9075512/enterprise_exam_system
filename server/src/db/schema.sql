@@ -622,7 +622,7 @@ CREATE TABLE IF NOT EXISTS banners (
 
 -- ============================================================
 -- v2.0③ 内容触达（已读回执 / 轮播点击）
--- 练题实例需写入本两表 → deploy/db-grants-practice.sql 已追加 SELECT, INSERT 授权。
+-- 在线练题与主系统共用数据库账号，本两表由统一后端写入。
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS announcement_reads (
@@ -653,7 +653,7 @@ CREATE TABLE IF NOT EXISTS banner_clicks (
 -- v2.0⑥ 考生首页个性化（科室级可配置）
 -- department_id 取科室 id；哨兵值 '*' 表示「全局默认」（未单独配置的科室回退到它）。
 -- 不加外键：'*' 不是真实科室，且科室删除后配置保留以便恢复同名科室。
--- 考试域专用表，公网练题实例不访问 → 无需追加 db-grants-practice.sql。
+-- 考试域专用表；在线练题模块不访问。
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS home_dept_configs (

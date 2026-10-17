@@ -22,7 +22,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
-      '@practice': fileURLToPath(new URL('./practice-web/src', import.meta.url)),
     },
   },
   css: {

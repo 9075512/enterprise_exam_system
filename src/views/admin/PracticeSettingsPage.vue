@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 练题端设置（v1.5，独立菜单；原「系统设置 → 公网练题」拆出）。
+ * 练题模块设置（v1.5，独立菜单；原「系统设置 → 公网练题」拆出）。
  * 数据存于独立单行表 `practice_settings`，与 system_settings 分离，独立保存。
  *
  * 结构（v1.8+ 重排）：
@@ -71,17 +71,13 @@ const noOpenBank = computed<boolean>(() => !banksLoading.value && banks.value.le
 
 /* --------------- v3.2 设计稿区块的派生状态（不新增接口，复用页面已有状态） --------------- */
 
-/** 练题端是否已开放（= 至少一个题库对外开放；「开放策略」卡唯一可推导的状态） */
+/** 练题模块是否已开放（= 至少一个题库对外开放；「开放策略」卡唯一可推导的状态） */
 const practiceOpen = computed<boolean>(() => openBankCount.value > 0);
 /** 题库列表已加载但为空 → 依赖题库的区块（开放策略 / 关闭态预览）显示空态 */
 const noBanks = computed<boolean>(() => !banksLoading.value && banks.value.length === 0);
-/**
- * 练题端地址（说明性）：练题端是独立公网实例（见 deploy/nginx-practice.conf，
- * 静态资源 publicPath = /practice/），管理端没有承载该公网域名的配置项，
- * 故按当前访问域名拼出 `/practice/` 仅作提示，真实公网域名以部署为准。
- */
+/** 练题入口与主系统同源，共用登录态。 */
 const practiceUrl = computed<string>(() =>
-  typeof window === 'undefined' ? '' : `${window.location.origin}/practice/`,
+  typeof window === 'undefined' ? '' : `${window.location.origin}/exam/practice`,
 );
 
 /** 复制练题端地址（纯前端剪贴板，未新增后端接口） */
@@ -208,7 +204,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
   <div class="practice-settings-page">
     <PageHeader
       title="练题端设置"
-      description="仅作用于公网练题端（题库练习、每日一练、收藏夹），不影响内网考试功能"
+      description="仅作用于系统内置练题模块（题库练习、每日一练、收藏夹），不影响考试功能"
     >
       <template #actions>
         <el-button type="primary" :loading="practiceSaving" @click="handleSavePractice">
@@ -640,15 +636,15 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
                 <el-button @click="copyPracticeUrl">复制</el-button>
               </div>
               <p class="practice-settings-page__hint">
-                练题端为独立公网实例，实际公网域名以部署为准（见 deploy/nginx-practice.conf）。
+                练题模块与考试系统同域部署，共用账号和登录状态。
               </p>
             </div>
 
             <div class="practice-settings-page__item">
-              <label class="practice-settings-page__label">免登录时长</label>
+              <label class="practice-settings-page__label">登录会话时长</label>
               <div class="practice-settings-page__control">
                 <span class="practice-settings-page__row-ind">
-                  由练题端服务端会话配置决定，本页不提供调整
+                  由主系统账号会话配置决定，本页不提供调整
                 </span>
               </div>
             </div>
@@ -668,8 +664,8 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
               type="info"
               show-icon
               :closable="false"
-              title="练题端为独立公网实例，不注册考试域接口"
-              description="公网仅放行 /api/practice/** 与 /practice 静态资源；其可访问的数据表清单维护在 deploy/db-grants-practice.sql。"
+              title="练题功能已并入主系统"
+              description="入口为 /exam/practice，与考试端共用前端、后端服务和账号登录态。"
             />
           </template>
 

@@ -31,16 +31,15 @@ Vue 3 (Vite, Element Plus, Pinia, Vue Router)  ──REST/JSON──▶  Express
 │  ├─ styles/                # SCSS 变量与全局样式、Element Plus 主题覆盖
 │  ├─ types/                 # 全量 TS 类型（单一类型源）
 │  ├─ utils/                 # 日期/格式化/考试状态/科室树等纯函数
-│  └─ views/                 # 页面（admin / author / exam）
+│  └─ views/                 # 页面（admin / author / exam / practice）
 ├─ server/                   # 后端（Express + TS + MySQL）
 │  ├─ src/modules/           # auth/banks/questions/papers/exams/records/reports/audit/…（router·service·repo·schema）
 │  ├─ src/db/                # init.ts（建表 + 幂等迁移 + 种子）、seed.ts
 │  ├─ src/middleware/        # auth / role / validate / error
 │  ├─ src/utils/             # 响应、错误、分页、Excel（exceljs）、PDF（pdfkit）、鉴权、JWT 等
 │  └─ src/test/              # vitest + supertest（另含 modules/、utils/ 内联用例）
-├─ practice-web/             # 公网练题端（独立前端工程）
 ├─ docs/                     # 增量 PRD 与架构设计文档
-├─ deploy/                   # 部署脚本（Nginx / DB 授权）
+├─ deploy/                   # 单体部署脚本（Nginx / systemd）
 ├─ package.json              # 前端 + 编排脚本
 └─ README.md
 ```
@@ -109,9 +108,6 @@ npm --prefix server run test        # vitest + supertest
 npm --prefix server run build       # 编译到 server/dist
 npm --prefix server run start       # 运行编译产物
 
-# 练题端
-npm --prefix practice-web run typecheck   # vue-tsc --noEmit
-npm --prefix practice-web run test        # vitest（配置默认值 / 登录 store / 组件 / 样式护栏）
 ```
 
 ## 默认账号
@@ -181,7 +177,7 @@ npm --prefix practice-web run test        # vitest（配置默认值 / 登录 st
 ### 系统设置
 - **系统设置（v1.9③ 重排）**：7 类（考试默认值 / 作答与防作弊 / 阅卷与复核 / 账号与安全 / 通知与模板 / 数据与归档 / 网站与品牌），每类有说明文案、组内再分组；补齐 3 个「后端有、前端无入口」的设置项（审计保留天数、自动归档开关与时点）。
 
-### 练题端（公网）
+### 在线练题（主系统内置）
 - **练题可见性（v1.9①）**：题库必须同时为有效叶子、`allow_practice=1` 且当前用户命中科目浏览权限；`POST /api/banks/practice/batch` 批量开/关（仅 admin，审计留痕），练题首页按同一科目树展示可见题库；无题可抽不再返回空会话（→ 1014）。
 - **练题设置（v1.9⑤）**：11 项配置 —— 默认练题方式、单次题量上下限、作答后是否展示答案/解析、每日一练重置时点与最少题量、错题本连续答对自动移除阈值、学习报告/错题本/收藏夹三个页面入口开关；`GET /api/practice/config` 供练题端读取，功能关闭时接口统一返回 1017。
 - **打卡与激励（v2.0⑤）**：**零迁移** —— 连续打卡天数与 9 枚成就徽章（初次练题 / 坚持三天 / 一周不辍 / 月度恒心 / 百题斩 / 五百题达人 / 精准射手 / 每日一练达人 / 错题清零）全部由既有 `practice_answers` / `practice_daily_tasks` / `practice_wrong_book` 派生；**今日未练从昨日回溯**（不因「今天还没练」归零）、断链后保留历史最长纪录；`GET /api/practice/achievements` 与 `achievementEnabled` 开关（关闭 → 练题端隐藏入口，接口 1017）。
@@ -246,6 +242,13 @@ npm --prefix practice-web run test        # vitest（配置默认值 / 登录 st
 - 保留历史设计稿、交付截图、架构文档、部署 SQL、旧 React 备份、工作区记录、环境配置和上传附件；这些内容有参考、部署或恢复用途。
 - 验证：管理/考试前端 234 项、练题前端 33 项、后端 545 项测试全部通过；三个工程类型检查和构建通过。前端测试使用现有 Node 24 运行。
 - 清理时发现题库复制弹窗缺少入口，保留了业务功能代码；后续优化已补回卡片上的「复制题库」操作。
+
+## 练题端合并记录（2026-10-17）
+
+- 删除独立 `practice-web` 工程；仍在使用的练题页面与组件迁入 `src/views/practice/`。
+- 在线练题统一从 `/exam/practice` 进入，与管理/考试前端共用构建产物、账号和登录态。
+- CI/CD 改为前端与后端双产物，移除独立练题静态站点、Nginx、systemd、环境文件和数据库授权脚本。
+- 生产环境统一后端必须设置 `ENABLE_PRACTICE=true`。
 
 ## 项目优化记录（2026-10-15）
 
