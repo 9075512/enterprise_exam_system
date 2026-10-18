@@ -24,6 +24,10 @@ import type { AuditAction, AuditLogDto, AuditTargetType, Page } from '../../type
 
 /** 审计动作 → 中文文案（前端展示层另有一份镜像，见 src/constants）。 */
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
+  'role.create': '新增角色',
+  'role.update': '编辑角色',
+  'role.delete': '删除角色',
+  'role.members': '调整角色成员',
   'user.create': '新建用户',
   'user.update': '编辑用户',
   'user.delete': '删除用户',
@@ -63,6 +67,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
 
 /** 审计目标类型 → 中文文案。 */
 export const AUDIT_TARGET_TYPE_LABELS: Record<AuditTargetType, string> = {
+  role: '角色',
   user: '用户',
   exam: '考试',
   bank: '题库',

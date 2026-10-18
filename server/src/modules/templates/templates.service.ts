@@ -1,8 +1,9 @@
+import * as rolesService from '../roles/roles.service.js';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
-import { query } from '../../db/pool.js';
+import { query, withTransaction } from '../../db/pool.js';
 import type { AudienceTemplateDto, AudienceTemplateRulesDto, PaperTemplateDto } from '../../types/domain.js';
 import { fromDbDateSafe, nowDb } from '../../utils/datetime.js';
-import { notFound } from '../../utils/errors.js';
+import { badRequest, notFound } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
 
 interface TemplateRow extends RowDataPacket {
@@ -63,21 +64,28 @@ export async function listAudienceTemplates(user: { id: string; role: string }):
 }
 
 export async function saveAudienceTemplate(id: string | null, input: { name: string; description?: string; rules: AudienceTemplateRulesDto }, user: { id: string; role: string }): Promise<AudienceTemplateDto> {
-  const now = nowDb();
-  if (id) {
-    const result = await query<ResultSetHeader>(
-      `UPDATE audience_templates SET name = ?, description = ?, rules = ?, updated_at = ?
-       WHERE id = ? AND (? = 'admin' OR created_by = ?)`,
-      [input.name.trim(), input.description?.trim() ?? '', JSON.stringify(input.rules), now, id, user.role, user.id],
-    );
-    if (!result.affectedRows) throw notFound('抽考模板不存在');
-  } else {
-    id = genId('atpl-');
-    await query<ResultSetHeader>(
-      `INSERT INTO audience_templates (id, name, description, rules, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [id, input.name.trim(), input.description?.trim() ?? '', JSON.stringify(input.rules), user.id, now, now],
-    );
-  }
+  await withTransaction(async conn => {
+    await rolesService.lockRoles(conn);
+    for (const roleId of input.rules.roleIds) {
+      const role = await rolesService.getDefinition(roleId, conn);
+      if (role.baseRole !== 'examinee') throw badRequest('抽考模板仅支持考生身份角色');
+    }
+    const now = nowDb();
+    if (id) {
+      const [result] = await conn.query<ResultSetHeader>(
+        `UPDATE audience_templates SET name = ?, description = ?, rules = ?, updated_at = ?
+         WHERE id = ? AND (? = 'admin' OR created_by = ?)`,
+        [input.name.trim(), input.description?.trim() ?? '', JSON.stringify(input.rules), now, id, user.role, user.id],
+      );
+      if (!result.affectedRows) throw notFound('抽考模板不存在');
+    } else {
+      id = genId('atpl-');
+      await conn.query<ResultSetHeader>(
+        `INSERT INTO audience_templates (id, name, description, rules, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [id, input.name.trim(), input.description?.trim() ?? '', JSON.stringify(input.rules), user.id, now, now],
+      );
+    }
+  });
   return (await listAudienceTemplates(user)).find((item) => item.id === id)!;
 }
 

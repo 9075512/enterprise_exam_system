@@ -1,17 +1,16 @@
+import { allowedMenuKeys, lockRoles } from '../roles/roles.service.js';
+import type { Role } from '../../types/domain.js';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { query, withTransaction } from '../../db/pool.js';
 import { badRequest, conflict, notFound } from '../../utils/errors.js';
 import { genId } from '../../utils/id.js';
 import { fromDbDateSafe, nowDb } from '../../utils/datetime.js';
 import { ADMIN_REQUIRED_KEYS, ALL_MENU_KEYS } from '../permissions/menuCatalog.js';
-import * as sessions from '../auth/sessions.service.js';
 import type {
   MenuOverrideDto,
   PositionDto,
-  Role,
   SubjectDto,
   SubjectGrantDto,
-  UserGroupDto,
 } from '../../types/domain.js';
 
 interface SubjectRow extends RowDataPacket {
@@ -132,83 +131,6 @@ export async function removePosition(id: string): Promise<void> {
   if (!result.affectedRows) throw notFound('岗位不存在');
 }
 
-interface GroupRow extends OrgRow { role: Role }
-
-export async function listGroups(): Promise<UserGroupDto[]> {
-  const rows = await query<GroupRow[]>(`SELECT id, name, role, description, created_at, updated_at FROM user_groups ORDER BY role, name`);
-  const members = await query<Array<RowDataPacket & { group_id: string; user_id: string }>>(`SELECT group_id, user_id FROM user_group_members ORDER BY created_at`);
-  const map = new Map<string, string[]>();
-  for (const m of members) { const ids = map.get(m.group_id) ?? []; ids.push(m.user_id); map.set(m.group_id, ids); }
-  return rows.map((r) => ({ ...orgDto(r), role: r.role, userIds: map.get(r.id) ?? [] }));
-}
-export async function saveGroup(id: string | null, input: { name: string; role: Role; description?: string; userIds?: string[] }): Promise<UserGroupDto> {
-  const name = input.name.trim(); if (!name) throw badRequest('用户组名称不能为空');
-  const defaultRole = id?.match(/^role-group-(admin|author|examinee)$/)?.[1] as Role | undefined;
-  if (defaultRole && input.role !== defaultRole) throw conflict('默认角色组的系统角色不可修改');
-  const defaultNames: Record<Role, string> = { admin: '管理员组', author: '出题人组', examinee: '考生组' };
-  if (defaultRole && name !== defaultNames[defaultRole]) throw conflict('默认角色组的名称不可修改');
-  const dup = await query<Array<RowDataPacket & { id: string }>>(`SELECT id FROM user_groups WHERE name = ? LIMIT 1`, [name]);
-  if (dup[0] && dup[0].id !== id) throw conflict('用户组名称已存在');
-  const now = nowDb(); const userIds = [...new Set(input.userIds ?? [])];
-  let roleChangedUserIds: string[] = [];
-  if (userIds.length) {
-    const placeholders = userIds.map(() => '?').join(',');
-    const users = await query<Array<RowDataPacket & { id: string; role: Role; department_id: string | null }>>(
-      `SELECT id, role, department_id FROM users WHERE id IN (${placeholders})`,
-      userIds,
-    );
-    if (users.length !== userIds.length) throw badRequest('用户组成员中包含不存在的用户');
-    if (input.role === 'examinee' && users.some((user) => !user.department_id)) {
-      throw badRequest('考生角色组的成员必须先归属科室');
-    }
-    roleChangedUserIds = users.filter((user) => user.role !== input.role).map((user) => user.id);
-  }
-  if (id) {
-    const current = await query<Array<RowDataPacket & { user_id: string }>>(`SELECT user_id FROM user_group_members WHERE group_id = ?`, [id]);
-    const removed = current.map((row) => row.user_id).filter((userId) => !userIds.includes(userId));
-    if (removed.length) {
-      const stranded = await query<Array<RowDataPacket & { user_id: string }>>(
-        `SELECT removed.user_id FROM (SELECT ? AS user_id ${removed.slice(1).map(() => 'UNION ALL SELECT ?').join(' ')}) removed
-         WHERE NOT EXISTS (SELECT 1 FROM user_group_members gm WHERE gm.user_id = removed.user_id AND gm.group_id <> ?) LIMIT 1`,
-        [...removed, id],
-      );
-      if (stranded[0]) throw conflict('不能将成员移出其唯一的用户组，请先将其加入同角色的其他组');
-    }
-  }
-  await withTransaction(async (conn) => {
-    if (id) {
-      const [result] = await conn.query<ResultSetHeader>(`UPDATE user_groups SET name = ?, role = ?, description = ?, updated_at = ? WHERE id = ?`, [name, input.role, input.description?.trim() ?? '', now, id]);
-      if (!result.affectedRows) throw notFound('用户组不存在');
-    } else {
-      id = genId('group-');
-      await conn.query(`INSERT INTO user_groups (id, name, role, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`, [id, name, input.role, input.description?.trim() ?? '', now, now]);
-    }
-    await conn.query(`DELETE FROM user_group_members WHERE group_id = ?`, [id]);
-    for (const userId of userIds) {
-      // 调入新角色组时，自动移出其他角色的组；同角色下仍可同时属于多个组。
-      await conn.query(
-        `DELETE gm FROM user_group_members gm JOIN user_groups g ON g.id = gm.group_id
-          WHERE gm.user_id = ? AND g.role <> ?`,
-        [userId, input.role],
-      );
-      await conn.query(`INSERT INTO user_group_members (group_id, user_id, created_at) VALUES (?, ?, ?)`, [id, userId, now]);
-    }
-    if (userIds.length) {
-      await conn.query(`UPDATE users SET role = ? WHERE id IN (${userIds.map(() => '?').join(',')})`, [input.role, ...userIds]);
-    }
-  });
-  // JWT 中携带角色；角色变更后必须撤销旧会话，避免旧权限继续生效。
-  await Promise.all(roleChangedUserIds.map((userId) => sessions.revokeAll(userId)));
-  return (await listGroups()).find((g) => g.id === id)!;
-}
-export async function removeGroup(id: string): Promise<void> {
-  if (/^role-group-(admin|author|examinee)$/.test(id)) throw conflict('默认角色组不可删除');
-  const members = await query<Array<RowDataPacket & { c: number }>>(`SELECT COUNT(*) AS c FROM user_group_members WHERE group_id = ?`, [id]);
-  if (Number(members[0]?.c) > 0) throw conflict('用户组尚有成员，请先将成员调整到其他同角色用户组');
-  const result = await query<ResultSetHeader>(`DELETE FROM user_groups WHERE id = ?`, [id]);
-  if (!result.affectedRows) throw notFound('用户组不存在');
-}
-
 interface GrantRow extends RowDataPacket { id: string; subject_id: string; principal_type: SubjectGrantDto['principalType']; principal_id: string; effect: SubjectGrantDto['effect']; can_view: number; can_edit: number }
 export async function listSubjectGrants(): Promise<SubjectGrantDto[]> {
   const rows = await query<GrantRow[]>(`SELECT id, subject_id, principal_type, principal_id, effect, can_view, can_edit FROM subject_grants ORDER BY subject_id, principal_type, principal_id`);
@@ -236,49 +158,22 @@ export async function listMenuOverrides(userId?: string): Promise<MenuOverrideDt
   return rows.map((r) => ({ userId: r.user_id, menuKey: r.menu_key, effect: r.effect }));
 }
 export async function replaceMenuOverrides(userId: string, overrides: Array<{ menuKey: string; effect: 'allow' | 'deny' }>): Promise<MenuOverrideDto[]> {
-  const user = await query<Array<RowDataPacket & { id: string; role: string }>>(`SELECT id, role FROM users WHERE id = ? LIMIT 1`, [userId]);
-  if (!user[0]) throw notFound('用户不存在');
   const unknown = overrides.find((item) => !ALL_MENU_KEYS.includes(item.menuKey));
   if (unknown) throw badRequest(`无效的菜单权限项：${unknown.menuKey}`);
   const duplicate = overrides.find((item, index) => overrides.findIndex((other) => other.menuKey === item.menuKey) !== index);
   if (duplicate) throw badRequest(`菜单权限项重复：${duplicate.menuKey}`);
-  if (user[0].role === 'admin') {
-    const requiredDeny = overrides.find((item) => item.effect === 'deny' && ADMIN_REQUIRED_KEYS.includes(item.menuKey));
-    if (requiredDeny) throw badRequest(`管理员必备菜单不可拒绝：${requiredDeny.menuKey}`);
-  }
   const now = nowDb();
   await withTransaction(async (conn) => {
+    await lockRoles(conn);
+    const [user] = await conn.query<Array<RowDataPacket & { role: Role }>>('SELECT role FROM users WHERE id = ? LIMIT 1', [userId]);
+    if (!user[0]) throw notFound('用户不存在');
+    const allowed = allowedMenuKeys(user[0].role);
+    if (overrides.some(item => !allowed.includes(item.menuKey))) throw badRequest('包含基础身份不能访问的菜单');
+    if (user[0].role === 'admin' && overrides.some(item => item.effect === 'deny' && ADMIN_REQUIRED_KEYS.includes(item.menuKey))) {
+      throw badRequest('管理员必备菜单不可拒绝');
+    }
     await conn.query(`DELETE FROM menu_overrides WHERE user_id = ?`, [userId]);
     for (const item of overrides) await conn.query(`INSERT INTO menu_overrides (user_id, menu_key, effect, updated_at) VALUES (?, ?, ?, ?)`, [userId, item.menuKey, item.effect, now]);
   });
   return listMenuOverrides(userId);
-}
-
-/** 解析用户对科目的有效权限：近祖先优先，个人 deny 最优先。 */
-export async function canAccessSubject(user: { id: string; role: string }, subjectId: string, action: 'view' | 'edit'): Promise<boolean> {
-  if (user.role === 'admin') return true;
-  const subjects = await query<Array<RowDataPacket & { id: string; parent_id: string | null }>>(`SELECT id, parent_id FROM subjects`);
-  const byId = new Map(subjects.map((s) => [s.id, s.parent_id]));
-  const lineage: string[] = []; let current: string | null = subjectId; const seen = new Set<string>();
-  while (current && byId.has(current) && !seen.has(current)) { seen.add(current); lineage.push(current); current = byId.get(current) ?? null; }
-  if (!lineage.length) return false;
-  const groups = await query<Array<RowDataPacket & { group_id: string }>>(`SELECT group_id FROM user_group_members WHERE user_id = ?`, [user.id]);
-  const position = await query<Array<RowDataPacket & { position_id: string | null }>>(`SELECT position_id FROM users WHERE id = ?`, [user.id]);
-  const principals: Array<[string, string]> = [['role', user.role], ['user', user.id], ...groups.map((g) => ['group', g.group_id] as [string, string])];
-  if (position[0]?.position_id) principals.push(['position', position[0].position_id]);
-  const grants = await query<GrantRow[]>(
-    `SELECT id, subject_id, principal_type, principal_id, effect, can_view, can_edit FROM subject_grants WHERE subject_id IN (${lineage.map(() => '?').join(',')})`, lineage,
-  );
-  const applies = (grant: GrantRow) => action === 'view' ? Boolean(grant.can_view) : Boolean(grant.can_edit);
-  // 个人拒绝不被角色、用户组或岗位允许覆盖；未勾选当前动作的拒绝不影响该动作。
-  if (grants.some((g) => g.principal_type === 'user' && g.principal_id === user.id && g.effect === 'deny' && applies(g))) return false;
-  for (const sid of lineage) {
-    const level = grants.filter((g) => g.subject_id === sid && applies(g) && principals.some(([t, id]) => t === g.principal_type && id === g.principal_id));
-    const userAllow = level.find((g) => g.principal_type === 'user' && g.principal_id === user.id && g.effect === 'allow');
-    if (userAllow) return true;
-    if (level.some((g) => g.effect === 'deny')) return false;
-    const allow = level.find((g) => g.effect === 'allow');
-    if (allow) return true;
-  }
-  return false;
 }

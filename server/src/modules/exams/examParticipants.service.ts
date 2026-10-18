@@ -34,7 +34,7 @@ async function loadTemplate(templateId: string | null | undefined, exec?: SqlExe
   const rows = await runQuery<Array<RowDataPacket & { rules: unknown }>>(exec, `SELECT rules FROM audience_templates WHERE id = ? LIMIT 1`, [templateId]);
   if (!rows[0]) throw badRequest('抽考模板不存在');
   return parseJsonColumn<AudienceTemplateRulesDto>(rows[0].rules, {
-    departmentIds: [], groupIds: [], positionIds: [], includeUserIds: [], excludeUserIds: [], includeSubDepartments: true, randomCount: null,
+    departmentIds: [], roleIds: [], positionIds: [], includeUserIds: [], excludeUserIds: [], includeSubDepartments: true, randomCount: null,
   });
 }
 
@@ -59,11 +59,11 @@ async function resolveUsers(examId: string, input: ExamAudienceInput, exec?: Sql
     const rows = await runQuery<Array<RowDataPacket & { id: string }>>(exec, `SELECT id FROM users WHERE role = 'examinee' AND status = 'active' AND department_id IN (${placeholders})`, expanded);
     for (const row of rows) selected.set(row.id, input.audienceTemplateId ? 'template' : 'department');
   }
-  if (template?.groupIds?.length) {
-    const placeholders = template.groupIds.map(() => '?').join(',');
+  if (template?.roleIds?.length) {
+    const placeholders = template.roleIds.map(() => '?').join(',');
     const rows = await runQuery<Array<RowDataPacket & { id: string }>>(exec,
-      `SELECT DISTINCT u.id FROM users u JOIN user_group_members gm ON gm.user_id = u.id
-       WHERE u.role = 'examinee' AND u.status = 'active' AND gm.group_id IN (${placeholders})`, template.groupIds);
+      `SELECT DISTINCT u.id FROM users u
+       WHERE u.role = 'examinee' AND u.status = 'active' AND u.role_id IN (${placeholders})`, template.roleIds);
     for (const row of rows) selected.set(row.id, 'template');
   }
   if (template?.positionIds?.length) {

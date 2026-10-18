@@ -198,6 +198,7 @@ async function issueSession(
   const token = signToken({
     sub: full.id,
     role: full.role,
+    roleId: full.role_id,
     departmentId: full.department_id ?? '',
     jti,
   });

@@ -1,3 +1,5 @@
+import * as rolesService from '../roles/roles.service.js';
+import { withTransaction } from '../../db/pool.js';
 /**
  * 用户模块 —— 业务逻辑层。
  * 规则（对齐 v1.0 userService）：账号/姓名必填；考生必须归属科室；
@@ -38,30 +40,16 @@ function normalizeEmail(email: string | undefined): string | null {
   return v === '' ? null : v;
 }
 
-/** 列表（可按用户组 / 角色 / 关键字过滤）。 */
-export async function list(filter: { role?: Role; groupId?: string; keyword?: string }): Promise<UserDto[]> {
+/** 列表（可按角色 / 关键字过滤）。 */
+export async function list(filter: { role?: Role; roleId?: string; keyword?: string }): Promise<UserDto[]> {
   const rows = await repo.list(filter);
   return rows.map(mapUserRow);
 }
 
-/**
- * 用户的角色由所属用户组派生。同一用户可属于多个组，但这些组必须绑定同一角色。
- * 保留 role-only 入参仅为兼容旧客户端，其会自动归入对应默认角色组。
- */
-async function resolveRoleFromGroups(groupIds: string[] | undefined, legacyRole?: Role): Promise<{ role: Role; groupIds: string[] }> {
-  const unique = [...new Set(groupIds ?? [])];
-  if (!unique.length) {
-    if (!legacyRole) throw badRequest('请至少选择一个用户组');
-    const defaultGroupId = `role-group-${legacyRole}`;
-    const defaultGroups = await repo.findGroupRoles([defaultGroupId]);
-    if (defaultGroups[0]?.role !== legacyRole) throw badRequest('默认角色组不存在，请先执行数据库初始化');
-    return { role: legacyRole, groupIds: [defaultGroupId] };
-  }
-  const groups = await repo.findGroupRoles(unique);
-  if (groups.length !== unique.length) throw badRequest('选择的用户组中包含不存在的项');
-  const roles = [...new Set(groups.map((group) => group.role))];
-  if (roles.length !== 1) throw badRequest('同一用户只能加入相同角色的用户组');
-  return { role: roles[0]!, groupIds: unique };
+/** Resolve roleId; role-only requests remain compatible with built-in roles. */
+async function resolveRole(roleId?: string, legacyRole?: Role) {
+  if (!roleId && !legacyRole) throw badRequest('请选择角色');
+  return rolesService.getDefinition(roleId ?? legacyRole!);
 }
 
 /** 新建用户。 */
@@ -72,7 +60,7 @@ export async function create(
     role?: Role;
     departmentId?: string;
     positionId?: string;
-    groupIds?: string[];
+    roleId?: string;
     email?: string;
     status?: UserStatus;
     password?: string;
@@ -84,9 +72,9 @@ export async function create(
   if (!username) throw badRequest('登录账号不能为空');
   if (!name) throw badRequest('姓名不能为空');
 
-  const membership = await resolveRoleFromGroups(input.groupIds, input.role);
+  const membership = await resolveRole(input.roleId, input.role);
   const departmentId = normalizeDepartmentId(input.departmentId);
-  if (membership.role === 'examinee' && !departmentId) {
+  if (membership.baseRole === 'examinee' && !departmentId) {
     throw badRequest('考生必须归属一个科室');
   }
   const email = normalizeEmail(input.email);
@@ -104,19 +92,23 @@ export async function create(
     assertPassword(providedPassword, settings);
   }
   const passwordHash = await bcrypt.hash(providedPassword || settings.defaultPassword, BCRYPT_COST);
-  await repo.insert({
-    id,
-    username,
-    passwordHash,
-    name,
-    role: membership.role,
-    departmentId,
-    positionId,
-    email,
-    status: input.status ?? 'active',
-    createdAt: nowDb(),
+  await withTransaction(async conn => {
+    await rolesService.lockRoles(conn);
+    await rolesService.getDefinition(membership.id, conn);
+    await repo.insert({
+      id,
+      username,
+      passwordHash,
+      name,
+      role: membership.baseRole,
+      roleId: membership.id,
+      departmentId,
+      positionId,
+      email,
+      status: input.status ?? 'active',
+      createdAt: nowDb(),
+    }, conn);
   });
-  await repo.setGroups(id, membership.groupIds);
   const created = await repo.findById(id);
   const dto = mapUserRow(created!);
   await auditService.record({
@@ -139,7 +131,7 @@ export async function update(
     role?: Role;
     departmentId?: string;
     positionId?: string;
-    groupIds?: string[];
+    roleId?: string;
     email?: string;
     status?: UserStatus;
     password?: string;
@@ -154,9 +146,9 @@ export async function update(
   const current = await repo.findById(id);
   if (!current) throw notFound('用户不存在或已被删除');
 
-  const membership = await resolveRoleFromGroups(input.groupIds, input.role);
+  const membership = await resolveRole(input.roleId, input.role);
   const departmentId = normalizeDepartmentId(input.departmentId);
-  if (membership.role === 'examinee' && !departmentId) {
+  if (membership.baseRole === 'examinee' && !departmentId) {
     throw badRequest('考生必须归属一个科室');
   }
   const email = normalizeEmail(input.email);
@@ -167,24 +159,23 @@ export async function update(
     throw conflict(`登录账号 "${username}" 已存在`);
   }
 
-  await repo.update(id, {
-    username,
-    name,
-    role: membership.role,
-    departmentId,
-    positionId,
-    email,
-    status: input.status ?? current.status,
-  });
-  await repo.setGroups(id, membership.groupIds);
-  if (input.password && input.password !== '') {
-    const settings = await getSettings();
-    assertPassword(input.password, settings);
-    await repo.updatePasswordHash(id, await bcrypt.hash(input.password, BCRYPT_COST));
+  let passwordHash: string | undefined;
+  if (input.password) {
+    assertPassword(input.password, await getSettings());
+    passwordHash = await bcrypt.hash(input.password, BCRYPT_COST);
   }
+  await withTransaction(async conn => {
+    await rolesService.lockRoles(conn);
+    await rolesService.getDefinition(membership.id, conn);
+    const fresh = await repo.findById(id, conn);
+    if (!fresh) throw notFound('用户不存在');
+    await repo.update(id, { username, name, role: membership.baseRole, roleId: membership.id, departmentId, positionId, email, status: input.status ?? fresh.status }, conn);
+    await rolesService.assertAdministratorRemains(conn);
+    if (passwordHash) await conn.query('UPDATE users SET password_hash = ?, password_changed_at = NOW(3) WHERE id = ?', [passwordHash, id]);
+    if (fresh.role_id !== membership.id || input.status === 'disabled' || passwordHash) await rolesService.revokeUsers([id], conn);
+  });
   const updated = await repo.findById(id);
   const dto = mapUserRow(updated!);
-  if (current.role !== membership.role) await sessions.revokeAll(id);
   await auditService.record({
     actorId: operatorId,
     action: 'user.update',
@@ -206,7 +197,11 @@ export async function remove(id: string, operatorId: string): Promise<void> {
   if (await repo.hasExamRecords(id)) {
     throw conflict('该用户存在考试记录，无法删除，可改为停用账号');
   }
-  await repo.remove(id);
+  await withTransaction(async conn => {
+    await rolesService.lockRoles(conn);
+    await repo.remove(id, conn);
+    await rolesService.assertAdministratorRemains(conn);
+  });
   await auditService.record({
     actorId: operatorId,
     action: 'user.delete',

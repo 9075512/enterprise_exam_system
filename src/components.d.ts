@@ -78,6 +78,7 @@ declare module 'vue' {
     PracticeLoading: typeof import('./components/common/PracticeLoading.vue')['default']
     RichTextEditor: typeof import('./components/common/RichTextEditor.vue')['default']
     RingProgress: typeof import('./components/common/RingProgress.vue')['default']
+    RoleMenuPicker: typeof import('./components/common/RoleMenuPicker.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     StatCard: typeof import('./components/common/StatCard.vue')['default']

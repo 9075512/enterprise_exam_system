@@ -17,7 +17,7 @@ export const createUserSchema = z.object({
   role: roleEnum.optional(),
   departmentId: z.string().optional().default(''),
   positionId: z.string().optional().default(''),
-  groupIds: z.array(z.string().min(1).max(64)).max(100).optional().default([]),
+  roleId: z.string().min(1).max(64).optional(),
   email: z.string().optional().default(''),
   status: statusEnum.optional(),
   password: z.string().optional(),
@@ -30,7 +30,7 @@ export const updateUserSchema = z.object({
   role: roleEnum.optional(),
   departmentId: z.string().optional().default(''),
   positionId: z.string().optional().default(''),
-  groupIds: z.array(z.string().min(1).max(64)).max(100).optional().default([]),
+  roleId: z.string().min(1).max(64).optional(),
   email: z.string().optional().default(''),
   status: statusEnum.optional(),
   password: z.string().optional(),
@@ -39,7 +39,7 @@ export const updateUserSchema = z.object({
 /** 列表查询入参。 */
 export const listQuerySchema = z.object({
   role: roleEnum.optional(),
-  groupId: z.string().max(64).optional(),
+  roleId: z.string().max(64).optional(),
   keyword: z.string().optional().default(''),
 });
 

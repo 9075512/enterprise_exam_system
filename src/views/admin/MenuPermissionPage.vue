@@ -1,42 +1,41 @@
 <script setup lang="ts">
-/**
- * 菜单权限（v1.5，管理员）。
- * 以「菜单 × 角色」矩阵配置各角色可见的侧栏菜单；管理员必授菜单（系统设置/菜单权限）不可取消，防止自锁。
- *
- * v1.9：表格按侧栏的二级分组归类展示（数据中心 / 教学资源 / 考试运营 / 练题运营 / 组织与系统 / 考生中心），
- * 分组来自前端 menuConfig（展示层概念，不参与授权），仅用于让 18 项菜单一眼看清归属。
- */
+/** 角色菜单授权与个人菜单例外，共用角色管理的权限数据。 */
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { getMenuPermissions, updateMenuPermissions } from '@/api/permissions';
 import * as usersApi from '@/api/users';
 import { menuOverridesApi } from '@/api/coreFeatures';
-import { ROLE_LABELS } from '@/constants';
 import { groupKeyOf, groupOrderOf, groupTextOf } from '@/layouts/menuConfig';
 import PageHeader from '@/components/common/PageHeader.vue';
-import type { MenuGrants, MenuPermission, Role, User } from '@/types';
+import RoleMenuPicker from '@/components/common/RoleMenuPicker.vue';
+import { formatDateTime } from '@/utils/datetime';
+import type { MenuGrants, MenuPermission, RoleDefinition, User } from '@/types';
 
-const ROLES: Role[] = ['admin', 'author', 'examinee'];
+const definitions = ref<RoleDefinition[]>([]);
+const ROLES = computed(() => definitions.value.map(r => r.id));
+const activeRole = computed(() => definitions.value.find(r => r.id === selectedRole.value));
+function roleName(id: string): string { return definitions.value.find(r => r.id === id)?.name ?? id; }
 
 const loading = ref(true);
 const saving = ref(false);
 const catalog = ref<MenuPermission['catalog']>([]);
 const grants = reactive<MenuGrants>({ admin: [], author: [], examinee: [] });
 
-/**
- * 侧栏「选择角色」的当前选中项——仅用于「当前统计」的展示口径，
- * 不参与上方矩阵的勾选与保存逻辑（矩阵始终同时编辑三个角色）。
- */
-const selectedRole = ref<Role>('admin');
+/** 当前编辑的角色 ID。 */
+const selectedRole = ref('admin');
 const users = ref<User[]>([]);
 const overrideUserId = ref('');
 const overrideDraft = reactive<Record<string, '' | 'allow' | 'deny'>>({});
 const overrideSaving = ref(false);
+const overrideCatalog = computed(() => {
+  const user = users.value.find(u => u.id === overrideUserId.value);
+  return groupedCatalog.value.filter(item => user && (item.defaultRoles.includes(user.role) || item.key === 'exam-messages'));
+});
 
 /** 所选角色已授权菜单数（复用 grants / catalog 既有状态） */
-const grantedCount = computed<number>(() => grants[selectedRole.value].length);
+const grantedCount = computed<number>(() => (grants[selectedRole.value] ?? []).length);
 /** 所选角色未授权菜单数 */
-const ungrantedCount = computed<number>(() => Math.max(0, catalog.value.length - grantedCount.value));
+const ungrantedCount = computed<number>(() => Math.max(0, catalog.value.filter(m => activeRole.value && (m.defaultRoles.includes(activeRole.value.baseRole) || m.key === 'exam-messages')).length - grantedCount.value));
 
 /** 按分组归类 + 排序后的目录（分组列用 span-method 合并相邻同组单元格） */
 const groupedCatalog = computed(() =>
@@ -45,20 +44,9 @@ const groupedCatalog = computed(() =>
     .sort((a, b) => groupOrderOf(a.groupKey) - groupOrderOf(b.groupKey)),
 );
 
-/** 分组列单元格合并：与上一行同组则不占位。 */
-function spanMethod({ rowIndex, columnIndex }: { rowIndex: number; columnIndex: number }): number[] {
-  if (columnIndex !== 0) return [1, 1];
-  const rows = groupedCatalog.value;
-  const current = rows[rowIndex];
-  if (rowIndex > 0 && rows[rowIndex - 1].groupKey === current.groupKey) return [0, 0];
-  let span = 1;
-  for (let i = rowIndex + 1; i < rows.length && rows[i].groupKey === current.groupKey; i += 1) span += 1;
-  return [span, 1];
-}
-
 onMounted(() => {
   void load();
-  void usersApi.list().then((rows) => { users.value = rows; });
+  void usersApi.list().then((rows) => { users.value = rows; }).catch(() => {});
 });
 
 async function loadOverrides(): Promise<void> {
@@ -72,7 +60,7 @@ async function saveOverrides(): Promise<void> {
   if (!overrideUserId.value) { ElMessage.warning('请先选择用户'); return; }
   overrideSaving.value = true;
   try {
-    await menuOverridesApi.replace(overrideUserId.value, catalog.value.flatMap((item) => {
+    await menuOverridesApi.replace(overrideUserId.value, overrideCatalog.value.flatMap((item) => {
       const effect = overrideDraft[item.key];
       return effect ? [{ menuKey: item.key, effect }] : [];
     }));
@@ -85,9 +73,9 @@ async function load(): Promise<void> {
   try {
     const data = await getMenuPermissions();
     catalog.value = data.catalog;
-    grants.admin = [...data.grants.admin];
-    grants.author = [...data.grants.author];
-    grants.examinee = [...data.grants.examinee];
+    definitions.value = data.roles;
+    for (const key of Object.keys(grants)) delete grants[key];
+    Object.assign(grants, data.grants);
   } catch {
     // 加载失败静默，保持空态
   } finally {
@@ -95,35 +83,14 @@ async function load(): Promise<void> {
   }
 }
 
-/** 某角色是否勾选某菜单。 */
-function isChecked(role: Role, key: string): boolean {
-  return grants[role].includes(key);
-}
-
-/** 切换勾选（adminRequired 且 admin 角色不可取消）。 */
-function toggle(role: Role, key: string, adminRequired: boolean): void {
-  if (role === 'admin' && adminRequired) return;
-  const list = grants[role];
-  const idx = list.indexOf(key);
-  if (idx >= 0) {
-    list.splice(idx, 1);
-  } else {
-    list.push(key);
-  }
-}
-
 async function handleSave(): Promise<void> {
   saving.value = true;
   try {
-    const data = await updateMenuPermissions({
-      admin: [...grants.admin],
-      author: [...grants.author],
-      examinee: [...grants.examinee],
-    });
-    grants.admin = [...data.grants.admin];
-    grants.author = [...data.grants.author];
-    grants.examinee = [...data.grants.examinee];
-    ElMessage.success('菜单权限已保存，相关角色菜单即时生效');
+    const data = await updateMenuPermissions(Object.fromEntries(Object.entries(grants).map(([id, keys]) => [id, [...keys]])));
+    definitions.value = data.roles;
+    for (const key of Object.keys(grants)) delete grants[key];
+    Object.assign(grants, data.grants);
+    ElMessage.success('菜单权限已保存，受影响成员需重新登录');
   } catch {
     // 错误提示已由拦截器统一弹出
   } finally {
@@ -136,7 +103,7 @@ async function handleSave(): Promise<void> {
   <div class="menu-permission-page">
     <PageHeader title="菜单权限" description="配置各角色在侧边栏可见的菜单；管理员必授菜单不可关闭">
       <template #actions>
-        <el-button type="primary" :loading="saving" @click="handleSave">保存权限</el-button>
+        <el-button type="primary" :loading="saving" :disabled="loading || !definitions.length" @click="handleSave">保存权限</el-button>
       </template>
     </PageHeader>
 
@@ -158,9 +125,9 @@ async function handleSave(): Promise<void> {
               :class="{ 'is-active': role === selectedRole }"
               @click="selectedRole = role"
             >
-              <span class="menu-permission-page__role-name">{{ ROLE_LABELS[role] }}</span>
+              <span class="menu-permission-page__role-name">{{ roleName(role) }}</span>
               <span class="menu-permission-page__role-meta">
-                已授权 {{ grants[role].length }} / {{ catalog.length }}
+                已授权 {{ grants[role]?.length ?? 0 }} 项菜单
               </span>
             </li>
           </ul>
@@ -170,7 +137,7 @@ async function handleSave(): Promise<void> {
           <template #header>
             <div class="menu-permission-page__head">
               <span class="menu-permission-page__head-title">当前统计</span>
-              <span class="menu-permission-page__head-meta">{{ ROLE_LABELS[selectedRole] }}</span>
+              <span class="menu-permission-page__head-meta">{{ roleName(selectedRole) }}</span>
             </div>
           </template>
 
@@ -178,7 +145,7 @@ async function handleSave(): Promise<void> {
             <div class="menu-permission-page__kv">
               <div class="menu-permission-page__kv-row">
                 <span class="menu-permission-page__kv-key">已授权菜单</span>
-                <span class="menu-permission-page__kv-val">{{ grantedCount }} / {{ catalog.length }}</span>
+                <span class="menu-permission-page__kv-val">{{ grantedCount }}</span>
               </div>
               <div class="menu-permission-page__kv-row">
                 <span class="menu-permission-page__kv-key">未授权</span>
@@ -186,60 +153,33 @@ async function handleSave(): Promise<void> {
               </div>
               <div class="menu-permission-page__kv-row">
                 <span class="menu-permission-page__kv-key">最后修改</span>
-                <span class="menu-permission-page__kv-val">—</span>
-              </div>
-              <div class="menu-permission-page__kv-row">
-                <span class="menu-permission-page__kv-key">修改人</span>
-                <span class="menu-permission-page__kv-val">—</span>
+                <span class="menu-permission-page__kv-val">{{ activeRole ? formatDateTime(activeRole.updatedAt) : '—' }}</span>
               </div>
             </div>
-            <!-- 说明性文案：菜单权限接口未返回「最后修改时间 / 修改人」，故以 — 占位 -->
-            <p class="menu-permission-page__hint">接口未返回修改记录，「最后修改 / 修改人」暂以 — 占位。</p>
           </template>
           <!-- 空态：目录缺失（加载失败或尚未配置）时给出简短提醒 -->
           <p v-else class="menu-permission-page__hint">暂无菜单目录，无法统计授权情况。</p>
         </el-card>
       </div>
 
-      <!-- 右栏：菜单权限矩阵 -->
+      <!-- 右栏：所选角色的菜单权限 -->
       <el-card v-loading="loading" class="menu-permission-page__panel menu-permission-page__main" shadow="never">
         <el-alert
           class="menu-permission-page__alert"
           type="info"
           show-icon
           :closable="false"
-          title="取消勾选后，对应角色的侧边栏与页面入口将即时隐藏；管理员「系统设置」「菜单权限」不可取消，避免自锁"
+          title="按所选角色的基础身份配置可见菜单；权限修改后受影响成员需重新登录，管理员必授菜单不可关闭"
         />
 
-        <el-table :data="groupedCatalog" row-key="key" border :span-method="spanMethod">
-          <el-table-column label="分组" width="118">
-            <template #default="{ row }">
-              <span class="menu-permission-page__group">{{ row.groupText }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="菜单名称" min-width="160">
-            <template #default="{ row }">
-              <span class="menu-permission-page__name">{{ row.name }}</span>
-              <el-tag v-if="row.adminRequired" size="small" type="danger" effect="plain">必授</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column v-for="role in ROLES" :key="role" :label="ROLE_LABELS[role]" width="110" align="center">
-            <template #default="{ row }">
-              <el-checkbox
-                :model-value="isChecked(role as Role, row.key)"
-                :disabled="role === 'admin' && row.adminRequired"
-                @change="toggle(role as Role, row.key, row.adminRequired)"
-              />
-            </template>
-          </el-table-column>
-        </el-table>
+        <RoleMenuPicker v-if="activeRole" v-model="grants[selectedRole]" :base-role="activeRole.baseRole" :catalog="catalog" />
       </el-card>
     </div>
 
     <el-card class="menu-permission-page__panel" shadow="never">
       <template #header><div class="menu-permission-page__head"><span class="menu-permission-page__head-title">个人菜单例外</span><span class="menu-permission-page__head-meta">在基础角色权限之上设置允许或拒绝；管理员必备菜单不可拒绝</span></div></template>
       <div style="display:flex;gap:12px;margin-bottom:14px"><el-select v-model="overrideUserId" filterable clearable placeholder="选择用户" style="width:260px" @change="loadOverrides"><el-option v-for="user in users" :key="user.id" :label="`${user.name}（${user.username}）`" :value="user.id"/></el-select><el-button type="primary" :loading="overrideSaving" :disabled="!overrideUserId" @click="saveOverrides">保存个人例外</el-button></div>
-      <el-table v-if="overrideUserId" :data="groupedCatalog" row-key="key" size="small" border><el-table-column prop="name" label="菜单" min-width="180"/><el-table-column label="个人例外" width="220"><template #default="{ row }"><el-radio-group v-model="overrideDraft[row.key]"><el-radio-button value="">继承角色</el-radio-button><el-radio-button value="allow">允许</el-radio-button><el-radio-button value="deny" :disabled="users.find(u=>u.id===overrideUserId)?.role==='admin' && row.adminRequired">拒绝</el-radio-button></el-radio-group></template></el-table-column></el-table>
+      <el-table v-if="overrideUserId" :data="overrideCatalog" row-key="key" size="small" border><el-table-column prop="name" label="菜单" min-width="180"/><el-table-column label="个人例外" width="220"><template #default="{ row }"><el-radio-group v-model="overrideDraft[row.key]"><el-radio-button value="">继承角色</el-radio-button><el-radio-button value="allow">允许</el-radio-button><el-radio-button value="deny" :disabled="users.find(u=>u.id===overrideUserId)?.role==='admin' && row.adminRequired">拒绝</el-radio-button></el-radio-group></template></el-table-column></el-table>
       <p v-else class="menu-permission-page__hint">选择用户后配置个人菜单允许/拒绝例外。</p>
     </el-card>
   </div>

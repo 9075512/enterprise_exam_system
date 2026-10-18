@@ -314,8 +314,8 @@ describe('考试系统集成测试', () => {
     it('无科室考生的 departmentName 为空串（string，非 null/undefined）', async () => {
       // 直接落一条无科室考生（token 由测试自行签发，无需登录），记录与用户均无科室。
       await query(
-        `INSERT INTO users (id, username, password_hash, name, role, department_id, status, created_at)
-         VALUES (?, ?, ?, ?, 'examinee', NULL, 'active', ?)
+        `INSERT INTO users (id, username, password_hash, name, role, role_id, department_id, status, created_at)
+         VALUES (?, ?, ?, ?, 'examinee', 'examinee', NULL, 'active', ?)
          ON DUPLICATE KEY UPDATE id = id`,
         ['user-nodept', 'nodept', 'x', '无科室考生', nowDb()],
       );

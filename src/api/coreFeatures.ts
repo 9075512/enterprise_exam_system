@@ -2,7 +2,7 @@ import { del, get, post, put } from './http';
 import type {
   AdmissionTicket, AudienceTemplate, AudienceTemplateRules, DuplicateQuestionGroup, ExamParticipant,
   MenuOverride, PaperTemplate, Position, PracticeMonitorSummary, PracticeSessionMonitor, QuestionFeedback,
-  QuestionFeedbackStatus, Subject, SubjectGrant, UserGroup,
+  QuestionFeedbackStatus, Subject, SubjectGrant,
 } from '@/types';
 
 export const subjectsApi = {
@@ -16,12 +16,6 @@ export const positionsApi = {
   create: (data: Pick<Position, 'name' | 'description'>): Promise<Position> => post('/positions', data),
   update: (id: string, data: Pick<Position, 'name' | 'description'>): Promise<Position> => put(`/positions/${id}`, data),
   remove: (id: string): Promise<null> => del(`/positions/${id}`),
-};
-export const groupsApi = {
-  list: (): Promise<UserGroup[]> => get('/user-groups'),
-  create: (data: Pick<UserGroup, 'name' | 'role' | 'description' | 'userIds'>): Promise<UserGroup> => post('/user-groups', data),
-  update: (id: string, data: Pick<UserGroup, 'name' | 'role' | 'description' | 'userIds'>): Promise<UserGroup> => put(`/user-groups/${id}`, data),
-  remove: (id: string): Promise<null> => del(`/user-groups/${id}`),
 };
 export const subjectGrantsApi = {
   list: (): Promise<SubjectGrant[]> => get('/subject-grants'),

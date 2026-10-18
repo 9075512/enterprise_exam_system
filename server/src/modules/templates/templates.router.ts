@@ -14,7 +14,7 @@ const paperTemplateSchema = z.object({
 });
 const audienceRulesSchema = z.object({
   departmentIds: z.array(z.string().min(1).max(64)).max(1000).default([]),
-  groupIds: z.array(z.string().min(1).max(64)).max(1000).default([]),
+  roleIds: z.array(z.string().min(1).max(64)).max(1000).default([]),
   positionIds: z.array(z.string().min(1).max(64)).max(1000).default([]),
   includeUserIds: z.array(z.string().min(1).max(64)).max(5000).default([]),
   excludeUserIds: z.array(z.string().min(1).max(64)).max(5000).default([]),
@@ -24,7 +24,7 @@ const audienceRulesSchema = z.object({
 const audienceTemplateSchema = z.object({
   name: z.string().trim().min(1).max(120),
   description: z.string().max(255).optional().default(''),
-  rules: audienceRulesSchema,
+  rules: audienceRulesSchema.strict(),
 });
 
 export const paperTemplatesRouter = Router();

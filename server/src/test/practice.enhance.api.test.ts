@@ -77,8 +77,8 @@ beforeAll(async () => {
   await query(`UPDATE question_banks SET allow_practice = 1 WHERE id = ?`, [OPEN_BANK]);
   const hash = await bcrypt.hash(USER.password, 10);
   await query(
-    `INSERT INTO users (id, username, password_hash, name, role, department_id, status, created_at)
-     VALUES (?, ?, ?, 'QA增强用户', 'examinee', NULL, 'active', ?)
+    `INSERT INTO users (id, username, password_hash, name, role, role_id, department_id, status, created_at)
+     VALUES (?, ?, ?, 'QA增强用户', 'examinee', 'examinee', NULL, 'active', ?)
      ON DUPLICATE KEY UPDATE id = id`,
     [USER.id, USER.username, hash, nowDb()],
   );
@@ -421,8 +421,8 @@ describe('D. 学习报告', () => {
     vi.setSystemTime(new Date('2026-10-17T16:00:30.000Z'));
     const hash = await bcrypt.hash(RPT_USER.password, 10);
     await query(
-      `INSERT INTO users (id, username, password_hash, name, role, department_id, status, created_at)
-       VALUES (?, ?, ?, 'QA报告用户', 'examinee', NULL, 'active', ?)
+      `INSERT INTO users (id, username, password_hash, name, role, role_id, department_id, status, created_at)
+       VALUES (?, ?, ?, 'QA报告用户', 'examinee', 'examinee', NULL, 'active', ?)
        ON DUPLICATE KEY UPDATE id = id`,
       [RPT_USER.id, RPT_USER.username, hash, nowDb()],
     );

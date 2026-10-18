@@ -121,8 +121,8 @@ beforeAll(async () => {
   // 插入独立写入用户（弱关联 user_id；直接落测试库）
   const hash = await bcrypt.hash(WRITER.password, 10);
   await query(
-    `INSERT INTO users (id, username, password_hash, name, role, department_id, status, created_at)
-     VALUES (?, ?, ?, 'QA写入用户', 'examinee', NULL, 'active', ?)
+    `INSERT INTO users (id, username, password_hash, name, role, role_id, department_id, status, created_at)
+     VALUES (?, ?, ?, 'QA写入用户', 'examinee', 'examinee', NULL, 'active', ?)
      ON DUPLICATE KEY UPDATE id = id`,
     [WRITER.id, WRITER.username, hash, nowDb()],
   );
@@ -858,8 +858,8 @@ describe('G. 加固项', () => {
     const id = 'user-qa-disable';
     const hash = await bcrypt.hash('qa-disable-pass', 10);
     await query(
-      `INSERT INTO users (id, username, password_hash, name, role, department_id, status, created_at)
-       VALUES (?, 'qa_disable', ?, 'QA停用用户', 'examinee', NULL, 'active', ?)
+      `INSERT INTO users (id, username, password_hash, name, role, role_id, department_id, status, created_at)
+       VALUES (?, 'qa_disable', ?, 'QA停用用户', 'examinee', 'examinee', NULL, 'active', ?)
        ON DUPLICATE KEY UPDATE status = 'active', password_hash = VALUES(password_hash)`,
       [id, hash, nowDb()],
     );
@@ -934,8 +934,8 @@ describe('H. QA 独立补充验证（第2轮）', () => {
     const password = 'qa-disable2-pass';
     const hash = await bcrypt.hash(password, 10);
     await query(
-      `INSERT INTO users (id, username, password_hash, name, role, department_id, status, created_at)
-       VALUES (?, ?, ?, 'QA停用2', 'examinee', NULL, 'active', ?)
+      `INSERT INTO users (id, username, password_hash, name, role, role_id, department_id, status, created_at)
+       VALUES (?, ?, ?, 'QA停用2', 'examinee', 'examinee', NULL, 'active', ?)
        ON DUPLICATE KEY UPDATE status = 'active', password_hash = VALUES(password_hash)`,
       [id, username, hash, nowDb()],
     );
@@ -982,8 +982,8 @@ describe('H. QA 独立补充验证（第2轮）', () => {
     const password = 'qa-auth-pass';
     const hash = await bcrypt.hash(password, 10);
     await query(
-      `INSERT INTO users (id, username, password_hash, name, role, department_id, status, created_at)
-       VALUES (?, ?, ?, 'QA进度权威', 'examinee', NULL, 'active', ?)
+      `INSERT INTO users (id, username, password_hash, name, role, role_id, department_id, status, created_at)
+       VALUES (?, ?, ?, 'QA进度权威', 'examinee', 'examinee', NULL, 'active', ?)
        ON DUPLICATE KEY UPDATE status = 'active', password_hash = VALUES(password_hash)`,
       [id, username, hash, nowDb()],
     );

@@ -21,8 +21,8 @@ usersRouter.get(
   '/',
   validate(listQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
-    const { role, groupId, keyword } = req.query as unknown as { role?: Role; groupId?: string; keyword: string };
-    const list = await usersService.list({ role, groupId, keyword });
+    const { role, roleId, keyword } = req.query as unknown as { role?: Role; roleId?: string; keyword: string };
+    const list = await usersService.list({ role, roleId, keyword });
     return ok(res, list);
   }),
 );
@@ -37,7 +37,7 @@ usersRouter.post(
       name: string;
       role?: Role;
       positionId?: string;
-      groupIds?: string[];
+      roleId?: string;
       departmentId: string;
       email?: string;
       status?: UserStatus;
@@ -58,7 +58,7 @@ usersRouter.put(
       name: string;
       role?: Role;
       positionId?: string;
-      groupIds?: string[];
+      roleId?: string;
       departmentId: string;
       email?: string;
       status?: UserStatus;
