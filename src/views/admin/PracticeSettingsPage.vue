@@ -1,22 +1,9 @@
 <script setup lang="ts">
-/**
- * 练题模块设置（v1.5，独立菜单；原「系统设置 → 公网练题」拆出）。
- * 数据存于独立单行表 `practice_settings`，与 system_settings 分离，独立保存。
- *
- * 结构（v1.8+ 重排）：
- *   1) 基础配置卡片 —— 每日一练 / 收藏上限等（存 practice_settings）
- *   2) 练题题库卡片 —— 「对外开放练题」开关（存 question_banks.allow_practice）
- *
- * ⚠️ 练题端可见性铁律：**只有 `allow_practice = 1` 的题库**才会出现在练题端；
- *    一个都没开时，练题端「题库列表」为空、每日一练也抽不到题（卡片不显示）。
- *    因此本页把题库开放管理前置，避免管理员「配好了却什么都看不到」。
- */
+/** 题库开放即时生效，其余练题配置统一保存。 */
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { getPracticeSettings, updatePracticeSettings } from '@/api/settings';
 import { list as listBanks, setPracticeFlag } from '@/api/banks';
-import { practiceMonitorApi } from '@/api/coreFeatures';
-import { listAuditLogs } from '@/api/audit';
 import {
   DAILY_BANK_SCOPE_OPTIONS,
   DAILY_COUNT_MAX,
@@ -35,8 +22,7 @@ import {
   WRONG_AUTO_REMOVE_MIN,
 } from '@/constants/practiceSettings';
 import PageHeader from '@/components/common/PageHeader.vue';
-import { formatDateTime } from '@/utils/datetime';
-import type { AuditLog, PracticeMonitorSummary, PracticeSettings, QuestionBank, QuestionType } from '@/types';
+import type { PracticeSettings, QuestionBank, QuestionType } from '@/types';
 
 /** 题型多选项（每日一练题型范围） */
 const TYPE_OPTIONS: Array<{ label: string; value: QuestionType }> = [
@@ -48,9 +34,17 @@ const TYPE_OPTIONS: Array<{ label: string; value: QuestionType }> = [
 const practiceForm = reactive<PracticeSettings>({ ...PRACTICE_SETTINGS_DEFAULTS });
 const practiceLoading = ref(true);
 const practiceSaving = ref(false);
-const overview = ref<PracticeMonitorSummary | null>(null);
-const configLogs = ref<AuditLog[]>([]);
-const overviewLoading = ref(false);
+const activeTab = ref('banks');
+const savedSettings = ref('');
+const practiceLoadError = ref(false);
+const banksLoadError = ref(false);
+const hasChanges = computed(() => savedSettings.value !== '' && JSON.stringify(practiceForm) !== savedSettings.value);
+const bankSearch = ref('');
+const bankFilter = ref('all');
+const filteredBanks = computed(() => banks.value.filter((bank) =>
+  bank.name.toLowerCase().includes(bankSearch.value.trim().toLowerCase()) &&
+  (bankFilter.value === 'all' || bank.allowPractice === (bankFilter.value === 'open')),
+));
 
 /* ------------------------------ 练题题库 ------------------------------ */
 
@@ -69,12 +63,8 @@ const openQuestionCount = computed<number>(() =>
 /** 一个题库都没开放 → 练题端空列表（高危状态，页面显著提示） */
 const noOpenBank = computed<boolean>(() => !banksLoading.value && banks.value.length > 0 && openBankCount.value === 0);
 
-/* --------------- v3.2 设计稿区块的派生状态（不新增接口，复用页面已有状态） --------------- */
-
-/** 练题模块是否已开放（= 至少一个题库对外开放；「开放策略」卡唯一可推导的状态） */
+/** 至少一个题库对外开放时，练题端显示已开放。 */
 const practiceOpen = computed<boolean>(() => openBankCount.value > 0);
-/** 题库列表已加载但为空 → 依赖题库的区块（开放策略 / 关闭态预览）显示空态 */
-const noBanks = computed<boolean>(() => !banksLoading.value && banks.value.length === 0);
 /** 练题入口与主系统同源，共用登录态。 */
 const practiceUrl = computed<string>(() =>
   typeof window === 'undefined' ? '' : `${window.location.origin}/exam/practice`,
@@ -94,43 +84,29 @@ async function copyPracticeUrl(): Promise<void> {
 onMounted(() => {
   void loadPractice();
   void loadBanks();
-  void loadOverview();
-  void loadConfigLogs();
 });
-
-async function loadOverview(): Promise<void> {
-  overviewLoading.value = true;
-  try { overview.value = await practiceMonitorApi.overview(); }
-  finally { overviewLoading.value = false; }
-}
-
-async function loadConfigLogs(): Promise<void> {
-  const [settings, flags] = await Promise.all([
-    listAuditLogs({ action: 'practice.settings_update', page: 1, pageSize: 8 }),
-    listAuditLogs({ action: 'bank.practice_flag', page: 1, pageSize: 8 }),
-  ]);
-  configLogs.value = [...settings.list, ...flags.list]
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 8);
-}
 
 async function loadPractice(): Promise<void> {
   practiceLoading.value = true;
+  practiceLoadError.value = false;
   try {
     Object.assign(practiceForm, await getPracticeSettings());
+    savedSettings.value = JSON.stringify(practiceForm);
   } catch {
-    Object.assign(practiceForm, PRACTICE_SETTINGS_DEFAULTS);
+    practiceLoadError.value = true;
   } finally {
     practiceLoading.value = false;
   }
 }
 
 async function handleSavePractice(): Promise<void> {
+  if (!hasChanges.value || practiceLoading.value || practiceLoadError.value) return;
   practiceSaving.value = true;
   try {
     const saved = await updatePracticeSettings({ ...practiceForm });
     Object.assign(practiceForm, saved);
+    savedSettings.value = JSON.stringify(practiceForm);
     ElMessage.success('练题端配置已保存，练题端即时生效');
-    void loadConfigLogs();
   } catch {
     // 错误提示已由 http.ts 响应拦截器统一弹出
   } finally {
@@ -140,10 +116,11 @@ async function handleSavePractice(): Promise<void> {
 
 async function loadBanks(): Promise<void> {
   banksLoading.value = true;
+  banksLoadError.value = false;
   try {
     banks.value = await listBanks();
   } catch {
-    // 错误提示已由 http.ts 响应拦截器统一弹出
+    banksLoadError.value = true;
   } finally {
     banksLoading.value = false;
   }
@@ -157,10 +134,8 @@ async function toggleBank(row: QuestionBank, value: boolean): Promise<void> {
     const hit = updated.find((b) => b.id === row.id);
     row.allowPractice = hit ? hit.allowPractice : value;
     ElMessage.success(value ? `已开放「${row.name}」到练题端` : `已关闭「${row.name}」的练题开放`);
-    void loadConfigLogs();
   } catch {
-    // 失败时回滚开关显示（后端未变更）
-    row.allowPractice = !value;
+    // 受控开关在请求失败时保留原状态。
   } finally {
     bankSavingId.value = '';
   }
@@ -168,9 +143,9 @@ async function toggleBank(row: QuestionBank, value: boolean): Promise<void> {
 
 /** 批量：全部开放 / 全部关闭 */
 async function setAllBanks(allowPractice: boolean): Promise<void> {
-  const targets = banks.value.filter((b) => b.allowPractice !== allowPractice);
+  const targets = banks.value.filter((b) => b.allowPractice !== allowPractice && (!allowPractice || b.questionCount > 0));
   if (targets.length === 0) {
-    ElMessage.info(allowPractice ? '全部题库均已开放' : '全部题库均已关闭');
+    ElMessage.info(allowPractice ? '没有可开放的题库（空题库无法开放）' : '全部题库均已关闭');
     return;
   }
   const actionText = allowPractice ? '开放' : '关闭';
@@ -191,7 +166,6 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
     );
     await loadBanks();
     ElMessage.success(`已${actionText} ${targets.length} 个题库`);
-    void loadConfigLogs();
   } catch {
     // 错误提示已由 http.ts 响应拦截器统一弹出
   } finally {
@@ -202,129 +176,75 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
 
 <template>
   <div class="practice-settings-page">
-    <PageHeader
-      title="练题端设置"
-      description="仅作用于系统内置练题模块（题库练习、每日一练、收藏夹），不影响考试功能"
-    >
+    <PageHeader title="练题端设置" description="管理题库开放与学员练题体验">
       <template #actions>
-        <el-button type="primary" :loading="practiceSaving" @click="handleSavePractice">
-          保存练题配置
-        </el-button>
+        <span v-if="hasChanges" class="practice-settings-page__unsaved" role="status">有未保存的修改</span>
+        <el-button type="primary" :loading="practiceSaving" :disabled="!hasChanges || practiceLoading || practiceLoadError" @click="handleSavePractice">保存配置</el-button>
       </template>
     </PageHeader>
 
-    <!-- 表单与辅助信息各自成列，避免说明卡较高时推开后续配置。 -->
-    <div class="practice-settings-page__columns">
-      <div class="practice-settings-page__stack">
-        <el-card v-loading="banksLoading" class="practice-settings-page__panel" shadow="never">
-          <template #header>
-            <div class="practice-settings-page__head">
-              <span class="practice-settings-page__head-title">开放策略</span>
-              <el-tag :type="practiceOpen ? 'success' : 'info'" size="small" effect="plain">
-                {{ practiceOpen ? '已开放' : '未开放' }}
-              </el-tag>
-            </div>
-          </template>
+    <section class="practice-settings-page__overview" aria-label="练题开放概况">
+      <div class="practice-settings-page__status">
+        <span class="practice-settings-page__eyebrow">练题端状态</span>
+        <span class="practice-settings-page__status-value">
+          <i class="practice-settings-page__dot" :class="{ 'is-open': practiceOpen && !banksLoadError && !banksLoading }" />
+          {{ banksLoading ? '加载中' : banksLoadError ? '加载失败' : practiceOpen ? '已开放' : '未开放' }}
+        </span>
+      </div>
+      <div class="practice-settings-page__metric">
+        <span class="practice-settings-page__eyebrow">开放题库</span>
+        <span class="practice-settings-page__metric-value">{{ banksLoading || banksLoadError ? '—' : openBankCount }}<small>/ {{ banksLoading || banksLoadError ? '—' : banks.length }} 个</small></span>
+      </div>
+      <div class="practice-settings-page__metric">
+        <span class="practice-settings-page__eyebrow">可练题目</span>
+        <span class="practice-settings-page__metric-value">{{ banksLoading || banksLoadError ? '—' : openQuestionCount.toLocaleString() }}<small>道</small></span>
+      </div>
+      <div class="practice-settings-page__entry">
+        <label for="practice-entry" class="practice-settings-page__eyebrow">练题端地址</label>
+        <div class="practice-settings-page__url">
+          <el-input id="practice-entry" :model-value="practiceUrl" readonly aria-label="练题端地址" />
+          <el-button @click="copyPracticeUrl">复制链接</el-button>
+        </div>
+      </div>
+    </section>
 
-          <p v-if="noBanks" class="practice-settings-page__empty">
-            暂无题库数据，请先在「题库管理」创建题库，再来配置练题端开放策略。
-          </p>
+    <div v-if="practiceLoadError" class="practice-settings-page__error" role="alert">
+      配置加载失败，请重试后编辑。
+      <el-button link type="primary" @click="loadPractice">重新加载</el-button>
+    </div>
+
+    <el-tabs v-model="activeTab" class="practice-settings-page__tabs">
+      <el-tab-pane label="题库开放" name="banks">
+        <section v-loading="banksLoading" class="practice-settings-page__section" aria-label="题库开放设置">
+          <div class="practice-settings-page__section-head">
+            <div><h3>题库开放</h3><p>开启后学员即可练习，修改即时生效。</p></div>
+            <div class="practice-settings-page__bulk">
+              <el-button :disabled="banksLoading || banksLoadError || Boolean(bankSavingId) || bankBatchSaving" @click="setAllBanks(true)">全部开放</el-button>
+              <el-button :disabled="banksLoading || banksLoadError || Boolean(bankSavingId) || bankBatchSaving" @click="setAllBanks(false)">全部关闭</el-button>
+            </div>
+          </div>
+          <el-alert v-if="noOpenBank && !banksLoadError" class="practice-settings-page__alert" type="warning" show-icon :closable="false" title="尚未开放题库，学员暂时无法练题。请至少开放一个有题目的题库。" />
+          <div class="practice-settings-page__toolbar">
+            <el-input v-model="bankSearch" placeholder="搜索题库名称" clearable aria-label="搜索题库名称" />
+            <el-select v-model="bankFilter" aria-label="筛选开放状态">
+              <el-option label="全部状态" value="all" />
+              <el-option label="已开放" value="open" />
+              <el-option label="未开放" value="closed" />
+            </el-select>
+            <el-button text :disabled="banksLoading || bankBatchSaving || Boolean(bankSavingId)" @click="loadBanks">刷新列表</el-button>
+          </div>
+          <div v-if="banksLoadError" class="practice-settings-page__error" role="alert">题库加载失败，请点击刷新列表重试。</div>
           <template v-else>
-            <div class="practice-settings-page__row">
-              <div class="practice-settings-page__row-main">
-                <span class="practice-settings-page__row-title">对外开放练题</span>
-                <span class="practice-settings-page__row-desc">
-                  由下方「练题题库（对外开放）」逐库开关汇聚：当前开放
-                  <b>{{ openBankCount }}</b>
-                  个题库、可练
-                  <b>{{ openQuestionCount }}</b>
-                  道题；全部关闭时练题端停止服务，已登录学员立即失效。
-                </span>
-              </div>
-              <el-tag :type="practiceOpen ? 'success' : 'info'" size="small" effect="plain">
-                {{ practiceOpen ? '已开放' : '未开放' }}
-              </el-tag>
-            </div>
-
-            <div class="practice-settings-page__row">
-              <div class="practice-settings-page__row-main">
-                <span class="practice-settings-page__row-title">允许游客浏览题库目录</span>
-                <span class="practice-settings-page__row-desc">
-                  未登录用户可查看题库名称与题数，开始答题需登录账号。
-                </span>
-              </div>
-              <span class="practice-settings-page__row-ind">练题端固定</span>
-            </div>
-
-            <div class="practice-settings-page__row">
-              <div class="practice-settings-page__row-main">
-                <span class="practice-settings-page__row-title">答完自动进入下一题</span>
-                <span class="practice-settings-page__row-desc">
-                  关闭后需手动点击「下一题」；属练题端会话内的交互相应。
-                </span>
-              </div>
-              <span class="practice-settings-page__row-ind">练题端固定</span>
-            </div>
-
-            <div class="practice-settings-page__row">
-              <div class="practice-settings-page__row-main">
-                <span class="practice-settings-page__row-title">答错立即显示解析</span>
-                <span class="practice-settings-page__row-desc">
-                  跟随本页「作答后展示解析」开关；关闭则交卷后统一展示。
-                </span>
-              </div>
-              <el-tag :type="practiceForm.showAnalysis ? 'success' : 'info'" size="small" effect="plain">
-                {{ practiceForm.showAnalysis ? '展示' : '隐藏' }}
-              </el-tag>
-            </div>
-
-            <p class="practice-settings-page__footnote">
-              标注「练题端固定」的条目为练题端内置行为，本管理页不提供开关。
-            </p>
-          </template>
-        </el-card>
-        <el-card v-loading="banksLoading" class="practice-settings-page__panel" shadow="never">
-          <template #header>
-            <div class="practice-settings-page__head">
-              <span class="practice-settings-page__head-title">练题题库（对外开放）</span>
-              <span class="practice-settings-page__head-meta">
-                共 {{ banks.length }} 个题库 · 已开放
-                <b>{{ openBankCount }}</b>
-                个 · 可练题目
-                <b>{{ openQuestionCount }}</b>
-                道
-              </span>
-            </div>
-          </template>
-
-          <el-alert
-            class="practice-settings-page__alert"
-            type="warning"
-            show-icon
-            :closable="false"
-            title="只有这里开启的题库才会出现在练题端"
-            description="未开启任何题库时，练题端「题库列表」为空、每日一练也抽不到题目（首页不显示入口）。此处开关与「题库管理 → 编辑题库 → 对外开放练题」是同一个开关。"
-          />
-
-          <div v-if="noOpenBank" class="practice-settings-page__danger">
-            当前没有任何题库对外开放练题，练题端将看不到题库与每日一练。请至少开启一个题库。
-          </div>
-
-          <div class="practice-settings-page__bulk">
-            <el-button :loading="bankBatchSaving" @click="setAllBanks(true)">全部开放</el-button>
-            <el-button :loading="bankBatchSaving" @click="setAllBanks(false)">全部关闭</el-button>
-            <el-button text @click="loadBanks">刷新</el-button>
-          </div>
-
-          <el-table :data="banks" row-key="id" stripe size="small" empty-text="暂无题库，请先在「题库管理」中创建">
+<el-table :data="filteredBanks" row-key="id" :empty-text="banks.length ? '没有匹配的题库' : '暂无题库，请先在题库管理中创建'">
             <el-table-column prop="name" label="题库名称" min-width="180" show-overflow-tooltip />
             <el-table-column prop="questionCount" label="题数" width="90" align="center" />
-            <el-table-column label="对外开放练题" width="150" align="center">
+            <el-table-column label="开放练题" width="150" align="center">
               <template #default="{ row }">
                 <el-switch
                   :model-value="row.allowPractice"
                   :loading="bankSavingId === row.id"
-                  :disabled="bankSavingId === row.id || row.questionCount === 0"
+                  :disabled="Boolean(bankSavingId) || bankBatchSaving || (row.questionCount === 0 && !row.allowPractice)"
+                  :aria-label="`${row.name}开放练题`"
                   @update:model-value="(v: string | number | boolean) => toggleBank(row as QuestionBank, Boolean(v))"
                 />
               </template>
@@ -339,30 +259,22 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
               </template>
             </el-table-column>
           </el-table>
-        </el-card>
-        <el-card v-loading="practiceLoading" class="practice-settings-page__panel" shadow="never">
-          <template #header>
-            <div class="practice-settings-page__head">
-              <span class="practice-settings-page__head-title">每日一练与收藏</span>
-            </div>
+            <p class="practice-settings-page__table-note">共 {{ filteredBanks.length }} 个题库<span v-if="bankSearch || bankFilter !== 'all'">（总计 {{ banks.length }} 个）</span> · 空题库无法开放</p>
           </template>
-
-          <el-alert
-            class="practice-settings-page__alert"
-            type="info"
-            show-icon
-            :closable="false"
-            title="该配置保存在独立的练题配置表中，与「系统设置」分开读写，互不影响"
-          />
-
-          <el-row :gutter="24">
+        </section>
+      </el-tab-pane>
+      <el-tab-pane label="每日一练" name="daily">
+        <section v-loading="practiceLoading" class="practice-settings-page__section">
+          <div class="practice-settings-page__section-head"><div><h3>每日一练</h3><p>设置每日任务的题量、题型与生成规则，保存后生效。</p></div></div>
+          <fieldset :disabled="practiceLoadError || practiceSaving" class="practice-settings-page__fields">
+<el-row :gutter="24">
             <el-col :xs="24" :sm="24" :md="12">
               <div class="practice-settings-page__item">
                 <label class="practice-settings-page__label">每日一练</label>
                 <div class="practice-settings-page__control">
-                  <el-switch v-model="practiceForm.dailyEnabled" active-text="开启" inactive-text="关闭" />
+                  <el-switch v-model="practiceForm.dailyEnabled" aria-label="每日一练" active-text="开启" inactive-text="关闭" />
                   <p class="practice-settings-page__hint">
-                    关闭后练题端首页不再显示每日一练入口，且无法新建当日任务；已产生的打卡记录保留。
+                    关闭后隐藏每日一练入口，已有打卡记录保留。
                   </p>
                 </div>
               </div>
@@ -373,7 +285,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
                 <label class="practice-settings-page__label">每日题量（题）</label>
                 <div class="practice-settings-page__control">
                   <el-input-number
-                    v-model="practiceForm.dailyQuestionCount"
+                    v-model="practiceForm.dailyQuestionCount" aria-label="每日题量"
                     :min="DAILY_COUNT_MIN"
                     :max="DAILY_COUNT_MAX"
                     :step="1"
@@ -381,7 +293,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
                     class="practice-settings-page__num"
                   />
                   <p class="practice-settings-page__hint">
-                    默认 10 题；开放题库题量不足时按实际题量生成。当日已生成的任务不受修改影响。
+                    题目不足时按实际题量生成，已生成的当日任务不变。
                   </p>
                 </div>
               </div>
@@ -392,7 +304,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
                 <label class="practice-settings-page__label">题型范围</label>
                 <div class="practice-settings-page__control">
                   <el-select
-                    v-model="practiceForm.dailyTypes"
+                    v-model="practiceForm.dailyTypes" aria-label="题型范围"
                     multiple
                     collapse-tags
                     placeholder="全部题型"
@@ -410,7 +322,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
               <div class="practice-settings-page__item">
                 <label class="practice-settings-page__label">抽题范围</label>
                 <div class="practice-settings-page__control">
-                  <el-radio-group v-model="practiceForm.dailyBankScope" :disabled="!practiceForm.dailyEnabled">
+                  <el-radio-group v-model="practiceForm.dailyBankScope" aria-label="抽题范围" :disabled="!practiceForm.dailyEnabled">
                     <el-radio v-for="opt in DAILY_BANK_SCOPE_OPTIONS" :key="opt.value" :value="opt.value">
                       {{ opt.label }}
                     </el-radio>
@@ -425,7 +337,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
                 <label class="practice-settings-page__label">重置时点（时）</label>
                 <div class="practice-settings-page__control">
                   <el-input-number
-                    v-model="practiceForm.dailyResetHour"
+                    v-model="practiceForm.dailyResetHour" aria-label="每日重置时点"
                     :min="DAILY_RESET_HOUR_MIN"
                     :max="DAILY_RESET_HOUR_MAX"
                     :step="1"
@@ -433,7 +345,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
                     class="practice-settings-page__num"
                   />
                   <p class="practice-settings-page__hint">
-                    默认 0 点。设为 4 点则凌晨 4 点前仍算作前一天，适合「跨零点仍在练题」的场景；打卡统计与趋势图同步按此切分。
+                    每日任务与打卡日期在此时点重置，例如 4 点前仍计入前一天。
                   </p>
                 </div>
               </div>
@@ -444,7 +356,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
                 <label class="practice-settings-page__label">最少抽题数（题）</label>
                 <div class="practice-settings-page__control">
                   <el-input-number
-                    v-model="practiceForm.dailyMinQuestionCount"
+                    v-model="practiceForm.dailyMinQuestionCount" aria-label="最少抽题数"
                     :min="DAILY_MIN_COUNT_MIN"
                     :max="DAILY_MIN_COUNT_MAX"
                     :step="1"
@@ -452,48 +364,33 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
                     class="practice-settings-page__num"
                   />
                   <p class="practice-settings-page__hint">
-                    开放题库题量不足该值时，当日视为「无题可练」（不显示入口），避免只抽到一两题就开练。
+                    可用题目少于此数量时，不生成每日任务。
                   </p>
                 </div>
               </div>
             </el-col>
 
-            <el-col :xs="24" :sm="24" :md="12">
-              <div class="practice-settings-page__item">
-                <label class="practice-settings-page__label">收藏夹上限（题）</label>
-                <div class="practice-settings-page__control">
-                  <el-input-number
-                    v-model="practiceForm.favoriteLimit"
-                    :min="FAVORITE_LIMIT_MIN"
-                    :max="FAVORITE_LIMIT_MAX"
-                    :step="10"
-                    class="practice-settings-page__num"
-                  />
-                  <p class="practice-settings-page__hint">调小仅限制新增收藏，不会删除已有收藏。</p>
-                </div>
-              </div>
-            </el-col>
-          </el-row>
-        </el-card>
-        <el-card v-loading="practiceLoading" class="practice-settings-page__panel" shadow="never">
-          <template #header>
-            <div class="practice-settings-page__head">
-              <span class="practice-settings-page__head-title">练题行为与作答反馈</span>
-            </div>
-          </template>
 
-          <el-row :gutter="24">
+          </el-row>
+          </fieldset>
+        </section>
+      </el-tab-pane>
+      <el-tab-pane label="练题规则" name="rules">
+        <section v-loading="practiceLoading" class="practice-settings-page__section">
+          <div class="practice-settings-page__section-head"><div><h3>练题规则</h3><p>设置练习方式、题量与作答反馈，保存后生效。</p></div></div>
+          <fieldset :disabled="practiceLoadError || practiceSaving" class="practice-settings-page__fields">
+<el-row :gutter="24">
             <el-col :xs="24" :sm="24" :md="12">
               <div class="practice-settings-page__item">
                 <label class="practice-settings-page__label">默认练题方式</label>
                 <div class="practice-settings-page__control">
-                  <el-radio-group v-model="practiceForm.defaultPracticeMode">
+                  <el-radio-group v-model="practiceForm.defaultPracticeMode" aria-label="默认练题方式">
                     <el-radio v-for="opt in DEFAULT_PRACTICE_MODE_OPTIONS" :key="opt.value" :value="opt.value">
                       {{ opt.label }}
                     </el-radio>
                   </el-radio-group>
                   <p class="practice-settings-page__hint">
-                    练题端发起练习时未显式选择方式时的默认值；考生仍可在题库内手动切换。
+                    学员开始练习时默认使用此方式，也可自行切换。
                   </p>
                 </div>
               </div>
@@ -505,7 +402,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
                 <div class="practice-settings-page__control">
                   <div class="practice-settings-page__inline">
                     <el-input-number
-                      v-model="practiceForm.sessionMinCount"
+                      v-model="practiceForm.sessionMinCount" aria-label="单次练习题量下限"
                       :min="SESSION_COUNT_MIN"
                       :max="SESSION_COUNT_MAX"
                       :step="1"
@@ -513,7 +410,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
                     />
                     <span class="practice-settings-page__sep">~</span>
                     <el-input-number
-                      v-model="practiceForm.sessionMaxCount"
+                      v-model="practiceForm.sessionMaxCount" aria-label="单次练习题量上限"
                       :min="SESSION_COUNT_MIN"
                       :max="SESSION_COUNT_MAX"
                       :step="1"
@@ -522,7 +419,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
                     <span class="practice-settings-page__unit">题</span>
                   </div>
                   <p class="practice-settings-page__hint">
-                    限制练题端「抽取题量」的可选区间；上限须不小于下限。题库题量不足时按实际题量出题。
+                    学员可在此范围内选择题量，题目不足时按实际数量生成。
                   </p>
                 </div>
               </div>
@@ -532,9 +429,9 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
               <div class="practice-settings-page__item">
                 <label class="practice-settings-page__label">作答后展示正确答案</label>
                 <div class="practice-settings-page__control">
-                  <el-switch v-model="practiceForm.showAnswer" active-text="展示" inactive-text="隐藏" />
+                  <el-switch v-model="practiceForm.showAnswer" aria-label="作答后展示正确答案" active-text="展示" inactive-text="隐藏" />
                   <p class="practice-settings-page__hint">
-                    关闭后判分仍返回正误，但不下发正确答案（防止「边练边看答案」）。
+                    关闭后仅提示作答正误，不展示正确答案。
                   </p>
                 </div>
               </div>
@@ -544,8 +441,8 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
               <div class="practice-settings-page__item">
                 <label class="practice-settings-page__label">作答后展示解析</label>
                 <div class="practice-settings-page__control">
-                  <el-switch v-model="practiceForm.showAnalysis" active-text="展示" inactive-text="隐藏" />
-                  <p class="practice-settings-page__hint">关闭后判分不下发题目解析。</p>
+                  <el-switch v-model="practiceForm.showAnalysis" aria-label="作答后展示解析" active-text="展示" inactive-text="隐藏" />
+                  <p class="practice-settings-page__hint">控制作答后是否展示题目解析。</p>
                 </div>
               </div>
             </el-col>
@@ -555,205 +452,87 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
                 <label class="practice-settings-page__label">错题本自动移除阈值</label>
                 <div class="practice-settings-page__control">
                   <el-input-number
-                    v-model="practiceForm.wrongAutoRemoveStreak"
+                    v-model="practiceForm.wrongAutoRemoveStreak" aria-label="错题本自动移除阈值"
                     :min="WRONG_AUTO_REMOVE_MIN"
                     :max="WRONG_AUTO_REMOVE_MAX"
                     :step="1"
                     class="practice-settings-page__num"
                   />
                   <p class="practice-settings-page__hint">
-                    设为 0 表示不自动移除（仅手动移除）；设为 N（1~20）时，错题连续答对 N 次后自动移出错题本。
+                    连续答对指定次数后自动移除；设为 0 则仅手动移除。
                   </p>
                 </div>
               </div>
             </el-col>
           </el-row>
-        </el-card>
-        <el-card v-loading="practiceLoading" class="practice-settings-page__panel" shadow="never">
-          <template #header>
-            <div class="practice-settings-page__head">
-              <span class="practice-settings-page__head-title">页面入口开关</span>
-              <span class="practice-settings-page__head-meta">关闭后练题端隐藏对应入口，接口一并拒绝</span>
-            </div>
-          </template>
-
-          <el-row :gutter="24">
-            <el-col :xs="24" :sm="24" :md="8">
+          </fieldset>
+        </section>
+      </el-tab-pane>
+      <el-tab-pane label="功能入口" name="features">
+        <section v-loading="practiceLoading" class="practice-settings-page__section">
+          <div class="practice-settings-page__section-head"><div><h3>功能入口</h3><p>选择学员可使用的功能，保存后生效。</p></div></div>
+          <fieldset :disabled="practiceLoadError || practiceSaving" class="practice-settings-page__fields">
+<el-row :gutter="24">
+            <el-col :xs="24" :sm="24" :md="12">
               <div class="practice-settings-page__item">
                 <label class="practice-settings-page__label">学习报告</label>
                 <div class="practice-settings-page__control">
-                  <el-switch v-model="practiceForm.reportEnabled" active-text="开启" inactive-text="关闭" />
+                  <el-switch v-model="practiceForm.reportEnabled" aria-label="学习报告" active-text="开启" inactive-text="关闭" />
                   <p class="practice-settings-page__hint">关闭后练题端底部「报告」入口隐藏。</p>
                 </div>
               </div>
             </el-col>
 
-            <el-col :xs="24" :sm="24" :md="8">
+            <el-col :xs="24" :sm="24" :md="12">
               <div class="practice-settings-page__item">
                 <label class="practice-settings-page__label">错题本</label>
                 <div class="practice-settings-page__control">
-                  <el-switch v-model="practiceForm.wrongBookEnabled" active-text="开启" inactive-text="关闭" />
-                  <p class="practice-settings-page__hint">关闭后「错题本」入口隐藏，作答不再进入错题本浏览。</p>
+                  <el-switch v-model="practiceForm.wrongBookEnabled" aria-label="错题本" active-text="开启" inactive-text="关闭" />
+                  <p class="practice-settings-page__hint">关闭后隐藏错题本入口。</p>
                 </div>
               </div>
             </el-col>
 
-            <el-col :xs="24" :sm="24" :md="8">
+            <el-col :xs="24" :sm="24" :md="12">
               <div class="practice-settings-page__item">
                 <label class="practice-settings-page__label">收藏夹</label>
                 <div class="practice-settings-page__control">
-                  <el-switch v-model="practiceForm.favoriteEnabled" active-text="开启" inactive-text="关闭" />
+                  <el-switch v-model="practiceForm.favoriteEnabled" aria-label="收藏夹" active-text="开启" inactive-text="关闭" />
                   <p class="practice-settings-page__hint">关闭后作答页收藏按钮与收藏夹入口隐藏。</p>
                 </div>
               </div>
             </el-col>
 
-            <el-col :xs="24" :sm="24" :md="8">
+            <el-col :xs="24" :sm="24" :md="12">
               <div class="practice-settings-page__item">
                 <label class="practice-settings-page__label">打卡与成就</label>
                 <div class="practice-settings-page__control">
-                  <el-switch v-model="practiceForm.achievementEnabled" active-text="开启" inactive-text="关闭" />
-                  <p class="practice-settings-page__hint">关闭后练题首页隐藏连续打卡与成就徽章（接口返回 1017）。</p>
+                  <el-switch v-model="practiceForm.achievementEnabled" aria-label="打卡与成就" active-text="开启" inactive-text="关闭" />
+                  <p class="practice-settings-page__hint">关闭后隐藏连续打卡与成就徽章。</p>
+                </div>
+              </div>
+            </el-col>
+                      <el-col :xs="24" :sm="24" :md="12">
+              <div class="practice-settings-page__item">
+                <label class="practice-settings-page__label">收藏夹上限（题）</label>
+                <div class="practice-settings-page__control">
+                  <el-input-number
+                    v-model="practiceForm.favoriteLimit" aria-label="收藏夹上限"
+                    :min="FAVORITE_LIMIT_MIN"
+                    :max="FAVORITE_LIMIT_MAX"
+                    :step="10"
+                    class="practice-settings-page__num"
+                  />
+                  <p class="practice-settings-page__hint">调小仅限制新增收藏，不会删除已有收藏。</p>
                 </div>
               </div>
             </el-col>
           </el-row>
-        </el-card>
-      </div>
-      <div class="practice-settings-page__stack">
-        <el-card v-loading="overviewLoading" class="practice-settings-page__panel" shadow="never">
-          <template #header>
-            <div class="practice-settings-page__head">
-              <span class="practice-settings-page__head-title">访问链接</span>
-            </div>
-          </template>
-
-          <template v-if="practiceUrl">
-            <div class="practice-settings-page__item">
-              <label class="practice-settings-page__label">练题端地址</label>
-              <div class="practice-settings-page__url">
-                <el-input :model-value="practiceUrl" readonly />
-                <el-button @click="copyPracticeUrl">复制</el-button>
-              </div>
-              <p class="practice-settings-page__hint">
-                练题模块与考试系统同域部署，共用账号和登录状态。
-              </p>
-            </div>
-
-            <div class="practice-settings-page__item">
-              <label class="practice-settings-page__label">登录会话时长</label>
-              <div class="practice-settings-page__control">
-                <span class="practice-settings-page__row-ind">
-                  由主系统账号会话配置决定，本页不提供调整
-                </span>
-              </div>
-            </div>
-
-            <div class="practice-settings-page__item">
-              <label class="practice-settings-page__label">单次练题题量上限</label>
-              <div class="practice-settings-page__control">
-                <span class="practice-settings-page__value">{{ practiceForm.sessionMaxCount }} 题</span>
-                <p class="practice-settings-page__hint">
-                  跟随「练题行为与作答反馈 → 单次练习题量范围」的上限。
-                </p>
-              </div>
-            </div>
-
-            <el-alert
-              class="practice-settings-page__alert"
-              type="info"
-              show-icon
-              :closable="false"
-              title="练题功能已并入主系统"
-              description="入口为 /exam/practice，与考试端共用前端、后端服务和账号登录态。"
-            />
-          </template>
-
-          <p v-else class="practice-settings-page__empty">未取到可用域名，无法拼出练题端地址。</p>
-        </el-card>
-        <el-card class="practice-settings-page__panel" shadow="never">
-          <template #header>
-            <div class="practice-settings-page__head">
-              <span class="practice-settings-page__head-title">练题端数据概览</span>
-            </div>
-          </template>
-
-          <div class="practice-settings-page__kv">
-            <span class="practice-settings-page__kv-k">累计练题人次</span>
-            <span class="practice-settings-page__kv-v">{{ overview?.sessionTotal ?? 0 }}</span>
-          </div>
-          <div class="practice-settings-page__kv">
-            <span class="practice-settings-page__kv-k">日活跃学员</span>
-            <span class="practice-settings-page__kv-v">{{ overview?.dailyActiveUsers ?? 0 }}</span>
-          </div>
-          <div class="practice-settings-page__kv">
-            <span class="practice-settings-page__kv-k">平均正确率</span>
-            <span class="practice-settings-page__kv-v">{{ (overview?.averageCorrectRate ?? 0).toFixed(1) }}%</span>
-          </div>
-          <div class="practice-settings-page__kv">
-            <span class="practice-settings-page__kv-k">错题巩固完成率</span>
-            <span class="practice-settings-page__kv-v">{{ (overview?.wrongConsolidationRate ?? 0).toFixed(1) }}%</span>
-          </div>
-
-          <p class="practice-settings-page__footnote">
-            数据来自练题会话与逐题作答日志；超过 90 秒无心跳的活动会话按离线统计。
-          </p>
-        </el-card>
-        <el-card class="practice-settings-page__panel" shadow="never">
-          <template #header>
-            <div class="practice-settings-page__head">
-              <span class="practice-settings-page__head-title">关闭态预览</span>
-              <el-tag :type="practiceOpen ? 'info' : 'danger'" size="small" effect="plain">
-                当前：{{ practiceOpen ? '已开放' : '已关闭' }}
-              </el-tag>
-            </div>
-          </template>
-
-          <p v-if="noBanks" class="practice-settings-page__empty">
-            暂无法预览：未加载到题库数据。
-          </p>
-          <template v-else>
-            <el-alert
-              class="practice-settings-page__alert"
-              type="error"
-              show-icon
-              :closable="false"
-              title="关闭后练题端全部页面返回维护提示，已登录会话立即失效"
-            />
-            <div class="practice-settings-page__row">
-              <div class="practice-settings-page__row-main">
-                <span class="practice-settings-page__row-title">对外开放练题</span>
-                <span class="practice-settings-page__row-desc">
-                  当前：{{ practiceOpen ? '开启（本卡为关闭态预览）' : '关闭' }}
-                </span>
-              </div>
-              <el-tag :type="practiceOpen ? 'info' : 'danger'" size="small" effect="plain">
-                {{ practiceOpen ? '开启' : '关闭' }}
-              </el-tag>
-            </div>
-            <p class="practice-settings-page__footnote">
-              如需重新开放，请在「练题题库（对外开放）」中重新开启题库开关。
-            </p>
-          </template>
-        </el-card>
-        <el-card class="practice-settings-page__panel" shadow="never">
-          <template #header>
-            <div class="practice-settings-page__head">
-              <span class="practice-settings-page__head-title">配置留痕</span>
-              <span class="practice-settings-page__head-meta">记录谁在何时修改了练题设置</span>
-            </div>
-          </template>
-
-          <el-table v-if="configLogs.length" :data="configLogs" size="small" stripe>
-            <el-table-column prop="actorName" label="操作人" width="100"/>
-            <el-table-column label="变更" min-width="160"><template #default="{ row }">{{ row.action === 'practice.settings_update' ? '更新练题配置' : '调整题库开放状态' }}</template></el-table-column>
-            <el-table-column prop="targetName" label="对象" min-width="120" show-overflow-tooltip/>
-            <el-table-column label="时间" width="165"><template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template></el-table-column>
-          </el-table>
-          <p v-else class="practice-settings-page__empty">暂无配置变更记录。</p>
-        </el-card>
-      </div>
-    </div>
+          </fieldset>
+        </section>
+      </el-tab-pane>
+    </el-tabs>
+    <p class="practice-settings-page__page-note">设置仅作用于练题模块，不影响考试。练题数据可在「练题监控」中查看。</p>
   </div>
 </template>
 
@@ -761,266 +540,166 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
 @use '@/styles/variables.scss' as *;
 
 .practice-settings-page {
-  &__columns {
+  container-type: inline-size;
+  &__overview {
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-    align-items: start;
-    gap: 16px;
-  }
-
-  &__stack {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-    min-width: 0;
-  }
-
-  @media (max-width: 991px) {
-    &__columns {
-      grid-template-columns: minmax(0, 1fr);
-    }
-  }
-
-  &__panel {
-    min-width: 0;
+    grid-template-columns: auto auto auto minmax(260px, 1fr);
+    align-items: center;
+    gap: 24px;
+    padding: 22px 24px;
+    margin-bottom: 22px;
+    background: $bg-paper;
+    border: 1px solid $border-color;
     border-radius: $radius-lg;
   }
-
-  &__head {
+  &__status, &__metric, &__entry {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
   }
-
-  &__head-title {
-    font-size: 15px;
-    font-weight: 700;
+  &__metric { border-left: 1px solid $border-color; padding-left: 24px; }
+  &__entry { margin-left: 12px; padding-left: 24px; border-left: 1px solid $border-color; }
+  &__eyebrow { color: $text-secondary; font-size: 12px; }
+  &__status-value {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 17px;
     color: $text-primary;
+    min-height: 28px;
   }
-
-  &__head-meta {
-    font-size: 12.5px;
-    color: $text-secondary;
-
-    b {
-      color: $color-primary;
-      font-variant-numeric: tabular-nums;
-    }
+  &__dot {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: $text-disabled;
+    &.is-open { background: $color-success; }
   }
-
-  &__alert {
-    margin-bottom: 16px;
+  &__metric-value {
+    font-size: 24px;
+    line-height: 28px;
+    font-weight: 650;
+    color: $text-primary;
+    font-variant-numeric: tabular-nums;
+    small { margin-left: 8px; color: $text-secondary; font-size: 12px; font-weight: 400; }
   }
-
-  &__danger {
-    margin-bottom: 14px;
-    padding: 10px 12px;
-    border: 1px solid $color-error-border;
-    border-radius: $radius-sm;
-    background: $color-error-bg;
-    font-size: 13px;
-    color: $color-error-text;
+  &__url {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    :deep(.el-input) { min-width: 0; }
   }
-
+  &__unsaved { color: $color-warning-text; font-size: 12px; }
+  &__tabs {
+    background: $bg-paper;
+    border: 1px solid $border-color;
+    border-radius: $radius-lg;
+    :deep(.el-tabs__header) { margin: 0; padding: 0 24px; }
+    :deep(.el-tabs__nav-wrap::after) { height: 1px; background: $border-color; }
+    :deep(.el-tabs__item) { height: 54px; font-size: 14px; }
+  }
+  &__section { padding: 24px; min-height: 300px; }
+  &__section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 24px;
+    h3 { margin: 0 0 6px; font-size: 16px; color: $text-primary; }
+    p { margin: 0; font-size: 12px; color: $text-secondary; line-height: 1.6; }
+  }
   &__bulk {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 12px;
+    gap: 8px;
+    :deep(.el-button + .el-button) { margin-left: 0; }
   }
-
+  &__toolbar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+    > :deep(.el-input) { width: 260px; max-width: 100%; }
+    > :deep(.el-select) { width: 140px; }
+    > :deep(.el-button) { margin-left: auto; }
+  }
+  &__alert { margin-bottom: 20px; }
+  &__error {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    border-radius: $radius-sm;
+    color: $color-error-text;
+    background: $color-error-bg;
+    font-size: 13px;
+  }
+  &__table-note { margin: 16px 0 0; font-size: 12px; color: $text-secondary; }
+  &__fields {
+    padding: 0;
+    margin: 0;
+    border: 0;
+    min-width: 0;
+    &:disabled { pointer-events: none; opacity: .65; }
+  }
   &__item {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    margin-bottom: 18px;
+    gap: 10px;
+    padding: 20px 0;
+    border-top: 1px solid $border-color;
+    height: 100%;
+    box-sizing: border-box;
   }
-
-  &__label {
-    font-size: 13px;
-    font-weight: 600;
-    color: $text-primary;
-  }
-
+  &__label { font-size: 13px; font-weight: 600; color: $text-primary; }
   &__control {
     width: 100%;
     min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 4px;
-
-    :deep(.el-radio-group),
-    :deep(.el-radio) {
-      max-width: 100%;
-    }
-
-    :deep(.el-radio) {
-      height: auto;
-      min-height: 32px;
-      margin-right: 0;
-      white-space: normal;
-    }
-
-    :deep(.el-radio__label) {
-      white-space: normal;
-      overflow-wrap: anywhere;
-    }
-  }
-
-  &__num {
-    width: 200px;
-    max-width: 100%;
-  }
-
-  &__select {
-    width: 100%;
-    max-width: 320px;
-  }
-
-  &__hint {
-    margin: 0;
-    font-size: 12.5px;
-    line-height: 1.45;
-    color: $text-secondary;
-  }
-
-  &__inline {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
     gap: 8px;
+    :deep(.el-radio-group) { display: flex; flex-direction: column; align-items: flex-start; max-width: 100%; }
+    :deep(.el-radio) { margin-right: 0; height: auto; min-height: 32px; white-space: normal; max-width: 100%; }
+    :deep(.el-radio__label) { white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
   }
-
-  &__num-sm {
-    width: 120px;
+  &__num { width: 180px; max-width: 100%; }
+  &__select { width: 100%; max-width: 320px; }
+  &__hint { margin: 0; font-size: 12px; line-height: 1.65; color: $text-secondary; max-width: 460px; }
+  &__inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  &__num-sm { width: 120px; }
+  &__sep, &__unit { color: $text-secondary; font-size: 13px; }
+  &__page-note { margin: 16px 0 0; font-size: 12px; color: $text-secondary; line-height: 1.6; }
+  @media (max-width: 1199px) {
+    &__overview { grid-template-columns: 1fr 1fr 1fr; }
+    &__entry { grid-column: 1 / -1; margin: 0; padding: 16px 0 0; border-left: 0; border-top: 1px solid $border-color; }
   }
-
-  &__sep {
-    color: $text-secondary;
+  @media (max-width: 600px) {
+    &__overview { padding: 18px 16px; gap: 16px; }
+    &__metric { padding-left: 12px; }
+    &__status-value { font-size: 14px; }
+    &__metric-value { font-size: 20px; small { margin-left: 4px; } }
+    &__section { padding: 20px 16px; }
+    &__tabs :deep(.el-tabs__header) { padding: 0 16px; }
+    &__toolbar { gap: 8px; > :deep(.el-input) { width: 100%; } }
+    &__url :deep(.el-button) { padding: 8px 10px; }
   }
+}
 
-  &__unit {
-    font-size: 13px;
-    color: $text-secondary;
-  }
-
-  /* ---------- v3.2 设计稿区块（开放策略 / 访问链接 / 概览 / 关闭态 / 留痕） ---------- */
-
-  /** 说明行：左标题 + 描述，右对齐一条状态指示 */
-  &__row {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 10px 0;
-    border-bottom: 1px dashed $border-color;
-
-    &:last-child {
-      border-bottom: none;
-    }
-  }
-
-  &__row-main {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-  }
-
-  &__row-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: $text-body;
-  }
-
-  &__row-desc {
-    font-size: 12.5px;
-    line-height: 1.5;
-    color: $text-secondary;
-
-    b {
-      font-weight: 600;
-      color: $text-body;
-      font-variant-numeric: tabular-nums;
-    }
-  }
-
-  &__row-ind {
-    flex: 0 0 auto;
-    max-width: 100%;
-    white-space: normal;
-    padding-top: 1px;
-    font-size: 12.5px;
-    color: $text-secondary;
-  }
-
-  &__footnote {
-    margin: 10px 0 0;
-    font-size: 12px;
-    line-height: 1.5;
-    color: $text-secondary;
-  }
-
-  /** 简版空态：虚线框 + 中性底 + 一句提醒，不用大插画 */
-  &__empty {
-    margin: 0;
-    padding: 12px 14px;
-    border: 1px dashed $line-strong;
-    border-radius: $radius-sm;
-    background: $color-table-head;
-    font-size: 12.5px;
-    line-height: 1.55;
-    color: $text-secondary;
-  }
-
-  /** 访问链接：只读地址 + 复制 */
-  &__url {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  /** 只读取值（跟随既有配置） */
-  &__value {
-    font-size: 13px;
-    font-weight: 600;
-    color: $text-body;
-    font-variant-numeric: tabular-nums;
-  }
-
-  /** 概览 kv 行 */
-  &__kv {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 8px 0;
-    border-bottom: 1px dashed $border-color;
-
-    &:last-child {
-      border-bottom: none;
-    }
-  }
-
-  &__kv-k {
-    font-size: 12.5px;
-    color: $text-secondary;
-  }
-
-  &__kv-v {
-    font-size: 13px;
-    font-weight: 600;
-    color: $text-body;
-    font-variant-numeric: tabular-nums;
-
-    &--none {
-      font-weight: 400;
-      color: $text-disabled;
-    }
+@container (max-width: 500px) {
+  .practice-settings-page {
+    &__overview { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    &__status { grid-column: 1 / -1; }
+    &__metric { padding-left: 0; border-left: 0; }
+    &__metric-value { white-space: nowrap; }
+    &__url { flex-wrap: wrap; }
+    &__url :deep(.el-input) { flex-basis: 100%; }
   }
 }
 </style>
