@@ -4,11 +4,10 @@
 import type { RowDataPacket } from 'mysql2/promise';
 import { query, runQuery, type SqlExecutor } from '../../db/pool.js';
 import { nowDb } from '../../utils/datetime.js';
-import type { Role } from '../../types/domain.js';
 
 /** `menu_permissions` 表原始行。 */
 export interface MenuPermissionRow extends RowDataPacket {
-  role: Role;
+  role: string;
   menu_keys: unknown;
 }
 
@@ -18,7 +17,7 @@ export async function findAll(): Promise<MenuPermissionRow[]> {
 }
 
 /** 按角色读取一行。 */
-export async function findByRole(role: Role): Promise<MenuPermissionRow | null> {
+export async function findByRole(role: string): Promise<MenuPermissionRow | null> {
   const rows = await query<MenuPermissionRow[]>(
     'SELECT role, menu_keys FROM menu_permissions WHERE role = ? LIMIT 1',
     [role],
@@ -28,7 +27,7 @@ export async function findByRole(role: Role): Promise<MenuPermissionRow | null> 
 
 /** 写入单个角色的菜单权限（UPSERT）。 */
 export async function upsert(
-  role: Role,
+  role: string,
   menuKeys: string[],
   operatorId: string,
   exec?: SqlExecutor,

@@ -7,7 +7,6 @@
  */
 import type { RowDataPacket } from 'mysql2/promise';
 import { fromDbDateSafe } from '../../utils/datetime.js';
-import { parseJsonColumn } from '../../utils/json.js';
 import type { Role, UserDto, UserStatus } from '../../types/domain.js';
 
 /** `users` 表原始行结构（含 JOIN departments 取出的科室名）。 */
@@ -21,7 +20,8 @@ export interface UserRow extends RowDataPacket {
   department_name: string | null;
   position_id: string | null;
   position_name: string | null;
-  group_ids: unknown;
+  role_id: string;
+  role_name: string;
   email: string | null;
   status: UserStatus;
   /** 密码最后修改时间（v1.7③） */
@@ -42,7 +42,8 @@ export function mapUserRow(row: UserRow): UserDto {
     departmentName: row.department_name ?? '',
     positionId: row.position_id ?? '',
     positionName: row.position_name ?? '',
-    groupIds: parseJsonColumn<string[]>(row.group_ids, []),
+    roleId: row.role_id,
+    roleName: row.role_name,
     email: row.email ?? '',
     status: row.status,
     twoFactorEnabled: Number(row.two_factor_enabled ?? 0) === 1,

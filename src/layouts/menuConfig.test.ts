@@ -53,7 +53,8 @@ describe('getMenuGroups · 默认（未下发菜单权限）', () => {
     expect(map.system).toEqual([
       'departments',
       'users',
-      'org-extensions',
+      'roles',
+      'positions',
       'permissions',
       'settings',
       'audit',
@@ -62,8 +63,8 @@ describe('getMenuGroups · 默认（未下发菜单权限）', () => {
     ]);
   });
 
-  it('组织入口明确以用户组维护角色', () => {
-    expect(getMenuItems('admin').find((item) => item.key === 'org-extensions')?.text).toBe('用户组与岗位');
+  it('组织入口独立提供角色与岗位管理', () => {
+    expect(getMenuItems('admin').find((item) => item.key === 'roles')?.text).toBe('角色管理');
   });
 
   it('examinee 同时看到练题与考生中心', () => {

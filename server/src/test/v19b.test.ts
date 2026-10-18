@@ -137,8 +137,8 @@ beforeAll(async () => {
   await prepareTestDb();
   const hash = await bcrypt.hash(P_USER.password, 10);
   await query(
-    `INSERT INTO users (id, username, password_hash, name, role, department_id, status, created_at)
-     VALUES (?, ?, ?, 'QA练题设置用户', 'examinee', NULL, 'active', NOW(3))`,
+    `INSERT INTO users (id, username, password_hash, name, role, role_id, department_id, status, created_at)
+     VALUES (?, ?, ?, 'QA练题设置用户', 'examinee', 'examinee', NULL, 'active', NOW(3))`,
     [P_USER.id, P_USER.username, hash],
   );
   adminToken = await internalLogin('admin', 'admin123');

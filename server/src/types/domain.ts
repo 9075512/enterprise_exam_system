@@ -6,6 +6,11 @@
 /** 用户角色 */
 export type Role = 'admin' | 'author' | 'examinee';
 
+export interface RoleDefinitionDto {
+  id: string; name: string; baseRole: Role; description: string; isBuiltin: boolean;
+  memberCount: number; menuKeys: string[]; createdAt: string; updatedAt: string;
+}
+
 /** 题型：单选 / 多选 / 判断 */
 export type QuestionType = 'single' | 'multiple' | 'judge' | 'fill' | 'short';
 
@@ -41,7 +46,8 @@ export interface UserDto {
   departmentName: string;
   positionId: string;
   positionName: string;
-  groupIds: string[];
+  roleId: string;
+  roleName: string;
   /** 邮箱（邮件通知接收地址；可为空串） */
   email: string;
   status: UserStatus;
@@ -1258,11 +1264,12 @@ export interface MenuCatalogItemDto {
 }
 
 /** 菜单权限：角色 → 可见菜单 key 列表 */
-export type MenuGrantsDto = Record<Role, string[]>;
+export type MenuGrantsDto = Record<string, string[]>;
 
 /** 菜单权限完整视图（管理端用） */
 export interface MenuPermissionDto {
   catalog: MenuCatalogItemDto[];
+  roles: RoleDefinitionDto[];
   grants: MenuGrantsDto;
 }
 
@@ -1276,8 +1283,8 @@ export interface UserValidRow {
   row: number;
   username: string;
   name: string;
-  groupName: string;
-  groupId: string;
+  roleName: string;
+  roleId: string;
   role: Role;
   /** 科室名称（考生必填） */
   departmentName: string;
@@ -1325,6 +1332,7 @@ export interface UserBatchDto {
 
 /** 审计动作（机器可读稳定 key，前端映射中文文案） */
 export type AuditAction =
+  | 'role.create' | 'role.update' | 'role.delete' | 'role.members'
   | 'user.create'
   | 'user.update'
   | 'user.delete'
@@ -1375,6 +1383,7 @@ export type AuditAction =
 
 /** 审计目标类型 */
 export type AuditTargetType =
+  | 'role'
   | 'user'
   | 'exam'
   | 'bank'
@@ -1740,12 +1749,11 @@ export interface HomeConfigOverviewDto {
 
 export interface SubjectDto { id: string; name: string; parentId: string | null; sortOrder: number; status: 'active' | 'disabled'; createdAt: string; updatedAt: string }
 export interface PositionDto { id: string; name: string; description: string; createdAt: string; updatedAt: string }
-export interface UserGroupDto { id: string; name: string; role: Role; description: string; userIds: string[]; createdAt: string; updatedAt: string }
 export type GrantPrincipalType = 'role' | 'group' | 'position' | 'user';
 export interface SubjectGrantDto { id: string; subjectId: string; principalType: GrantPrincipalType; principalId: string; effect: 'allow' | 'deny'; canView: boolean; canEdit: boolean }
 export interface MenuOverrideDto { userId: string; menuKey: string; effect: 'allow' | 'deny' }
 export interface PaperTemplateDto { id: string; name: string; description: string; config: Record<string, unknown>; createdBy: string; createdAt: string; updatedAt: string }
-export interface AudienceTemplateRulesDto { departmentIds: string[]; groupIds: string[]; positionIds: string[]; includeUserIds: string[]; excludeUserIds: string[]; includeSubDepartments: boolean; randomCount: number | null }
+export interface AudienceTemplateRulesDto { departmentIds: string[]; roleIds: string[]; positionIds: string[]; includeUserIds: string[]; excludeUserIds: string[]; includeSubDepartments: boolean; randomCount: number | null }
 export interface AudienceTemplateDto { id: string; name: string; description: string; rules: AudienceTemplateRulesDto; createdBy: string; createdAt: string; updatedAt: string }
 export interface ExamParticipantDto { examId: string; userId: string; username: string; userName: string; departmentId: string | null; departmentName: string; source: 'department' | 'template' | 'include' | 'legacy'; admissionNo: string; createdAt: string }
 export interface AdmissionTicketDto { admissionNo: string; examId: string; examName: string; userId: string; username: string; userName: string; departmentName: string; startTime: string; endTime: string; durationMinutes: number; examMode: 'open' | 'closed' }

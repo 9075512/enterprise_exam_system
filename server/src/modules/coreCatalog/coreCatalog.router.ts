@@ -11,10 +11,6 @@ import { conflict } from '../../utils/errors.js';
 
 const namedSchema = z.object({ name: z.string().trim().min(1).max(120), description: z.string().max(255).optional().default('') });
 const subjectSchema = z.object({ name: z.string().trim().min(1).max(120), parentId: z.string().max(64).nullable().optional(), sortOrder: z.number().int().min(0).max(9999).optional(), status: z.enum(['active', 'disabled']).optional() });
-const groupSchema = namedSchema.extend({
-  role: z.enum(['admin', 'author', 'examinee'], { errorMap: () => ({ message: '用户组角色不合法' }) }),
-  userIds: z.array(z.string().min(1).max(64)).max(5000).optional().default([]),
-});
 const grantsSchema = z.object({ grants: z.array(z.object({ principalType: z.enum(['role', 'group', 'position', 'user']), principalId: z.string().min(1).max(64), effect: z.enum(['allow', 'deny']), canView: z.boolean(), canEdit: z.boolean() })).max(1000) });
 const overridesSchema = z.object({ overrides: z.array(z.object({ menuKey: z.string().min(1).max(64), effect: z.enum(['allow', 'deny']) })).max(200) });
 
@@ -41,13 +37,6 @@ positionsRouter.get('/', asyncHandler(async (_req, res) => ok(res, await service
 positionsRouter.post('/', validate(namedSchema, 'body'), asyncHandler(async (req, res) => ok(res, await service.savePosition(null, req.body))));
 positionsRouter.put('/:id', validate(namedSchema, 'body'), asyncHandler(async (req, res) => ok(res, await service.savePosition(req.params.id, req.body))));
 positionsRouter.delete('/:id', asyncHandler(async (req, res) => { await service.removePosition(req.params.id); return ok(res, null); }));
-
-export const userGroupsRouter = Router();
-userGroupsRouter.use(authRequired, requireRole('admin'));
-userGroupsRouter.get('/', asyncHandler(async (_req, res) => ok(res, await service.listGroups())));
-userGroupsRouter.post('/', validate(groupSchema, 'body'), asyncHandler(async (req, res) => ok(res, await service.saveGroup(null, req.body))));
-userGroupsRouter.put('/:id', validate(groupSchema, 'body'), asyncHandler(async (req, res) => ok(res, await service.saveGroup(req.params.id, req.body))));
-userGroupsRouter.delete('/:id', asyncHandler(async (req, res) => { await service.removeGroup(req.params.id); return ok(res, null); }));
 
 export const subjectGrantsRouter = Router();
 subjectGrantsRouter.use(authRequired, requireRole('admin'));

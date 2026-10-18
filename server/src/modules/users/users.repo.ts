@@ -3,7 +3,7 @@
  * users 表的全部 SQL 统一收敛于此，auth 模块通过 auth.repo 委托复用，避免重复实现。
  */
 import type { RowDataPacket } from 'mysql2/promise';
-import { query, type QueryParams } from '../../db/pool.js';
+import { query, runQuery, type SqlExecutor, type QueryParams } from '../../db/pool.js';
 import type { UserRow } from './user.mapper.js';
 import type { Role, UserStatus } from '../../types/domain.js';
 
@@ -26,20 +26,20 @@ export interface LoginUserRow extends RowDataPacket {
 /** 列表过滤条件。 */
 export interface UserListFilter {
   role?: Role;
-  groupId?: string;
+  roleId?: string;
   keyword?: string;
 }
 
 const USER_COLUMNS =
   `u.id, u.username, u.password_hash, u.name, u.role, u.department_id, d.name AS department_name,
    u.position_id, p.name AS position_name,
-   COALESCE((SELECT JSON_ARRAYAGG(gm.group_id) FROM user_group_members gm WHERE gm.user_id = u.id), JSON_ARRAY()) AS group_ids,
+   u.role_id, r.name AS role_name,
    u.email, u.status, u.password_changed_at, u.two_factor_enabled, u.created_at`;
-const USER_FROM = 'FROM users u LEFT JOIN departments d ON d.id = u.department_id LEFT JOIN positions p ON p.id = u.position_id';
+const USER_FROM = 'FROM users u LEFT JOIN departments d ON d.id = u.department_id LEFT JOIN positions p ON p.id = u.position_id JOIN roles r ON r.id = u.role_id';
 
 /** 按 id 查询。 */
-export async function findById(id: string): Promise<UserRow | null> {
-  const rows = await query<UserRow[]>(`SELECT ${USER_COLUMNS} ${USER_FROM} WHERE u.id = ? LIMIT 1`, [id]);
+export async function findById(id: string, exec?: SqlExecutor): Promise<UserRow | null> {
+  const rows = await runQuery<UserRow[]>(exec, `SELECT ${USER_COLUMNS} ${USER_FROM} WHERE u.id = ? LIMIT 1`, [id]);
   return rows[0] ?? null;
 }
 
@@ -72,9 +72,9 @@ export async function list(filter: UserListFilter = {}): Promise<UserRow[]> {
     conditions.push('u.role = ?');
     params.push(filter.role);
   }
-  if (filter.groupId) {
-    conditions.push('EXISTS (SELECT 1 FROM user_group_members gm_filter WHERE gm_filter.user_id = u.id AND gm_filter.group_id = ?)');
-    params.push(filter.groupId);
+  if (filter.roleId) {
+    conditions.push('u.role_id = ?');
+    params.push(filter.roleId);
   }
   if (filter.keyword && filter.keyword.trim() !== '') {
     conditions.push('(u.username LIKE ? OR u.name LIKE ?)');
@@ -95,21 +95,23 @@ export async function insert(row: {
   passwordHash: string;
   name: string;
   role: Role;
+  roleId: string;
   departmentId: string | null;
   positionId: string | null;
   email: string | null;
   status: UserStatus;
   createdAt: string;
-}): Promise<void> {
-  await query<RowDataPacket[]>(
-    `INSERT INTO users (id, username, password_hash, name, role, department_id, position_id, email, status, password_changed_at, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+}, exec?: SqlExecutor): Promise<void> {
+  await runQuery(exec,
+    `INSERT INTO users (id, username, password_hash, name, role, role_id, department_id, position_id, email, status, password_changed_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       row.id,
       row.username,
       row.passwordHash,
       row.name,
       row.role,
+      row.roleId,
       row.departmentId,
       row.positionId,
       row.email,
@@ -123,35 +125,18 @@ export async function insert(row: {
 /** 更新用户基础信息（不改密码）。 */
 export async function update(
   id: string,
-  row: { username: string; name: string; role: Role; departmentId: string | null; positionId: string | null; email: string | null; status: UserStatus },
+  row: { username: string; name: string; role: Role; roleId: string; departmentId: string | null; positionId: string | null; email: string | null; status: UserStatus },
+  exec?: SqlExecutor,
 ): Promise<void> {
-  await query<RowDataPacket[]>(
-    `UPDATE users SET username = ?, name = ?, role = ?, department_id = ?, position_id = ?, email = ?, status = ? WHERE id = ?`,
-    [row.username, row.name, row.role, row.departmentId, row.positionId, row.email, row.status, id],
+  await runQuery(exec,
+    `UPDATE users SET username = ?, name = ?, role = ?, role_id = ?, department_id = ?, position_id = ?, email = ?, status = ? WHERE id = ?`,
+    [row.username, row.name, row.role, row.roleId, row.departmentId, row.positionId, row.email, row.status, id],
   );
-}
-
-export async function setGroups(userId: string, groupIds: string[]): Promise<void> {
-  await query<RowDataPacket[]>(`DELETE FROM user_group_members WHERE user_id = ?`, [userId]);
-  for (const groupId of [...new Set(groupIds)]) {
-    await query<RowDataPacket[]>(`INSERT INTO user_group_members (group_id, user_id, created_at) VALUES (?, ?, NOW(3))`, [groupId, userId]);
-  }
-}
-
-/** 查询用户组绑定的角色，供用户保存时派生实际角色。 */
-export async function findGroupRoles(groupIds: string[]): Promise<Array<{ id: string; role: Role }>> {
-  const unique = [...new Set(groupIds)];
-  if (!unique.length) return [];
-  const rows = await query<Array<RowDataPacket & { id: string; role: Role }>>(
-    `SELECT id, role FROM user_groups WHERE id IN (${unique.map(() => '?').join(',')})`,
-    unique,
-  );
-  return rows.map((row) => ({ id: row.id, role: row.role }));
 }
 
 /** 删除用户。 */
-export async function remove(id: string): Promise<void> {
-  await query<RowDataPacket[]>(`DELETE FROM users WHERE id = ?`, [id]);
+export async function remove(id: string, exec?: SqlExecutor): Promise<void> {
+  await runQuery(exec, `DELETE FROM users WHERE id = ?`, [id]);
 }
 
 /** 更新口令哈希（改密 / 重置密码共用）；同时刷新密码最后修改时间（密码有效期策略用）。 */

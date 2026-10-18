@@ -12,6 +12,7 @@ import cors from 'cors';
 import { ok } from './utils/response.js';
 import { env } from './config/env.js';
 import { authRouter } from './modules/auth/auth.router.js';
+import { rolesRouter } from './modules/roles/roles.router.js';
 import { usersRouter } from './modules/users/users.router.js';
 import { userImportRouter } from './modules/users/userImport.router.js';
 import { departmentsRouter } from './modules/departments/departments.router.js';
@@ -38,7 +39,6 @@ import {
   positionsRouter,
   subjectGrantsRouter,
   subjectsRouter,
-  userGroupsRouter,
 } from './modules/coreCatalog/coreCatalog.router.js';
 import { audienceTemplatesRouter, paperTemplatesRouter } from './modules/templates/templates.router.js';
 import { questionFeedbackRouter } from './modules/questionFeedback/questionFeedback.router.js';
@@ -100,7 +100,7 @@ export function createApp(): Express {
     api.use('/home', homeRouter);
     api.use('/subjects', subjectsRouter);
     api.use('/positions', positionsRouter);
-    api.use('/user-groups', userGroupsRouter);
+    api.use('/roles', rolesRouter);
     api.use('/subject-grants', subjectGrantsRouter);
     api.use('/menu-overrides', menuOverridesRouter);
     api.use('/paper-templates', paperTemplatesRouter);

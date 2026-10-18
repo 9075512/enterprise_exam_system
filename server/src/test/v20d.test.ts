@@ -111,8 +111,8 @@ beforeAll(async () => {
   for (const u of [U_RD, U_MKT, U_NONE]) {
     const hash = await bcrypt.hash(u.password, 10);
     await query(
-      `INSERT INTO users (id, username, password_hash, name, role, department_id, status, created_at)
-       VALUES (?, ?, ?, ?, 'examinee', ?, 'active', ?)
+      `INSERT INTO users (id, username, password_hash, name, role, role_id, department_id, status, created_at)
+       VALUES (?, ?, ?, ?, 'examinee', 'examinee', ?, 'active', ?)
        ON DUPLICATE KEY UPDATE id = id`,
       [u.id, u.username, hash, `QA首页-${u.username}`, u.dept, nowDb()],
     );

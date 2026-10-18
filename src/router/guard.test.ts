@@ -41,6 +41,13 @@ beforeEach(() => {
 });
 
 describe('login navigation regression', () => {
+  it('菜单加载失败时不回退到基础身份的完整权限', async () => {
+    const router = setup('admin', []);
+    api.menus.mockRejectedValue(new Error('network unavailable'));
+    await router.push('/admin/users');
+    expect(router.currentRoute.value.path).toBe('/no-access');
+    expect(usePermissionsStore().menusFor('admin')).toEqual([]);
+  });
   it('default home disabled: lands on an allowed page without redirecting to itself', async () => {
     const router = setup('admin', ['users']);
     await router.push('/admin/dashboard');

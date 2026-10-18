@@ -1,3 +1,4 @@
+import { seedBuiltinRoles } from './rolesMigration.js';
 /**
  * 种子数据写入（幂等）。
  * 与 v1.0 `src/services/storage.ts` 的种子完全一致，仅密码改用 bcryptjs（cost 10）加密。
@@ -137,38 +138,16 @@ export async function seed(conn: Connection): Promise<void> {
     );
   }
 
+  await seedBuiltinRoles(conn);
+
   // 2. 用户（bcrypt 加盐）
   for (const u of SEED_USERS) {
     const hash = await bcrypt.hash(u.password, BCRYPT_COST);
     await conn.query(
-      `INSERT INTO users (id, username, password_hash, name, role, department_id, status, password_changed_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)
+      `INSERT INTO users (id, username, password_hash, name, role, role_id, department_id, status, password_changed_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
        ON DUPLICATE KEY UPDATE id = id`,
-      [u.id, u.username, hash, u.name, u.role, u.departmentId, now, now],
-    );
-  }
-
-  // 2b. 默认角色组：用户的系统角色由所属用户组统一维护。
-  for (const group of [
-    { id: 'role-group-admin', name: '管理员组', role: 'admin', description: '拥有系统管理权限' },
-    { id: 'role-group-author', name: '出题人组', role: 'author', description: '拥有题库、试卷与阅卷权限' },
-    { id: 'role-group-examinee', name: '考生组', role: 'examinee', description: '参加考试与练题' },
-  ] as const) {
-    await conn.query(
-      `INSERT INTO user_groups (id, name, role, description, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE role = VALUES(role)`,
-      [group.id, group.name, group.role, group.description, now, now],
-    );
-  }
-  for (const user of SEED_USERS) {
-    await conn.query(
-      `INSERT IGNORE INTO user_group_members (group_id, user_id, created_at)
-       SELECT ?, ?, ? WHERE NOT EXISTS (
-         SELECT 1 FROM user_group_members gm JOIN user_groups g ON g.id = gm.group_id
-          WHERE gm.user_id = ? AND g.role = ?
-       )`,
-      [`role-group-${user.role}`, user.id, now, user.id, user.role],
+      [u.id, u.username, hash, u.name, u.role, u.role, u.departmentId, now, now],
     );
   }
 

@@ -237,7 +237,7 @@ const userName = computed(() => auth.currentUser?.name ?? '');
 const roleLabel = computed(() => {
   const u = auth.currentUser;
   if (!u) return '';
-  const base = ROLE_LABELS[u.role];
+  const base = u.roleName || ROLE_LABELS[u.role];
   if (u.role === 'examinee' && u.departmentName) return `${base} · ${u.departmentName}`;
   return base;
 });

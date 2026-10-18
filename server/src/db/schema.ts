@@ -28,6 +28,15 @@ export const DDL_STATEMENTS: readonly string[] = [
       REFERENCES departments(id) ON DELETE RESTRICT ON UPDATE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
+  // Configurable roles; users retain a derived base identity for business rules.
+  `CREATE TABLE IF NOT EXISTS roles (
+    id VARCHAR(64) NOT NULL, name VARCHAR(120) NOT NULL,
+    base_role ENUM('admin','author','examinee') NOT NULL,
+    description VARCHAR(255) NOT NULL DEFAULT '', is_builtin TINYINT(1) NOT NULL DEFAULT 0,
+    created_at DATETIME(3) NOT NULL, updated_at DATETIME(3) NOT NULL,
+    PRIMARY KEY (id), UNIQUE KEY uk_roles_name (name)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
   // 2. 用户
   `CREATE TABLE IF NOT EXISTS users (
     id            VARCHAR(64)  NOT NULL,
@@ -35,6 +44,7 @@ export const DDL_STATEMENTS: readonly string[] = [
     password_hash VARCHAR(100) NOT NULL,
     name          VARCHAR(64)  NOT NULL,
     role          ENUM('admin','author','examinee') NOT NULL,
+    role_id       VARCHAR(64) NOT NULL,
     department_id VARCHAR(64)  NULL,
     position_id   VARCHAR(64)  NULL,
     email         VARCHAR(120) NULL,
@@ -47,6 +57,7 @@ export const DDL_STATEMENTS: readonly string[] = [
     UNIQUE KEY uk_users_username (username),
     KEY idx_users_department (department_id),
     KEY idx_users_position (position_id),
+    CONSTRAINT fk_users_role FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_users_department FOREIGN KEY (department_id)
       REFERENCES departments(id) ON DELETE RESTRICT ON UPDATE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
@@ -392,7 +403,7 @@ export const DDL_STATEMENTS: readonly string[] = [
 
   // 23. 菜单权限（v1.5；按角色一行，menu_keys = 该角色可见的菜单 key 列表；无行=使用内置默认）
   `CREATE TABLE IF NOT EXISTS menu_permissions (
-    role       ENUM('admin','author','examinee') NOT NULL,
+    role       VARCHAR(64) NOT NULL,
     menu_keys  JSON         NOT NULL,
     updated_by VARCHAR(64)  NOT NULL DEFAULT '',
     updated_at DATETIME(3)  NOT NULL,
@@ -864,6 +875,7 @@ export const DDL_STATEMENTS: readonly string[] = [
 /** 建表完成后用于统计的核心表名列表（含练题域 6 张表）。 */
 export const TABLE_NAMES: readonly string[] = [
   'departments',
+  'roles',
   'users',
   'question_banks',
   'questions',

@@ -8,7 +8,8 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import { Plus, Search, Refresh, Upload } from '@element-plus/icons-vue';
 import * as departmentsApi from '@/api/departments';
 import * as usersApi from '@/api/users';
-import { groupsApi, positionsApi } from '@/api/coreFeatures';
+import { rolesApi } from '@/api/roles';
+import { positionsApi } from '@/api/coreFeatures';
 import { useRequest } from '@/composables/useRequest';
 import { useConfirm } from '@/composables/useConfirm';
 import { validateAndFocus } from '@/composables/useFormFocus';
@@ -22,7 +23,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
 import TableActions from '@/components/common/TableActions.vue';
 import UserImportDialog from '@/views/admin/UserImportDialog.vue';
-import type { Position, Role, User, UserGroup } from '@/types';
+import type { Position, Role, User, RoleDefinition } from '@/types';
 
 const { confirm } = useConfirm();
 const settingsStore = useSettingsStore();
@@ -30,11 +31,11 @@ const settingsStore = useSettingsStore();
 /** 批量导入账号弹窗 */
 const importDialogVisible = ref(false);
 const positions = ref<Position[]>([]);
-const groups = ref<UserGroup[]>([]);
+const roles = ref<RoleDefinition[]>([]);
 
 onMounted(() => {
   void settingsStore.load();
-  void Promise.all([positionsApi.list(), groupsApi.list()]).then(([p, g]) => { positions.value = p; groups.value = g; });
+  void Promise.all([positionsApi.list(), rolesApi.list()]).then(([p, g]) => { positions.value = p; roles.value = g; });
 });
 
 /* ------------------------------ 科室映射 ------------------------------ */
@@ -46,11 +47,11 @@ const departmentNameMap = computed<Record<string, string>>(() =>
 const departmentTree = computed(() => buildDepartmentTree(departments.value ?? []));
 
 /* ------------------------------ 列表 ------------------------------ */
-const filterGroupId = ref('');
+const filterRoleId = ref('');
 const filterKeyword = ref('');
 
 /** 是否处于筛选态（决定空态口径与是否给「清空筛选」出路，规范 §9.2） */
-const hasFilter = computed<boolean>(() => Boolean(filterGroupId.value || filterKeyword.value.trim()));
+const hasFilter = computed<boolean>(() => Boolean(filterRoleId.value || filterKeyword.value.trim()));
 
 const {
   data: users,
@@ -58,7 +59,7 @@ const {
   refresh,
 } = useRequest(() =>
   usersApi.list({
-    groupId: filterGroupId.value || undefined,
+    roleId: filterRoleId.value || undefined,
     keyword: filterKeyword.value.trim() || undefined,
   }),
 );
@@ -68,7 +69,7 @@ function onSearch(): void {
 }
 
 function onReset(): void {
-  filterGroupId.value = '';
+  filterRoleId.value = '';
   filterKeyword.value = '';
   void refresh();
 }
@@ -84,21 +85,14 @@ const form = reactive({
   role: 'examinee' as Role,
   departmentId: '',
   positionId: '',
-  groupIds: [] as string[],
+  roleId: 'examinee',
   email: '',
   status: 'active' as User['status'],
   password: '',
 });
 
-/** 当前选中用户组派生的唯一系统角色。 */
-const derivedFormRole = computed<Role | ''>(() => {
-  const roles = [...new Set(
-    form.groupIds
-      .map((id) => groups.value.find((group) => group.id === id)?.role)
-      .filter((role): role is Role => Boolean(role)),
-  )];
-  return roles.length === 1 ? roles[0] : '';
-});
+/** 所选角色决定基础身份。 */
+const derivedFormRole = computed<Role | ''>(() => roles.value.find(role => role.id === form.roleId)?.baseRole ?? '');
 
 watch(derivedFormRole, (role) => {
   if (role) form.role = role;
@@ -110,7 +104,7 @@ const rules = computed<FormRules>(() => ({
     { pattern: /^[a-zA-Z0-9_]{3,20}$/, message: '账号需为 3~20 位字母/数字/下划线', trigger: 'blur' },
   ],
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
-  groupIds: [{ type: 'array', required: true, min: 1, message: '请至少选择一个用户组', trigger: 'change' }],
+  roleId: [{ required: true, message: '请选择角色', trigger: 'change' }],
   email: [
     {
       pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
@@ -144,7 +138,7 @@ function openCreate(): void {
   form.role = 'examinee';
   form.departmentId = '';
   form.positionId = '';
-  form.groupIds = ['role-group-examinee'];
+  form.roleId = 'examinee';
   form.email = '';
   form.status = 'active';
   form.password = '';
@@ -159,7 +153,7 @@ function openEdit(user: User): void {
   form.role = user.role;
   form.departmentId = user.departmentId;
   form.positionId = user.positionId;
-  form.groupIds = user.groupIds.length ? [...user.groupIds] : [`role-group-${user.role}`];
+  form.roleId = user.roleId;
   form.email = user.email;
   form.status = user.status;
   form.password = '';
@@ -173,7 +167,7 @@ async function handleSubmit(): Promise<void> {
   if (!valid) return;
 
   if (!derivedFormRole.value) {
-    ElMessage.warning('所选用户组必须属于同一系统角色');
+    ElMessage.warning('请选择有效角色');
     return;
   }
 
@@ -190,7 +184,7 @@ async function handleSubmit(): Promise<void> {
       role: derivedFormRole.value,
       departmentId: form.departmentId,
       positionId: form.positionId,
-      groupIds: form.groupIds,
+      roleId: form.roleId,
       email: form.email.trim() ? form.email.trim() : undefined,
       status: form.status,
       password: form.password ? form.password : undefined,
@@ -280,7 +274,7 @@ async function handleToggleStatus(user: User): Promise<void> {
       role: user.role,
       departmentId: user.departmentId,
       positionId: user.positionId,
-      groupIds: user.groupIds,
+      roleId: user.roleId,
       email: user.email,
       status: next,
     });
@@ -315,7 +309,7 @@ async function handleDelete(user: User): Promise<void> {
 
 <template>
   <div class="user-page">
-    <PageHeader title="用户管理" description="维护系统账号、所属用户组与科室；角色由用户组自动确定">
+    <PageHeader title="用户管理" description="维护系统账号、角色、岗位与科室">
       <template #actions>
         <el-button :icon="Upload" @click="importDialogVisible = true">批量导入账号</el-button>
         <el-button type="primary" :icon="Plus" @click="openCreate">新建用户</el-button>
@@ -325,8 +319,8 @@ async function handleDelete(user: User): Promise<void> {
     <el-card class="table-card" shadow="never">
       <div class="table-card__toolbar">
         <div class="table-card__toolbar-filters">
-          <el-select v-model="filterGroupId" class="user-page__filter-item" placeholder="全部用户组" clearable filterable>
-            <el-option v-for="group in groups" :key="group.id" :label="group.name" :value="group.id" />
+          <el-select v-model="filterRoleId" class="user-page__filter-item" placeholder="全部角色" clearable filterable>
+            <el-option v-for="role in roles" :key="role.id" :label="role.name" :value="role.id" />
           </el-select>
           <el-input
             v-model="filterKeyword"
@@ -362,16 +356,8 @@ async function handleDelete(user: User): Promise<void> {
           <template #default="{ row }">{{ departmentNameMap[row.departmentId] || '—' }}</template>
         </el-table-column>
         <el-table-column label="岗位" min-width="120"><template #default="{ row }">{{ row.positionName || '—' }}</template></el-table-column>
-        <el-table-column label="用户组 / 角色" min-width="210">
-          <template #default="{ row }">
-            <div class="user-page__groups">
-              <el-tag v-for="gid in row.groupIds" :key="gid" size="small" effect="plain">
-                {{ groups.find((group) => group.id === gid)?.name || gid }}
-              </el-tag>
-              <span v-if="!row.groupIds.length">—</span>
-              <span class="user-page__role-text">{{ ROLE_LABELS[row.role as Role] }}</span>
-            </div>
-          </template>
+        <el-table-column label="角色" min-width="180">
+          <template #default="{ row }"><el-tag effect="plain">{{ row.roleName }}</el-tag><span v-if="row.roleName !== ROLE_LABELS[row.role as Role]" class="user-page__role-text"> {{ ROLE_LABELS[row.role as Role] }}</span></template>
         </el-table-column>
         <el-table-column label="邮箱" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">{{ row.email || '—' }}</template>
@@ -428,20 +414,13 @@ async function handleDelete(user: User): Promise<void> {
         <el-form-item label="姓名" prop="name">
           <el-input v-model="form.name" maxlength="30" placeholder="请输入姓名" />
         </el-form-item>
-        <el-form-item label="用户组" prop="groupIds">
-          <el-select v-model="form.groupIds" multiple clearable filterable class="user-page__full">
-            <el-option
-              v-for="group in groups"
-              :key="group.id"
-              :label="`${group.name}（${ROLE_LABELS[group.role]}）`"
-              :value="group.id"
-              :disabled="Boolean(derivedFormRole && group.role !== derivedFormRole && !form.groupIds.includes(group.id))"
-            />
+        <el-form-item label="角色" prop="roleId">
+          <el-select v-model="form.roleId" filterable class="user-page__full">
+            <el-option v-for="role in roles" :key="role.id" :label="role.name" :value="role.id" />
           </el-select>
-          <div class="user-page__hint">用户的系统角色由所属用户组自动确定；可加入多个同角色用户组。</div>
         </el-form-item>
-        <el-form-item label="系统角色">
-          <el-input :model-value="derivedFormRole ? ROLE_LABELS[derivedFormRole] : '请先选择用户组'" disabled />
+        <el-form-item label="基础身份">
+          <el-input :model-value="derivedFormRole ? ROLE_LABELS[derivedFormRole] : '请先选择角色'" disabled />
         </el-form-item>
         <el-form-item label="所属科室">
           <el-tree-select

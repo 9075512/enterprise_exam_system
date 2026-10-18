@@ -16,7 +16,7 @@ const passwordVisible = ref(false);
 const securityVisible = ref(false);
 const refreshing = ref(false);
 const user = computed(() => auth.currentUser);
-const roleLabel = computed(() => user.value ? ROLE_LABELS[user.value.role] : '—');
+const roleLabel = computed(() => user.value ? (user.value.roleName || ROLE_LABELS[user.value.role]) : '—');
 
 const details = computed(() => {
   const current = user.value;

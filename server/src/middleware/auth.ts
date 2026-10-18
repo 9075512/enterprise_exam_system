@@ -1,3 +1,5 @@
+import { query } from '../db/pool.js';
+import type { RowDataPacket } from 'mysql2/promise';
 /**
  * 鉴权中间件：解析 `Authorization: Bearer <token>`，校验 JWT 并挂载 req.user。
  * JWT 载荷：{ sub: userId, role, departmentId, jti? }，HS256。
@@ -19,6 +21,7 @@ import type { Role } from '../types/domain.js';
 export interface JwtPayload {
   sub: string;
   role: Role;
+  roleId?: string;
   departmentId: string;
   /** 登录会话 id（v1.7③；旧令牌无此字段） */
   jti?: string;
@@ -77,12 +80,16 @@ export async function resolveUser(req: Request): Promise<ResolveResult> {
         /* 活跃时间刷新失败不影响鉴权 */
       });
     }
+    const users = await query<RowDataPacket[]>('SELECT role, role_id, department_id, status FROM users WHERE id = ? LIMIT 1', [String(decoded.sub)]);
+    const current = users[0];
+    if (!current || current.status !== 'active' || current.role !== payload.role
+      || (payload.roleId ? payload.roleId !== current.role_id : current.role_id !== current.role)) return { ok: false, message: '登录状态已失效，请重新登录' };
     return {
       ok: true,
       user: {
         id: String(decoded.sub),
         role: payload.role,
-        departmentId: payload.departmentId ?? '',
+        departmentId: current.department_id ?? '',
         sessionId: payload.jti ?? '',
       },
     };

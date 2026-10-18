@@ -35,7 +35,7 @@ const dialogVisible = computed<boolean>({
 
 const settingsStore = useSettingsStore();
 
-const HEADERS = ['登录账号', '姓名', '用户组', '科室', '邮箱', '初始密码'] as const;
+const HEADERS = ['登录账号', '姓名', '角色', '科室', '邮箱', '初始密码'] as const;
 
 /** 页签：wizard = 批量导入；history = 导入历史 */
 const tab = ref<'wizard' | 'history'>('wizard');
@@ -243,8 +243,8 @@ function handleHistoryPageChange(p: number): void {
           </el-button>
           <div class="user-import__hint">
             <p><strong>模板 6 列表头：</strong>{{ HEADERS.join('、') }}</p>
-            <p><strong>用户组：</strong>填写系统内已有的用户组名称，系统角色由该组自动确定。</p>
-            <p><strong>科室：</strong>仅考生角色组必填，填写科室名称须与系统内已有科室一致。</p>
+            <p><strong>角色：</strong>填写系统内已有的角色名称，基础身份由角色决定。</p>
+            <p><strong>科室：</strong>仅考生身份角色必填，填写科室名称须与系统内已有科室一致。</p>
             <p><strong>初始密码：</strong>留空则使用系统默认密码；邮箱用于邮件通知，可留空。</p>
           </div>
         </div>
