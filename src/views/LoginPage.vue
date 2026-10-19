@@ -1,13 +1,12 @@
 <script setup lang="ts">
 /**
- * 登录页（v1.2 视觉升级；v1.7③ 增图形验证码与两步验证）。
- * 桌面端左右分栏；移动端使用顶部品牌 Hero + 上浮表单 Sheet。
+ * 登录页：使用已确认的圆角双栏卡片；移动端收为单列表单。
+ * 保留按需图形验证码、两步验证与公开品牌配置。
  * 登录成功按 route.query.redirect 或角色首页跳转。
  */
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
-import { Collection, Lock, TrendCharts, User } from '@element-plus/icons-vue';
 import { useAuthStore } from '@/stores/auth';
 import { useSettingsStore } from '@/stores/settings';
 import { ApiError } from '@/api/http';
@@ -64,11 +63,11 @@ const rules = computed<FormRules>(() => ({
     : [],
 }));
 
-/** 品牌能力点（设计稿 .login__pt：单行短句） */
+/** 已确认登录稿中的编号能力列表。 */
 const features = [
-  { icon: Collection, desc: '题库组卷，统一管理' },
-  { icon: Lock, desc: '随机抽题，全程留痕' },
-  { icon: TrendCharts, desc: '成绩分析，清晰直观' },
+  '科目题库与精细权限',
+  '考试、监考与人工阅卷',
+  '成绩分析与学习反馈',
 ];
 
 /** 演示账号（点击自动填充） */
@@ -166,670 +165,319 @@ function backToCredentials(): void {
 
 <template>
   <div data-ui-layout="login" data-ui-page="LoginPage" class="login">
-    <!-- 左：品牌区（设计稿 .login__brand：深底 + 主色辐光） -->
-    <section class="login__brand">
-      <div class="login__brand-inner">
-        <div class="login__logo">
-          <span class="login__logo-mark">考</span>
-          <span class="login__logo-name">
-            {{ settingsStore.publicSettings.systemShortName }}
-            <small>EXAM CENTER</small>
-          </span>
-        </div>
-
-        <h1 v-if="settingsStore.publicSettings.loginSlogan" class="login__headline">
-          {{ settingsStore.publicSettings.loginSlogan }}
-        </h1>
-        <p class="login__tagline">覆盖组卷、考试、阅卷与分析全流程。</p>
-
-        <ul class="login__features">
-          <li v-for="(f, i) in features" :key="i" class="login__feature">
-            <span class="login__feature-icon">
-              <el-icon :size="12"><component :is="f.icon" /></el-icon>
+    <div class="login__card">
+      <!-- 左：已确认稿的渐变品牌区 -->
+      <section class="login__brand">
+        <div class="login__brand-inner">
+          <div class="login__logo">
+            <span class="login__logo-mark">考</span>
+            <span class="login__logo-name">
+              {{ settingsStore.publicSettings.systemShortName }}
+              <small>EXAM MANAGEMENT</small>
             </span>
-            <span class="login__feature-text">{{ f.desc }}</span>
-          </li>
-        </ul>
+          </div>
 
-        <p v-if="settingsStore.publicSettings.copyright" class="login__copyright">
-          {{ settingsStore.publicSettings.copyright }}
-        </p>
-      </div>
-    </section>
+          <h1 v-if="settingsStore.publicSettings.loginSlogan" class="login__headline">
+            {{ settingsStore.publicSettings.loginSlogan }}
+          </h1>
+          <p class="login__tagline">从题库管理到考试运营，从在线答题到成绩复核，<br class="login__desktop-break">把教学与考务工作有序连接。</p>
 
-    <!-- 右：表单区 -->
-    <section class="login__panel">
-      <div class="login__form-wrap">
-        <h2 class="login__title">{{ step === 'twofa' ? '两步验证' : '欢迎回来' }}</h2>
-        <p class="login__subtitle">
-          {{ step === 'twofa' ? '请输入动态验证码或恢复码' : '请使用统一账号登录' }}
-        </p>
+          <ul class="login__features">
+            <li v-for="(f, i) in features" :key="i" class="login__feature">
+              <span class="login__feature-number">{{ String(i + 1).padStart(2, '0') }}</span>
+              <span class="login__feature-text">{{ f }}</span>
+            </li>
+          </ul>
 
-        <el-form
-          v-if="step === 'credentials'"
-          ref="formRef"
-          :model="form"
-          :rules="rules"
-          label-position="top"
-          size="large"
-          @submit.prevent="handleSubmit"
-        >
-          <el-form-item label="账号 / 工号" prop="username">
-            <el-input
-              v-model="form.username"
-              :prefix-icon="User"
-              placeholder="请输入账号或工号"
-              clearable
-              autocomplete="username"
-              @input="clearError"
-              @keyup.enter="handleSubmit"
-            />
-          </el-form-item>
-          <el-form-item label="登录密码" prop="password">
-            <el-input
-              v-model="form.password"
-              type="password"
-              :prefix-icon="Lock"
-              placeholder="请输入登录密码"
-              show-password
-              autocomplete="current-password"
-              @input="clearError"
-              @keyup.enter="handleSubmit"
-            />
-          </el-form-item>
-          <el-form-item v-if="captchaRequired" label="图形验证码" prop="captcha">
-            <div class="login__captcha-row">
+          <p v-if="settingsStore.publicSettings.copyright" class="login__copyright">
+            {{ settingsStore.publicSettings.copyright }}
+          </p>
+        </div>
+      </section>
+
+      <!-- 右：表单区 -->
+      <section class="login__panel">
+        <div class="login__form-wrap">
+          <h2 class="login__title">{{ step === 'twofa' ? '两步验证' : '登录考试系统' }}</h2>
+          <p class="login__subtitle">
+            {{ step === 'twofa' ? '请输入动态验证码或恢复码' : '使用工作账号进入考试管理系统' }}
+          </p>
+
+          <el-form
+            v-if="step === 'credentials'"
+            ref="formRef"
+            :model="form"
+            :rules="rules"
+            label-position="top"
+            size="large"
+            @submit.prevent="handleSubmit"
+          >
+            <el-form-item label="账号 / 工号" prop="username">
               <el-input
-                v-model="form.captcha"
-                placeholder="请输入图中字符"
-                maxlength="6"
+                v-model="form.username"
+                placeholder="请输入账号或工号"
+                clearable
+                autocomplete="username"
                 @input="clearError"
                 @keyup.enter="handleSubmit"
               />
-              <CaptchaImage ref="captchaRef" v-model="captchaId" />
-            </div>
-          </el-form-item>
+            </el-form-item>
+            <el-form-item label="登录密码" prop="password">
+              <el-input
+                v-model="form.password"
+                type="password"
+                placeholder="请输入登录密码"
+                show-password
+                autocomplete="current-password"
+                @input="clearError"
+                @keyup.enter="handleSubmit"
+              />
+            </el-form-item>
+            <el-form-item v-if="captchaRequired" label="图形验证码" prop="captcha">
+              <div class="login__captcha-row">
+                <el-input
+                  v-model="form.captcha"
+                  placeholder="请输入图中字符"
+                  maxlength="6"
+                  @input="clearError"
+                  @keyup.enter="handleSubmit"
+                />
+                <CaptchaImage ref="captchaRef" v-model="captchaId" />
+              </div>
+            </el-form-item>
 
-          <el-alert
-            v-if="errorMsg"
-            class="login__error"
-            type="error"
-            :title="errorMsg"
-            :closable="false"
-            show-icon
-            role="alert"
-          />
-
-          <el-button
-            type="primary"
-            class="login__submit"
-            :loading="loading"
-            native-type="submit"
-            @click="handleSubmit"
-          >
-            登 录
-          </el-button>
-        </el-form>
-
-        <el-form v-else size="large" @submit.prevent="handleTwoFactor">
-          <el-form-item label="动态验证码">
-            <el-input
-              v-model="twoFactorCode"
-              placeholder="6 位验证码，或恢复码 XXXXX-XXXXX"
-              maxlength="11"
-              autocomplete="one-time-code"
-              @input="clearError"
-              @keyup.enter="handleTwoFactor"
+            <el-alert
+              v-if="errorMsg"
+              class="login__error"
+              type="error"
+              :title="errorMsg"
+              :closable="false"
+              show-icon
+              role="alert"
             />
-          </el-form-item>
-          <p class="login__twofa-hint">
-            验证器不可用时，可输入启用两步验证时保存的恢复码（每个仅可用一次）。
+
+            <el-button
+              type="primary"
+              class="login__submit"
+              :loading="loading"
+              native-type="submit"
+              @click="handleSubmit"
+            >
+              登 录 →
+            </el-button>
+          </el-form>
+
+          <el-form v-else size="large" @submit.prevent="handleTwoFactor">
+            <el-form-item label="动态验证码">
+              <el-input
+                v-model="twoFactorCode"
+                placeholder="6 位验证码，或恢复码 XXXXX-XXXXX"
+                maxlength="11"
+                autocomplete="one-time-code"
+                @input="clearError"
+                @keyup.enter="handleTwoFactor"
+              />
+            </el-form-item>
+            <p class="login__twofa-hint">
+              验证器不可用时，可输入启用两步验证时保存的恢复码（每个仅可用一次）。
+            </p>
+
+            <el-alert
+              v-if="errorMsg"
+              class="login__error"
+              type="error"
+              :title="errorMsg"
+              :closable="false"
+              show-icon
+              role="alert"
+            />
+
+            <el-button
+              type="primary"
+              class="login__submit"
+              :loading="loading"
+              native-type="submit"
+              @click="handleTwoFactor"
+            >
+              验 证
+            </el-button>
+            <el-button class="login__back" text @click="backToCredentials">返回重新输入账号</el-button>
+          </el-form>
+
+          <p class="login__hint">
+            首次登录请修改初始密码，账号异常请联系管理员。
           </p>
 
-          <el-alert
-            v-if="errorMsg"
-            class="login__error"
-            type="error"
-            :title="errorMsg"
-            :closable="false"
-            show-icon
-            role="alert"
-          />
-
-          <el-button
-            type="primary"
-            class="login__submit"
-            :loading="loading"
-            native-type="submit"
-            @click="handleTwoFactor"
-          >
-            验 证
-          </el-button>
-          <el-button class="login__back" text @click="backToCredentials">返回重新输入账号</el-button>
-        </el-form>
-
-        <p class="login__hint">
-          首次登录请修改初始密码，账号异常请联系管理员。
-        </p>
-
-        <div v-if="step === 'credentials'" class="login__demo">
-          <span class="login__demo-label">演示账号 · 点击自动填充</span>
-          <div class="login__demo-list">
-            <button
-              v-for="d in demos"
-              :key="d.username"
-              type="button"
-              class="login__demo-chip"
-              @click="fillDemo(d)"
-            >
-              <strong>{{ d.role }}</strong>
-              <small>{{ d.username }}</small>
-            </button>
-          </div>
+          <details v-if="step === 'credentials'" class="login__demo">
+            <summary class="login__demo-label">演示账号 · 点击展开</summary>
+            <div class="login__demo-list">
+              <button
+                v-for="d in demos"
+                :key="d.username"
+                type="button"
+                class="login__demo-chip"
+                @click="fillDemo(d)"
+              >
+                <strong>{{ d.role }}</strong>
+                <small>{{ d.username }}</small>
+              </button>
+            </div>
+          </details>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   </div>
 </template>
 
 <style scoped lang="scss">
 @use '@/styles/variables.scss' as *;
 
+// 当前确认稿：docs/ui-workbuddy/app.js 的 login() 与 style.css。
 .login {
-  display: flex;
+  display: grid;
+  place-items: center;
   min-height: 100vh;
+  min-height: 100dvh;
+  padding: 40px 32px;
+  background: $bg-page;
 
-  // ---------- 左：品牌区（设计稿 .login__brand：深底 #0B0F19 + 右下主色辐光） ----------
+  &__card {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    width: 100%;
+    max-width: 1200px;
+    min-height: 570px;
+    overflow: hidden;
+    border: 1px solid #e1e7f0;
+    border-radius: 18px; // radius-exception：已确认登录稿 .login-preview 的外框圆角。
+  }
+
   &__brand {
     position: relative;
-    flex: 1 1 54%;
-    display: flex;
-    align-items: stretch;
-    padding: 44px 48px;
     overflow: hidden;
-    background: $gradient-brand;
+    padding: 38px;
     color: #fff;
+    background: linear-gradient(135deg, #1e41b4, #2a6cf0 70%, #3d82fa);
 
-    /* 右下主色辐光（设计稿 ::after） */
     &::after {
       content: '';
       position: absolute;
+      width: 280px;
+      height: 280px;
       right: -90px;
-      bottom: -120px;
-      width: 380px;
-      height: 380px;
+      top: -100px;
       border-radius: 50%;
-      background: radial-gradient(circle at 30% 30%, $color-primary, transparent 62%);
-      opacity: 0.3;
+      background: #ffffff08;
       pointer-events: none;
     }
   }
 
-  &__brand-inner {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    flex-direction: column;
-    max-width: 460px;
-    width: 100%;
-  }
-
-  &__logo {
-    display: flex;
-    align-items: center;
-    gap: 11px;
-  }
-
+  &__brand-inner { position: relative; z-index: 1; }
+  &__logo { display: flex; align-items: center; gap: 12px; }
   &__logo-mark {
-    width: 36px;
-    height: 36px;
     display: grid;
     place-items: center;
-    border-radius: 9px;
-    background: $color-primary;
-    font-size: 15px;
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+    border: 1px solid #ffffff30;
+    border-radius: 12px;
+    background: #ffffff20;
+    box-shadow: 0 5px 12px rgba($color-primary, 0.19);
+    color: #fff;
+    font-size: 22px;
     font-weight: 700;
   }
-
   &__logo-name {
-    display: flex;
-    flex-direction: column;
-    font-size: 14px;
-    font-weight: 620;
-    color: $bg-paper;
-
+    min-width: 0;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
     small {
-      font-size: 12px;
-      letter-spacing: 0.11em;
-      color: rgba($bg-paper, 0.8);
-    }
-  }
-
-  &__headline {
-    // 设计稿 .login__ttl：28px / 660 / -0.02em / margin:auto 0 0（沉底对齐）
-    margin: auto 0 0;
-    font-size: 28px;
-    line-height: 1.32;
-    font-weight: 660;
-    letter-spacing: -0.02em;
-  }
-
-  &__tagline {
-    margin: 11px 0 0;
-    max-width: 410px;
-    font-size: 13px;
-    line-height: 1.7;
-    color: rgba($bg-paper, 0.85);
-  }
-
-  &__features {
-    list-style: none;
-    margin: 26px 0 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  &__feature {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    font-size: 12.5px;
-    color: rgba($bg-paper, 0.85);
-  }
-
-  &__feature-icon {
-    width: 19px;
-    height: 19px;
-    flex: 0 0 19px;
-    display: grid;
-    place-items: center;
-    border-radius: 5px;
-    background: rgba(255, 255, 255, 0.1);
-    color: #7fb0ff;
-  }
-
-  &__copyright {
-    margin: auto 0 0;
-    padding-top: 30px;
-    font-size: 12px;
-    color: rgba($bg-paper, 0.8);
-    opacity: 0.75;
-  }
-
-  // ---------- 右：表单区（设计稿白底居中 340px 栏） ----------
-  &__panel {
-    flex: 1 1 46%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 38px;
-    background: #fff;
-  }
-
-  &__form-wrap {
-    width: 100%;
-    max-width: 340px;
-  }
-
-  &__title {
-    margin: 0;
-    font-size: 21px;
-    font-weight: 650;
-    letter-spacing: -0.02em;
-    color: $text-primary;
-  }
-
-  &__subtitle {
-    margin: 6px 0 22px;
-    font-size: 12.5px;
-    color: $text-secondary;
-  }
-
-  &__error {
-    margin-bottom: 14px;
-    border-radius: $radius-sm;
-
-    :deep(.el-alert__title) {
-      font-size: 13px;
-      line-height: 1.5;
-    }
-  }
-
-  &__twofa-hint {
-    margin: -6px 0 14px;
-    font-size: 12.5px;
-    line-height: 1.5;
-    color: $text-secondary;
-  }
-
-  // 登录主按钮：对齐设计稿 login.html 的内联刻度 `height:38px;font-size:13.5px`
-  // （原 46px/15px/字距 .2em 为工程自定，比设计稿大一档 —— 逐页审计补正）
-  &__submit {
-    width: 100%;
-    height: 38px;
-    margin-top: 6px;
-    font-size: 13.5px;
-    font-weight: 500;
-  }
-
-  &__back {
-    width: 100%;
-    margin: 10px 0 0;
-    font-size: 13px;
-    color: $text-secondary;
-  }
-
-  &__captcha-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-
-    :deep(.el-input) {
-      flex: 1;
-    }
-  }
-
-  &__hint {
-    margin: 20px 0 0;
-    font-size: 12px;
-    line-height: 1.65;
-    color: $text-secondary;
-  }
-
-  &__demo {
-    margin-top: 22px;
-    padding-top: 18px;
-    border-top: 1px dashed $border-color;
-  }
-
-  &__demo-label {
-    display: block;
-    margin-bottom: 12px;
-    font-size: 12.5px;
-    color: $text-secondary;
-  }
-
-  &__demo-list {
-    display: flex;
-    gap: 10px;
-  }
-
-  &__demo-chip {
-    flex: 1;
-    padding: 9px 6px;
-    border: 1px solid $border-color;
-    border-radius: $radius-sm;
-    background: #fff;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    align-items: center;
-    transition: all $transition-fast;
-
-    strong {
-      font-size: 13px;
-      color: $text-primary;
-      font-weight: 600;
-    }
-
-    small {
-      font-size: 12px;
-      color: $text-secondary;
-      font-family: Consolas, monospace;
-    }
-
-    &:hover {
-      border-color: $color-primary;
-      background: $color-primary-soft;
-      transform: translateY(-1px);
-
-      strong {
-        color: $color-primary;
-      }
-    }
-  }
-}
-
-// 平板：压缩为单列表单，避免横向空间不足。
-@media (min-width: 769px) and (max-width: 1024px) {
-  .login {
-    &__brand {
-      display: none;
-    }
-
-    &__panel {
-      background: linear-gradient(160deg, $color-primary-50 0%, $bg-paper 45%);
-    }
-  }
-}
-
-// 手机：独立的「品牌 Hero + 上浮白色 Sheet」布局，不再直接复用 PC 表单画布。
-@media (max-width: 768px) {
-  .login {
-    min-height: 100vh;
-    min-height: 100dvh;
-    flex-direction: column;
-    overflow-x: hidden;
-    background: $sidebar-bg;
-
-    &__brand {
-      flex: 0 0 auto;
-      min-height: 218px;
-      padding:
-        max(24px, env(safe-area-inset-top))
-        max(20px, env(safe-area-inset-right))
-        52px
-        max(20px, env(safe-area-inset-left));
-      background:
-        radial-gradient(circle at 92% 12%, rgba($color-primary-light, 0.3), transparent 35%),
-        $gradient-brand;
-
-      &::before {
-        content: '';
-        position: absolute;
-        top: 74px;
-        right: -42px;
-        width: 132px;
-        height: 132px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 50%;
-        pointer-events: none;
-      }
-
-      &::after {
-        right: -80px;
-        bottom: -124px;
-        width: 300px;
-        height: 300px;
-        opacity: 0.4;
-      }
-    }
-
-    &__brand-inner {
-      max-width: none;
-
-      // 桌面端的四色能力分隔条在移动 Hero 中会制造无意义的底部噪音。
-      &::after {
-        display: none;
-      }
-    }
-
-    &__logo {
-      gap: 10px;
-    }
-
-    &__logo-mark {
-      width: 40px;
-      height: 40px;
-      border-radius: 11px; // radius-exception：移动端品牌标识沿用显式视觉稿尺寸。
-      font-size: 17px;
-      box-shadow: 0 8px 24px rgba(18, 104, 255, 0.28);
-    }
-
-    &__logo-name {
-      font-size: 15px;
-
-      small {
-        margin-top: 1px;
-        font-size: 12px;
-        letter-spacing: 0.14em;
-      }
-    }
-
-    &__headline {
       display: block;
-      margin: 30px 0 0;
-      max-width: none;
-      overflow: hidden;
-      font-size: clamp(17px, 5.2vw, 21px);
-      line-height: 1.3;
-      letter-spacing: -0.04em;
-      white-space: nowrap;
+      margin-top: 1px;
+      color: #c4d6ff;
+      font-size: 8px;
+      font-weight: 400;
+      letter-spacing: 1.8px;
     }
+  }
+  &__headline {
+    max-width: 10em;
+    margin: 68px 0 0;
+    font-size: 33px;
+    font-weight: 700;
+    line-height: 1.55;
+    letter-spacing: -0.5px;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+  }
+  &__tagline { margin: 17px 0 0; color: #c6d7ff; font-size: 12px; line-height: 2; }
+  &__features { display: flex; flex-direction: column; margin: 58px 0 0; padding: 0; list-style: none; }
+  &__feature { display: flex; gap: 12px; color: #bdd2ff; font-size: 11px; line-height: 2.4; }
+  &__feature-number { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+  &__copyright { margin: 45px 0 0; padding-top: 21px; border-top: 1px solid #ffffff20; color: #c7d7ff; font-size: 10px; }
 
-    &__tagline {
-      display: -webkit-box;
-      margin-top: 8px;
-      max-width: 34em;
-      overflow: hidden;
-      font-size: 12px;
-      line-height: 1.6;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 2;
-    }
+  &__panel { display: flex; align-items: center; justify-content: center; padding: 50px 15%; background: #f9fafc; }
+  &__form-wrap { width: 100%; min-width: 0; }
+  &__title { margin: 0 0 5px; color: $text-primary; font-size: 23px; font-weight: 700; line-height: 1.6; }
+  &__subtitle { margin: 0 0 28px; color: $text-secondary; font-size: 12px; }
+  :deep(.el-form-item) { margin-bottom: 20px; }
+  :deep(.el-form-item__label) { height: auto; margin-bottom: 7px; padding: 0; color: $text-body; font-size: 12px; line-height: 1.6; }
+  :deep(.el-input__wrapper) { min-height: 41px; padding-inline: 11px; border-radius: 8px; background: #fff; }
+  :deep(.el-input__inner) { height: 39px; font-size: 12px; }
+  &__submit { width: 100%; height: 42px; margin-top: 5px; border-radius: 8px; font-size: 12px; box-shadow: 0 3px 6px rgba($color-primary, 0.07); }
+  &__hint { margin: 25px 0 0; color: $text-secondary; font-size: 12px; text-align: center; line-height: 1.8; }
+  &__error { margin-bottom: 14px; :deep(.el-alert__title) { font-size: 13px; line-height: 1.5; } }
+  &__captcha-row { display: flex; align-items: center; gap: 8px; width: 100%; :deep(.el-input) { flex: 1; min-width: 0; } }
+  &__twofa-hint { margin: -6px 0 14px; color: $text-secondary; font-size: 12px; line-height: 1.8; }
+  &__back { width: 100%; margin: 10px 0 0; color: $text-secondary; font-size: 12px; }
+  &__demo { margin-top: 18px; color: $text-secondary; font-size: 12px; }
+  &__demo-label { width: fit-content; margin: 0 auto; cursor: pointer; }
+  &__demo-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+  &__demo-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+    min-height: 52px;
+    padding: 7px 3px;
+    border: 1px solid $border-color;
+    border-radius: 8px;
+    background: #fff;
+    font: inherit;
+    cursor: pointer;
+    strong { color: $text-primary; font-size: 12px; font-weight: 600; }
+    small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-family: Consolas, monospace; font-size: 12px; }
+    &:hover { border-color: $color-primary; background: $color-primary-soft; }
+  }
+}
 
-    &__features,
-    &__copyright {
-      display: none;
-    }
+@media (max-width: 1100px) {
+  .login__panel { padding: 40px 12%; }
+  .login__brand { padding: 30px; }
+  .login__logo-name { font-size: 17px; }
+  .login__headline { font-size: 28px; }
+  .login__desktop-break { display: none; }
+}
 
-    &__panel {
-      position: relative;
-      z-index: 2;
-      flex: 1 0 auto;
-      align-items: flex-start;
-      margin-top: -24px;
-      padding:
-        30px
-        max(20px, env(safe-area-inset-right))
-        max(28px, env(safe-area-inset-bottom))
-        max(20px, env(safe-area-inset-left));
-      border-radius: 24px 24px 0 0; // radius-exception：移动端上浮 Sheet 的结构性圆角。
-      background: $bg-paper;
-    }
-
-    &__form-wrap {
-      max-width: 480px;
-      margin: 0 auto;
-    }
-
-    &__title {
-      font-size: 23px;
-      line-height: 1.35;
-    }
-
-    &__subtitle {
-      margin: 7px 0 24px;
-      font-size: 13px;
-      line-height: 1.55;
-    }
-
-    :deep(.el-form-item) {
-      margin-bottom: 20px;
-    }
-
-    :deep(.el-form-item__label) {
-      padding-bottom: 7px;
-      font-size: 13px;
-    }
-
-    :deep(.el-input__wrapper) {
-      min-height: 46px;
-      padding-inline: 13px;
-      border-radius: 8px;
-    }
-
-    :deep(.el-input__inner) {
-      font-size: 16px; // 防止 iOS 聚焦输入框时自动放大页面。
-    }
-
-    &__submit {
-      height: 46px;
-      margin-top: 4px;
-      border-radius: 8px;
-      font-size: 15px;
-      font-weight: 600;
-    }
-
-    &__back {
-      min-height: 40px;
-    }
-
-    &__hint {
-      margin-top: 18px;
-      font-size: 12px;
-      line-height: 1.7;
-    }
-
-    &__demo {
-      margin-top: 20px;
-      padding-top: 16px;
-    }
-
-    &__demo-label {
-      margin-bottom: 10px;
-      font-size: 12px;
-    }
-
-    &__demo-list {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
-    }
-
-    &__demo-chip {
-      min-width: 0;
-      min-height: 52px;
-      padding: 7px 3px;
-      touch-action: manipulation;
-
-      strong,
-      small {
-        max-width: 100%;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      &:active {
-        border-color: $color-primary;
-        background: $color-primary-soft;
-        transform: scale(0.98);
-      }
-    }
+@media (max-width: 900px) {
+  .login {
+    padding: 24px;
+    &__card { grid-template-columns: minmax(0, 1fr); max-width: 520px; min-height: 580px; }
+    &__brand { display: none; }
+    &__panel { padding: 45px 30px; }
+    &__demo-label { min-height: 44px; padding-block: 12px; }
+    &__demo-chip { min-height: 52px; }
+    &__submit, &__back { min-height: 44px; }
+    :deep(.el-input__wrapper) { min-height: 44px; }
+    :deep(.el-input__inner) { min-height: 42px; font-size: 16px; }
   }
 }
 
 @media (max-width: 374px) {
-  .login {
-    &__brand {
-      min-height: 204px;
-      padding-right: 16px;
-      padding-left: 16px;
-    }
-
-    &__headline {
-      margin-top: 24px;
-    }
-
-    &__panel {
-      padding-right: 16px;
-      padding-left: 16px;
-    }
-  }
+  .login { padding: 16px; &__panel { padding: 32px 20px; } }
 }
 </style>
