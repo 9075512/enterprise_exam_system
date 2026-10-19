@@ -5,7 +5,7 @@
  *   - 统计：待考 / 进行中 / 已交卷 / 平均分 及**及格率**（新增）；
  *   - 趋势：最近 10 次已交卷成绩（考试名 + 分数 + 是否及格）；
  *   - 待办：待考 / 未交卷 / 可申请补考 / 未读消息；
- *   - 个性化：快捷入口与推荐练题题库（v2.0⑥ 起按科室可配置，未配置走全局默认）。
+ *   - 快捷入口使用内置默认值。
  *
  * 口径说明：
  *   - 已交卷 = status='submitted'（已出成绩），与「我的成绩」完全一致；
@@ -18,7 +18,7 @@ import * as notificationsService from '../notifications/notifications.service.js
 import { getSettings } from '../settings/settings.service.js';
 import { getExamStatus } from '../../utils/examStatus.js';
 import { fromDbDateSafe } from '../../utils/datetime.js';
-import { resolveHomeProfile } from './homeProfile.service.js';
+import { defaultShortcuts } from './homeProfile.service.js';
 import type {
   HomeStatBundleDto,
   HomeSummaryDto,
@@ -36,13 +36,12 @@ function round1(n: number): number {
 
 /** 考生首页聚合。 */
 export async function getSummary(user: { id: string; departmentId: string }): Promise<HomeSummaryDto> {
-  const [exams, agg, trendRows, unreadData, settings, profile] = await Promise.all([
+  const [exams, agg, trendRows, unreadData, settings] = await Promise.all([
     examsService.listForExaminee(user.id, user.departmentId),
     repo.aggregateSubmitted(user.id),
     repo.listRecentScores(user.id, TREND_LIMIT),
     notificationsService.unreadCount(user.id),
     getSettings(),
-    resolveHomeProfile(user.departmentId),
   ]);
 
   const passLine = settings.examDefaultPassScore;
@@ -106,8 +105,8 @@ export async function getSummary(user: { id: string; departmentId: string }): Pr
     trend,
     todos,
     unreadCount: unreadData.unreadCount,
-    shortcuts: profile.shortcuts,
-    recommendedBanks: profile.recommendedBanks,
+    shortcuts: defaultShortcuts(),
+    recommendedBanks: [],
     generatedAt: new Date().toISOString(),
   };
 }

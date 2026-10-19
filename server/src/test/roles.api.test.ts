@@ -116,20 +116,13 @@ describe('可配置角色与成员', () => {
     expect((await request(app).delete(`/api/roles/${adminRole.body.data.id}`).set(bearer)).body.code).toBe(0);
   });
 
-  it('抽考模板只接受有效考生角色，并阻止删除被引用角色', async () => {
-    const template = await request(app).post('/api/audience-templates').set(bearer).send({ name: '角色抽考', rules: { roleIds: [learnerId] } });
-    expect(template.body.code).toBe(0);
+  it('角色成员调整后保留已冻结的指定人员名单，空角色可删除', async () => {
     expect((await request(app).put(`/api/roles/${learnerId}/members`).set(bearer).send({ userIds: ['user-zhangsan'] })).body.code).toBe(0);
-    await withTransaction(conn => freezeParticipants('exam-demo', { departmentIds: [], audienceTemplateId: template.body.data.id }, conn));
+    await withTransaction(conn => freezeParticipants('exam-demo', { departmentIds: [], includeUserIds: ['user-zhangsan'] }, conn));
     const frozen = await query<RowDataPacket[]>("SELECT user_id, source FROM exam_participants WHERE exam_id = 'exam-demo'");
-    expect(frozen).toEqual([expect.objectContaining({ user_id: 'user-zhangsan', source: 'template' })]);
+    expect(frozen).toEqual([expect.objectContaining({ user_id: 'user-zhangsan', source: 'include' })]);
     await request(app).put(`/api/roles/${learnerId}/members`).set(bearer).send({ userIds: [] });
     expect(await query<RowDataPacket[]>("SELECT user_id, source FROM exam_participants WHERE exam_id = 'exam-demo'")).toEqual(frozen);
-    expect((await request(app).delete(`/api/roles/${learnerId}`).set(bearer)).body.code).toBe(1005);
-    expect((await request(app).post('/api/audience-templates').set(bearer).send({ name: '不存在', rules: { roleIds: ['missing-role'] } })).body.code).toBe(1001);
-    expect((await request(app).post('/api/audience-templates').set(bearer).send({ name: '出题角色', rules: { roleIds: [teacherId] } })).body.code).toBe(1001);
-    expect((await request(app).post('/api/audience-templates').set(bearer).send({ name: '旧组模板', rules: { groupIds: ['old'] } })).body.code).toBe(1001);
-    await request(app).delete(`/api/audience-templates/${template.body.data.id}`).set(bearer);
     expect((await request(app).delete(`/api/roles/${learnerId}`).set(bearer)).body.code).toBe(0);
   });
 

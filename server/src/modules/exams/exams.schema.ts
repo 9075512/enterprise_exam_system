@@ -21,7 +21,6 @@ export const examSchema = z.object({
   departmentIds: z.array(z.string().min(1).max(64)).max(1000).default([]),
   includeUserIds: z.array(z.string().min(1).max(64)).max(5000).optional().default([]),
   excludeUserIds: z.array(z.string().min(1).max(64)).max(5000).optional().default([]),
-  audienceTemplateId: z.string().min(1).max(64).nullable().optional().default(null),
   startTime: isoDate('开始时间'),
   endTime: isoDate('截止时间'),
   durationMinutes: z.coerce.number().int().min(1, '考试时长必须不少于 1 分钟'),

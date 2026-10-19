@@ -36,7 +36,7 @@ function nullableBool(value: number | boolean | null | undefined): boolean | nul
 
 /** 映射为对外 DTO（JSON 列归一、时间转 ISO）。 */
 export function mapExamRow(row: ExamRow): ExamDto {
-  const rules = parseJsonColumn<{ includeUserIds?: string[]; excludeUserIds?: string[]; audienceTemplateId?: string | null }>(row.audience_rules, {});
+  const rules = parseJsonColumn<{ includeUserIds?: string[]; excludeUserIds?: string[] }>(row.audience_rules, {});
   return {
     id: row.id,
     name: row.name,
@@ -44,7 +44,6 @@ export function mapExamRow(row: ExamRow): ExamDto {
     departmentIds: parseJsonColumn<string[]>(row.department_ids, []),
     includeUserIds: rules.includeUserIds ?? [],
     excludeUserIds: rules.excludeUserIds ?? [],
-    audienceTemplateId: rules.audienceTemplateId ?? null,
     audienceMode: row.audience_mode === 'frozen' ? 'frozen' : 'dynamic',
     startTime: fromDbDateSafe(row.start_time),
     endTime: fromDbDateSafe(row.end_time),

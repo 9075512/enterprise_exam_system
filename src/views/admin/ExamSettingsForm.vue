@@ -7,11 +7,10 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import dayjs from 'dayjs';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import * as usersApi from '@/api/users';
-import { templatesApi } from '@/api/coreFeatures';
 import { useSettingsStore } from '@/stores/settings';
 import { validateAndFocus } from '@/composables/useFormFocus';
 import { buildDepartmentTree } from '@/utils/departmentTree';
-import type { AudienceTemplate, Department, Exam, ExamMode, User } from '@/types';
+import type { Department, Exam, ExamMode, User } from '@/types';
 
 const props = defineProps<{
   exam?: Exam | null;
@@ -29,14 +28,12 @@ const LOCAL_FORMAT = 'YYYY-MM-DD HH:mm:ss';
 
 const formRef = ref<FormInstance>();
 const examinees = ref<User[]>([]);
-const audienceTemplates = ref<AudienceTemplate[]>([]);
 const form = reactive({
   name: '',
   authorIds: [] as string[],
   departmentIds: [] as string[],
   includeUserIds: [] as string[],
   excludeUserIds: [] as string[],
-  audienceTemplateId: null as string | null,
   startTime: '',
   endTime: '',
   durationMinutes: 60,
@@ -73,7 +70,6 @@ function resetForm(): void {
     form.departmentIds = [...exam.departmentIds];
     form.includeUserIds = [...exam.includeUserIds];
     form.excludeUserIds = [...exam.excludeUserIds];
-    form.audienceTemplateId = exam.audienceTemplateId;
     form.startTime = dayjs(exam.startTime).format(LOCAL_FORMAT);
     form.endTime = dayjs(exam.endTime).format(LOCAL_FORMAT);
     form.durationMinutes = exam.durationMinutes;
@@ -90,7 +86,6 @@ function resetForm(): void {
     form.departmentIds = [];
     form.includeUserIds = [];
     form.excludeUserIds = [];
-    form.audienceTemplateId = null;
     form.startTime = '';
     form.endTime = '';
     form.durationMinutes = settingsStore.settings.examDefaultDuration;
@@ -110,8 +105,8 @@ async function load(): Promise<void> {
   try {
     await settingsStore.load();
     resetForm();
-    const [u, t, a] = await Promise.all([usersApi.list({ role: 'examinee' }), templatesApi.audiences(), usersApi.list({ role: 'author' })]);
-    examinees.value = u; audienceTemplates.value = t; authors.value = a.filter(user => user.status === 'active');
+    const [u, a] = await Promise.all([usersApi.list({ role: 'examinee' }), usersApi.list({ role: 'author' })]);
+    examinees.value = u; authors.value = a.filter(user => user.status === 'active');
   } catch { loadFailed.value = true; }
   finally { loading.value = false; }
 }
@@ -121,8 +116,8 @@ async function validate(): Promise<boolean> {
   if (!formRef.value || loading.value || loadFailed.value) return false;
   const valid = await validateAndFocus(formRef.value);
   if (!valid) return false;
-  if (!form.departmentIds.length && !form.includeUserIds.length && !form.audienceTemplateId) {
-    ElMessage.warning('请至少选择参与科室、指定人员或抽考模板');
+  if (!form.departmentIds.length && !form.includeUserIds.length) {
+    ElMessage.warning('请至少选择参与科室或指定人员');
     return false;
   }
 
@@ -143,7 +138,6 @@ function getPayload() {
       departmentIds: [...form.departmentIds],
       includeUserIds: [...form.includeUserIds],
       excludeUserIds: [...form.excludeUserIds],
-      audienceTemplateId: form.audienceTemplateId,
       startTime: props.exam?.questionsLocked ? props.exam.startTime : new Date(form.startTime).toISOString(),
       endTime: new Date(form.endTime).toISOString(),
       durationMinutes: form.durationMinutes,
@@ -162,7 +156,7 @@ defineExpose({ validate, getPayload, form });
 
 <template>
   <div v-loading="loading" class="exam-settings">
-    <el-alert v-if="loadFailed" title="人员或模板数据加载失败，请重试后继续" type="error" :closable="false"><el-button @click="load">重试</el-button></el-alert>
+    <el-alert v-if="loadFailed" title="人员数据加载失败，请重试后继续" type="error" :closable="false"><el-button @click="load">重试</el-button></el-alert>
     <el-form v-if="!loading && !loadFailed" ref="formRef" :model="form" :rules="rules" label-position="top" :disabled="disabled">
       <section class="settings-section" aria-labelledby="exam-basic-heading">
         <header class="settings-section__head">
@@ -208,18 +202,15 @@ defineExpose({ validate, getPayload, form });
       <section class="settings-section" aria-labelledby="exam-audience-heading">
         <header class="settings-section__head">
           <span class="settings-section__number">03</span>
-          <div><h3 id="exam-audience-heading">参与人员</h3><p>按科室或模板选择范围，也可单独加入、排除人员。</p></div>
+          <div><h3 id="exam-audience-heading">参与人员</h3><p>按科室选择范围，也可单独加入、排除人员。</p></div>
         </header>
         <div class="settings-grid">
           <el-form-item label="参与科室（可多选）" prop="departmentIds">
             <el-tree-select v-model="form.departmentIds" :data="departmentTree" class="exam-form__full" multiple show-checkbox check-strictly :render-after-expand="false" default-expand-all placeholder="请选择参与科室" />
             <span class="exam-form__hint">选择上级科室，自动覆盖其下级科室。</span>
           </el-form-item>
-          <el-form-item label="人员抽考模板">
-            <el-select v-model="form.audienceTemplateId" clearable class="exam-form__full" placeholder="可选，使用已保存的人员规则"><el-option v-for="t in audienceTemplates" :key="t.id" :label="t.name" :value="t.id" /></el-select>
-          </el-form-item>
           <el-form-item label="指定加入人员">
-            <el-select v-model="form.includeUserIds" multiple filterable class="exam-form__full" placeholder="可与科室、模板叠加"><el-option v-for="u in examinees" :key="u.id" :label="u.name + '（' + u.username + '）'" :value="u.id" /></el-select>
+            <el-select v-model="form.includeUserIds" multiple filterable class="exam-form__full" placeholder="可与科室叠加"><el-option v-for="u in examinees" :key="u.id" :label="u.name + '（' + u.username + '）'" :value="u.id" /></el-select>
           </el-form-item>
           <el-form-item label="指定排除人员">
             <el-select v-model="form.excludeUserIds" multiple filterable class="exam-form__full" placeholder="从参与范围中排除"><el-option v-for="u in examinees" :key="u.id" :label="u.name + '（' + u.username + '）'" :value="u.id" /></el-select>

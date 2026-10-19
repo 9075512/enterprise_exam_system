@@ -4,11 +4,10 @@ import ElementPlus, { ElButton, ElMessage } from 'element-plus';
 import ExamQuestionComposer from './ExamQuestionComposer.vue';
 import type { DrawResult, PaperDetail, Question } from '@/types';
 
-const api = vi.hoisted(() => ({ banks: vi.fn(), pool: vi.fn(), subjects: vi.fn(), tags: vi.fn(), draw: vi.fn(), papers: vi.fn() }));
+const api = vi.hoisted(() => ({ banks: vi.fn(), pool: vi.fn(), subjects: vi.fn(), tags: vi.fn(), draw: vi.fn() }));
 vi.mock('@/api/banks', () => ({ list: api.banks }));
 vi.mock('@/api/questions', () => ({ pool: api.pool, subjects: api.subjects, tags: api.tags }));
 vi.mock('@/api/exams', () => ({ drawQuestions: api.draw }));
-vi.mock('@/api/coreFeatures', () => ({ templatesApi: { papers: api.papers } }));
 vi.mock('@/stores/settings', () => ({ useSettingsStore: () => ({ load: vi.fn(), settings: { defaultPageSize: 20, paperTargetDifficulty: 0.7 } }) }));
 
 const question: Question = {
@@ -52,7 +51,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   api.banks.mockResolvedValue([{ id: 'bank-1', name: '安全题库', questionCount: 10 }]);
   api.pool.mockResolvedValue({ list: [question], total: 1, page: 1, pageSize: 20 });
-  api.subjects.mockResolvedValue([]); api.papers.mockResolvedValue([]); api.draw.mockResolvedValue(drawn);
+  api.subjects.mockResolvedValue([]); api.draw.mockResolvedValue(drawn);
 });
 afterEach(() => { wrappers.splice(0).forEach(wrapper => wrapper.unmount()); ElMessage.closeAll(); });
 

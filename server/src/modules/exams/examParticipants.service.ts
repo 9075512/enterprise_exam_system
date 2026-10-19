@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { query, runQuery, withTransaction, type SqlExecutor } from '../../db/pool.js';
-import type { AdmissionTicketDto, AudienceTemplateRulesDto, ExamParticipantDto } from '../../types/domain.js';
+import type { AdmissionTicketDto, ExamParticipantDto } from '../../types/domain.js';
 import { fromDbDateSafe, nowDb } from '../../utils/datetime.js';
 import { badRequest, forbidden, notFound } from '../../utils/errors.js';
 import { parseJsonColumn } from '../../utils/json.js';
@@ -12,7 +12,6 @@ export interface ExamAudienceInput {
   departmentIds: string[];
   includeUserIds?: string[];
   excludeUserIds?: string[];
-  audienceTemplateId?: string | null;
 }
 
 interface ParticipantRow extends RowDataPacket {
@@ -29,48 +28,21 @@ function dto(row: ParticipantRow): ExamParticipantDto {
   };
 }
 
-async function loadTemplate(templateId: string | null | undefined, exec?: SqlExecutor): Promise<AudienceTemplateRulesDto | null> {
-  if (!templateId) return null;
-  const rows = await runQuery<Array<RowDataPacket & { rules: unknown }>>(exec, `SELECT rules FROM audience_templates WHERE id = ? LIMIT 1`, [templateId]);
-  if (!rows[0]) throw badRequest('抽考模板不存在');
-  return parseJsonColumn<AudienceTemplateRulesDto>(rows[0].rules, {
-    departmentIds: [], roleIds: [], positionIds: [], includeUserIds: [], excludeUserIds: [], includeSubDepartments: true, randomCount: null,
-  });
-}
-
-function stableRank(examId: string, userId: string): string {
-  return crypto.createHash('sha256').update(`${examId}:${userId}`).digest('hex');
-}
-
 function admissionNo(examId: string, index: number): string {
   const prefix = crypto.createHash('sha1').update(examId).digest('hex').slice(0, 6).toUpperCase();
   return `${prefix}${String(index + 1).padStart(5, '0')}`;
 }
 
-async function resolveUsers(examId: string, input: ExamAudienceInput, exec?: SqlExecutor): Promise<Array<{ userId: string; source: ExamParticipantDto['source'] }>> {
-  const template = await loadTemplate(input.audienceTemplateId, exec);
-  const departmentIds = [...new Set([...(input.departmentIds ?? []), ...(template?.departmentIds ?? [])])];
-  const includeUserIds = [...new Set([...(template?.includeUserIds ?? []), ...(input.includeUserIds ?? [])])];
-  const exclude = new Set([...(template?.excludeUserIds ?? []), ...(input.excludeUserIds ?? [])]);
-  const expanded = template?.includeSubDepartments === false ? departmentIds : await departmentsService.expandDepartmentIds(departmentIds, exec);
+async function resolveUsers(input: ExamAudienceInput, exec?: SqlExecutor): Promise<Array<{ userId: string; source: ExamParticipantDto['source'] }>> {
+  const departmentIds = [...new Set(input.departmentIds ?? [])];
+  const includeUserIds = [...new Set(input.includeUserIds ?? [])];
+  const exclude = new Set(input.excludeUserIds ?? []);
+  const expanded = await departmentsService.expandDepartmentIds(departmentIds, exec);
   const selected = new Map<string, ExamParticipantDto['source']>();
   if (expanded.length) {
     const placeholders = expanded.map(() => '?').join(',');
     const rows = await runQuery<Array<RowDataPacket & { id: string }>>(exec, `SELECT id FROM users WHERE role = 'examinee' AND status = 'active' AND department_id IN (${placeholders})`, expanded);
-    for (const row of rows) selected.set(row.id, input.audienceTemplateId ? 'template' : 'department');
-  }
-  if (template?.roleIds?.length) {
-    const placeholders = template.roleIds.map(() => '?').join(',');
-    const rows = await runQuery<Array<RowDataPacket & { id: string }>>(exec,
-      `SELECT DISTINCT u.id FROM users u
-       WHERE u.role = 'examinee' AND u.status = 'active' AND u.role_id IN (${placeholders})`, template.roleIds);
-    for (const row of rows) selected.set(row.id, 'template');
-  }
-  if (template?.positionIds?.length) {
-    const placeholders = template.positionIds.map(() => '?').join(',');
-    const rows = await runQuery<Array<RowDataPacket & { id: string }>>(exec,
-      `SELECT id FROM users WHERE role = 'examinee' AND status = 'active' AND position_id IN (${placeholders})`, template.positionIds);
-    for (const row of rows) selected.set(row.id, 'template');
+    for (const row of rows) selected.set(row.id, 'department');
   }
   if (includeUserIds.length) {
     const placeholders = includeUserIds.map(() => '?').join(',');
@@ -79,17 +51,13 @@ async function resolveUsers(examId: string, input: ExamAudienceInput, exec?: Sql
     for (const row of rows) selected.set(row.id, 'include');
   }
   for (const id of exclude) selected.delete(id);
-  let result = [...selected].map(([userId, source]) => ({ userId, source }));
-  const randomCount = template?.randomCount ?? null;
-  if (randomCount && result.length > randomCount) {
-    result = result.sort((a, b) => stableRank(examId, a.userId).localeCompare(stableRank(examId, b.userId))).slice(0, randomCount);
-  }
+  const result = [...selected].map(([userId, source]) => ({ userId, source }));
   return result.sort((a, b) => a.userId.localeCompare(b.userId));
 }
 
 /** 在事务中冻结名单。已有作答时只追加、不移除。 */
 export async function freezeParticipants(examId: string, input: ExamAudienceInput, exec?: SqlExecutor): Promise<void> {
-  const next = await resolveUsers(examId, input, exec);
+  const next = await resolveUsers(input, exec);
   if (!next.length) throw badRequest('人员范围未解析到任何启用中的考生');
   const existing = await runQuery<Array<RowDataPacket & { user_id: string; admission_no: string }>>(exec,
     `SELECT user_id, admission_no FROM exam_participants WHERE exam_id = ? ORDER BY created_at`, [examId]);
@@ -118,7 +86,7 @@ export async function ensureFrozen(examId: string): Promise<void> {
   if (rows[0].audience_mode === 'frozen') return;
   await withTransaction(async (conn) => {
     await freezeParticipants(examId, { departmentIds: parseJsonColumn<string[]>(rows[0]!.department_ids, []) }, conn);
-    await conn.query(`UPDATE exams SET audience_mode = 'frozen', audience_rules = ? WHERE id = ?`, [JSON.stringify({ includeUserIds: [], excludeUserIds: [], audienceTemplateId: null }), examId]);
+    await conn.query(`UPDATE exams SET audience_mode = 'frozen', audience_rules = ? WHERE id = ?`, [JSON.stringify({ includeUserIds: [], excludeUserIds: [] }), examId]);
   });
 }
 
@@ -131,7 +99,7 @@ export async function listParticipants(examId: string, materialize = false): Pro
   // 升级前的旧考试在“查看名单”时只做动态预览，不因一次只读操作改变历史行为。
   // 首次保存人员范围或导出准考证仍会走 ensureFrozen，届时才持久化准考证号。
   if (exam[0].audience_mode !== 'frozen') {
-    const resolved = await resolveUsers(examId, {
+    const resolved = await resolveUsers({
       departmentIds: parseJsonColumn<string[]>(exam[0].department_ids, []),
     });
     if (!resolved.length) return [];

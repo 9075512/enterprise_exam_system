@@ -44,19 +44,6 @@ export async function migrateRoles(conn: Connection): Promise<void> {
     await conn.query(`INSERT IGNORE INTO menu_overrides (user_id, menu_key, effect, updated_at)
       SELECT user_id, 'positions', effect, updated_at FROM menu_overrides WHERE menu_key = 'org-extensions'`);
     await conn.query("DELETE FROM menu_overrides WHERE menu_key = 'org-extensions'");
-    // Snapshot only the former group branch of each template; exclusions/random selection still apply at use time.
-    const [templates] = await conn.query<RowDataPacket[]>('SELECT id, rules FROM audience_templates FOR UPDATE');
-    for (const template of templates) {
-      const rules = parseJsonColumn<Record<string, unknown>>(template.rules, {});
-      if (!Object.prototype.hasOwnProperty.call(rules, 'groupIds')) continue;
-      const groups = Array.isArray(rules.groupIds) ? rules.groupIds.map(String) : [];
-      const [members] = groups.length ? await conn.query<RowDataPacket[]>(
-        `SELECT DISTINCT user_id FROM user_group_members WHERE group_id IN (${groups.map(() => '?').join(',')})`, groups) : [[]];
-      rules.includeUserIds = [...new Set([...(Array.isArray(rules.includeUserIds) ? rules.includeUserIds : []), ...members.map(u => String(u.user_id))])];
-      rules.roleIds ??= [];
-      delete rules.groupIds;
-      await conn.query('UPDATE audience_templates SET rules = ? WHERE id = ?', [JSON.stringify(rules), template.id]);
-    }
     await conn.query("INSERT IGNORE INTO bank_tree_migration_reports (migration_key, report_json, updated_at) VALUES ('roles-v1', ?, NOW(3))", [JSON.stringify({ completedAt: new Date().toISOString(), policy: 'base-identity-and-snapshot-audiences' })]);
     await conn.commit();
   } catch (error) {

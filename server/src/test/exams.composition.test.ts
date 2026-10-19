@@ -30,6 +30,41 @@ beforeAll(prepareTestDb, 30000);
 afterAll(closePool);
 
 describe('考试内直接组题', () => {
+  it('已移除的首页配置与模板接口返回 404', async () => {
+    for (const path of ['/api/home/configs', '/api/paper-templates', '/api/audience-templates']) {
+      for (const method of ['get', 'post', 'put', 'delete'] as const) {
+        expect((await request(app)[method](path).set(admin).send({})).status, `${method} ${path}`).toBe(404);
+      }
+    }
+    expect((await request(app).put('/api/home/configs/dept-rd').set(admin).send({})).status).toBe(404);
+    expect((await request(app).delete('/api/home/configs/dept-rd').set(admin)).status).toBe(404);
+  });
+
+  it('旧模板考试编辑与重新生成名单时保留冻结范围，不扩大到整个科室', async () => {
+    const e = await create();
+    await query('DELETE FROM exam_participants WHERE exam_id = ? AND user_id <> ?', [e.id, 'user-zhangsan']);
+    await query("UPDATE exam_participants SET source = 'template' WHERE exam_id = ?", [e.id]);
+    await query('UPDATE exams SET audience_rules = ? WHERE id = ?', [JSON.stringify({ audienceTemplateId: 'retired-template', includeUserIds: [], excludeUserIds: [] }), e.id]);
+    const detail = await request(app).get(`/api/exams/${e.id}`).set(admin);
+    expect(detail.body.data).toMatchObject({ departmentIds: [], includeUserIds: ['user-zhangsan'], excludeUserIds: [] });
+    expect(detail.body.data).not.toHaveProperty('audienceTemplateId');
+    const regenerated = await request(app).post(`/api/exams/${e.id}/participants/regenerate`).set(admin);
+    expect(regenerated.body.code, JSON.stringify(regenerated.body)).toBe(0);
+    expect(regenerated.body.data.map((p: { userId: string }) => p.userId)).toEqual(['user-zhangsan']);
+    const saved = await request(app).put(`/api/exams/${e.id}`).set(admin).send({ ...e.payload,
+      departmentIds: detail.body.data.departmentIds, includeUserIds: detail.body.data.includeUserIds, excludeUserIds: [], name: '移除模板后保存',
+    });
+    expect(saved.body.code, JSON.stringify(saved.body)).toBe(0);
+    expect(saved.body.data.includeUserIds).toEqual(['user-zhangsan']);
+    const roster = await request(app).get(`/api/exams/${e.id}/participants`).set(admin);
+    expect(roster.body.data.map((p: { userId: string }) => p.userId)).toEqual(['user-zhangsan']);
+  });
+
+  it('新建考试不再接受抽考模板参数', async () => {
+    const result = await request(app).post('/api/exams').set(admin).send({ ...input(), audienceTemplateId: 'retired-template' });
+    expect(result.status).toBe(400);
+  });
+
   it('一次创建考试、独占题目容器、出题人和名单，列表带摘要', async () => {
     const a = await create();
     const b = await create();

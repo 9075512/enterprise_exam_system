@@ -570,15 +570,6 @@ CREATE TABLE IF NOT EXISTS banner_clicks (
     KEY idx_banner_click_user (user_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS home_dept_configs (
-    department_id     VARCHAR(64) NOT NULL,
-    shortcuts         JSON        NOT NULL,
-    recommended_banks JSON        NOT NULL,
-    updated_by        VARCHAR(64) NULL,
-    updated_at        DATETIME(3) NOT NULL,
-    PRIMARY KEY (department_id)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE IF NOT EXISTS subjects (
     id          VARCHAR(64)  NOT NULL,
     name        VARCHAR(120) NOT NULL,
@@ -652,30 +643,6 @@ CREATE TABLE IF NOT EXISTS menu_overrides (
     PRIMARY KEY (user_id, menu_key),
     CONSTRAINT fk_menu_override_user FOREIGN KEY (user_id) REFERENCES users(id)
       ON DELETE CASCADE ON UPDATE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS paper_templates (
-    id          VARCHAR(64)  NOT NULL,
-    name        VARCHAR(120) NOT NULL,
-    description VARCHAR(255) NOT NULL DEFAULT '',
-    config      JSON         NOT NULL,
-    created_by  VARCHAR(64)  NOT NULL,
-    created_at  DATETIME(3)  NOT NULL,
-    updated_at  DATETIME(3)  NOT NULL,
-    PRIMARY KEY (id),
-    KEY idx_paper_template_creator (created_by)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS audience_templates (
-    id          VARCHAR(64)  NOT NULL,
-    name        VARCHAR(120) NOT NULL,
-    description VARCHAR(255) NOT NULL DEFAULT '',
-    rules       JSON         NOT NULL,
-    created_by  VARCHAR(64)  NOT NULL,
-    created_at  DATETIME(3)  NOT NULL,
-    updated_at  DATETIME(3)  NOT NULL,
-    PRIMARY KEY (id),
-    KEY idx_audience_template_creator (created_by)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS exam_participants (

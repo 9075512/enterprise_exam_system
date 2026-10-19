@@ -5,7 +5,7 @@
  * 编辑时从考试题目详情回填；组件内没有试卷持久化入口。
  */
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import {
   Delete,
   Plus,
@@ -18,7 +18,6 @@ import {
 import * as banksApi from '@/api/banks';
 import * as examsApi from '@/api/exams';
 import * as questionsApi from '@/api/questions';
-import { templatesApi } from '@/api/coreFeatures';
 import { useRequest } from '@/composables/useRequest';
 import { usePagination } from '@/composables/usePagination';
 import {
@@ -46,7 +45,6 @@ import type {
   Question,
   QuestionDifficulty,
   QuestionType,
-  PaperTemplate,
   PaperDetail,
 } from '@/types';
 
@@ -70,10 +68,6 @@ const name = computed(() => props.examName);
 const selectedBankIds = ref<string[]>([]);
 const mode = ref<'manual' | 'draw'>('manual');
 const selected = ref<SelectedQuestion[]>([]);
-const paperTemplates = ref<PaperTemplate[]>([]);
-const selectedTemplateId = ref('');
-const templatesError = ref(false);
-const templatesLoading = ref(false);
 
 const hasBanks = computed<boolean>(() => selectedBankIds.value.length > 0);
 
@@ -92,47 +86,6 @@ const drawRules = reactive<Record<QuestionType, { count: number; score: number }
   short: { count: 0, score: 5 },
 });
 
-async function loadPaperTemplates(): Promise<void> {
-  templatesLoading.value = true;
-  templatesError.value = false;
-  try { paperTemplates.value = await templatesApi.papers(); }
-  catch { templatesError.value = true; }
-  finally { templatesLoading.value = false; }
-}
-
-function applyPaperTemplate(): void {
-  if (props.disabled || drawing.value) return;
-  const template = paperTemplates.value.find((item) => item.id === selectedTemplateId.value);
-  if (!template) return;
-  const config = template.config as {
-    bankIds?: string[]; mode?: 'manual' | 'draw'; rules?: Partial<Record<QuestionType, { count: number; score: number }>>;
-  };
-  if (Array.isArray(config.bankIds)) selectedBankIds.value = [...config.bankIds];
-  if (config.mode === 'manual' || config.mode === 'draw') mode.value = config.mode;
-  for (const option of QUESTION_TYPE_OPTIONS) {
-    const rule = config.rules?.[option.value];
-    if (rule) Object.assign(drawRules[option.value], { count: Number(rule.count) || 0, score: Number(rule.score) || 1 });
-  }
-  ElMessage.success(`已应用模板“${template.name}”`);
-}
-
-async function savePaperTemplate(): Promise<void> {
-  if (props.disabled || drawing.value) return;
-  try {
-    const { value } = await ElMessageBox.prompt('保存当前题库范围、题型题量和分值', '保存组卷参数模板', {
-      inputPlaceholder: '请输入模板名称', inputValidator: (v) => Boolean(v.trim()) || '请输入模板名称',
-    });
-    await templatesApi.savePaper({ name: value.trim(), description: '', config: {
-      bankIds: [...selectedBankIds.value], mode: mode.value,
-      rules: Object.fromEntries(QUESTION_TYPE_OPTIONS.map((o) => [o.value, { ...drawRules[o.value] }])),
-      targetDifficulty: paperTarget.value,
-      shuffleQuestions: settingsStore.settings.shuffleDefaultEnabled,
-      shuffleOptions: settingsStore.settings.shuffleOptionsDefault,
-    } });
-    await loadPaperTemplates();
-    ElMessage.success('组卷参数模板已保存');
-  } catch { /* 用户取消 */ }
-}
 const shortages = ref<DrawShortage[]>([]);
 const drawing = ref(false);
 
@@ -486,7 +439,6 @@ defineExpose({ getPayload, summary, busy });
 /* ------------------------------ 编辑回填 ------------------------------ */
 onMounted(async () => {
   void settingsStore.load();
-  void loadPaperTemplates();
   if (!props.initial) return;
   try {
     const detail = props.initial;
@@ -513,8 +465,7 @@ onMounted(async () => {
       <!-- 左中：抽题 / 题池 -->
       <section class="composer__main">
         <div class="composer__source">
-          <div class="composer__source-head"><h3>来源题库<small>可多选</small></h3><div class="composer__template-actions"><el-select v-model="selectedTemplateId" clearable :loading="templatesLoading" :disabled="disabled || templatesError || drawing" placeholder="应用组卷模板" @change="applyPaperTemplate"><el-option v-for="item in paperTemplates" :key="item.id" :label="item.name" :value="item.id" /></el-select><el-button :disabled="disabled || drawing" @click="savePaperTemplate">保存为模板</el-button></div></div>
-          <p v-if="templatesError" class="admin-hint">组卷模板加载失败，<el-button link type="primary" @click="loadPaperTemplates">重新加载</el-button></p>
+          <div class="composer__source-head"><h3>来源题库<small>可多选</small></h3></div>
           <LoadingSkeleton v-if="banksLoading && !banks" :rows="2" />
           <RequestError v-else-if="banksError" text="来源题库加载失败" @retry="reloadBanks" />
           <EmptyState v-else-if="!banks?.length" text="暂无可用题库，请先在科目题库中维护题目" />
@@ -834,7 +785,6 @@ onMounted(async () => {
 
 .composer {
   container: composer / inline-size;
-  &__template-actions { display: flex; align-items: center; gap: 8px; :deep(.el-select) { width: 160px; } }
   &__source { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid $border-color; }
   &__source-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; h3 { margin: 0; color: $text-primary; font-size: 13px; } small { margin-left: 8px; font-size: 12px; font-weight: 400; color: $text-secondary; } }
   &__bank-item { border: 1px solid $border-color; border-radius: $radius-sm; padding: 6px 10px; &.is-checked { border-color: $color-primary-border; background: $color-primary-soft; } }
@@ -1321,7 +1271,6 @@ onMounted(async () => {
 @media (max-width: 600px) {
   .composer__filter, .composer__scope { grid-template-columns: minmax(0, 1fr); }
   .composer__main { padding: 12px; }
-  .composer__template-actions { flex-wrap: wrap; width: 100%; }
   .composer__analysis-total { display: none; }
 }
 .composer__rule-grid { display: grid; gap: 12px; margin-bottom: 12px; }

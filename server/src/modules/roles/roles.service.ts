@@ -42,7 +42,7 @@ export async function getDefinition(id: string, exec?: SqlExecutor): Promise<Rol
   return role;
 }
 
-// Shared lock order for role/member/user/template writes, including concurrent last-admin changes.
+// Shared lock order for role/member/user writes, including concurrent last-admin changes.
 export async function lockRoles(exec: SqlExecutor): Promise<void> {
   await runQuery(exec, 'SELECT id FROM roles ORDER BY id FOR UPDATE');
 }
@@ -122,9 +122,6 @@ export async function remove(id: string, operatorId: string): Promise<void> {
     const role = await getDefinition(id, conn);
     if (role.isBuiltin) throw conflict('内置角色不可删除');
     if (role.memberCount) throw conflict('角色尚有成员，请先调整成员角色');
-    const refs = await runQuery<RowDataPacket[]>(conn,
-      `SELECT id FROM audience_templates WHERE JSON_CONTAINS(JSON_EXTRACT(rules, '$.roleIds'), JSON_QUOTE(?)) LIMIT 1`, [id]);
-    if (refs.length) throw conflict('角色被抽考模板引用，请先修改模板');
     await conn.query('DELETE FROM menu_permissions WHERE role = ?', [id]);
     await conn.query('DELETE FROM roles WHERE id = ?', [id]);
   });

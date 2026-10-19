@@ -4,13 +4,12 @@ import ElementPlus from 'element-plus';
 import ExamSettingsForm from './ExamSettingsForm.vue';
 import type { Exam } from '@/types';
 
-const api = vi.hoisted(() => ({ load: vi.fn(), users: vi.fn(), audiences: vi.fn() }));
+const api = vi.hoisted(() => ({ load: vi.fn(), users: vi.fn() }));
 vi.mock('@/stores/settings', () => ({ useSettingsStore: () => ({ load: api.load, settings: { examDefaultDuration: 60, examDefaultPassScore: 60, examDefaultMaxAttempts: 1 } }) }));
 vi.mock('@/api/users', () => ({ list: api.users }));
-vi.mock('@/api/coreFeatures', () => ({ templatesApi: { audiences: api.audiences } }));
 
 beforeEach(() => {
-  vi.clearAllMocks(); api.load.mockResolvedValue(undefined); api.users.mockResolvedValue([]); api.audiences.mockResolvedValue([]);
+  vi.clearAllMocks(); api.load.mockResolvedValue(undefined); api.users.mockResolvedValue([]);
 });
 
 describe('考试设置表单', () => {
@@ -27,7 +26,7 @@ describe('考试设置表单', () => {
 
   it('锁定考试保存其他设置时保留开始时间的毫秒精度', async () => {
     const exam: Exam = { id: 'exam-1', name: '锁定考试', startTime: '2026-10-17T00:00:00.123Z', endTime: '2026-10-18T00:00:00.456Z',
-      questionsLocked: true, departmentIds: [], includeUserIds: [], excludeUserIds: [], audienceTemplateId: null,
+      questionsLocked: true, departmentIds: [], includeUserIds: [], excludeUserIds: [],
       durationMinutes: 60, passScore: 60, maxAttempts: 1, examMode: 'closed', authors: [{ id: 'author-1', name: '出题人' }],
       paperId: 'paper-1', audienceMode: 'frozen', shuffleEnabled: null, shuffleOptions: null, allowRetake: null, allowAppeal: null,
       createdBy: 'admin-1', createdAt: '2026-10-16T00:00:00.000Z' };

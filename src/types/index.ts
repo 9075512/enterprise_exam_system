@@ -342,7 +342,6 @@ export interface Exam {
   departmentIds: string[];
   includeUserIds: string[];
   excludeUserIds: string[];
-  audienceTemplateId: string | null;
   audienceMode: 'dynamic' | 'frozen';
   /** 开始时间 ISO 8601 */
   startTime: string;
@@ -651,7 +650,6 @@ export interface ExamSaveInput {
   departmentIds: string[];
   includeUserIds?: string[];
   excludeUserIds?: string[];
-  audienceTemplateId?: string | null;
   startTime: string;
   endTime: string;
   durationMinutes: number;
@@ -1531,7 +1529,7 @@ export interface HomeTodo {
   path: string;
 }
 
-/** 首页个性化快捷入口（v2.0⑥ 起按科室可配置） */
+/** 首页内置快捷入口 */
 export interface HomeShortcut {
   key: string;
   text: string;
@@ -1560,60 +1558,12 @@ export interface HomeSummary {
   generatedAt: string;
 }
 
-/* ============================================================
- * v2.0⑥ 考生首页个性化（科室级可配置）
- * ============================================================ */
-
-/** 快捷入口目录项（管理端勾选列表用；key 为固定目录，不可增删） */
-export interface HomeShortcutCatalogItem {
-  key: string;
-  /** 目录默认文案（未覆盖时生效） */
-  text: string;
-  desc: string;
-  path: string;
-  icon: string;
-}
-
-/** 单条快捷入口配置（保存用；text 为空表示沿用目录默认文案） */
-export interface HomeShortcutConfigItem {
-  key: string;
-  enabled: boolean;
-  /** 文案覆盖（可选；空 = 用目录默认） */
-  text?: string;
-}
-
-/** 某科室的首页配置 */
-export interface HomeDeptConfig {
-  /** 科室 id；'*' 表示全局默认 */
-  departmentId: string;
-  departmentName: string;
-  isGlobal: boolean;
-  shortcuts: HomeShortcutConfigItem[];
-  recommendedBankIds: string[];
-  recommendedBanks: HomeRecommendedBank[];
-  updatedBy: string | null;
-  updatedByName: string | null;
-  updatedAt: string | null;
-}
-
-/** 管理端「首页配置」总览 */
-export interface HomeConfigOverview {
-  catalog: HomeShortcutCatalogItem[];
-  departments: Array<{ id: string; name: string }>;
-  configs: HomeDeptConfig[];
-  globalShortcuts: HomeShortcut[];
-  globalRecommendedBanks: HomeRecommendedBank[];
-}
-
 /* 核心功能补齐共享类型 */
 export interface Subject { id: string; name: string; parentId: string | null; sortOrder: number; status: 'active' | 'disabled'; createdAt: string; updatedAt: string }
 export interface Position { id: string; name: string; description: string; createdAt: string; updatedAt: string }
 export type GrantPrincipalType = 'role' | 'group' | 'position' | 'user';
 export interface SubjectGrant { id: string; subjectId: string; principalType: GrantPrincipalType; principalId: string; effect: 'allow' | 'deny'; canView: boolean; canEdit: boolean }
 export interface MenuOverride { userId: string; menuKey: string; effect: 'allow' | 'deny' }
-export interface PaperTemplate { id: string; name: string; description: string; config: Record<string, unknown>; createdBy: string; createdAt: string; updatedAt: string }
-export interface AudienceTemplateRules { departmentIds: string[]; roleIds: string[]; positionIds: string[]; includeUserIds: string[]; excludeUserIds: string[]; includeSubDepartments: boolean; randomCount: number | null }
-export interface AudienceTemplate { id: string; name: string; description: string; rules: AudienceTemplateRules; createdBy: string; createdAt: string; updatedAt: string }
 export interface ExamParticipant { examId: string; userId: string; username: string; userName: string; departmentId: string | null; departmentName: string; source: 'department' | 'template' | 'include' | 'legacy'; admissionNo: string; createdAt: string }
 export interface AdmissionTicket { admissionNo: string; examId: string; examName: string; userId: string; username: string; userName: string; departmentName: string; startTime: string; endTime: string; durationMinutes: number; examMode: 'open' | 'closed' }
 export type QuestionFeedbackStatus = 'pending' | 'processing' | 'resolved' | 'closed';
