@@ -10,7 +10,7 @@ import { examContent, createPaperFixture } from './examFixtures.js';
  *   2) 及格线：优先取考试 pass_score，缺省回退系统设置 examDefaultPassScore；
  *   3) 趋势：最近 10 次已交卷成绩，按交卷时间倒序，含考试名与是否及格；
  *   4) 待办：待考 / 未交卷 / 可申请补考 / 未读消息按条件生成；
- *   5) 个性化：快捷入口默认 4 项全部启用、推荐题库默认空（v2.0⑥ 起可配置）；
+ *   5) 个性化：快捷入口默认 4 项全部启用、推荐题库默认空；
  *   6) 未登录 → 401。
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';

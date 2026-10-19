@@ -426,8 +426,6 @@ export interface ExamDto {
   includeUserIds: string[];
   /** 人员范围：显式排除的用户（优先级最高）。 */
   excludeUserIds: string[];
-  /** 应用的抽考模板；名单冻结后模板变化不反向影响考试。 */
-  audienceTemplateId: string | null;
   /** dynamic 仅用于兼容旧考试；新建/重新保存后均为 frozen。 */
   audienceMode: 'dynamic' | 'frozen';
   /** ISO 8601 */
@@ -1657,7 +1655,7 @@ export interface HomeTodoDto {
   path: string;
 }
 
-/** 考生首页个性化快捷入口（v2.0⑥ 起按科室可配置） */
+/** 考生首页内置快捷入口 */
 export interface HomeShortcutDto {
   key: string;
   text: string;
@@ -1683,68 +1681,16 @@ export interface HomeSummaryDto {
   trend: HomeTrendPointDto[];
   todos: HomeTodoDto[];
   unreadCount: number;
-  /** 个性化快捷入口（未配置走全局默认） */
+  /** 内置快捷入口 */
   shortcuts: HomeShortcutDto[];
-  /** 推荐练题题库（未配置为空数组） */
+  /** 推荐练题题库 */
   recommendedBanks: HomeRecommendedBankDto[];
   generatedAt: string;
 }
 
 
 /* ============================================================
- * v2.0⑥ 考生首页个性化（科室级可配置）
- * ============================================================ */
-
-/** 快捷入口目录项（管理端「首页配置」勾选列表用；key 为固定目录，不可增删） */
-export interface HomeShortcutCatalogItemDto {
-  key: string;
-  /** 目录默认文案（未覆盖时生效） */
-  text: string;
-  desc: string;
-  path: string;
-  icon: string;
-}
-
-/** 单条快捷入口配置（保存用；text 为空表示沿用目录默认文案） */
-export interface HomeShortcutConfigItemDto {
-  key: string;
-  enabled: boolean;
-  /** 文案覆盖（可选；空 = 用目录默认） */
-  text?: string;
-}
-
-/** 某科室的首页配置（未落库的科室不出现在 configs 中） */
-export interface HomeDeptConfigDto {
-  /** 科室 id；哨兵值 '*' 表示全局默认 */
-  departmentId: string;
-  /** 科室名（'*' 为「全局默认」；科室已删除时为「已删除科室」） */
-  departmentName: string;
-  /** 是否全局默认行 */
-  isGlobal: boolean;
-  shortcuts: HomeShortcutConfigItemDto[];
-  recommendedBankIds: string[];
-  /** 推荐题库详情（含题库名与题量，便于管理端直接回显） */
-  recommendedBanks: HomeRecommendedBankDto[];
-  updatedBy: string | null;
-  updatedByName: string | null;
-  updatedAt: string | null;
-}
-
-/** 管理端「首页配置」总览（GET /api/home/configs） */
-export interface HomeConfigOverviewDto {
-  /** 快捷入口固定目录 */
-  catalog: HomeShortcutCatalogItemDto[];
-  /** 可选科室（树扁平化后的列表，含层级路径名） */
-  departments: Array<{ id: string; name: string }>;
-  /** 已配置项（含全局默认行，若已配置） */
-  configs: HomeDeptConfigDto[];
-  /** 当前全局默认生效值（未配置全局行时为内置默认） */
-  globalShortcuts: HomeShortcutDto[];
-  globalRecommendedBanks: HomeRecommendedBankDto[];
-}
-
-/* ============================================================
- * 核心功能补齐：科目 / 组织 / 模板 / 考试人员 / 题目质量 / 练题监控
+ * 核心功能补齐：科目 / 组织 / 考试人员 / 题目质量 / 练题监控
  * ============================================================ */
 
 export interface SubjectDto { id: string; name: string; parentId: string | null; sortOrder: number; status: 'active' | 'disabled'; createdAt: string; updatedAt: string }
@@ -1752,9 +1698,6 @@ export interface PositionDto { id: string; name: string; description: string; cr
 export type GrantPrincipalType = 'role' | 'group' | 'position' | 'user';
 export interface SubjectGrantDto { id: string; subjectId: string; principalType: GrantPrincipalType; principalId: string; effect: 'allow' | 'deny'; canView: boolean; canEdit: boolean }
 export interface MenuOverrideDto { userId: string; menuKey: string; effect: 'allow' | 'deny' }
-export interface PaperTemplateDto { id: string; name: string; description: string; config: Record<string, unknown>; createdBy: string; createdAt: string; updatedAt: string }
-export interface AudienceTemplateRulesDto { departmentIds: string[]; roleIds: string[]; positionIds: string[]; includeUserIds: string[]; excludeUserIds: string[]; includeSubDepartments: boolean; randomCount: number | null }
-export interface AudienceTemplateDto { id: string; name: string; description: string; rules: AudienceTemplateRulesDto; createdBy: string; createdAt: string; updatedAt: string }
 export interface ExamParticipantDto { examId: string; userId: string; username: string; userName: string; departmentId: string | null; departmentName: string; source: 'department' | 'template' | 'include' | 'legacy'; admissionNo: string; createdAt: string }
 export interface AdmissionTicketDto { admissionNo: string; examId: string; examName: string; userId: string; username: string; userName: string; departmentName: string; startTime: string; endTime: string; durationMinutes: number; examMode: 'open' | 'closed' }
 export type QuestionFeedbackStatus = 'pending' | 'processing' | 'resolved' | 'closed';

@@ -31,7 +31,7 @@ onUnmounted(() => { examViewport?.removeEventListener('change', syncExamViewport
 watch(() => route.path, () => { examNavOpen.value = false; });
 const moduleTone = computed(() => {
   const path = route.path;
-  if (/users|departments|home-config/.test(path)) return 'teal';
+  if (/users|departments/.test(path)) return 'teal';
   if (/author\/banks|content|appeals|notifications/.test(path)) return 'violet';
   if (/author\/papers|reviews|retakes/.test(path)) return 'amber';
   return 'blue';

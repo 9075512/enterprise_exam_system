@@ -57,7 +57,6 @@ const routes: RouteRecordRaw[] = [
       { path: 'admin/org-extensions', redirect: '/admin/roles' },
       { path: 'admin/roles', component: () => import('@/views/admin/RoleManagePage.vue'), meta: { roles: ['admin'], menuKey: 'roles', title: '角色管理' } },
       { path: 'admin/positions', component: () => import('@/views/admin/PositionManagePage.vue'), meta: { roles: ['admin'], menuKey: 'positions', title: '岗位管理' } },
-      { path: 'admin/templates', component: () => import('@/views/admin/TemplateManagePage.vue'), meta: { roles: ['admin', 'author'], menuKey: 'templates', title: '模板管理' } },
       { path: 'admin/question-feedback', component: () => import('@/views/admin/QuestionFeedbackPage.vue'), meta: { roles: ['admin', 'author'], menuKey: 'question-feedback', title: '题目反馈' } },
       { path: 'admin/duplicate-questions', component: () => import('@/views/admin/DuplicateQuestionsPage.vue'), meta: { roles: ['admin'], menuKey: 'duplicate-questions', title: '重复题审计' } },
       { path: 'admin/practice-monitor', component: () => import('@/views/admin/PracticeMonitorPage.vue'), meta: { roles: ['admin'], menuKey: 'practice-monitor', title: '练题监控' } },
@@ -103,11 +102,6 @@ const routes: RouteRecordRaw[] = [
         path: 'admin/content',
         component: () => import('@/views/admin/ContentViewPage.vue'),
         meta: { roles: ['admin'], menuKey: 'content', title: '公告与轮播' },
-      },
-      {
-        path: 'admin/home-config',
-        component: () => import('@/views/admin/HomeConfigPage.vue'),
-        meta: { roles: ['admin'], menuKey: 'home-config', title: '首页配置' },
       },
       {
         path: 'admin/settings',

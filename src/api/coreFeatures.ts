@@ -1,7 +1,7 @@
 import { del, get, post, put } from './http';
 import type {
-  AdmissionTicket, AudienceTemplate, AudienceTemplateRules, DuplicateQuestionGroup, ExamParticipant,
-  MenuOverride, PaperTemplate, Position, PracticeMonitorSummary, PracticeSessionMonitor, QuestionFeedback,
+  AdmissionTicket, DuplicateQuestionGroup, ExamParticipant,
+  MenuOverride, Position, PracticeMonitorSummary, PracticeSessionMonitor, QuestionFeedback,
   QuestionFeedbackStatus, Subject, SubjectGrant,
 } from '@/types';
 
@@ -24,14 +24,6 @@ export const subjectGrantsApi = {
 export const menuOverridesApi = {
   list: (userId?: string): Promise<MenuOverride[]> => get('/menu-overrides', { userId }),
   replace: (userId: string, overrides: Array<Omit<MenuOverride, 'userId'>>): Promise<MenuOverride[]> => put(`/menu-overrides/${userId}`, { overrides }),
-};
-export const templatesApi = {
-  papers: (): Promise<PaperTemplate[]> => get('/paper-templates'),
-  savePaper: (data: Pick<PaperTemplate, 'name' | 'description' | 'config'>, id?: string): Promise<PaperTemplate> => id ? put(`/paper-templates/${id}`, data) : post('/paper-templates', data),
-  removePaper: (id: string): Promise<null> => del(`/paper-templates/${id}`),
-  audiences: (): Promise<AudienceTemplate[]> => get('/audience-templates'),
-  saveAudience: (data: { name: string; description: string; rules: AudienceTemplateRules }, id?: string): Promise<AudienceTemplate> => id ? put(`/audience-templates/${id}`, data) : post('/audience-templates', data),
-  removeAudience: (id: string): Promise<null> => del(`/audience-templates/${id}`),
 };
 export const qualityApi = {
   duplicates: (params: { bankIds?: string; includeDisabled?: number } = {}): Promise<DuplicateQuestionGroup[]> => get('/questions/duplicates', params),

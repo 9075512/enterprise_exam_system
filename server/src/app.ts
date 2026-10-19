@@ -40,7 +40,6 @@ import {
   subjectGrantsRouter,
   subjectsRouter,
 } from './modules/coreCatalog/coreCatalog.router.js';
-import { audienceTemplatesRouter, paperTemplatesRouter } from './modules/templates/templates.router.js';
 import { questionFeedbackRouter } from './modules/questionFeedback/questionFeedback.router.js';
 import { practiceMonitorRouter } from './modules/practiceMonitor/practiceMonitor.router.js';
 import { practiceEdgeGuard } from './middleware/practiceEdge.js';
@@ -103,8 +102,6 @@ export function createApp(): Express {
     api.use('/roles', rolesRouter);
     api.use('/subject-grants', subjectGrantsRouter);
     api.use('/menu-overrides', menuOverridesRouter);
-    api.use('/paper-templates', paperTemplatesRouter);
-    api.use('/audience-templates', audienceTemplatesRouter);
     api.use('/question-feedback', questionFeedbackRouter);
     api.use('/practice-monitor', practiceMonitorRouter);
   }

@@ -43,7 +43,7 @@ async function validateExamInput(input: ExamInput, paperId: string, totalScore: 
   name: string;
   paperId: string;
   departmentIds: string[];
-  audienceRules: { includeUserIds: string[]; excludeUserIds: string[]; audienceTemplateId: string | null };
+  audienceRules: { includeUserIds: string[]; excludeUserIds: string[] };
   startTime: string;
   endTime: string;
   durationMinutes: number;
@@ -59,8 +59,8 @@ async function validateExamInput(input: ExamInput, paperId: string, totalScore: 
   if (!name) throw badRequest('考试名称不能为空');
 
 
-  if (input.departmentIds.length === 0 && !(input.includeUserIds?.length) && !input.audienceTemplateId) {
-    throw badRequest('请至少选择一个参与科室、指定人员或抽考模板');
+  if (input.departmentIds.length === 0 && !(input.includeUserIds?.length)) {
+    throw badRequest('请至少选择一个参与科室或指定人员');
   }
 
   const start = new Date(input.startTime).getTime();
@@ -86,7 +86,6 @@ async function validateExamInput(input: ExamInput, paperId: string, totalScore: 
     audienceRules: {
       includeUserIds: [...new Set(input.includeUserIds ?? [])],
       excludeUserIds: [...new Set(input.excludeUserIds ?? [])],
-      audienceTemplateId: input.audienceTemplateId ?? null,
     },
     startTime: toDbDate(input.startTime),
     endTime: toDbDate(input.endTime),
@@ -118,13 +117,26 @@ async function assertManager(id: string, operator: Operator, exec?: SqlExecutor)
   if (operator.role !== 'author' || !(await repo.listAuthors(id, exec)).some(a => a.id === operator.id)) throw forbidden('无权维护该考试');
 }
 
+/** 旧抽考考试改用已冻结的实际名单，避免移除模板后扩大或丢失参与范围。 */
+async function savedAudienceDto(row: repo.ExamRow): Promise<ExamDto> {
+  const dto = mapExamRow(row);
+  const previous = parseJsonColumn<Record<string, unknown>>(row.audience_rules, {});
+  if (row.audience_mode === 'frozen' && previous.audienceTemplateId) {
+    const participants = await participantsService.listParticipants(row.id);
+    dto.departmentIds = [];
+    dto.includeUserIds = participants.map(item => item.userId);
+    dto.excludeUserIds = [];
+  }
+  return dto;
+}
+
 async function managementDto(row: repo.ExamRow, operator: Operator): Promise<ExamDto> {
   await assertManager(row.id, operator);
   const [authors, paper, questions, banks, count, accessible] = await Promise.all([
     repo.listAuthors(row.id), papersRepo.findById(row.paper_id), papersRepo.listPaperQuestions(row.paper_id),
     papersRepo.listBankRefs(row.paper_id), repo.countRecords(row.id), bankAuth.listAccessibleBankIds(operator),
   ]);
-  const dto = mapExamRow(row);
+  const dto = await savedAudienceDto(row);
   const locked = Date.now() >= new Date(dto.startTime).getTime() || count > 0;
   const canRead = accessible === null || banks.every(id => accessible.includes(id));
   return { ...dto, authors, questionCount: questions.length, totalScore: Number(paper?.total_score ?? 0),
@@ -192,7 +204,7 @@ export async function saveQuestions(id: string, input: { bankIds: string[]; ques
 export async function getById(id: string): Promise<ExamDto> {
   const row = await repo.findById(id);
   if (!row) throw notFound('考试不存在或已被删除');
-  return mapExamRow(row);
+  return savedAudienceDto(row);
 }
 
 /** 考生可见考试（科室隔离）+ 本人作答状态、已交卷次数与补考资格。 */

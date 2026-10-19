@@ -644,18 +644,6 @@ export const DDL_STATEMENTS: readonly string[] = [
     KEY idx_banner_click_user (user_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
-  // 37. 考生首页个性化配置（v2.0⑥；按科室下发快捷入口启停/文案覆盖 + 推荐练题题库）
-  //     department_id 取科室 id；哨兵值 '*' 表示「全局默认」（未单独配置的科室回退到它）。
-  //     不加外键：'*' 不是真实科室，且科室删除后配置保留以便恢复同名科室。
-  `CREATE TABLE IF NOT EXISTS home_dept_configs (
-    department_id     VARCHAR(64) NOT NULL,
-    shortcuts         JSON        NOT NULL,
-    recommended_banks JSON        NOT NULL,
-    updated_by        VARCHAR(64) NULL,
-    updated_at        DATETIME(3) NOT NULL,
-    PRIMARY KEY (department_id)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-
   // 38. 多级科目（试题 subject_id 的权威目录）
   `CREATE TABLE IF NOT EXISTS subjects (
     id          VARCHAR(64)  NOT NULL,
@@ -735,32 +723,6 @@ export const DDL_STATEMENTS: readonly string[] = [
     PRIMARY KEY (user_id, menu_key),
     CONSTRAINT fk_menu_override_user FOREIGN KEY (user_id) REFERENCES users(id)
       ON DELETE CASCADE ON UPDATE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-
-  // 44. 组卷参数模板
-  `CREATE TABLE IF NOT EXISTS paper_templates (
-    id          VARCHAR(64)  NOT NULL,
-    name        VARCHAR(120) NOT NULL,
-    description VARCHAR(255) NOT NULL DEFAULT '',
-    config      JSON         NOT NULL,
-    created_by  VARCHAR(64)  NOT NULL,
-    created_at  DATETIME(3)  NOT NULL,
-    updated_at  DATETIME(3)  NOT NULL,
-    PRIMARY KEY (id),
-    KEY idx_paper_template_creator (created_by)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-
-  // 45. 人员抽考模板
-  `CREATE TABLE IF NOT EXISTS audience_templates (
-    id          VARCHAR(64)  NOT NULL,
-    name        VARCHAR(120) NOT NULL,
-    description VARCHAR(255) NOT NULL DEFAULT '',
-    rules       JSON         NOT NULL,
-    created_by  VARCHAR(64)  NOT NULL,
-    created_at  DATETIME(3)  NOT NULL,
-    updated_at  DATETIME(3)  NOT NULL,
-    PRIMARY KEY (id),
-    KEY idx_audience_template_creator (created_by)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
   // 46. 考试人员冻结名单（含稳定准考证号）
@@ -912,15 +874,12 @@ export const TABLE_NAMES: readonly string[] = [
   'banners',
   'announcement_reads',
   'banner_clicks',
-  'home_dept_configs',
   'subjects',
   'positions',
   'user_groups',
   'user_group_members',
   'subject_grants',
   'menu_overrides',
-  'paper_templates',
-  'audience_templates',
   'exam_participants',
   'question_feedback',
   'practice_sessions',

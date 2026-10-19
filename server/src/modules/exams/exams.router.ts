@@ -79,7 +79,6 @@ examsRouter.post(
       departmentIds: exam.departmentIds,
       includeUserIds: exam.includeUserIds,
       excludeUserIds: exam.excludeUserIds,
-      audienceTemplateId: exam.audienceTemplateId,
     });
     return ok(res, await participantsService.listParticipants(exam.id));
   }),
