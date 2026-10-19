@@ -349,7 +349,7 @@ function backToCredentials(): void {
     min-height: 570px;
     overflow: hidden;
     border: 1px solid #e1e7f0;
-    border-radius: 18px;
+    border-radius: 18px; // radius-exception：已确认登录稿 .login-preview 的外框圆角。
   }
 
   &__brand {
@@ -383,7 +383,7 @@ function backToCredentials(): void {
     border: 1px solid #ffffff30;
     border-radius: 12px;
     background: #ffffff20;
-    box-shadow: 0 5px 12px #2563eb30;
+    box-shadow: 0 5px 12px rgba($color-primary, 0.19);
     color: #fff;
     font-size: 22px;
     font-weight: 700;
@@ -428,7 +428,7 @@ function backToCredentials(): void {
   :deep(.el-form-item__label) { height: auto; margin-bottom: 7px; padding: 0; color: $text-body; font-size: 12px; line-height: 1.6; }
   :deep(.el-input__wrapper) { min-height: 41px; padding-inline: 11px; border-radius: 8px; background: #fff; }
   :deep(.el-input__inner) { height: 39px; font-size: 12px; }
-  &__submit { width: 100%; height: 42px; margin-top: 5px; border-radius: 8px; font-size: 12px; box-shadow: 0 3px 6px #2563eb12; }
+  &__submit { width: 100%; height: 42px; margin-top: 5px; border-radius: 8px; font-size: 12px; box-shadow: 0 3px 6px rgba($color-primary, 0.07); }
   &__hint { margin: 25px 0 0; color: $text-secondary; font-size: 12px; text-align: center; line-height: 1.8; }
   &__error { margin-bottom: 14px; :deep(.el-alert__title) { font-size: 13px; line-height: 1.5; } }
   &__captcha-row { display: flex; align-items: center; gap: 8px; width: 100%; :deep(.el-input) { flex: 1; min-width: 0; } }
