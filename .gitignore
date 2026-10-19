@@ -37,6 +37,9 @@ pnpm-debug.log*
 
 # 测试覆盖率
 coverage
+# UI 设计覆盖目录为维护源文件，不是测试覆盖率产物。
+!docs/ui-workbuddy/coverage/
+!docs/ui-workbuddy/coverage/**
 
 # 临时构建目录
 dist-check
