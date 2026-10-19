@@ -6,7 +6,8 @@
  * - 按题库分组展示；「全部复习」与「按题库复习」均调用错题复习会话（`/practice/wrong-book/reans`）；
  * - 仅移动端；视觉与其余练题页一致（冷静蓝 · 商务风）。
  */
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import RequestError from '@/components/common/RequestError.vue';
 import { useRouter } from 'vue-router';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
 import PracticeLoading from '@/components/common/PracticeLoading.vue';
@@ -21,6 +22,11 @@ const PAGE_SIZE = 20;
 
 const loading = ref(true);
 const loadingMore = ref(false);
+const loadError = ref(false);
+const moreError = ref(false);
+let generation = 0;
+let disposed = false;
+onBeforeUnmount(() => { disposed = true; generation += 1; });
 const items = ref<PracticeWrongQuestion[]>([]);
 const total = ref(0);
 const page = ref(1);
@@ -69,7 +75,9 @@ async function loadBanks(): Promise<void> {
 
 /** 加载指定页（1 = 覆盖，其余 = 追加） */
 async function loadPage(target: number): Promise<void> {
+  const request = target === 1 ? ++generation : generation;
   const res = await practiceApi.wrongBook({ page: target, pageSize: PAGE_SIZE });
+  if (disposed || request !== generation) return;
   total.value = res.total;
   items.value = target === 1 ? res.list : [...items.value, ...res.list];
   page.value = target;
@@ -78,11 +86,13 @@ async function loadPage(target: number): Promise<void> {
 /** 首次加载 */
 async function load(): Promise<void> {
   loading.value = true;
+  loadError.value = false;
+  moreError.value = false;
   try {
     void loadBanks();
     await loadPage(1);
   } catch {
-    // 错误提示已由 http 拦截器统一弹出
+    loadError.value = true;
   } finally {
     loading.value = false;
   }
@@ -92,10 +102,11 @@ async function load(): Promise<void> {
 async function loadMore(): Promise<void> {
   if (loading.value || loadingMore.value || !hasMore.value) return;
   loadingMore.value = true;
+  moreError.value = false;
   try {
     await loadPage(page.value + 1);
   } catch {
-    /* 提示已统一 */
+    moreError.value = true;
   } finally {
     loadingMore.value = false;
   }
@@ -110,7 +121,7 @@ onMounted(load);
 </script>
 
 <template>
-  <PracticeLayout tabbar>
+  <PracticeLayout data-ui-layout="question-cards" data-ui-page="PracticeWrongBookPage" tabbar>
     <template #actions>
       <span class="wb__user">{{ userName }}</span>
     </template>
@@ -119,24 +130,26 @@ onMounted(load);
       <div class="wb__head">
         <div class="wb__head-text">
           <p class="wb__title">我的错题本</p>
-          <p class="wb__sub">共 {{ total }} 道错题</p>
+          <p class="wb__sub">{{ loading ? '正在加载错题…' : loadError ? '错题数量未知' : `共 ${total} 道错题 · 已加载 ${items.length} 道` }}</p>
         </div>
-        <el-button type="primary" :disabled="total === 0" @click="startReans()">全部复习</el-button>
+        <el-button type="primary" :disabled="loading || loadError || total === 0" @click="startReans()">全部复习</el-button>
       </div>
 
       <PracticeLoading v-if="loading" :loading="loading" :rows="5" caption="正在加载错题…" />
 
+      <RequestError v-else-if="loadError" text="错题本加载失败" @retry="load" />
       <div v-else-if="total === 0" class="wb__empty">
         <div class="wb__empty-mark" aria-hidden="true">—</div>
         <p class="wb__empty-text">错题本还是空的，去「练题」做几道题吧</p>
+        <el-button type="primary" class="wb__empty-action" @click="router.push({ name: 'practice-home' })">去练题</el-button>
       </div>
 
       <template v-else>
         <section v-for="group in groups" :key="group.bankId" class="wb__group">
           <div class="wb__group-head">
             <span class="wb__group-name">{{ group.name }}</span>
-            <span class="wb__group-count">{{ group.items.length }} 题</span>
-            <el-button size="small" @click="startReans(group.bankId)">复习</el-button>
+            <span class="wb__group-count">已加载 {{ group.items.length }} 题</span>
+            <el-button size="small" :aria-label="`复习${group.name}`" @click="startReans(group.bankId)">复习</el-button>
           </div>
 
           <div v-for="q in group.items" :key="q.id" class="wb__item">
@@ -149,7 +162,7 @@ onMounted(load);
         </section>
 
         <div v-if="hasMore" class="wb__more">
-          <el-button :loading="loadingMore" @click="loadMore">加载更多</el-button>
+          <p v-if="moreError" class="learner-scope">加载下一页失败，已加载的错题仍保留。</p><el-button :loading="loadingMore" @click="loadMore">{{ moreError ? '重试加载更多' : '加载更多' }}</el-button>
         </div>
       </template>
     </div>
@@ -200,7 +213,7 @@ onMounted(load);
 
   &__sub {
     margin: 3px 0 0;
-    font-size: 11.5px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -237,6 +250,8 @@ onMounted(load);
     color: $text-secondary;
   }
 
+  &__empty-action { margin-top: 16px; }
+
   &__group {
     margin-bottom: 18px;
   }
@@ -260,7 +275,7 @@ onMounted(load);
   }
 
   &__group-count {
-    font-size: 11.5px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -283,13 +298,13 @@ onMounted(load);
     padding: 1px 6px;
     border-radius: $radius-xs;
     background: $practice-soft;
-    font-size: 10.5px;
+    font-size: 12px;
     font-weight: 600;
     color: $practice-primary;
   }
 
   &__wrong {
-    font-size: 11px;
+    font-size: 12px;
     color: $color-error-text;
   }
 
@@ -308,6 +323,14 @@ onMounted(load);
     :deep(.el-button) {
       border-radius: $radius-xs;
     }
+  }
+
+  @media (max-width: 900px) {
+    &__head-text { min-width: 0; overflow-wrap: anywhere; }
+    &__group-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; }
+    &__group-name { grid-column: 1 / -1; }
+    &__group-count { grid-column: 1; }
+    &__group-head :deep(.el-button) { grid-column: 2; margin-left: 0; min-width: 64px; }
   }
 }
 </style>

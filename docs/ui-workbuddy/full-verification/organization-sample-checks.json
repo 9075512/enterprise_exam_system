@@ -1,0 +1,1092 @@
+[
+  {
+    "bodyScroll": 312,
+    "bodyWidth": 312,
+    "cardOverflow": false,
+    "cards": 2,
+    "footer": {
+      "bottom": 740.0000152587891,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 320,
+      "top": 671.2000122070312,
+      "width": 320,
+      "x": 0,
+      "y": 671.2000122070312
+    },
+    "kind": "members",
+    "scope": "当前选择 2 人 · 新增 0 人 · 移出 0 人",
+    "title": "分配角色成员",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "bodyScroll": 382,
+    "bodyWidth": 382,
+    "cardOverflow": false,
+    "cards": 2,
+    "footer": {
+      "bottom": 844.0000152587891,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 390.3999938964844,
+      "top": 775.2000122070312,
+      "width": 390.3999938964844,
+      "x": 0,
+      "y": 775.2000122070312
+    },
+    "kind": "members",
+    "scope": "当前选择 2 人 · 新增 0 人 · 移出 0 人",
+    "title": "分配角色成员",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "bodyScroll": 768,
+    "bodyWidth": 768,
+    "cardOverflow": false,
+    "cards": 2,
+    "footer": {
+      "bottom": 1024.000015258789,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 768,
+      "top": 955.2000122070312,
+      "width": 768,
+      "x": 0,
+      "y": 955.2000122070312
+    },
+    "kind": "members",
+    "scope": "当前选择 2 人 · 新增 0 人 · 移出 0 人",
+    "title": "分配角色成员",
+    "viewport": [
+      768,
+      1024
+    ]
+  },
+  {
+    "bodyScroll": 836,
+    "bodyWidth": 836,
+    "cardOverflow": false,
+    "cards": 2,
+    "footer": {
+      "bottom": 390.40000915527344,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 844,
+      "top": 321.6000061035156,
+      "width": 844,
+      "x": 0,
+      "y": 321.6000061035156
+    },
+    "kind": "members",
+    "scope": "当前选择 2 人 · 新增 0 人 · 移出 0 人",
+    "title": "分配角色成员",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "bodyScroll": 560,
+    "bodyWidth": 560,
+    "cardOverflow": false,
+    "cards": 2,
+    "footer": {
+      "bottom": 1000.0000152587892,
+      "height": 68.80000305175781,
+      "left": 880,
+      "right": 1440,
+      "top": 931.2000122070312,
+      "width": 560,
+      "x": 880,
+      "y": 931.2000122070312
+    },
+    "kind": "members",
+    "scope": "当前选择 2 人 · 新增 0 人 · 移出 0 人",
+    "title": "分配角色成员",
+    "viewport": [
+      1440,
+      1000
+    ]
+  },
+  {
+    "bodyScroll": 312,
+    "bodyWidth": 312,
+    "checkboxes": [
+      {
+        "checked": true,
+        "disabled": true,
+        "height": 88,
+        "overflow": false,
+        "text": "角色管理与管理员必授菜单的完整名称ABCDEFGHIJKLMNOPQRSTUVWXYZ（必授）"
+      },
+      {
+        "checked": false,
+        "disabled": false,
+        "height": 66,
+        "overflow": false,
+        "text": "科目题库管理与完整的长菜单名称ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      },
+      {
+        "checked": true,
+        "disabled": false,
+        "height": 66,
+        "overflow": false,
+        "text": "人工阅卷及长名称权限模块ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      }
+    ],
+    "footer": {
+      "bottom": 740.0000152587891,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 320,
+      "top": 671.2000122070312,
+      "width": 320,
+      "x": 0,
+      "y": 671.2000122070312
+    },
+    "kind": "role-permissions",
+    "title": "编辑角色",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "bodyScroll": 382,
+    "bodyWidth": 382,
+    "checkboxes": [
+      {
+        "checked": true,
+        "disabled": true,
+        "height": 66,
+        "overflow": false,
+        "text": "角色管理与管理员必授菜单的完整名称ABCDEFGHIJKLMNOPQRSTUVWXYZ（必授）"
+      },
+      {
+        "checked": false,
+        "disabled": false,
+        "height": 66,
+        "overflow": false,
+        "text": "科目题库管理与完整的长菜单名称ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      },
+      {
+        "checked": true,
+        "disabled": false,
+        "height": 66,
+        "overflow": false,
+        "text": "人工阅卷及长名称权限模块ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      }
+    ],
+    "footer": {
+      "bottom": 844.0000152587891,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 390.3999938964844,
+      "top": 775.2000122070312,
+      "width": 390.3999938964844,
+      "x": 0,
+      "y": 775.2000122070312
+    },
+    "kind": "role-permissions",
+    "title": "编辑角色",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "bodyScroll": 768,
+    "bodyWidth": 768,
+    "checkboxes": [
+      {
+        "checked": true,
+        "disabled": true,
+        "height": 44,
+        "overflow": false,
+        "text": "角色管理与管理员必授菜单的完整名称ABCDEFGHIJKLMNOPQRSTUVWXYZ（必授）"
+      },
+      {
+        "checked": false,
+        "disabled": false,
+        "height": 44,
+        "overflow": false,
+        "text": "科目题库管理与完整的长菜单名称ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      },
+      {
+        "checked": true,
+        "disabled": false,
+        "height": 44,
+        "overflow": false,
+        "text": "人工阅卷及长名称权限模块ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      }
+    ],
+    "footer": {
+      "bottom": 1024.000015258789,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 768,
+      "top": 955.2000122070312,
+      "width": 768,
+      "x": 0,
+      "y": 955.2000122070312
+    },
+    "kind": "role-permissions",
+    "title": "编辑角色",
+    "viewport": [
+      768,
+      1024
+    ]
+  },
+  {
+    "bodyScroll": 836,
+    "bodyWidth": 836,
+    "checkboxes": [
+      {
+        "checked": true,
+        "disabled": true,
+        "height": 44,
+        "overflow": false,
+        "text": "角色管理与管理员必授菜单的完整名称ABCDEFGHIJKLMNOPQRSTUVWXYZ（必授）"
+      },
+      {
+        "checked": false,
+        "disabled": false,
+        "height": 44,
+        "overflow": false,
+        "text": "科目题库管理与完整的长菜单名称ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      },
+      {
+        "checked": true,
+        "disabled": false,
+        "height": 44,
+        "overflow": false,
+        "text": "人工阅卷及长名称权限模块ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      }
+    ],
+    "footer": {
+      "bottom": 390.40000915527344,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 844,
+      "top": 321.6000061035156,
+      "width": 844,
+      "x": 0,
+      "y": 321.6000061035156
+    },
+    "kind": "role-permissions",
+    "title": "编辑角色",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "bodyScroll": 552,
+    "bodyWidth": 552,
+    "checkboxes": [
+      {
+        "checked": true,
+        "disabled": true,
+        "height": 104,
+        "overflow": false,
+        "text": "角色管理与管理员必授菜单的完整名称ABCDEFGHIJKLMNOPQRSTUVWXYZ（必授）"
+      },
+      {
+        "checked": false,
+        "disabled": false,
+        "height": 82,
+        "overflow": false,
+        "text": "科目题库管理与完整的长菜单名称ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      },
+      {
+        "checked": true,
+        "disabled": false,
+        "height": 82,
+        "overflow": false,
+        "text": "人工阅卷及长名称权限模块ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      }
+    ],
+    "footer": {
+      "bottom": 1000.0000152587892,
+      "height": 68.80000305175781,
+      "left": 880,
+      "right": 1440,
+      "top": 931.2000122070312,
+      "width": 560,
+      "x": 880,
+      "y": 931.2000122070312
+    },
+    "kind": "role-permissions",
+    "title": "编辑角色",
+    "viewport": [
+      1440,
+      1000
+    ]
+  },
+  {
+    "bodyScroll": 312,
+    "bodyWidth": 312,
+    "footer": {
+      "bottom": 740.0000114440918,
+      "height": 60.79999923706055,
+      "left": 0,
+      "right": 320,
+      "top": 679.2000122070312,
+      "width": 320,
+      "x": 0,
+      "y": 679.2000122070312
+    },
+    "kind": "user-editor",
+    "radios": [
+      44,
+      44
+    ],
+    "roles": [
+      {
+        "scroll": 236,
+        "text": "",
+        "width": 236
+      },
+      {
+        "scroll": 236,
+        "text": "综合业务授权出题人角色的完整名称ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+        "width": 236
+      },
+      {
+        "scroll": 192,
+        "text": "",
+        "width": 192
+      },
+      {
+        "scroll": 236,
+        "text": "上级科室",
+        "width": 236
+      },
+      {
+        "scroll": 192,
+        "text": "",
+        "width": 192
+      },
+      {
+        "scroll": 236,
+        "text": "安全生产与业务巡检岗位的完整名称ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+        "width": 236
+      }
+    ],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "bodyScroll": 382,
+    "bodyWidth": 382,
+    "footer": {
+      "bottom": 844.0000114440918,
+      "height": 60.79999923706055,
+      "left": 0,
+      "right": 390.3999938964844,
+      "top": 783.2000122070312,
+      "width": 390.3999938964844,
+      "x": 0,
+      "y": 783.2000122070312
+    },
+    "kind": "user-editor",
+    "radios": [
+      44,
+      44
+    ],
+    "roles": [
+      {
+        "scroll": 306,
+        "text": "",
+        "width": 306
+      },
+      {
+        "scroll": 306,
+        "text": "综合业务授权出题人角色的完整名称ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+        "width": 306
+      },
+      {
+        "scroll": 192,
+        "text": "",
+        "width": 192
+      },
+      {
+        "scroll": 306,
+        "text": "上级科室",
+        "width": 306
+      },
+      {
+        "scroll": 192,
+        "text": "",
+        "width": 192
+      },
+      {
+        "scroll": 306,
+        "text": "安全生产与业务巡检岗位的完整名称ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+        "width": 306
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "bodyScroll": 768,
+    "bodyWidth": 768,
+    "footer": {
+      "bottom": 1024.0000114440918,
+      "height": 60.79999923706055,
+      "left": 0,
+      "right": 768,
+      "top": 963.2000122070312,
+      "width": 768,
+      "x": 0,
+      "y": 963.2000122070312
+    },
+    "kind": "user-editor",
+    "radios": [
+      44,
+      44
+    ],
+    "roles": [
+      {
+        "scroll": 314,
+        "text": "",
+        "width": 314
+      },
+      {
+        "scroll": 314,
+        "text": "综合业务授权出题人角色的完整名称ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+        "width": 314
+      },
+      {
+        "scroll": 192,
+        "text": "",
+        "width": 192
+      },
+      {
+        "scroll": 314,
+        "text": "上级科室",
+        "width": 314
+      },
+      {
+        "scroll": 192,
+        "text": "",
+        "width": 192
+      },
+      {
+        "scroll": 314,
+        "text": "安全生产与业务巡检岗位的完整名称ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+        "width": 314
+      }
+    ],
+    "viewport": [
+      768,
+      1024
+    ]
+  },
+  {
+    "bodyScroll": 836,
+    "bodyWidth": 836,
+    "footer": {
+      "bottom": 390.4000053405762,
+      "height": 60.79999923706055,
+      "left": 0,
+      "right": 844,
+      "top": 329.6000061035156,
+      "width": 844,
+      "x": 0,
+      "y": 329.6000061035156
+    },
+    "kind": "user-editor",
+    "radios": [
+      44,
+      44
+    ],
+    "roles": [
+      {
+        "scroll": 348,
+        "text": "",
+        "width": 348
+      },
+      {
+        "scroll": 348,
+        "text": "综合业务授权出题人角色的完整名称ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+        "width": 348
+      },
+      {
+        "scroll": 192,
+        "text": "",
+        "width": 192
+      },
+      {
+        "scroll": 348,
+        "text": "上级科室",
+        "width": 348
+      },
+      {
+        "scroll": 192,
+        "text": "",
+        "width": 192
+      },
+      {
+        "scroll": 348,
+        "text": "安全生产与业务巡检岗位的完整名称ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+        "width": 348
+      }
+    ],
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "bodyScroll": 720,
+    "bodyWidth": 720,
+    "footer": {
+      "bottom": 1000.0000152587892,
+      "height": 68.80000305175781,
+      "left": 720,
+      "right": 1440,
+      "top": 931.2000122070312,
+      "width": 720,
+      "x": 720,
+      "y": 931.2000122070312
+    },
+    "kind": "user-editor",
+    "radios": [
+      32,
+      32
+    ],
+    "roles": [
+      {
+        "scroll": 282,
+        "text": "",
+        "width": 282
+      },
+      {
+        "scroll": 282,
+        "text": "综合业务授权出题人角色的完整名称ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+        "width": 282
+      },
+      {
+        "scroll": 192,
+        "text": "",
+        "width": 192
+      },
+      {
+        "scroll": 282,
+        "text": "上级科室",
+        "width": 282
+      },
+      {
+        "scroll": 192,
+        "text": "",
+        "width": 192
+      },
+      {
+        "scroll": 282,
+        "text": "安全生产与业务巡检岗位的完整名称ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+        "width": 282
+      }
+    ],
+    "viewport": [
+      1440,
+      1000
+    ]
+  },
+  {
+    "bodyScroll": 278,
+    "bodyWidth": 278,
+    "buttons": [
+      {
+        "height": 44,
+        "right": 193.60000228881836,
+        "text": "取消"
+      },
+      {
+        "height": 44,
+        "right": 279.2000045776367,
+        "text": " 取消授权 "
+      },
+      {
+        "height": 44,
+        "right": 279.2000045776367,
+        "text": " 批量授权 "
+      }
+    ],
+    "counts": "命中用户4 人出题人2 人非出题人2 人",
+    "dialog": {
+      "bottom": 728,
+      "height": 716,
+      "left": 16,
+      "right": 304,
+      "top": 12,
+      "width": 288,
+      "x": 16,
+      "y": 12
+    },
+    "footer": {
+      "bottom": 727.2000274658203,
+      "height": 128.8000030517578,
+      "left": 16.80000114440918,
+      "right": 303.19999504089355,
+      "top": 598.4000244140625,
+      "width": 286.3999938964844,
+      "x": 16.80000114440918,
+      "y": 598.4000244140625
+    },
+    "kind": "batch-preview",
+    "outcomes": "授权预演新增 1 人另有 1 人已授权，将跳过。取消授权预演移除 1 人仅移除当前已授权的出题人。",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "bodyScroll": 349,
+    "bodyWidth": 349,
+    "buttons": [
+      {
+        "height": 44,
+        "right": 159.40000534057617,
+        "text": "取消"
+      },
+      {
+        "height": 44,
+        "right": 245.00000762939453,
+        "text": " 取消授权 "
+      },
+      {
+        "height": 44,
+        "right": 349.5999984741211,
+        "text": " 批量授权 "
+      }
+    ],
+    "counts": "命中用户4 人出题人2 人非出题人2 人",
+    "dialog": {
+      "bottom": 832,
+      "height": 820,
+      "left": 16,
+      "right": 374.3999938964844,
+      "top": 12,
+      "width": 358.3999938964844,
+      "x": 16,
+      "y": 12
+    },
+    "footer": {
+      "bottom": 831.2000274658203,
+      "height": 76.80000305175781,
+      "left": 16.80000114440918,
+      "right": 373.60001945495605,
+      "top": 754.4000244140625,
+      "width": 356.8000183105469,
+      "x": 16.80000114440918,
+      "y": 754.4000244140625
+    },
+    "kind": "batch-preview",
+    "outcomes": "授权预演新增 1 人另有 1 人已授权，将跳过。取消授权预演移除 1 人仅移除当前已授权的出题人。",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "bodyScroll": 618,
+    "bodyWidth": 618,
+    "buttons": [
+      {
+        "height": 44,
+        "right": 478.99999618530273,
+        "text": "取消"
+      },
+      {
+        "height": 44,
+        "right": 564.5999984741211,
+        "text": " 取消授权 "
+      },
+      {
+        "height": 44,
+        "right": 669.2000350952148,
+        "text": " 批量授权 "
+      }
+    ],
+    "counts": "命中用户4 人出题人2 人非出题人2 人",
+    "dialog": {
+      "bottom": 907.4000129699708,
+      "height": 856.2000122070312,
+      "left": 74,
+      "right": 694,
+      "top": 51.20000076293945,
+      "width": 620,
+      "x": 74,
+      "y": 51.20000076293945
+    },
+    "footer": {
+      "bottom": 906.5999908447266,
+      "height": 76.80000305175781,
+      "left": 74.80000305175781,
+      "right": 693.2000274658203,
+      "top": 829.7999877929688,
+      "width": 618.4000244140625,
+      "x": 74.80000305175781,
+      "y": 829.7999877929688
+    },
+    "kind": "batch-preview",
+    "outcomes": "授权预演新增 1 人另有 1 人已授权，将跳过。取消授权预演移除 1 人仅移除当前已授权的出题人。",
+    "viewport": [
+      768,
+      1024
+    ]
+  },
+  {
+    "bodyScroll": 610,
+    "bodyWidth": 610,
+    "buttons": [
+      {
+        "height": 44,
+        "right": 516.9999961853027,
+        "text": "取消"
+      },
+      {
+        "height": 44,
+        "right": 602.5999984741211,
+        "text": " 取消授权 "
+      },
+      {
+        "height": 44,
+        "right": 707.2000350952148,
+        "text": " 批量授权 "
+      }
+    ],
+    "counts": "命中用户4 人出题人2 人非出题人2 人",
+    "dialog": {
+      "bottom": 361.9124946594238,
+      "height": 342.3999938964844,
+      "left": 112,
+      "right": 732,
+      "top": 19.512500762939453,
+      "width": 620,
+      "x": 112,
+      "y": 19.512500762939453
+    },
+    "footer": {
+      "bottom": 361.1125030517578,
+      "height": 76.80000305175781,
+      "left": 112.8000030517578,
+      "right": 731.2000274658203,
+      "top": 284.3125,
+      "width": 618.4000244140625,
+      "x": 112.8000030517578,
+      "y": 284.3125
+    },
+    "kind": "batch-preview",
+    "outcomes": "授权预演新增 1 人另有 1 人已授权，将跳过。取消授权预演移除 1 人仅移除当前已授权的出题人。",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "bodyScroll": 618,
+    "bodyWidth": 618,
+    "buttons": [
+      {
+        "height": 36,
+        "right": 815.0000267028809,
+        "text": "取消"
+      },
+      {
+        "height": 36,
+        "right": 900.5999984741211,
+        "text": " 取消授权 "
+      },
+      {
+        "height": 36,
+        "right": 1005.2000350952148,
+        "text": " 批量授权 "
+      }
+    ],
+    "counts": "命中用户4 人出题人2 人非出题人2 人",
+    "dialog": {
+      "bottom": 864,
+      "height": 814,
+      "left": 410,
+      "right": 1030,
+      "top": 50,
+      "width": 620,
+      "x": 410,
+      "y": 50
+    },
+    "footer": {
+      "bottom": 863.2000274658203,
+      "height": 68.80000305175781,
+      "left": 410.8000183105469,
+      "right": 1029.2000427246094,
+      "top": 794.4000244140625,
+      "width": 618.4000244140625,
+      "x": 410.8000183105469,
+      "y": 794.4000244140625
+    },
+    "kind": "batch-preview",
+    "outcomes": "授权预演新增 1 人另有 1 人已授权，将跳过。取消授权预演移除 1 人仅移除当前已授权的出题人。",
+    "viewport": [
+      1440,
+      1000
+    ]
+  },
+  {
+    "bodyScroll": 320,
+    "bodyWidth": 320,
+    "descriptionLength": 200,
+    "footer": {
+      "bottom": 740.0000152587891,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 320,
+      "top": 671.2000122070312,
+      "width": 320,
+      "x": 0,
+      "y": 671.2000122070312
+    },
+    "kind": "position-editor",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "bodyScroll": 390,
+    "bodyWidth": 390,
+    "descriptionLength": 200,
+    "footer": {
+      "bottom": 844.0000152587891,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 390.3999938964844,
+      "top": 775.2000122070312,
+      "width": 390.3999938964844,
+      "x": 0,
+      "y": 775.2000122070312
+    },
+    "kind": "position-editor",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "bodyScroll": 768,
+    "bodyWidth": 768,
+    "descriptionLength": 200,
+    "footer": {
+      "bottom": 1024.000015258789,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 768,
+      "top": 955.2000122070312,
+      "width": 768,
+      "x": 0,
+      "y": 955.2000122070312
+    },
+    "kind": "position-editor",
+    "viewport": [
+      768,
+      1024
+    ]
+  },
+  {
+    "bodyScroll": 836,
+    "bodyWidth": 836,
+    "descriptionLength": 200,
+    "footer": {
+      "bottom": 390.40000915527344,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 844,
+      "top": 321.6000061035156,
+      "width": 844,
+      "x": 0,
+      "y": 321.6000061035156
+    },
+    "kind": "position-editor",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "bodyScroll": 520,
+    "bodyWidth": 520,
+    "descriptionLength": 200,
+    "footer": {
+      "bottom": 1000.0000152587892,
+      "height": 68.80000305175781,
+      "left": 920,
+      "right": 1440,
+      "top": 931.2000122070312,
+      "width": 520,
+      "x": 920,
+      "y": 931.2000122070312
+    },
+    "kind": "position-editor",
+    "viewport": [
+      1440,
+      1000
+    ]
+  },
+  {
+    "checkboxes": [
+      {
+        "height": 110,
+        "overflow": false
+      },
+      {
+        "height": 110,
+        "overflow": false
+      },
+      {
+        "height": 88,
+        "overflow": false
+      }
+    ],
+    "kind": "menu-page",
+    "required": [
+      {
+        "checked": true,
+        "disabled": true
+      }
+    ],
+    "scrollWidth": 280,
+    "viewport": [
+      320,
+      740
+    ],
+    "width": 280
+  },
+  {
+    "checkboxes": [
+      {
+        "height": 88,
+        "overflow": false
+      },
+      {
+        "height": 66,
+        "overflow": false
+      },
+      {
+        "height": 66,
+        "overflow": false
+      }
+    ],
+    "kind": "menu-page",
+    "required": [
+      {
+        "checked": true,
+        "disabled": true
+      }
+    ],
+    "scrollWidth": 350,
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 350
+  },
+  {
+    "checkboxes": [
+      {
+        "height": 44,
+        "overflow": false
+      },
+      {
+        "height": 44,
+        "overflow": false
+      },
+      {
+        "height": 44,
+        "overflow": false
+      }
+    ],
+    "kind": "menu-page",
+    "required": [
+      {
+        "checked": true,
+        "disabled": true
+      }
+    ],
+    "scrollWidth": 728,
+    "viewport": [
+      768,
+      1024
+    ],
+    "width": 728
+  },
+  {
+    "checkboxes": [
+      {
+        "height": 44,
+        "overflow": false
+      },
+      {
+        "height": 44,
+        "overflow": false
+      },
+      {
+        "height": 44,
+        "overflow": false
+      }
+    ],
+    "kind": "menu-page",
+    "required": [
+      {
+        "checked": true,
+        "disabled": true
+      }
+    ],
+    "scrollWidth": 804,
+    "viewport": [
+      844,
+      390
+    ],
+    "width": 804
+  },
+  {
+    "checkboxes": [
+      {
+        "height": 38,
+        "overflow": false
+      },
+      {
+        "height": 38,
+        "overflow": false
+      },
+      {
+        "height": 38,
+        "overflow": false
+      }
+    ],
+    "kind": "menu-page",
+    "required": [
+      {
+        "checked": true,
+        "disabled": true
+      }
+    ],
+    "scrollWidth": 1384,
+    "viewport": [
+      1440,
+      1000
+    ],
+    "width": 1384
+  }
+]

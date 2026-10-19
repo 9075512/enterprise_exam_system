@@ -1,0 +1,425 @@
+[
+  {
+    "path": "/exam/home",
+    "actions": [],
+    "client": 312,
+    "failed": false,
+    "h": 568,
+    "page": "ExamHomePage",
+    "scroll": 312,
+    "w": 320
+  },
+  {
+    "path": "/exam/my",
+    "actions": [],
+    "client": 312,
+    "failed": false,
+    "h": 568,
+    "page": "MyExamPage",
+    "scroll": 312,
+    "w": 320
+  },
+  {
+    "path": "/exam/scores",
+    "actions": [],
+    "client": 312,
+    "failed": false,
+    "h": 568,
+    "page": "MyScorePage",
+    "scroll": 312,
+    "w": 320
+  },
+  {
+    "path": "/exam/retakes",
+    "actions": [],
+    "client": 312,
+    "failed": false,
+    "h": 568,
+    "page": "MyRetakePage",
+    "scroll": 312,
+    "w": 320
+  },
+  {
+    "path": "/notifications",
+    "actions": [],
+    "client": 312,
+    "failed": false,
+    "h": 568,
+    "page": "NotificationCenterPage",
+    "scroll": 312,
+    "w": 320
+  },
+  {
+    "path": "/profile",
+    "actions": [],
+    "client": 312,
+    "failed": false,
+    "h": 568,
+    "page": "ProfilePage",
+    "scroll": 312,
+    "w": 320
+  },
+  {
+    "path": "/exam/practice",
+    "actions": [
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "client": 312,
+    "failed": false,
+    "h": 568,
+    "page": "PracticeHomePage",
+    "scroll": 312,
+    "w": 320
+  },
+  {
+    "path": "/exam/practice/wrong-book",
+    "actions": [],
+    "client": 312,
+    "failed": false,
+    "h": 568,
+    "page": "PracticeWrongBookPage",
+    "scroll": 312,
+    "w": 320
+  },
+  {
+    "path": "/exam/practice/report",
+    "actions": [
+      {
+        "h": 44,
+        "w": 55.35000228881836
+      },
+      {
+        "h": 44,
+        "w": 62.025001525878906
+      }
+    ],
+    "client": 312,
+    "failed": false,
+    "h": 568,
+    "page": "PracticeReportPage",
+    "scroll": 312,
+    "w": 320
+  },
+  {
+    "path": "/exam/practice/favorites",
+    "actions": [
+      {
+        "h": 44,
+        "w": 47.60000228881836
+      },
+      {
+        "h": 44,
+        "w": 95.5999984741211
+      },
+      {
+        "h": 44,
+        "w": 95.5999984741211
+      },
+      {
+        "h": 44,
+        "w": 143.60000610351562
+      }
+    ],
+    "client": 312,
+    "failed": false,
+    "h": 568,
+    "page": "PracticeFavoritesPage",
+    "scroll": 312,
+    "w": 320
+  },
+  {
+    "path": "/exam/practice/profile",
+    "actions": [],
+    "client": 312,
+    "failed": false,
+    "h": 568,
+    "page": "PracticeProfilePage",
+    "scroll": 312,
+    "w": 320
+  },
+  {
+    "path": "/exam/home",
+    "actions": [],
+    "client": 382,
+    "failed": false,
+    "h": 844,
+    "page": "ExamHomePage",
+    "scroll": 382,
+    "w": 390
+  },
+  {
+    "path": "/exam/my",
+    "actions": [],
+    "client": 382,
+    "failed": false,
+    "h": 844,
+    "page": "MyExamPage",
+    "scroll": 382,
+    "w": 390
+  },
+  {
+    "path": "/exam/scores",
+    "actions": [],
+    "client": 382,
+    "failed": false,
+    "h": 844,
+    "page": "MyScorePage",
+    "scroll": 382,
+    "w": 390
+  },
+  {
+    "path": "/exam/retakes",
+    "actions": [],
+    "client": 382,
+    "failed": false,
+    "h": 844,
+    "page": "MyRetakePage",
+    "scroll": 382,
+    "w": 390
+  },
+  {
+    "path": "/notifications",
+    "actions": [],
+    "client": 382,
+    "failed": false,
+    "h": 844,
+    "page": "NotificationCenterPage",
+    "scroll": 382,
+    "w": 390
+  },
+  {
+    "path": "/profile",
+    "actions": [],
+    "client": 382,
+    "failed": false,
+    "h": 844,
+    "page": "ProfilePage",
+    "scroll": 382,
+    "w": 390
+  },
+  {
+    "path": "/exam/practice",
+    "actions": [
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "client": 382,
+    "failed": false,
+    "h": 844,
+    "page": "PracticeHomePage",
+    "scroll": 382,
+    "w": 390
+  },
+  {
+    "path": "/exam/practice/wrong-book",
+    "actions": [],
+    "client": 382,
+    "failed": false,
+    "h": 844,
+    "page": "PracticeWrongBookPage",
+    "scroll": 382,
+    "w": 390
+  },
+  {
+    "path": "/exam/practice/report",
+    "actions": [
+      {
+        "h": 44,
+        "w": 55.35000228881836
+      },
+      {
+        "h": 44,
+        "w": 62.025001525878906
+      }
+    ],
+    "client": 382,
+    "failed": false,
+    "h": 844,
+    "page": "PracticeReportPage",
+    "scroll": 382,
+    "w": 390
+  },
+  {
+    "path": "/exam/practice/favorites",
+    "actions": [
+      {
+        "h": 44,
+        "w": 47.60000228881836
+      },
+      {
+        "h": 44,
+        "w": 95.5999984741211
+      },
+      {
+        "h": 44,
+        "w": 95.5999984741211
+      },
+      {
+        "h": 44,
+        "w": 143.60000610351562
+      }
+    ],
+    "client": 382,
+    "failed": false,
+    "h": 844,
+    "page": "PracticeFavoritesPage",
+    "scroll": 382,
+    "w": 390
+  },
+  {
+    "path": "/exam/practice/profile",
+    "actions": [],
+    "client": 382,
+    "failed": false,
+    "h": 844,
+    "page": "PracticeProfilePage",
+    "scroll": 382,
+    "w": 390
+  },
+  {
+    "path": "/exam/home",
+    "actions": [],
+    "client": 560,
+    "failed": false,
+    "h": 320,
+    "page": "ExamHomePage",
+    "scroll": 560,
+    "w": 568
+  },
+  {
+    "path": "/exam/my",
+    "actions": [],
+    "client": 560,
+    "failed": false,
+    "h": 320,
+    "page": "MyExamPage",
+    "scroll": 560,
+    "w": 568
+  },
+  {
+    "path": "/exam/scores",
+    "actions": [],
+    "client": 560,
+    "failed": false,
+    "h": 320,
+    "page": "MyScorePage",
+    "scroll": 560,
+    "w": 568
+  },
+  {
+    "path": "/exam/retakes",
+    "actions": [],
+    "client": 560,
+    "failed": false,
+    "h": 320,
+    "page": "MyRetakePage",
+    "scroll": 560,
+    "w": 568
+  },
+  {
+    "path": "/notifications",
+    "actions": [],
+    "client": 560,
+    "failed": false,
+    "h": 320,
+    "page": "NotificationCenterPage",
+    "scroll": 560,
+    "w": 568
+  },
+  {
+    "path": "/profile",
+    "actions": [],
+    "client": 560,
+    "failed": false,
+    "h": 320,
+    "page": "ProfilePage",
+    "scroll": 560,
+    "w": 568
+  },
+  {
+    "path": "/exam/practice",
+    "actions": [
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "client": 560,
+    "failed": false,
+    "h": 320,
+    "page": "PracticeHomePage",
+    "scroll": 560,
+    "w": 568
+  },
+  {
+    "path": "/exam/practice/wrong-book",
+    "actions": [],
+    "client": 560,
+    "failed": false,
+    "h": 320,
+    "page": "PracticeWrongBookPage",
+    "scroll": 560,
+    "w": 568
+  },
+  {
+    "path": "/exam/practice/report",
+    "actions": [
+      {
+        "h": 44,
+        "w": 55.35000228881836
+      },
+      {
+        "h": 44,
+        "w": 62.025001525878906
+      }
+    ],
+    "client": 560,
+    "failed": false,
+    "h": 320,
+    "page": "PracticeReportPage",
+    "scroll": 560,
+    "w": 568
+  },
+  {
+    "path": "/exam/practice/favorites",
+    "actions": [
+      {
+        "h": 44,
+        "w": 47.60000228881836
+      },
+      {
+        "h": 44,
+        "w": 95.5999984741211
+      },
+      {
+        "h": 44,
+        "w": 95.5999984741211
+      },
+      {
+        "h": 44,
+        "w": 143.60000610351562
+      }
+    ],
+    "client": 560,
+    "failed": false,
+    "h": 320,
+    "page": "PracticeFavoritesPage",
+    "scroll": 560,
+    "w": 568
+  },
+  {
+    "path": "/exam/practice/profile",
+    "actions": [],
+    "client": 560,
+    "failed": false,
+    "h": 320,
+    "page": "PracticeProfilePage",
+    "scroll": 560,
+    "w": 568
+  }
+]

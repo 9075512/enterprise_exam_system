@@ -54,7 +54,7 @@ describe('系统设置页 · 标签页定义', () => {
   it('每个标签页都用同一个文案渲染说明（模板里引用了 TAB_DESC）', () => {
     expect(page).toContain('TAB_DESC.exam');
     // 每个 pane 各自引用一次说明
-    expect([...page.matchAll(/settings-page__desc/g)]).toHaveLength(7);
+    expect([...page.matchAll(/<p class="settings-page__desc">/g)]).toHaveLength(7);
   });
 });
 

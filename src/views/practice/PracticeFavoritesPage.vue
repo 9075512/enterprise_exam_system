@@ -7,7 +7,8 @@
  * - 取消收藏在此页直接生效（列表即时移除）；
  * - 仅移动端；视觉沿用「冷静蓝 · 商务风」。
  */
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import RequestError from '@/components/common/RequestError.vue';
 import { useRouter } from 'vue-router';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
 import PracticeLoading from '@/components/common/PracticeLoading.vue';
@@ -22,6 +23,12 @@ const PAGE_SIZE = 20;
 
 const loading = ref(true);
 const loadingMore = ref(false);
+const loadError = ref(false);
+const moreError = ref(false);
+const removing = ref('');
+let generation = 0;
+let disposed = false;
+onBeforeUnmount(() => { disposed = true; generation += 1; });
 const items = ref<PracticeFavoriteQuestion[]>([]);
 const total = ref(0);
 const page = ref(1);
@@ -59,11 +66,13 @@ async function loadBanks(): Promise<void> {
 
 /** 加载指定页（1 = 覆盖，其余 = 追加） */
 async function loadPage(target: number, bankId = activeBank.value): Promise<void> {
+  const request = target === 1 ? ++generation : generation;
   const res = await practiceApi.favorites({
     bankId: bankId || undefined,
     page: target,
     pageSize: PAGE_SIZE,
   });
+  if (disposed || request !== generation) return;
   total.value = res.total;
   items.value = target === 1 ? res.list : [...items.value, ...res.list];
   page.value = target;
@@ -72,11 +81,13 @@ async function loadPage(target: number, bankId = activeBank.value): Promise<void
 /** 首次加载 */
 async function load(): Promise<void> {
   loading.value = true;
+  loadError.value = false;
+  moreError.value = false;
   try {
     void loadBanks();
     await loadPage(1);
   } catch {
-    // 错误提示已由 http 拦截器统一弹出
+    loadError.value = true;
   } finally {
     loading.value = false;
   }
@@ -84,13 +95,15 @@ async function load(): Promise<void> {
 
 /** 切换题库筛选 */
 async function switchBank(bankId: string): Promise<void> {
-  if (activeBank.value === bankId || loading.value || loadingMore.value) return;
+  if (activeBank.value === bankId || loading.value || loadingMore.value || removing.value) return;
   loading.value = true;
+  loadError.value = false;
+  moreError.value = false;
   try {
     await loadPage(1, bankId);
     activeBank.value = bankId;
   } catch {
-    /* 提示已统一 */
+    loadError.value = true;
   } finally {
     loading.value = false;
   }
@@ -98,12 +111,13 @@ async function switchBank(bankId: string): Promise<void> {
 
 /** 加载更多 */
 async function loadMore(): Promise<void> {
-  if (loading.value || loadingMore.value || !hasMore.value) return;
+  if (loading.value || loadingMore.value || removing.value || !hasMore.value) return;
   loadingMore.value = true;
+  moreError.value = false;
   try {
     await loadPage(page.value + 1);
   } catch {
-    /* 提示已统一 */
+    moreError.value = true;
   } finally {
     loadingMore.value = false;
   }
@@ -111,17 +125,14 @@ async function loadMore(): Promise<void> {
 
 /** 取消收藏（列表即时移除，失败回滚） */
 async function unfavorite(q: PracticeFavoriteQuestion): Promise<void> {
-  const prevItems = items.value;
-  const prevTotal = total.value;
-  items.value = items.value.filter((x) => x.id !== q.id);
-  total.value = Math.max(0, prevTotal - 1);
+  if (removing.value || loading.value || loadingMore.value) return;
+  removing.value = q.id;
   try {
     await practiceApi.removeFavorite(q.id);
+    await load();
   } catch {
-    // 回滚（错误提示已由 http 拦截器统一弹出）
-    items.value = prevItems;
-    total.value = prevTotal;
-  }
+    // 接口失败保留原列表。
+  } finally { removing.value = ''; }
 }
 
 /** 开始「练收藏题」（不传 bankId = 全部收藏） */
@@ -136,7 +147,7 @@ onMounted(load);
 </script>
 
 <template>
-  <PracticeLayout tabbar>
+  <PracticeLayout data-ui-layout="question-cards" data-ui-page="PracticeFavoritesPage" tabbar>
     <template #actions>
       <span class="fav__user">{{ userName }}</span>
     </template>
@@ -145,18 +156,19 @@ onMounted(load);
       <div class="fav__head">
         <div class="fav__head-text">
           <p class="fav__title">我的收藏</p>
-          <p class="fav__sub">共 {{ total }} 道题</p>
+          <p class="fav__sub">{{ loadError ? '收藏数量未知' : `共 ${total} 道题 · 已加载 ${items.length} 道` }}</p>
         </div>
-        <el-button type="primary" :disabled="total === 0" @click="startReans">练收藏题</el-button>
+        <el-button type="primary" :disabled="loading || loadError || total === 0 || Boolean(removing)" @click="startReans">练收藏题</el-button>
       </div>
 
       <!-- 题库筛选 -->
-      <div v-if="banks.length > 1" class="fav__filter" role="tablist" aria-label="按题库筛选">
+      <div v-if="banks.length > 1" class="fav__filter" role="group" aria-label="按题库筛选">
         <button
           type="button"
           class="fav__chip"
           :disabled="loading || loadingMore"
           :class="{ 'is-active': activeBank === '' }"
+          :aria-pressed="activeBank === ''"
           @click="switchBank('')"
         >
           全部
@@ -168,6 +180,7 @@ onMounted(load);
           class="fav__chip"
           :disabled="loading || loadingMore"
           :class="{ 'is-active': activeBank === bank.id }"
+          :aria-pressed="activeBank === bank.id"
           @click="switchBank(bank.id)"
         >
           {{ bank.name }}
@@ -176,6 +189,7 @@ onMounted(load);
 
       <PracticeLoading v-if="loading && items.length === 0" :loading="loading" :rows="5" caption="正在加载收藏…" />
 
+      <RequestError v-else-if="loadError" text="收藏列表加载失败" @retry="load" />
       <div v-else-if="total === 0" class="fav__empty">
         <div class="fav__empty-mark" aria-hidden="true">—</div>
         <p class="fav__empty-text">还没有收藏的题目，答题时点击「收藏」即可加入</p>
@@ -188,13 +202,13 @@ onMounted(load);
             <span class="fav__type">{{ TYPE_LABEL[q.type] }}</span>
             <span class="fav__bank">{{ bankName(q.bankId) }}</span>
             <span class="fav__date">{{ favoriteDate(q.favoritedAt) }}</span>
-            <button type="button" class="fav__remove" @click="unfavorite(q)">取消收藏</button>
+            <button type="button" class="fav__remove" :disabled="Boolean(removing) || loading" @click="unfavorite(q)">{{ removing === q.id ? '取消中…' : '取消收藏' }}</button>
           </div>
           <p class="fav__stem">{{ q.stem }}</p>
         </div>
 
         <div v-if="hasMore" class="fav__more">
-          <el-button :loading="loadingMore" :disabled="loading" @click="loadMore">加载更多</el-button>
+          <p v-if="moreError" class="learner-scope">加载下一页失败，已加载的收藏仍保留。</p><el-button :loading="loadingMore" :disabled="loading || Boolean(removing)" @click="loadMore">{{ moreError ? '重试加载更多' : '加载更多' }}</el-button>
         </div>
       </template>
     </div>
@@ -245,7 +259,7 @@ onMounted(load);
 
   &__sub {
     margin: 3px 0 0;
-    font-size: 11.5px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -342,7 +356,7 @@ onMounted(load);
     padding: 1px 6px;
     border-radius: $radius-xs;
     background: $practice-soft;
-    font-size: 10.5px;
+    font-size: 12px;
     font-weight: 600;
     color: $practice-primary;
   }
@@ -352,13 +366,13 @@ onMounted(load);
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    font-size: 11px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
   &__date {
     flex: 0 0 auto;
-    font-size: 11px;
+    font-size: 12px;
     color: $text-disabled;
   }
 
@@ -369,7 +383,7 @@ onMounted(load);
     padding: 0 8px;
     border: none;
     background: transparent;
-    font-size: 11px;
+    font-size: 12px;
     color: $color-error-text;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;

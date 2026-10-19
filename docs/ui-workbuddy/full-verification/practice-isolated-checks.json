@@ -1,0 +1,134 @@
+[
+  {
+    "state": "feedback",
+    "width": 320,
+    "actualWidth": 320,
+    "backHeight": 44,
+    "backWidth": 44,
+    "buttons": [
+      {
+        "h": 44,
+        "w": 89.20000457763672
+      },
+      {
+        "h": 44,
+        "w": 89.20000457763672
+      },
+      {
+        "h": 44,
+        "w": 87.5999984741211
+      }
+    ],
+    "client": 312,
+    "favHeight": 44,
+    "feedback": true,
+    "scroll": 312
+  },
+  {
+    "state": "feedback",
+    "width": 390,
+    "actualWidth": 390,
+    "backHeight": 44,
+    "backWidth": 44,
+    "buttons": [
+      {
+        "h": 44,
+        "w": 112.6624984741211
+      },
+      {
+        "h": 44,
+        "w": 112.6750030517578
+      },
+      {
+        "h": 44,
+        "w": 111.0625
+      }
+    ],
+    "client": 382,
+    "favHeight": 44,
+    "feedback": true,
+    "scroll": 382
+  },
+  {
+    "state": "feedback",
+    "width": 768,
+    "actualWidth": 768,
+    "backHeight": 44,
+    "backWidth": 44,
+    "buttons": [
+      {
+        "h": 44,
+        "w": 185.1999969482422
+      },
+      {
+        "h": 44,
+        "w": 185.1999969482422
+      },
+      {
+        "h": 44,
+        "w": 183.6000061035156
+      }
+    ],
+    "client": 760,
+    "favHeight": 44,
+    "feedback": true,
+    "scroll": 760
+  },
+  {
+    "state": "feedback",
+    "width": 1440,
+    "actualWidth": 1440,
+    "backHeight": 40,
+    "backWidth": 30,
+    "buttons": [
+      {
+        "h": 44,
+        "w": 185.1999969482422
+      },
+      {
+        "h": 44,
+        "w": 185.1999969482422
+      },
+      {
+        "h": 44,
+        "w": 183.6000061035156
+      }
+    ],
+    "client": 1440,
+    "favHeight": 40,
+    "feedback": true,
+    "scroll": 1440
+  },
+  {
+    "state": "summary",
+    "width": 320,
+    "actualWidth": 320,
+    "client": 312,
+    "scroll": 312,
+    "summary": "✓本次练习完成3已练题数3答对100%正确率本次小结按每题首次判分统计，重做不改变首次结果。再练一次返回首页查看错题本 ›"
+  },
+  {
+    "state": "summary",
+    "width": 390,
+    "actualWidth": 390,
+    "client": 382,
+    "scroll": 382,
+    "summary": "✓本次练习完成3已练题数3答对100%正确率本次小结按每题首次判分统计，重做不改变首次结果。再练一次返回首页查看错题本 ›"
+  },
+  {
+    "state": "summary",
+    "width": 768,
+    "actualWidth": 768,
+    "client": 760,
+    "scroll": 760,
+    "summary": "✓本次练习完成3已练题数3答对100%正确率本次小结按每题首次判分统计，重做不改变首次结果。再练一次返回首页查看错题本 ›"
+  },
+  {
+    "state": "summary",
+    "width": 1440,
+    "actualWidth": 1440,
+    "client": 1440,
+    "scroll": 1440,
+    "summary": "✓本次练习完成3已练题数3答对100%正确率本次小结按每题首次判分统计，重做不改变首次结果。再练一次返回首页查看错题本 ›"
+  }
+]

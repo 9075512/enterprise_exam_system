@@ -1,0 +1,196 @@
+@use './variables.scss' as *;
+
+// 已确认稿的全局框架：分区标签与平铺菜单、面包屑/标题、日期和账号区。
+.layout.layout {
+  .layout__nav-label { margin: 18px 12px 7px; padding: 0; color: $text-secondary; font-size: 12px; line-height: 1.5; list-style: none; &:first-child { margin-top: 4px; } }
+  .layout__menu > .el-menu-item { height: 42px; margin-bottom: 3px; padding-inline: 13px !important; border-radius: 9px; }
+  .layout__header { height: 94px; min-height: 94px; gap: 14px; padding-inline: 30px; }
+  .layout__page-context { min-width: 0; .el-breadcrumb { margin-bottom: 5px; font-size: 12px; line-height: 1.5; } }
+  .layout__page-title { margin: 0; color: $text-primary; font-size: 22px; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
+  .layout__date { flex: 0 0 auto; padding: 6px 12px; border: 1px solid $border-color; border-radius: 8px; background: $bg-paper; color: $text-secondary; font-size: 12px; white-space: nowrap; }
+  .layout__account-menu { flex: 0 0 auto; }
+  .layout__account { display: flex; align-items: center; gap: 9px; max-width: 210px; min-height: 42px; padding: 5px 12px 5px 5px; border: 1px solid $border-color; border-radius: 28px; background: $bg-paper; color: $text-primary; cursor: pointer; font: inherit; text-align: left; > .el-icon { flex-shrink: 0; color: $text-secondary; font-size: 12px; } }
+  .layout__account-avatar { flex: 0 0 32px; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: $color-primary-soft; color: $color-primary; font-size: 13px; font-weight: 600; }
+  .layout__account-info { min-width: 0; line-height: 1.5; strong, small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } strong { font-size: 12px; font-weight: 600; } small { font-size: 12px; color: $text-secondary; } }
+}
+@media (min-width: 901px) {
+  .layout.layout .layout__content { padding: 0 30px 30px; }
+  .layout.layout .layout__brand { min-height: 94px; }
+  .layout.layout .layout__search { min-width: 36px; width: 36px; padding: 0; justify-content: center; .layout__search-ph, .layout__kbd { display: none; } }
+  .layout .page-header__title--in-frame { display: none; }
+  .layout .page-header--contextual .page-header__desc { margin-top: 0; }
+}
+@media (max-width: 1200px) { .layout.layout .layout__date { display: none; } }
+@media (max-width: 900px) {
+  // 手机端包含文字操作和图标按钮；仅增大命中区域，不改变权限或事件。
+  .layout.layout .layout__collapse,
+  .layout.layout .layout__search,
+  .layout.layout .layout__iconbtn,
+  .layout.layout .layout__mobile-icon,
+  .layout.layout .layout__mobile-avatar,
+  .layout.layout .layout__account.layout__account,
+  .layout.layout .layout__mobile-backtop { flex-shrink: 0; min-width: 44px; width: 44px; min-height: 44px; height: 44px; }
+  .layout.layout .layout__menu > .el-menu-item { min-height: 44px; }
+  .layout.layout .layout__side-user { min-height: 44px; }
+  .layout.layout .layout__page-context .el-breadcrumb { display: flex; overflow: hidden; white-space: nowrap; }
+  .layout.layout .layout__page-context .el-breadcrumb__item { display: flex; flex: 0 0 auto; float: none; min-width: 0; }
+  .layout.layout .layout__page-context .el-breadcrumb__item:last-child { flex: 0 1 auto; }
+  .layout.layout .layout__page-context .el-breadcrumb__inner { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .layout.layout .layout__mobile-heading small { font-size: 12px; }
+  [data-ui-layout] .el-button.el-button.is-link,
+  [data-ui-layout] .el-button.el-button.is-text,
+  [data-ui-layout] .density-toggle__item,
+  .layout [data-ui-layout] .el-tabs__item { min-height: 44px; min-width: 44px; }
+  .el-drawer.el-drawer .el-drawer__close-btn,
+  .el-dialog.el-dialog .el-dialog__headerbtn,
+  .el-message-box.el-message-box .el-message-box__headerbtn { min-width: 44px; min-height: 44px; }
+  .el-dialog.el-dialog .el-dialog__headerbtn,
+  .el-message-box.el-message-box .el-message-box__headerbtn { top: 8px; right: 8px; }
+  .el-dialog.el-dialog .el-input__wrapper,
+  .el-dialog.el-dialog .el-select__wrapper { min-height: 44px; }
+  .el-dialog.el-dialog .el-button.el-button.is-link,
+  .el-dialog.el-dialog .el-button.el-button.is-text,
+  .el-dropdown-menu .el-dropdown-menu__item { min-height: 44px; }
+  .layout [data-ui-layout] .el-tabs__nav-wrap.is-scrollable { padding-inline: 44px; }
+  .layout [data-ui-layout] .el-tabs__nav-prev,
+  .layout [data-ui-layout] .el-tabs__nav-next { display: flex; align-items: center; justify-content: center; width: 44px; min-height: 44px; }
+  [data-ui-layout] .el-form .el-checkbox,
+  [data-ui-layout] .el-form .el-radio,
+  .el-dialog .el-form .el-checkbox,
+  .el-dialog .el-form .el-radio,
+  .el-drawer .el-form .el-checkbox,
+  .el-drawer .el-form .el-radio { min-height: 44px; }
+  [data-ui-layout] .el-table .el-table-column--selection .cell { padding-inline: 0; }
+  [data-ui-layout] .el-table .el-table-column--selection .el-checkbox { width: 100%; min-height: 44px; justify-content: center; }
+  .layout.layout .layout__header { height: 74px; min-height: 74px; gap: 8px; padding-inline: 16px; }
+  .layout.layout .layout__page-context { flex: 1; }
+  .layout.layout .layout__page-title { font-size: 20px; }
+  .layout.layout .layout__account-info, .layout.layout .layout__account > .el-icon { display: none; }
+  .layout.layout .layout__account { padding: 4px; min-height: 40px; }
+}
+@media (max-width: 500px) { .layout.layout .layout__account-menu { display: none; } }
+
+// 按页面模板实施统一的内容层级；页面标签由设计目录逐页登记。
+[data-ui-layout] { min-width: 0; color: $text-primary; font-size: 14px; line-height: 1.7; }
+.layout [data-ui-layout] > .page-header { margin-bottom: 20px; }
+.layout .admin-page[data-ui-layout] > .page-header { margin-bottom: 0; }
+.layout.is-management-layout .page-header__title--in-frame { display: none; }
+.layout :is([data-ui-layout="list"], [data-ui-layout="compare"]) > .el-card:is(.table-card, [data-ui-role="table"]) > .el-card__body { padding: 0; }
+.layout [data-ui-layout="list"], .layout [data-ui-layout="compare"] {
+  .table-card .admin-toolbar, .table-card__toolbar,
+  .content-page__toolbar, .retake-manage-page__toolbar,
+  .login-log__card:not(.login-log__anomaly) .admin-toolbar { margin: 0; padding: 18px 22px; border-bottom: 1px solid $border-color; }
+  .content-page__panel .el-tab-pane > .admin-scope,
+  .retake-manage-page__panel > .el-card__body > .admin-scope { margin: 0; padding: 14px 22px; }
+  .el-card__body > .el-tabs > .el-tabs__header { margin: 0; padding: 0 22px; }
+  .el-pagination { padding: 18px 22px; margin: 0; }
+  .request-error { padding: 26px 22px; }
+}
+.layout [data-ui-layout] .el-table { --el-table-header-bg-color: #{$color-table-head}; --el-table-row-hover-bg-color: #{$color-table-hover}; font-size: 13px; }
+.layout [data-ui-layout] .el-table .cell { line-height: 22px; padding-inline: 12px; }
+.layout [data-ui-layout] .el-table th.el-table__cell,
+.layout [data-ui-layout] .el-table td.el-table__cell { padding-block: 12px; }
+.layout [data-ui-layout] .el-table--small th.el-table__cell,
+.layout [data-ui-layout] .el-table--small td.el-table__cell { padding-block: 8px; }
+.layout [data-ui-layout] .empty-state { padding: 40px 20px; }
+.layout [data-ui-layout] .el-form-item__label { font-size: 12px; line-height: 20px; font-weight: 600; color: $text-body; }
+.layout [data-ui-layout="settings"] > .page-header { position: sticky; top: 0; z-index: 25; padding: 14px 0; background: $bg-page; }
+.layout [data-ui-layout="operations"] .el-card,
+.layout [data-ui-layout="profile"] .el-card { border-radius: $radius-lg; }
+.el-drawer.el-drawer .el-drawer__body { overscroll-behavior: contain; }
+.el-drawer.el-drawer .el-drawer__header { flex-shrink: 0; }
+.el-drawer.el-drawer .el-drawer__footer { flex-shrink: 0; background: $bg-paper; }
+.el-drawer.el-drawer .el-form { max-width: 100%; }
+.el-drawer.el-drawer .el-input, .el-drawer.el-drawer .el-select { max-width: 100%; }
+.el-drawer.el-drawer .el-drawer__footer .el-button + .el-button { margin-left: 10px; }
+.design-savebar { position: sticky; bottom: 0; z-index: 30; display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 20px; padding: 14px 20px; border: 1px solid $border-color; border-radius: $radius-lg; background: $bg-paper; box-shadow: $shadow-sm; }
+.design-savebar > [role="status"] { margin-right: auto; font-size: 12px; }
+@media (max-width: 900px) {
+  [data-ui-layout] .el-button.el-button:not(.is-link):not(.is-text) { min-height: 44px; }
+  [data-ui-layout] .el-input__wrapper, [data-ui-layout] .el-select__wrapper { min-height: 44px; }
+  .layout [data-ui-layout] .page-header { align-items: flex-start; gap: 12px; }
+  .layout [data-ui-layout] .page-header__text { flex-basis: 100%; }
+  .layout [data-ui-layout] .page-header__actions { width: 100%; justify-content: flex-start; margin-left: 0; }
+  .layout [data-ui-layout="list"] .table-card .admin-toolbar,
+  .layout [data-ui-layout="list"] .table-card__toolbar,
+  .layout [data-ui-layout="compare"] .table-card .admin-toolbar,
+  .layout [data-ui-layout="list"] .content-page__toolbar,
+  .layout [data-ui-layout="list"] .retake-manage-page__toolbar,
+  .layout [data-ui-layout="list"] .login-log__card:not(.login-log__anomaly) .admin-toolbar { padding: 16px; }
+  .layout [data-ui-layout="list"] .content-page__panel .el-tab-pane > .admin-scope,
+  .layout [data-ui-layout="list"] .retake-manage-page__panel > .el-card__body > .admin-scope { padding: 14px 16px; }
+  .layout [data-ui-layout="list"] .content-page__toolbar .content-page__select { flex: 1 1 calc(50% - 5px); min-width: 0; width: calc(50% - 5px); }
+  .layout [data-ui-layout="list"] .content-page__toolbar .content-page__search { flex: 1 1 100%; width: 100%; }
+  .layout [data-ui-layout="list"] .content-page__spacer { display: none; }
+  .layout [data-ui-layout] .el-pagination { justify-content: flex-start; max-width: 100%; }
+  .layout [data-ui-layout] .el-form-item { display: block; }
+  .layout [data-ui-layout] .el-form-item__label { float: none; width: 100% !important; justify-content: flex-start; margin: 0 0 8px; padding: 0; }
+  .layout [data-ui-layout] .el-form-item__content { margin-left: 0 !important; min-width: 0; }
+  .layout [data-ui-layout] .el-input__wrapper,
+  .layout [data-ui-layout] .el-select__wrapper { min-height: 44px; }
+  .layout [data-ui-layout] .el-button.el-button:not(.is-link):not(.is-text) { min-height: 44px; }
+  .el-drawer.el-drawer.rtl, .el-drawer.el-drawer.ltr { width: 100% !important; max-width: 100%; border-radius: 0; }
+  .el-drawer.el-drawer .el-drawer__header { padding: 18px 16px; }
+  .el-drawer.el-drawer .el-drawer__body { padding: 20px 16px; }
+  .el-drawer.el-drawer .el-drawer__footer { padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: flex-end; }
+  .el-drawer.el-drawer .el-drawer__footer .el-button { min-height: 44px; margin: 0; }
+  .el-drawer.el-drawer .el-input__wrapper, .el-drawer.el-drawer .el-select__wrapper { min-height: 44px; }
+  .design-savebar { padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
+  .layout.layout.is-focused-learning-route { height: auto; min-height: 100dvh; overflow: visible; }
+  .layout.is-focused-learning-route .layout__aside,
+  .layout.is-focused-learning-route .layout__header,
+  .layout.is-focused-learning-route .layout__mobile-header,
+  .layout.is-focused-learning-route .layout__mobile-nav { display: none; }
+  .layout.layout.is-focused-learning-route .layout__main { width: 100%; min-height: 100dvh; }
+  .layout.layout.is-focused-learning-route .layout__content { padding: 0; overflow: visible; }
+}
+
+// 手机横屏或键盘压缩可用高度时，设置正文跟随页面滚动，避免被固定框架挤到 0 高度。
+@media (max-width: 900px) {
+  :is(.review-page, .appeal-detail__form, .question-form-drawer, .exam-editor) .el-input-number.el-input-number { width: min(180px, 100%); height: 44px; line-height: 44px; }
+  :is(.review-page, .appeal-detail__form, .question-form-drawer, .exam-editor) .el-input-number .el-input-number__decrease,
+  :is(.review-page, .appeal-detail__form, .question-form-drawer, .exam-editor) .el-input-number .el-input-number__increase { top: 0; bottom: 0; width: 44px; height: 44px; line-height: 44px; }
+  :is(.review-page, .appeal-detail__form, .question-form-drawer, .exam-editor) .el-input-number .el-input__wrapper { padding-inline: 44px; min-height: 44px; }
+}
+
+@media (max-width: 900px) {
+  .el-dialog.el-dialog .el-tabs__item { min-height: 44px; }
+  :is(.user-import-dialog, .question-import-dialog) .el-step__title { padding-inline: 2px; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+  :is(.user-import-dialog, .question-import-dialog) .el-upload-list__item { min-width: 0; overflow: visible; }
+  :is(.user-import-dialog, .question-import-dialog) .el-upload-list__item .el-icon--close,
+  :is(.user-import-dialog, .question-import-dialog) .el-upload-list__item .el-icon--close-tip { display: none; }
+  .question-import-dialog .import-dedupe .el-switch { min-height: 44px; }
+}
+
+@media (max-width: 900px) and (max-height: 600px) {
+  .layout .settings-page[data-ui-page="SettingsPage"] { height: auto; min-height: 100%; }
+  .layout .settings-page[data-ui-page="SettingsPage"] > .page-header { position: static; padding: 0; margin-bottom: 12px; }
+  .layout .settings-page__form { flex: none; }
+  .layout .settings-page__tabs { flex: none; overflow: visible; }
+  .layout .settings-page__tabs .el-tabs__content { flex: none; overflow: visible; scrollbar-gutter: auto; }
+}
+
+// 考试日期弹层独立适配窄屏与低高度；保留原日历、时间输入和校验。
+@media (max-width: 900px) {
+  .el-popper.exam-schedule-picker { position: fixed !important; inset: 12px auto auto 50% !important; transform: translateX(-50%) !important; width: min(360px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain; }
+  .exam-schedule-picker .el-popper__arrow { display: none; }
+  .exam-schedule-picker .el-date-picker { width: 100%; }
+  .exam-schedule-picker .el-date-picker .el-picker-panel__content { width: auto; margin: 8px; }
+  .exam-schedule-picker .el-date-picker__header { display: flex; align-items: center; margin: 8px; }
+  .exam-schedule-picker .el-date-picker__header button { flex: 0 0 44px; width: 44px; height: 44px; margin: 0; }
+  .exam-schedule-picker .el-date-picker__header-label { flex: 1; min-width: 0; padding: 0; font-size: 13px; }
+  .exam-schedule-picker .el-date-table td { height: 44px; }
+  .exam-schedule-picker .el-date-table-cell { height: 44px; padding-block: 10px; }
+  .exam-schedule-picker .el-date-picker__time-header .el-input__wrapper { min-height: 44px; }
+  .exam-schedule-picker .el-picker-panel__footer { position: sticky; bottom: 0; z-index: 5; display: flex; justify-content: flex-end; gap: 8px; background: white; }
+  .exam-schedule-picker .el-picker-panel__footer .el-button { min-height: 44px; margin: 0; }
+}
+// 组织人员候选项完整展示；仅作用于此轮明确标记的选择器。
+.el-popper.organization-choice-popper { max-width: calc(100vw - 24px); }
+.organization-choice-popper .el-select-dropdown__item { height: auto; min-height: 36px; white-space: normal; overflow-wrap: anywhere; padding-block: 8px; line-height: 22px; }
+.organization-choice-popper .el-select-dropdown__item > span { white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+  .organization-choice-popper .el-select-dropdown__item { min-height: 44px; padding-block: 11px; }
+  .bank-author-batch-dialog .el-dialog__footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+  .bank-author-batch-dialog.el-dialog .el-dialog__footer .el-button.el-button { margin: 0; min-height: 44px; }
+}

@@ -1,0 +1,532 @@
+[
+  {
+    "bodyScroll": 312,
+    "bodyWidth": 312,
+    "footer": {
+      "bottom": 740.0000152587891,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 320,
+      "top": 671.2000122070312,
+      "width": 320,
+      "x": 0,
+      "y": 671.2000122070312
+    },
+    "kind": "role-editor",
+    "page": "RoleManagePage",
+    "required": [
+      {
+        "checked": true,
+        "disabled": true
+      },
+      {
+        "checked": true,
+        "disabled": true
+      },
+      {
+        "checked": true,
+        "disabled": true
+      }
+    ],
+    "touch": [
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44
+    ],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "bodyScroll": 382,
+    "bodyWidth": 382,
+    "footer": {
+      "bottom": 844.0000152587891,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 390.3999938964844,
+      "top": 775.2000122070312,
+      "width": 390.3999938964844,
+      "x": 0,
+      "y": 775.2000122070312
+    },
+    "kind": "role-editor",
+    "page": "RoleManagePage",
+    "required": [
+      {
+        "checked": true,
+        "disabled": true
+      },
+      {
+        "checked": true,
+        "disabled": true
+      },
+      {
+        "checked": true,
+        "disabled": true
+      }
+    ],
+    "touch": [
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "bodyScroll": 760,
+    "bodyWidth": 760,
+    "footer": {
+      "bottom": 1024.000015258789,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 768,
+      "top": 955.2000122070312,
+      "width": 768,
+      "x": 0,
+      "y": 955.2000122070312
+    },
+    "kind": "role-editor",
+    "page": "RoleManagePage",
+    "required": [
+      {
+        "checked": true,
+        "disabled": true
+      },
+      {
+        "checked": true,
+        "disabled": true
+      },
+      {
+        "checked": true,
+        "disabled": true
+      }
+    ],
+    "touch": [
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44
+    ],
+    "viewport": [
+      768,
+      1024
+    ]
+  },
+  {
+    "bodyScroll": 836,
+    "bodyWidth": 836,
+    "footer": {
+      "bottom": 390.40000915527344,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 844,
+      "top": 321.6000061035156,
+      "width": 844,
+      "x": 0,
+      "y": 321.6000061035156
+    },
+    "kind": "role-editor",
+    "page": "RoleManagePage",
+    "required": [
+      {
+        "checked": true,
+        "disabled": true
+      },
+      {
+        "checked": true,
+        "disabled": true
+      },
+      {
+        "checked": true,
+        "disabled": true
+      }
+    ],
+    "touch": [
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44
+    ],
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "bodyScroll": 552,
+    "bodyWidth": 552,
+    "footer": {
+      "bottom": 1000.0000152587892,
+      "height": 68.80000305175781,
+      "left": 880,
+      "right": 1440,
+      "top": 931.2000122070312,
+      "width": 560,
+      "x": 880,
+      "y": 931.2000122070312
+    },
+    "kind": "role-editor",
+    "page": "RoleManagePage",
+    "required": [
+      {
+        "checked": true,
+        "disabled": true
+      },
+      {
+        "checked": true,
+        "disabled": true
+      },
+      {
+        "checked": true,
+        "disabled": true
+      }
+    ],
+    "touch": [
+      38,
+      38,
+      38,
+      38,
+      38,
+      38,
+      38,
+      38,
+      38,
+      38,
+      38,
+      38,
+      38,
+      38,
+      38,
+      38,
+      38,
+      38,
+      38,
+      38,
+      38,
+      38,
+      38,
+      38,
+      38,
+      38
+    ],
+    "viewport": [
+      1440,
+      1000
+    ]
+  },
+  {
+    "bodyScroll": 312,
+    "bodyWidth": 312,
+    "footer": {
+      "bottom": 740.0000152587891,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 320,
+      "top": 671.2000122070312,
+      "width": 320,
+      "x": 0,
+      "y": 671.2000122070312
+    },
+    "kind": "user-editor",
+    "page": "UserPage",
+    "radioHeights": [
+      44,
+      44
+    ],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "bodyScroll": 382,
+    "bodyWidth": 382,
+    "footer": {
+      "bottom": 844.0000152587891,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 390.3999938964844,
+      "top": 775.2000122070312,
+      "width": 390.3999938964844,
+      "x": 0,
+      "y": 775.2000122070312
+    },
+    "kind": "user-editor",
+    "page": "UserPage",
+    "radioHeights": [
+      44,
+      44
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "bodyScroll": 768,
+    "bodyWidth": 768,
+    "footer": {
+      "bottom": 1024.000015258789,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 768,
+      "top": 955.2000122070312,
+      "width": 768,
+      "x": 0,
+      "y": 955.2000122070312
+    },
+    "kind": "user-editor",
+    "page": "UserPage",
+    "radioHeights": [
+      44,
+      44
+    ],
+    "viewport": [
+      768,
+      1024
+    ]
+  },
+  {
+    "bodyScroll": 836,
+    "bodyWidth": 836,
+    "footer": {
+      "bottom": 390.40000915527344,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 844,
+      "top": 321.6000061035156,
+      "width": 844,
+      "x": 0,
+      "y": 321.6000061035156
+    },
+    "kind": "user-editor",
+    "page": "UserPage",
+    "radioHeights": [
+      44,
+      44
+    ],
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "bodyScroll": 720,
+    "bodyWidth": 720,
+    "footer": {
+      "bottom": 1000.0000152587892,
+      "height": 68.80000305175781,
+      "left": 720,
+      "right": 1440,
+      "top": 931.2000122070312,
+      "width": 720,
+      "x": 720,
+      "y": 931.2000122070312
+    },
+    "kind": "user-editor",
+    "page": "UserPage",
+    "radioHeights": [
+      32,
+      32
+    ],
+    "viewport": [
+      1440,
+      1000
+    ]
+  },
+  {
+    "bodyScroll": 320,
+    "bodyWidth": 320,
+    "footer": {
+      "bottom": 740.0000152587891,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 320,
+      "top": 671.2000122070312,
+      "width": 320,
+      "x": 0,
+      "y": 671.2000122070312
+    },
+    "kind": "position-editor",
+    "page": "PositionManagePage",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "bodyScroll": 390,
+    "bodyWidth": 390,
+    "footer": {
+      "bottom": 844.0000152587891,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 390.3999938964844,
+      "top": 775.2000122070312,
+      "width": 390.3999938964844,
+      "x": 0,
+      "y": 775.2000122070312
+    },
+    "kind": "position-editor",
+    "page": "PositionManagePage",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "bodyScroll": 768,
+    "bodyWidth": 768,
+    "footer": {
+      "bottom": 1024.000015258789,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 768,
+      "top": 955.2000122070312,
+      "width": 768,
+      "x": 0,
+      "y": 955.2000122070312
+    },
+    "kind": "position-editor",
+    "page": "PositionManagePage",
+    "viewport": [
+      768,
+      1024
+    ]
+  },
+  {
+    "bodyScroll": 836,
+    "bodyWidth": 836,
+    "footer": {
+      "bottom": 390.40000915527344,
+      "height": 68.80000305175781,
+      "left": 0,
+      "right": 844,
+      "top": 321.6000061035156,
+      "width": 844,
+      "x": 0,
+      "y": 321.6000061035156
+    },
+    "kind": "position-editor",
+    "page": "PositionManagePage",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "bodyScroll": 520,
+    "bodyWidth": 520,
+    "footer": {
+      "bottom": 1000.0000152587892,
+      "height": 68.80000305175781,
+      "left": 920,
+      "right": 1440,
+      "top": 931.2000122070312,
+      "width": 520,
+      "x": 920,
+      "y": 931.2000122070312
+    },
+    "kind": "position-editor",
+    "page": "PositionManagePage",
+    "viewport": [
+      1440,
+      1000
+    ]
+  }
+]

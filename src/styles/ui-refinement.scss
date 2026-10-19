@@ -1,140 +1,149 @@
 @use './variables.scss' as *;
 @use './ui-tokens.scss';
 
-// Shared visual layer, scoped to real application components. No business data changes.
+// 最终共享组件层：颜色取同源 token，不按业务模块更换主操作色。
 :root {
-  --ui-accent: #{$category-blue};
-  --ui-accent-soft: #{$category-blue-soft};
+  --ui-accent: #{$color-primary};
+  --ui-accent-soft: #{$color-primary-soft};
   --el-component-size: 36px;
   --el-font-family: 'Noto Sans SC Variable', 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 
-@each $tone, $color, $soft in (
-  ('blue', $category-blue, $category-blue-soft),
-  ('teal', $category-teal, $category-teal-soft),
-  ('violet', $category-violet, $category-violet-soft),
-  ('amber', $category-amber, $category-amber-soft)
-) {
-  [data-module-tone='#{$tone}'] { --ui-accent: #{$color}; --ui-accent-soft: #{$soft}; }
-  .stat-card.stat-card--#{$tone} {
-    background: $soft;
-    .stat-card__rule { background: $color; }
-    .stat-card__icon { color: $color; background: var(--ui-#{$tone}-icon-bg); }
-  }
-}
-
-.stat-card.stat-card {
-  min-height: 110px;
-  .el-card__body { padding: 12px 24px; }
-  .stat-card__rule { width: 3px; }
-  .stat-card__top { gap: 16px; }
-  .stat-card__icon { flex: 0 0 40px; width: 40px; height: 40px; border-radius: 8px; font-size: 24px; }
-  .stat-card__value { margin-top: 0; font-size: 34px; line-height: 44px; }
-  .stat-card__label { font-size: 14px; font-weight: 500; color: $text-body; }
-}
-.page-header.page-header .page-header__title {
-  font-size: 28px;
-  line-height: 38px;
-  display: flex;
+.page-header.page-header {
   align-items: center;
-  gap: 10px;
+  margin-bottom: 20px;
+  .page-header__title { font-size: 24px; line-height: 1.45; }
+  .page-header__desc { font-size: 13px; line-height: 1.7; margin-top: 5px; }
 }
-.page-header.page-header .page-header__desc { font-size: 14px; line-height: 22px; }
-.el-card.el-card > .el-card__header {
-  padding: 16px 20px;
-  min-height: 56px;
-  font-size: 15px;
-  line-height: 24px;
-}
+.el-card.el-card > .el-card__header { min-height: 56px; padding: 17px 22px; font-size: 15px; line-height: 1.6; }
+.layout.is-management-layout .el-card { border-radius: $radius-lg; box-shadow: $shadow-card; }
 .el-button.el-button:not(.el-button--small):not(.is-link):not(.is-text) { min-height: 36px; font-size: 13px; }
 .el-input:not(.el-input--small) .el-input__wrapper,
 .el-select:not(.el-select--small) .el-select__wrapper { min-height: 36px; }
 .el-table.el-table .cell { line-height: 22px; }
-.el-table.el-table th.el-table__cell { background: $bg-page; font-size: 12px; font-weight: 600; letter-spacing: 0; }
-.el-tabs.el-tabs .el-tabs__item { font-size: 13px; }
-.el-tabs.el-tabs .el-tabs__active-bar { height: 3px; border-radius: 3px; }
+.el-tabs.el-tabs .el-tabs__active-bar { height: 2px; border-radius: 2px; }
 .el-dialog.el-dialog { border: 1px solid $border-color; }
-.el-dialog.el-dialog .el-dialog__header { background: $bg-page; }
+.el-dialog.el-dialog .el-dialog__header { padding: 20px 24px; padding-right: 48px; background: $bg-paper; }
 .el-dialog.el-dialog .el-dialog__title { font-size: 18px; font-weight: 600; }
-.el-dialog.el-dialog .el-dialog__body { padding: 20px; }
+.el-dialog.el-dialog .el-dialog__body { padding: 24px; }
+.el-dialog.el-dialog .el-dialog__footer { padding: 16px 24px; }
 .el-form-item.el-form-item { margin-bottom: 22px; }
 .el-tag.el-tag { font-weight: 500; }
+.el-drawer.el-drawer { max-width: 100vw; }
+.el-drawer.el-drawer .el-drawer__header { margin: 0; padding: 22px 24px; border-bottom: 1px solid $border-color; color: $text-primary; }
+.el-drawer.el-drawer .el-drawer__title { font-size: 19px; font-weight: 600; }
+.el-drawer.el-drawer .el-drawer__body { padding: 24px; min-height: 0; }
+.el-drawer.el-drawer .el-drawer__footer { padding: 16px 24px; border-top: 1px solid $border-color; }
 
-.dashboard.dashboard .dashboard__columns, .dashboard.dashboard .dashboard__stack, .dashboard.dashboard .dashboard__analysis { gap: 16px; }
-.dashboard.dashboard .page-header { margin-bottom: 16px; }
-.dashboard.dashboard .dashboard__cards { row-gap: 16px; }
-.dashboard.dashboard .page-header__desc { font-size: 16px; line-height: 24px; margin-top: 0; }
-.dashboard.dashboard .dashboard__columns { grid-template-columns: minmax(0, 1.8fr) minmax(360px, 1fr); }
-.dashboard.dashboard .dashboard__filter-row { gap: 12px; }
-.dashboard.dashboard .dashboard__filters > .el-card__body { padding: 13px 16px; }
-.dashboard.dashboard .dashboard__filter-label { font-size: 14px; color: $text-body; }
-.dashboard.dashboard .dashboard__filter-select { width: 192px; }
-.dashboard.dashboard .dashboard__filter-row .el-date-editor { flex: 1 1 320px; min-width: min(240px, 100%); max-width: 100%; }
-.dashboard.dashboard .dashboard__filter-row .el-button + .el-button { margin-left: 0; }
-.dashboard.dashboard .dashboard__chart-card > .el-card__header { min-height: 48px; padding: 11px 16px; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.dashboard.dashboard .dashboard__chart-card > .el-card__body { padding: 16px; }
-.dashboard.dashboard .dashboard__chart-card .empty-state { padding-block: 12px; }
-.dashboard.dashboard .dashboard__chart-card .empty-state__icon { width: 44px; height: 44px; font-size: 24px; }
-.dashboard.dashboard .dashboard__chart-hint { margin-left: 0; }
-.dashboard.dashboard .dashboard__panel-icon { font-size: 22px; color: $category-blue; flex-shrink: 0; }
-.dashboard.dashboard .dashboard__panel-icon--teal { color: $category-teal; }
-.dashboard.dashboard .dashboard__panel-icon--amber { color: $category-amber; }
-.dashboard.dashboard .dashboard__panel-icon--error { color: $color-error-text; }
-.dashboard.dashboard .dashboard__todo { gap: 0; }
-.dashboard.dashboard .dashboard__todo-item { min-height: 62px; align-items: center; gap: 20px; padding-block: 8px; border-bottom: 1px solid $border-color; }
-.dashboard.dashboard .dashboard__todo > li:last-child .dashboard__todo-item { border-bottom: 0; }
-.dashboard.dashboard a.dashboard__todo-item { width: 100%; color: inherit; text-decoration: none; border-radius: 4px; }
-.dashboard.dashboard a.dashboard__todo-item:hover { background: $bg-page; }
-.dashboard.dashboard .dashboard__todo-ic { flex-basis: 34px; width: 34px; height: 34px; border-radius: 8px; font-size: 20px; }
-.dashboard.dashboard .dashboard__todo-title { font-size: 14px; font-weight: 700; }
-.dashboard.dashboard .dashboard__todo-sub { margin-top: 2px; font-size: 13px; }
-.dashboard.dashboard .dashboard__dept th, .dashboard.dashboard .dashboard__dept td { padding-block: 10px; }
-.dashboard.dashboard .dashboard__all-exams { font-size: 13px; font-weight: 600; }
-.layout.layout .layout__brand-mark { width: 34px; height: 34px; font-size: 18px; border-radius: 8px; }
-.layout.layout .layout__brand-name {
-  // 侧栏品牌名的可用宽度约 150px；14px 可完整容纳常见的 10 字中文系统简称，
-  // 同时保持单行展示，避免文字侵入右侧顶栏。
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-.layout.layout .layout__brand-name small { font-size: 10px; letter-spacing: 1.8px; }
-.layout.layout .layout__menu { --el-menu-item-height: 44px; }
-.layout.layout .layout__menu > .el-menu-item, .layout.layout .layout__menu > .el-sub-menu > .el-sub-menu__title { margin-bottom: 6px; border-radius: 8px; }
-.layout.layout .layout__menu .el-menu-item.is-active::after { display: none; }
-.layout.layout .layout__search { min-width: 260px; height: 36px; }
-.dashboard.dashboard.dashboard .dashboard__todo-ic--violet { color: $category-violet; background: $category-violet-soft; }
-.dashboard.dashboard.dashboard .dashboard__todo-ic--teal { color: $category-teal; background: $category-teal-soft; }
-.bank-card.bank-card { border-top: 3px solid $category-violet; }
-.bank-card.bank-card .bank-card__cat { --el-tag-bg-color: #{$category-violet-soft}; --el-tag-text-color: #{$category-violet}; --el-tag-border-color: transparent; }
-.bank-card.bank-card .bank-card__name { font-size: 17px; line-height: 26px; }
-.login .login__brand-inner::after {
-  content: '';
-  display: block;
-  width: min(100%, 300px);
-  height: 4px;
-  margin-top: 24px;
-  border-radius: 4px;
-  background: linear-gradient(to right, $category-blue 0 25%, $category-teal 25% 50%, $category-violet 50% 75%, $category-amber 75%);
+.stat-card.stat-card {
+  min-height: 132px;
+  background: $bg-paper;
+  .el-card__body { padding: 21px 23px; }
+  .stat-card__rule { display: none; }
+  &::after { content: ''; position: absolute; right: -18px; bottom: -32px; width: 104px; height: 104px; border-radius: 50%; background: $color-primary-soft; opacity: .6; pointer-events: none; }
+  .stat-card__top { flex-direction: row-reverse; justify-content: space-between; gap: 12px; position: relative; z-index: 1; }
+  .stat-card__top:not(:has(.stat-card__icon)) { flex-direction: row; }
+  .stat-card__icon { flex: 0 0 25px; width: 25px; height: 25px; background: transparent; color: $text-secondary; font-size: 20px; border-radius: 0; }
+  .stat-card__label { font-size: 13px; font-weight: 400; color: $text-secondary; }
+  .stat-card__value { position: relative; z-index: 1; margin-top: 6px; font-size: 32px; font-weight: 650; line-height: 1.4; }
+  .stat-card__foot { position: relative; z-index: 1; font-size: 12px; }
+  &--teal::after { background: $category-teal-soft; }
+  &--violet::after { background: $category-violet-soft; }
+  &--amber::after { background: $category-amber-soft; }
 }
 
-// Every interactive element has a visible keyboard focus, including card navigation.
-:where(button, a, [tabindex], input, textarea, select):focus-visible {
-  outline: 2px solid $color-primary;
-  outline-offset: 2px;
+.layout.layout {
+  .layout__brand { gap: 11px; padding: 0 20px; border-bottom: 0; }
+  .layout__brand-mark { width: 36px; height: 36px; font-size: 20px; border-radius: 10px; background: $gradient-brand; }
+  .layout__brand-name { color: $text-primary; font-size: 14px; font-weight: 700; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; }
+  .layout__brand-name small { color: $text-secondary; font-size: 9px; letter-spacing: 1.4px; }
+  .layout__menu { padding: 12px 14px; --el-menu-item-height: 44px; --el-menu-sub-item-height: 40px; }
+  .layout__menu > .el-menu-item,
+  .layout__menu > .el-sub-menu > .el-sub-menu__title { margin-bottom: 5px; border-radius: $radius-sm; font-size: 13px; }
+  .layout__menu .el-menu-item.is-active::after { display: none; }
+  .layout__menu .el-sub-menu.is-active > .el-sub-menu__title { color: $text-body; }
+  .layout__header { background: $bg-page; border-bottom: 0; }
+  .layout__search { min-width: 210px; height: 36px; background: $bg-paper; border-color: $border-color; }
+  .layout__user { padding: 6px 12px 6px 6px; border: 1px solid $border-color; border-radius: 24px; background: $bg-paper; }
+  .layout__side-foot { margin: 10px 14px 16px; padding: 7px; border: 1px solid $border-color; border-radius: 10px; background: $color-table-head; }
+  .layout__side-user-name { color: $text-primary; }
+  .layout__aside.is-collapsed .layout__brand { padding: 0; }
+  .layout__aside.is-collapsed .layout__side-foot { margin: 8px; padding: 6px 0; }
+  .layout__content { padding-top: 8px; }
 }
-@media (max-width: 1100px) {
-  .layout.layout .layout__search { min-width: 160px; }
-  .layout.layout .layout__content { padding: 20px; }
-  .dashboard.dashboard .dashboard__analysis { grid-template-columns: 1fr; }
+
+.dashboard.dashboard {
+  .dashboard__columns { grid-template-columns: minmax(0, 1.8fr) minmax(300px, 1fr); gap: 20px; }
+  .dashboard__stack, .dashboard__analysis { gap: 20px; }
+  .dashboard__cards { row-gap: 16px; }
+  .dashboard__filters > .el-card__body { padding: 16px 20px; }
+  .dashboard__chart-card > .el-card__header { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .dashboard__panel-icon { color: $color-primary; font-size: 18px; }
+  .dashboard__chart-hint { margin-left: 0; }
+  .dashboard__todo-item { min-height: 76px; gap: 12px; padding: 12px 0; border-bottom: 1px solid $border-color; }
+  a.dashboard__todo-item { color: inherit; text-decoration: none; }
+  .dashboard__todo > li:last-child .dashboard__todo-item { border-bottom: 0; }
+  .dashboard__todo-ic { flex-basis: 36px; width: 36px; height: 36px; border-radius: 10px; }
+  .dashboard__todo-title { font-size: 14px; font-weight: 500; }
+  .dashboard__todo-sub { font-size: 12px; margin-top: 3px; }
+  .dashboard__all-exams { font-size: 12px; }
+}
+
+:where(button, a, [tabindex], input, textarea, select):focus-visible { outline: 2px solid $color-primary; outline-offset: 2px; }
+
+// 管理页共用的工具条、范围说明与详情摘要。
+.admin-page { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.admin-page > .page-header { margin-bottom: 0; }
+.admin-page > .admin-toolbar { margin-bottom: 0; }
+.admin-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; min-width: 0; }
+.admin-toolbar .admin-scope { margin-right: auto; }
+.admin-scope, .admin-hint { color: $text-secondary; font-size: 13px; line-height: 1.7; }
+.admin-hint { margin: 8px 0 0; overflow-wrap: anywhere; }
+.admin-keyword { width: 260px; max-width: 100%; }
+.admin-select { width: 180px; max-width: 100%; }
+.admin-detail-block { padding: 16px 18px; margin-bottom: 22px; border: 1px solid $border-color; border-radius: $radius-sm; background: $color-table-head; color: $text-body; overflow-wrap: anywhere; }
+.admin-detail-block strong { color: $text-primary; font-size: 14px; }
+.admin-detail-block p { margin: 8px 0 0; white-space: pre-wrap; }
+.admin-code-input textarea { font-family: Consolas, monospace; font-size: 13px; line-height: 1.7; }
+.request-error { width: 100%; padding: 12px 0; }
+.layout.is-management-layout {
+  .admin-toolbar .el-input.admin-keyword { flex: 0 1 260px; width: 260px; }
+  .admin-toolbar .el-select.admin-select { flex: 0 1 180px; width: 180px; }
+  .el-card__body { min-width: 0; }
+  .table-card__toolbar { gap: 12px; margin-bottom: 20px; }
+  .el-pagination { flex-wrap: wrap; row-gap: 8px; }
+  .el-table__empty-block { min-height: 200px; }
+  .el-form-item__label { color: $text-body; font-weight: 500; }
+}
+.el-dialog.el-dialog { display: flex; flex-direction: column; max-height: calc(100dvh - 48px); }
+.el-dialog.el-dialog .el-dialog__body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.el-dialog.el-dialog .el-dialog__header, .el-dialog.el-dialog .el-dialog__footer { flex-shrink: 0; }
+.el-dialog.el-dialog .el-dialog__footer { border-top: 1px solid $border-color; }
+.el-dialog.el-dialog .el-form-item:last-child { margin-bottom: 0; }
+@media (max-width: 1200px) {
   .dashboard.dashboard .dashboard__columns { grid-template-columns: minmax(0, 1fr); }
+  .layout.layout .layout__search { min-width: 160px; }
+  .layout.layout .layout__content { padding: 8px 20px 20px; }
 }
 @media (max-width: 760px) {
-  .layout.layout .layout__aside:not(.is-collapsed) { width: 176px; }
+  .admin-toolbar { gap: 10px; }
+  .admin-toolbar .admin-scope { flex-basis: 100%; }
+  .admin-toolbar .admin-keyword, .admin-toolbar .admin-select { flex: 1 1 180px; width: auto; }
+  .layout.is-management-layout .admin-toolbar .el-input.admin-keyword,
+  .layout.is-management-layout .admin-toolbar .el-select.admin-select { flex: 1 1 180px; width: auto; }
+  .el-dialog.el-dialog { margin-top: 12px; margin-bottom: 12px; max-height: calc(100dvh - 24px); }
   .layout.layout .layout__header { padding: 0 12px; gap: 8px; }
   .layout.layout .layout__search { min-width: 32px; width: 32px; justify-content: center; padding: 0; }
   .layout.layout .layout__search-ph, .layout.layout .layout__kbd { display: none; }
-  .layout.layout .layout__content { padding: 16px; }
-  .page-header.page-header .page-header__title { font-size: 20px; }
+  .layout.layout .layout__content { padding: 8px 16px 16px; }
+  .page-header.page-header .page-header__title { font-size: 21px; }
   .el-dialog.el-dialog { width: min(var(--el-dialog-width, 90vw), calc(100vw - 24px)); }
+  .el-dialog.el-dialog .el-dialog__body { padding: 18px; }
+  .stat-card.stat-card { min-height: 112px; .el-card__body { padding: 16px; } .stat-card__value { font-size: 28px; } }
+}
+@media (max-width: 600px) {
+  .layout.is-management-layout .el-table .el-table-fixed-column--right,
+  .el-dialog .el-table .el-table-fixed-column--right { position: static !important; }
+  .layout.is-management-layout .el-table .el-table-fixed-column--right::before,
+  .el-dialog .el-table .el-table-fixed-column--right::before { display: none; }
 }

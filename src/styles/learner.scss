@@ -1,0 +1,132 @@
+@use './variables.scss' as *;
+
+// 考生与练题共用管理端的色彩、卡片和控件规范。
+.learner-scope { margin: 10px 0 16px; color: $text-secondary; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.layout.is-examinee-layout {
+  .el-card { border-radius: $radius-lg; box-shadow: $shadow-card; }
+  .exam-home__hero { padding: 24px; border: 1px solid $border-color; border-radius: $radius-lg; background: $bg-paper; color: $text-primary; }
+  .exam-home__hero-title { font-size: 23px; line-height: 1.5; color: $text-primary; }
+  .exam-home__hero-text { font-size: 14px; line-height: 1.7; color: $text-secondary; opacity: 1; }
+  .exam-home__hero-act .el-button { min-height: 40px; border: 1px solid $border-color; color: $color-primary; font-weight: 500; }
+  .exam-home__hero-act .el-button:first-child { background: $color-primary; border-color: $color-primary; color: #fff; }
+  .exam-home__columns { gap: 20px; }
+  .exam-home__stack { gap: 20px; }
+  .my-exam__item, .my-score__mobile-card, .my-retake__mobile-card { border-radius: $radius-lg; background: $bg-paper; }
+  .my-exam__item { padding: 22px; }
+  .my-exam__name, .my-score__exam, .my-retake__exam { white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
+  .my-exam__item-act, .my-score__mobile-actions, .my-retake__form-act { gap: 10px; }
+  .my-exam__item-act .el-button, .my-score__mobile-actions .el-button { margin-left: 0; }
+  .my-score__mobile-head > div:first-child, .my-retake__mobile-head > div:first-child { min-width: 0; }
+}
+
+.practice-layout.practice-layout {
+  background: $bg-page;
+  .home__wrong, .home__daily, .home__ach, .home__banks-panel,
+  .wb__group, .wb__item, .fav__item, .rpt__hero, .rpt__card, .rpt__daily,
+  .pf__card, .pf__list, .summary, .session { border-radius: $radius-lg; }
+  .home__section-sub { display: block; margin: 6px 0 0; color: $text-secondary; font-size: 13px; line-height: 1.6; }
+  .home__section-meta { display: block; color: $text-secondary; font-size: 12px; line-height: 1.6; }
+  .home__tree .el-tree-node__content { height: auto; min-height: 54px; padding-block: 8px; }
+  .home__tree-node { width: 100%; min-width: 0; gap: 8px; }
+  .home__tree-name { min-width: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.65; }
+  .home__tree-count { flex-shrink: 0; }
+  .wb__stem, .fav__stem, .feedback__analysis-text { overflow-wrap: anywhere; white-space: pre-wrap; line-height: 1.8; }
+  .wb__group-name, .rpt__bank-name, .rpt__subject-name { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+  .rpt__section, .pf__section { color: $text-primary; font-size: 16px; }
+  .session__top { background: $bg-paper; }
+  .session__back, .session__fav { min-height: 40px; }
+  .session__body .question-card { border-radius: $radius-lg; }
+  .session__actions .el-button { min-height: 44px; font-size: 13px; }
+  .session__state, .wb__empty, .fav__empty { border: 1px solid $border-color; border-radius: $radius-lg; background: $bg-paper; padding: 40px 20px; }
+  .tabbar.is-integrated { border-radius: $radius-lg; background: $bg-paper; }
+  .tabbar__item { min-height: 40px; }
+}
+
+.question-card.question-card {
+  min-width: 0;
+  .question-card__stem { font-size: 16px; line-height: 1.85; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .question-card__meta { font-size: 12px; }
+  .question-card__option { min-height: 48px; }
+  .question-card__option:focus-within { outline: 2px solid $color-primary; outline-offset: 2px; }
+  .question-card__text { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; font-size: 14px; }
+  .question-card__fill { min-width: 0; }
+}
+.answer-sheet__cell { min-height: 40px; }
+.taking .taking__who, .taking .taking__sheet { border-radius: $radius-lg; }
+.el-message-box { display: flex; flex-direction: column; max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); }
+.el-message-box .el-message-box__header,
+.el-message-box .el-message-box__btns { flex-shrink: 0; }
+.el-message-box .el-message-box__content { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+
+@media (max-width: 900px) {
+  .layout.layout.is-examinee-layout .el-button.el-button:not(.is-link):not(.is-text),
+  .taking.taking .el-button.el-button:not(.is-link):not(.is-text),
+  .el-dialog.el-dialog .el-dialog__footer .el-button.el-button,
+  .el-message-box.el-message-box .el-message-box__btns .el-button.el-button,
+  .el-drawer.el-drawer .el-drawer__footer .el-button.el-button { min-height: 44px; }
+  .layout.layout.is-examinee-layout .layout__content { padding: 16px 16px calc(84px + env(safe-area-inset-bottom)); }
+  .layout.layout.is-examinee-layout.is-practice-route .layout__content,
+  .layout.layout.is-examinee-layout.is-focused-examinee-route .layout__content { padding: 0; }
+  .layout.is-examinee-layout .exam-home__hero { padding: 20px; }
+  .layout.is-examinee-layout .exam-home { gap: 16px; }
+  .layout.is-examinee-layout .exam-home__hero { order: 0; }
+  .layout.is-examinee-layout .exam-home__scope { order: 1; margin: 0; }
+  .layout.is-examinee-layout .exam-home__stats { order: 2; gap: 12px; }
+  .layout.is-examinee-layout .exam-home__card--upcoming { order: 3; }
+  .layout.is-examinee-layout .exam-home__content-board { order: 4; }
+  .layout.is-examinee-layout .exam-home__content-board .content-board__notice { align-self: stretch; width: 100%; max-width: 100%; margin: 0; border: 1px solid $border-color; border-radius: $radius-lg; }
+  .layout.is-examinee-layout .exam-home__stat--passRate.stat-card { min-height: 80px; }
+  .layout.is-examinee-layout .exam-home__hero-title { font-size: 21px; }
+  .layout.is-examinee-layout .my-exam__item { padding: 18px; }
+  .layout.is-examinee-layout .my-exam__tabs { gap: 14px; }
+  .layout.is-examinee-layout .my-exam__tab-strip { display: flex; overflow-x: auto; width: 100%; max-width: 100%; padding-bottom: 4px; }
+  .layout.is-examinee-layout .my-exam__tab { flex: 0 0 auto; min-height: 44px; }
+  .layout.is-examinee-layout .stat-card { min-height: 112px; }
+  .layout.is-examinee-layout .stat-card .el-card__body { padding: 16px; }
+  .layout.is-examinee-layout .layout__mobile-nav-item { font-size: 12px; }
+  .practice-layout.is-integrated > .practice-layout__main { max-width: 680px; padding: 16px 16px calc(84px + env(safe-area-inset-bottom)); }
+  .practice-layout.is-integrated > .practice-layout__main.is-flush { padding: 0; }
+  .practice-layout .tabbar.is-integrated { margin: 12px 16px 0; }
+  .practice-layout.practice-home .tabbar.is-integrated { display: none; }
+  .practice-layout .home__section-head { display: flex; flex-wrap: wrap; gap: 10px; }
+  .practice-layout .home__tree-kind { display: none; }
+  .practice-layout .home__tree-node .el-button { padding-inline: 10px; }
+  .practice-layout .home__tree-name { font-size: 14px; }
+  .practice-layout .session__top { position: sticky; top: 0; z-index: 35; }
+  .practice-layout.practice-layout .session__back { flex-basis: 44px; width: 44px; min-height: 44px; }
+  .practice-layout.practice-layout .session__fav,
+  .practice-layout.practice-layout .session__progress-row .el-button,
+  .practice-layout.practice-layout .tabbar__item { min-height: 44px; }
+  .practice-layout.practice-layout .fav__chip,
+  .practice-layout.practice-layout .fav__remove,
+  .practice-layout.practice-layout .rpt__switch-btn,
+  .practice-layout.practice-layout .home__avatar { min-width: 44px; min-height: 44px; }
+  .practice-layout.practice-layout .fav__item-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .practice-layout .fav__type { grid-column: 1; grid-row: 1; justify-self: start; }
+  .practice-layout .fav__remove { grid-column: 2; grid-row: 1; }
+  .practice-layout.practice-layout .fav__bank { grid-column: 1; grid-row: 2; overflow: visible; overflow-wrap: anywhere; white-space: normal; line-height: 1.7; }
+  .practice-layout .fav__date { grid-column: 2; grid-row: 2; align-self: start; line-height: 1.7; }
+  .practice-layout .session__body { padding: 16px 16px calc(100px + env(safe-area-inset-bottom)); }
+  .practice-layout .session__actions { width: 100%; padding-inline: 16px; }
+  .practice-layout .session__actions .el-button { padding-inline: 8px; }
+  .question-card.question-card { padding: 18px; }
+  .question-card.question-card .el-input .el-input__wrapper { min-height: 44px; }
+  .question-card.question-card .rich-editor__btn { min-width: 44px; min-height: 44px; }
+  .question-card.question-card .rich-editor__area { overflow-wrap: anywhere; }
+  .taking .taking__wrap { padding: 16px; }
+  .taking .taking__bar { padding-inline: 16px; }
+  .taking .taking__bar-actions { gap: 8px; padding-inline: 16px; }
+  .taking .taking__bar-actions .el-button { min-height: 44px; padding-inline: 8px; }
+  .taking .taking__main { gap: 14px; }
+  .el-dialog .el-dialog__footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+  .el-dialog .el-dialog__footer > .el-button { margin-left: 0; min-height: 44px; }
+}
+
+@media (max-width: 900px) and (max-height: 600px) {
+  .el-drawer.taking-sheet,
+  .el-drawer.practice-sheet { height: 100% !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .practice-layout *, .taking * { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

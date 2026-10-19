@@ -247,7 +247,7 @@ function openDetail(item: Announcement): void {
     border-radius: $radius-xs;
     background: $practice-soft;
     border: 1px solid $border-color;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     color: $practice-primary;
     line-height: 1;
@@ -275,7 +275,7 @@ function openDetail(item: Announcement): void {
 
   &__date {
     flex: 0 0 auto;
-    font-size: 11.5px;
+    font-size: 12px;
     color: $text-disabled;
     font-variant-numeric: tabular-nums;
   }

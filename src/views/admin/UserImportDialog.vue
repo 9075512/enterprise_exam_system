@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import ResponsivePagination from '@/components/common/ResponsivePagination.vue';
+import SelectedImportFile from '@/components/common/SelectedImportFile.vue';
 /**
  * 用户批量导入弹窗（v1.5，管理员）。
  * 分「批量导入」与「导入历史」两个页签：
@@ -6,6 +8,8 @@
  * - 导入历史：查看历史批次（文件名 / 成功 / 失败 / 时间）。
  */
 import { computed, onMounted, ref, watch } from 'vue';
+import EmptyState from '@/components/common/EmptyState.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import RingProgress from '@/components/common/RingProgress.vue';
 import { ElMessage } from 'element-plus';
 import type { UploadFile, UploadInstance } from 'element-plus';
@@ -139,8 +143,16 @@ function handleExceed(files: File[]): void {
   if (raw) validateAndSet(raw);
 }
 
+function removeSelectedFile(): void {
+  if (parsing.value || committing.value) return;
+  selectedFile.value = null;
+  preview.value = null;
+  uploadRef.value?.clearFiles();
+}
+
 /** 解析预览 */
 async function handlePreview(): Promise<void> {
+  if (parsing.value || committing.value) return;
   if (!selectedFile.value) {
     ElMessage.warning('请先选择 .xlsx 文件');
     return;
@@ -158,7 +170,7 @@ async function handlePreview(): Promise<void> {
 
 /** 确认导入 */
 async function handleCommit(): Promise<void> {
-  if (!preview.value || !selectedFile.value) return;
+  if (!preview.value || !selectedFile.value || parsing.value || committing.value) return;
   committing.value = true;
   try {
     result.value = await userImportApi.commitUsers({
@@ -187,6 +199,7 @@ function importAgain(): void {
 
 /* ------------------------------ 导入历史 ------------------------------ */
 const historyLoading = ref(false);
+const historyError = ref(false);
 const historyList = ref<UserImportBatch[]>([]);
 const historyPage = ref(1);
 const historyPageSize = ref(10);
@@ -194,13 +207,14 @@ const historyTotal = ref(0);
 
 async function loadHistory(): Promise<void> {
   historyLoading.value = true;
+  historyError.value = false;
   try {
     const data = await userImportApi.userBatches(historyPage.value, historyPageSize.value);
     historyList.value = data.list;
     historyTotal.value = data.total;
   } catch {
     historyList.value = [];
-    historyTotal.value = 0;
+    historyError.value = true;
   } finally {
     historyLoading.value = false;
   }
@@ -256,10 +270,12 @@ function handleHistoryPageChange(p: number): void {
             drag
             :accept="IMPORT_ALLOWED_EXTENSION"
             :auto-upload="false"
+            :disabled="parsing || committing"
             :limit="1"
             :on-change="handleFileChange"
             :on-exceed="handleExceed"
           >
+            <template #file="{ file }"><SelectedImportFile :name="file.name" :disabled="parsing || committing" @remove="removeSelectedFile" /></template>
             <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
             <div class="el-upload__text">将 .xlsx 文件拖到此处，或<em>点击选择</em></div>
             <template #tip>
@@ -275,7 +291,7 @@ function handleHistoryPageChange(p: number): void {
         <div v-else-if="step === 2 && preview" class="user-import__pane">
           <div class="user-import__stats">
             <div class="user-import__stats-item user-import__stats-item--success">
-              成功 {{ preview.successCount }} 条
+              可导入 {{ preview.successCount }} 条
             </div>
             <div class="user-import__stats-item user-import__stats-item--fail">
               失败 {{ preview.failCount }} 条
@@ -289,8 +305,9 @@ function handleHistoryPageChange(p: number): void {
           <el-table :data="preview.errors" border stripe empty-text="没有失败行">
             <el-table-column prop="row" label="行号" width="80" align="center" />
             <el-table-column prop="column" label="列" width="120" />
-            <el-table-column prop="value" label="原始值" min-width="140" show-overflow-tooltip />
-            <el-table-column prop="reason" label="原因" min-width="220" show-overflow-tooltip />
+            <el-table-column prop="value" label="原始值" min-width="140" />
+            <el-table-column prop="reason" label="原因" min-width="220" />
+            <template #empty><EmptyState text="没有失败行" /></template>
           </el-table>
 
           <p class="user-import__tip">确认后将仅写入成功的 {{ preview.successCount }} 条，失败行将被跳过。</p>
@@ -308,7 +325,8 @@ function handleHistoryPageChange(p: number): void {
 
       <!-- 导入历史 -->
       <el-tab-pane label="导入历史" name="history" :disabled="parsing || committing">
-        <el-table v-loading="historyLoading" :data="historyList" row-key="id" border stripe>
+        <RequestError v-if="historyError" text="导入历史加载失败" @retry="loadHistory" />
+        <el-table v-else v-loading="historyLoading" :data="historyList" row-key="id" border stripe>
           <el-table-column prop="fileName" label="文件名" min-width="200" show-overflow-tooltip />
           <el-table-column label="成功" width="90" align="center">
             <template #default="{ row }">{{ row.successCount }}</template>
@@ -322,11 +340,11 @@ function handleHistoryPageChange(p: number): void {
           <el-table-column label="导入时间" width="170">
             <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
           </el-table-column>
-          <template #empty>暂无导入历史</template>
+          <template #empty><EmptyState text="暂无导入历史" /></template>
         </el-table>
 
-        <el-pagination
-          v-if="historyTotal > historyPageSize"
+        <ResponsivePagination
+          v-if="!historyError && historyTotal > historyPageSize"
           class="user-import__pager"
           layout="total, prev, pager, next"
           :total="historyTotal"

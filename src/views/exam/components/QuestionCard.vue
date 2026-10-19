@@ -15,6 +15,7 @@ import { QUESTION_TYPE_LABELS } from '@/constants';
 import { useSettingsStore } from '@/stores/settings';
 import RichTextEditor from '@/components/common/RichTextEditor.vue';
 import type { Question } from '@/types';
+import { blankCount } from '@/utils/answerState';
 
 const props = defineProps<{
   /** 从 0 开始的题号 */
@@ -22,6 +23,7 @@ const props = defineProps<{
   question: Question;
   score: number;
   modelValue: number[] | string[];
+  disabled?: boolean;
 }>();
 
 const emit = defineEmits<{ (e: 'update:modelValue', value: number[] | string[]): void }>();
@@ -42,9 +44,7 @@ function letter(i: number): string {
 
 /** 填空空数：优先数题干中的 ___，回退到参考答案长度。 */
 const fillBlankCount = computed<number>(() => {
-  const matches = props.question.stem.match(/_{3,}/g);
-  const fromStem = matches ? matches.length : 0;
-  return fromStem > 0 ? fromStem : (props.question.answer as string[]).length;
+  return blankCount(props.question.stem, props.question.answer);
 });
 
 const radioValue = computed<number | undefined>({
@@ -71,6 +71,13 @@ const shortValue = computed<string>({
   get: () => (Array.isArray(props.modelValue) ? ((props.modelValue[0] as string) ?? '') : ''),
   set: (value) => emit('update:modelValue', [value]),
 });
+
+function updateFill(index: number, value: string): void {
+  if (props.disabled) return;
+  const next = [...fillValue.value];
+  next[index] = value;
+  emit('update:modelValue', next);
+}
 </script>
 
 <template>
@@ -88,6 +95,7 @@ const shortValue = computed<string>({
     <el-radio-group
       v-if="question.type === 'single' || question.type === 'judge'"
       v-model="radioValue"
+      :disabled="disabled"
       class="question-card__options"
     >
       <el-radio v-for="(option, i) in question.options" :key="i" :value="i" class="question-card__option">
@@ -97,7 +105,7 @@ const shortValue = computed<string>({
     </el-radio-group>
 
     <!-- 多选 -->
-    <el-checkbox-group v-else-if="isMultiple" v-model="checkboxValue" class="question-card__options">
+    <el-checkbox-group v-else-if="isMultiple" v-model="checkboxValue" :disabled="disabled" class="question-card__options">
       <el-checkbox v-for="(option, i) in question.options" :key="i" :value="i" class="question-card__option">
         <span class="question-card__letter">{{ letter(i) }}</span>
         <span class="question-card__text">{{ option }}</span>
@@ -108,7 +116,7 @@ const shortValue = computed<string>({
     <div v-else-if="isFill" class="question-card__fills">
       <div v-for="(_, i) in fillValue" :key="i" class="question-card__fill">
         <span class="question-card__fill-no">第 {{ i + 1 }} 空</span>
-        <el-input v-model="fillValue[i]" placeholder="请输入答案" />
+        <el-input :model-value="fillValue[i]" :disabled="disabled" :aria-label="`第 ${i + 1} 空答案`" placeholder="请输入答案" @update:model-value="(value: string) => updateFill(i, value)" />
       </div>
     </div>
 
@@ -116,6 +124,7 @@ const shortValue = computed<string>({
     <RichTextEditor
       v-else-if="isShort"
       v-model="shortValue"
+      :disabled="disabled"
       placeholder="请输入你的答案（支持加粗、列表与粘贴/插入图片）"
       :max-images="maxImages"
       :max-image-bytes="maxImageBytes"
@@ -130,7 +139,7 @@ const shortValue = computed<string>({
   padding: 20px;
   background: $bg-paper;
   border: 1px solid $border-color;
-  border-radius: $radius-base;
+  border-radius: $radius-lg;
 
   &__head {
     display: flex;
@@ -150,14 +159,14 @@ const shortValue = computed<string>({
     height: 22px;
     border-radius: $radius-sm;
     background: $color-primary;
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 700;
     color: #fff;
     font-variant-numeric: tabular-nums;
   }
 
   &__meta {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     color: $text-secondary;
   }
@@ -244,7 +253,7 @@ const shortValue = computed<string>({
     border: 1.5px solid $line-strong;
     border-radius: 50%;
     background: $bg-paper;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     color: $text-secondary;
     transition: background-color $transition-fast, border-color $transition-fast, color $transition-fast;

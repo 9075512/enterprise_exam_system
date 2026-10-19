@@ -37,7 +37,7 @@ const emit = defineEmits<{
 
 const dialogVisible = computed<boolean>({
   get: () => props.visible,
-  set: (value) => emit('update:visible', value),
+  set: (value) => { if (!submitting.value) emit('update:visible', value); },
 });
 
 const isEdit = computed<boolean>(() => Boolean(props.question?.id));
@@ -224,6 +224,7 @@ function validateLocal(): string | null {
 
 /** 提交 */
 async function handleSubmit(): Promise<void> {
+  if (submitting.value) return;
   const message = validateLocal();
   if (message) {
     ElMessage.warning(message);
@@ -277,7 +278,7 @@ async function handleSubmit(): Promise<void> {
       ElMessage.success('试题已创建');
     }
     emit('saved');
-    dialogVisible.value = false;
+    emit('update:visible', false);
   } catch {
     // 错误提示已由 http.ts 响应拦截器统一弹出
   } finally {
@@ -291,17 +292,20 @@ function handleCancel(): void {
 </script>
 
 <template>
-  <el-dialog
+  <el-drawer
     v-model="dialogVisible"
+    class="question-form-drawer"
     :title="isEdit ? '编辑试题' : '新增试题'"
-    width="640px"
-    top="6vh"
+    size="760px"
     append-to-body
     destroy-on-close
+    :close-on-click-modal="!submitting"
+    :close-on-press-escape="!submitting"
+    :show-close="!submitting"
   >
-    <el-form label-position="top">
+    <el-form label-position="top" :disabled="submitting">
       <el-form-item label="题型">
-        <el-radio-group v-model="form.type" @change="onTypeChange">
+        <el-radio-group v-model="form.type" class="question-type-picker" aria-label="题型" @change="onTypeChange">
           <el-radio-button
             v-for="opt in QUESTION_TYPE_OPTIONS"
             :key="opt.value"
@@ -329,6 +333,9 @@ function handleCancel(): void {
             <span class="option-row__letter">{{ optionLetter(index) }}</span>
             <el-input
               v-model="form.options[index]"
+              type="textarea"
+              :autosize="{ minRows: 2, maxRows: 6 }"
+              :aria-label="`选项 ${optionLetter(index)}`"
               :disabled="isJudge"
               :placeholder="`选项 ${optionLetter(index)}`"
             />
@@ -337,6 +344,7 @@ function handleCancel(): void {
               link
               :icon="Delete"
               :disabled="!canRemoveOption"
+              :aria-label="`删除选项 ${optionLetter(index)}`"
               @click="removeOption(index)"
             >
               删除
@@ -358,13 +366,15 @@ function handleCancel(): void {
         <el-radio-group
           v-if="form.type === 'single' || form.type === 'judge'"
           v-model="form.answer[0]"
+          class="answer-choices"
+          aria-label="正确答案"
         >
           <el-radio v-for="(opt, index) in form.options" :key="index" :value="index">
             {{ optionLetter(index) }}{{ opt ? ` · ${opt}` : '' }}
           </el-radio>
         </el-radio-group>
         <!-- 多选：复选一组 -->
-        <el-checkbox-group v-else-if="form.type === 'multiple'" v-model="form.answer">
+        <el-checkbox-group v-else-if="form.type === 'multiple'" v-model="form.answer" class="answer-choices" aria-label="正确答案">
           <el-checkbox v-for="(opt, index) in form.options" :key="index" :value="index">
             {{ optionLetter(index) }}{{ opt ? ` · ${opt}` : '' }}
           </el-checkbox>
@@ -373,12 +383,13 @@ function handleCancel(): void {
         <div v-else-if="form.type === 'fill'" class="fill-list">
           <div v-for="(_, index) in form.fillAnswers" :key="index" class="fill-row">
             <span class="fill-row__label">第 {{ index + 1 }} 空</span>
-            <el-input v-model="form.fillAnswers[index]" placeholder="参考答案" />
+            <el-input v-model="form.fillAnswers[index]" type="textarea" :autosize="{ minRows: 2, maxRows: 6 }" :aria-label="`第 ${index + 1} 空参考答案`" placeholder="参考答案" />
             <el-button
               type="danger"
               link
               :icon="Delete"
               :disabled="!canRemoveBlank"
+              :aria-label="`删除第 ${index + 1} 空`"
               @click="removeBlank(index)"
             >
               删除
@@ -404,6 +415,7 @@ function handleCancel(): void {
       <el-form-item v-if="isShort" label="评分细则（选填）">
         <div class="rubric-list">
           <div v-for="(band, index) in form.rubric" :key="index" class="rubric-row">
+            <span class="rubric-row__heading">档位 {{ index + 1 }}</span>
             <el-input-number
               v-model="band.score"
               class="rubric-row__score"
@@ -411,11 +423,11 @@ function handleCancel(): void {
               :max="form.defaultScore"
               :step="0.5"
               :precision="1"
-              size="small"
+              :aria-label="`档位 ${index + 1} 得分`"
             />
-            <el-input v-model="band.label" class="rubric-row__label" maxlength="32" placeholder="档位名称，如「完全正确」" />
-            <el-input v-model="band.description" class="rubric-row__desc" maxlength="200" placeholder="档位说明（选填）" />
-            <el-button type="danger" link :icon="Delete" @click="removeRubricBand(index)">删除</el-button>
+            <el-input v-model="band.label" class="rubric-row__label" :aria-label="`档位 ${index + 1} 名称`" maxlength="32" placeholder="档位名称，如「完全正确」" />
+            <el-input v-model="band.description" type="textarea" :autosize="{ minRows: 2, maxRows: 6 }" class="rubric-row__desc" :aria-label="`档位 ${index + 1} 说明`" maxlength="200" placeholder="档位说明（选填）" />
+            <el-button class="rubric-row__remove" type="danger" link :icon="Delete" :aria-label="`删除档位 ${index + 1}`" @click="removeRubricBand(index)">删除档位</el-button>
           </div>
           <el-button :icon="Plus" :disabled="!canAddRubricBand" @click="addRubricBand">
             添加档位
@@ -451,12 +463,12 @@ function handleCancel(): void {
     </el-form>
 
     <template #footer>
-      <el-button @click="handleCancel">取消</el-button>
+      <el-button :disabled="submitting" @click="handleCancel">取消</el-button>
       <el-button type="primary" :loading="submitting" @click="handleSubmit">
         {{ isEdit ? '保存' : '创建' }}
       </el-button>
     </template>
-  </el-dialog>
+  </el-drawer>
 </template>
 
 <style scoped lang="scss">
@@ -475,6 +487,8 @@ function handleCancel(): void {
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
+  > .el-textarea { flex: 1; min-width: 0; }
+  > .el-button { flex-shrink: 0; }
 
   &__letter {
     flex: 0 0 20px;
@@ -497,6 +511,8 @@ function handleCancel(): void {
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
+  > .el-textarea { flex: 1; min-width: 0; }
+  > .el-button { flex-shrink: 0; }
 
   &__label {
     flex: 0 0 52px;
@@ -519,34 +535,41 @@ function handleCancel(): void {
     margin-top: 6px;
     font-size: 12px;
     line-height: 1.6;
-    color: #94a3b8;
+    color: $text-secondary;
   }
 }
 
 .rubric-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
-
-  &__score {
-    flex: 0 0 110px;
-  }
-
-  &__label {
-    flex: 0 0 180px;
-  }
-
-  &__desc {
-    flex: 1;
-    min-width: 0;
-  }
+  margin-bottom: 12px;
+  padding: 16px;
+  border: 1px solid $border-color;
+  border-radius: $radius-lg;
+  background: $bg-page;
+  &__heading { grid-column: 1 / -1; font-size: 12px; font-weight: 600; color: $text-secondary; }
+  &__score { width: 100%; }
+  &__label { min-width: 0; }
+  &__desc { grid-column: 1 / -1; min-width: 0; }
+  &__remove { grid-column: 1 / -1; justify-self: end; }
 }
-@media (max-width: 600px) {
-  .rubric-row {
-    flex-wrap: wrap;
-    &__label { flex: 1; min-width: 120px; }
-    &__desc { flex-basis: 100%; }
-  }
+.answer-choices {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  :deep(.el-radio), :deep(.el-checkbox) { height: auto; min-height: 36px; margin: 0; white-space: normal; align-items: flex-start; padding-block: 8px; }
+  :deep(.el-radio__input), :deep(.el-checkbox__input) { margin-top: 4px; }
+  :deep(.el-radio__label), :deep(.el-checkbox__label) { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 22px; }
+}
+@media (max-width: 900px) {
+  .question-type-picker { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); width: 100%; }
+  .question-type-picker :deep(.el-radio-button__inner) { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 44px; padding: 8px 2px; font-size: 13px; }
+  .answer-choices :deep(.el-radio), .answer-choices :deep(.el-checkbox) { min-height: 44px; padding-block: 11px; }
+  .option-row > .el-button, .fill-row > .el-button, .rubric-row__remove { min-height: 44px; }
+  .rubric-row { grid-template-columns: minmax(0, 1fr); padding: 12px; }
+  .rubric-row__score { max-width: 180px; }
 }
 </style>

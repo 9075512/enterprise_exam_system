@@ -13,6 +13,7 @@ import { QUESTION_TYPE_LABELS, QUESTION_TYPE_OPTIONS } from '@/constants';
 import { formatDateTime } from '@/utils/datetime';
 import { formatScore, optionLetter } from '@/utils/format';
 import EmptyState from '@/components/common/EmptyState.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
 import type { Question, QuestionType } from '@/types';
@@ -21,7 +22,7 @@ const route = useRoute();
 const router = useRouter();
 
 const examId = computed<string>(() => String(route.params.id ?? ''));
-const { data: paper, loading } = useRequest(() => examsApi.questions(examId.value));
+const { data: paper, loading, error, refresh } = useRequest(() => examsApi.questions(examId.value), [examId], { keepPreviousData: false });
 
 function goBack(): void {
   void router.push('/admin/exams');
@@ -100,7 +101,7 @@ const totalMatches = computed<boolean>(
 </script>
 
 <template>
-  <div class="preview">
+  <div data-ui-layout="questions" data-ui-page="PaperPreviewPage" class="preview">
     <PageHeader title="试卷预览" :description="paper?.name || '查看试卷结构与题目明细'">
       <template #actions>
         <el-button :icon="ArrowLeft" @click="goBack">返回列表</el-button>
@@ -110,11 +111,20 @@ const totalMatches = computed<boolean>(
 
     <LoadingSkeleton v-if="loading && !paper" :rows="6" />
 
+    <RequestError v-else-if="error" text="试卷预览加载失败" @retry="refresh" />
     <EmptyState v-else-if="!paper" text="试卷不存在或已被删除" />
 
     <div v-else class="preview__body">
       <!-- 左栏：逐题明细 -->
       <div class="preview__main">
+        <el-card class="preview__panel preview__controls" shadow="never">
+          <template #header><span class="preview__panel-title">预览设置</span></template>
+          <div class="preview__control-list">
+            <div class="preview__switch"><span>显示答案</span><el-switch v-model="showAnswer" aria-label="显示答案" /></div>
+            <div class="preview__switch"><span>显示解析</span><el-switch v-model="showAnalysis" aria-label="显示解析" /></div>
+            <div class="preview__switch"><span>显示分值</span><el-switch v-model="showScore" aria-label="显示分值" /></div>
+          </div>
+        </el-card>
         <EmptyState v-if="paper.questions.length === 0" text="该试卷暂无题目" />
 
         <el-card
@@ -221,25 +231,6 @@ const totalMatches = computed<boolean>(
                设计稿对应行（正式卷 / 固定试题卷 / 60 分 / 60 分钟 / 0.72）不可真实计算，故不展示。 -->
         </el-card>
 
-        <!-- 预览设置（纯前端，仅切换本页显隐，不落库） -->
-        <el-card class="preview__panel" shadow="never">
-          <template #header>
-            <span class="preview__panel-title">预览设置</span>
-          </template>
-          <div class="preview__switch">
-            <span class="preview__switch-label">显示答案</span>
-            <el-switch v-model="showAnswer" />
-          </div>
-          <div class="preview__switch">
-            <span class="preview__switch-label">显示解析</span>
-            <el-switch v-model="showAnalysis" />
-          </div>
-          <div class="preview__switch">
-            <span class="preview__switch-label">显示分值</span>
-            <el-switch v-model="showScore" />
-          </div>
-        </el-card>
-
         <!-- 题目结构（按题型聚合，真实可算） -->
         <el-card class="preview__panel" shadow="never">
           <template #header>
@@ -280,6 +271,12 @@ const totalMatches = computed<boolean>(
 @use '@/styles/variables.scss' as *;
 
 .preview {
+  &__controls { margin-bottom: 16px; }
+  &__control-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  &__question-head :deep(.el-tag), &__bank-tag { height: auto; max-width: 100%; white-space: normal; overflow-wrap: anywhere; line-height: 22px; }
+  &__question-stem, &__option-text, &__reference-text { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
+  &__reference { flex-wrap: wrap; }
+  &__option > .el-tag { flex-shrink: 0; }
   &__body {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 300px;
@@ -480,4 +477,5 @@ const totalMatches = computed<boolean>(
     }
   }
 }
+@media (max-width: 900px) { .preview__control-list { grid-template-columns: minmax(0, 1fr); gap: 0; } .preview__switch :deep(.el-switch) { min-height: 44px; } .preview__option { align-items: flex-start; flex-wrap: wrap; } .preview__option-text { flex-basis: calc(100% - 28px); } .preview__option > .el-tag { margin-left: 28px; } }
 </style>

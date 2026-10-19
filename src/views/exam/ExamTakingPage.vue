@@ -9,7 +9,7 @@
  * 进度条从底部吸底栏上移到顶栏，取消底部固定栏（提交动作常驻可见）；
  * 切屏异常由顶栏药丸改为正文顶部的警示条（与设计稿一致，且文案能说清阈值）。
  */
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import dayjs from 'dayjs';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -19,6 +19,8 @@ import * as recordsApi from '@/api/records';
 import { useAuthStore } from '@/stores/auth';
 import { useSettingsStore } from '@/stores/settings';
 import { formatScore } from '@/utils/format';
+import { blankCount, isAnswered } from '@/utils/answerState';
+import RequestError from '@/components/common/RequestError.vue';
 import CountdownTimer from './components/CountdownTimer.vue';
 import VisibilityGuard from './components/VisibilityGuard.vue';
 import QuestionCard from './components/QuestionCard.vue';
@@ -44,6 +46,22 @@ const submitting = ref(false);
 const cheatCount = ref(0);
 const cheatAwayTotal = ref(0);
 const currentIndex = ref(0);
+const loadError = ref(false);
+const saving = ref(false);
+const saveError = ref(false);
+const submittingError = ref(false);
+const exiting = ref(false);
+const confirming = ref(false);
+const sheetVisible = ref(false);
+const answerRevision = ref(0);
+const savedRevision = ref(0);
+const mobileQuery = window.matchMedia?.('(max-width: 900px)');
+const isMobile = ref(mobileQuery?.matches ?? false);
+function syncMobile(event: MediaQueryListEvent): void { isMobile.value = event.matches; }
+const busy = computed(() => submitting.value || exiting.value || confirming.value);
+const answerLocked = computed(() => submitted.value || busy.value || remaining.value <= 0);
+const saveStatus = computed(() => saveError.value ? '暂存失败，答案仍保留在本页' : saving.value ? '正在暂存…' : answerRevision.value > savedRevision.value ? '等待暂存…' : '答案已暂存');
+const sheetQuestions = computed(() => questions.value.map(q => ({ id: q.questionId, type: q.question.type, blanks: blankCount(q.question.stem, q.question.answer) })));
 
 /** 快照题目列表 */
 const questions = computed(() => record.value?.paperSnapshot.questions ?? []);
@@ -53,7 +71,7 @@ const attemptNo = computed<number>(() => record.value?.attemptNo ?? 1);
 
 /** 已答题数（顶栏实时进度） */
 const answeredCount = computed<number>(
-  () => questions.value.filter((q) => (answers.value[q.questionId]?.length ?? 0) > 0).length,
+  () => questions.value.filter((q) => isAnswered(answers.value[q.questionId], q.question.type, blankCount(q.question.stem, q.question.answer))).length,
 );
 
 /** 进度百分比（无题按 0，避免 0/0 出现 NaN 宽度） */
@@ -80,75 +98,85 @@ function guardCopy(event: Event): void {
 
 let tickTimer: number | undefined;
 let saveTimer: number | undefined;
+let deadlineMs = 0;
+let disposed = false;
+let saveQueue: Promise<boolean> = Promise.resolve(true);
 
 /* ------------------------------ 初始化 ------------------------------ */
-onMounted(async () => {
+async function initialize(): Promise<void> {
+  if (loading.value && record.value) return;
+  loading.value = true;
+  loadError.value = false;
   void settingsStore.load();
   try {
     const rec = await recordsApi.detail(recordId);
-    if (rec.status === 'submitted') {
+    if (disposed) return;
+    if (rec.status === 'submitted' || rec.status === 'pending_review') {
       ElMessage.info('该考试已交卷');
       void router.replace(`/score-detail/${recordId}`);
       return;
     }
+    const examDetail = await examsApi.detail(rec.examId);
+    if (disposed) return;
     record.value = rec;
-    // 断点续答：后端已存最新暂存答案
-    answers.value = { ...rec.answers };
-
-    exam.value = await examsApi.detail(rec.examId);
+    exam.value = examDetail;
+    answers.value = Object.fromEntries(Object.entries(rec.answers).map(([id, value]) => [id, value.slice()]));
+    cheatCount.value = rec.cheatEvents?.length ?? 0;
+    cheatAwayTotal.value = (rec.cheatEvents ?? []).reduce((sum, event) => sum + event.awaySeconds, 0);
 
     // 倒计时基准：开考时刻 + （考试时长 + 本人加时）
     const totalMinutes = exam.value.durationMinutes + (rec.extraMinutes ?? 0);
-    const deadline = dayjs(rec.startedAt).add(totalMinutes, 'minute').valueOf();
-    remaining.value = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
+    const personalDeadline = dayjs(rec.startedAt).add(totalMinutes, 'minute').valueOf();
+    deadlineMs = personalDeadline;
+    remaining.value = Math.max(0, Math.floor((deadlineMs - Date.now()) / 1000));
     startTimer();
 
     window.addEventListener('beforeunload', beforeUnloadHandler);
   } catch {
-    // 错误提示已由 http.ts 响应拦截器统一弹出
+    if (!disposed) loadError.value = true;
   } finally {
     loading.value = false;
   }
-});
+}
+
+onMounted(() => { mobileQuery?.addEventListener('change', syncMobile); document.addEventListener('visibilitychange', refreshClock); void initialize(); });
 
 onUnmounted(() => {
+  disposed = true;
+  mobileQuery?.removeEventListener('change', syncMobile);
+  document.removeEventListener('visibilitychange', refreshClock);
   if (tickTimer) window.clearInterval(tickTimer);
   if (saveTimer) window.clearTimeout(saveTimer);
   window.removeEventListener('beforeunload', beforeUnloadHandler);
   // 尽力而为的最后一次暂存
-  if (!submitted.value && record.value) void silenceSave();
+  if (!submitted.value && record.value && answerRevision.value > savedRevision.value) void silenceSave();
 });
 
 /* ------------------------------ 倒计时 ------------------------------ */
 function startTimer(): void {
-  tickTimer = window.setInterval(() => {
-    if (submitted.value) return;
-    remaining.value -= 1;
-    if (remaining.value <= 0) {
-      remaining.value = 0;
-      if (tickTimer) window.clearInterval(tickTimer);
-      void handleAutoSubmit();
-    }
-  }, 1000);
+  if (tickTimer) window.clearInterval(tickTimer);
+  refreshClock();
+  if (remaining.value > 0) tickTimer = window.setInterval(refreshClock, 1000);
+}
+
+function refreshClock(): void {
+  if (!record.value || !deadlineMs || submitted.value || disposed) return;
+  remaining.value = Math.max(0, Math.floor((deadlineMs - Date.now()) / 1000));
+  if (remaining.value === 0) { if (tickTimer) window.clearInterval(tickTimer); void handleAutoSubmit(); }
 }
 
 async function handleAutoSubmit(): Promise<void> {
-  if (submitted.value) return;
-  try {
-    await ElMessageBox.alert('考试时间到，系统将自动交卷', '时间到', {
-      type: 'warning',
-      confirmButtonText: '知道了',
-    });
-  } catch {
-    // 关闭弹窗也继续自动交卷
-  }
+  if (submitted.value || submitting.value) return;
+  if (confirming.value) ElMessageBox.close();
+  ElMessage.warning('考试时间到，正在保存答案并自动交卷');
   await doSubmit(true);
 }
 
 /* ------------------------------ 作答与暂存 ------------------------------ */
 function updateAnswer(questionId: string, value: number[] | string[]): void {
-  if (submitted.value) return;
+  if (answerLocked.value) return;
   answers.value = { ...answers.value, [questionId]: value };
+  answerRevision.value += 1;
   scheduleSave();
 }
 
@@ -159,13 +187,23 @@ function scheduleSave(): void {
   }, 1500);
 }
 
-async function silenceSave(): Promise<void> {
-  try {
-    await recordsApi.saveAnswers(recordId, answers.value);
-  } catch (error) {
-    // 静默失败，不打断答题
-    console.warn('[ExamTaking] 暂存答案失败：', error);
-  }
+function silenceSave(): Promise<boolean> {
+  const revision = answerRevision.value;
+  const snapshot = Object.fromEntries(Object.entries(answers.value).map(([id, value]) => [id, value.slice()]));
+  saveQueue = saveQueue.then(async () => {
+    if (revision <= savedRevision.value && !saveError.value) return true;
+    saving.value = true;
+    try {
+      await recordsApi.saveAnswers(recordId, snapshot);
+      savedRevision.value = Math.max(savedRevision.value, revision);
+      saveError.value = false;
+      return true;
+    } catch {
+      saveError.value = true;
+      return false;
+    } finally { saving.value = false; }
+  });
+  return saveQueue;
 }
 
 /* ------------------------------ 切屏 ------------------------------ */
@@ -183,7 +221,7 @@ async function onAway(seconds: number): Promise<void> {
   const overSeconds = cheatAwayTotal.value >= s.cheatSecondsThreshold;
   // 后台开关开启且超阈值 → 自动强制交卷（auto 标记）
   if (s.cheatAutoSubmitEnabled && (overCount || overSeconds)) {
-    ElMessage.error('检测到异常切屏，已自动交卷');
+    ElMessage.error('检测到异常切屏，正在自动交卷');
     await doSubmit(true);
     return;
   }
@@ -194,22 +232,25 @@ async function onAway(seconds: number): Promise<void> {
 
 /* ------------------------------ 交卷 / 暂存退出 ------------------------------ */
 async function handleSubmit(): Promise<void> {
-  if (submitted.value) return;
+  if (submitted.value || busy.value) return;
+  confirming.value = true;
   try {
-    await ElMessageBox.confirm('确认交卷？交卷后不可修改答案。', '交卷确认', {
+    const unanswered = questions.value.length - answeredCount.value;
+    await ElMessageBox.confirm(unanswered > 0 ? `还有 ${unanswered} 道题未完整作答，确认交卷？交卷后不可修改答案。` : '全部题目已作答，确认交卷？交卷后不可修改答案。', '交卷确认', {
       type: 'warning',
       confirmButtonText: '确认交卷',
       cancelButtonText: '取消',
     });
   } catch {
     return;
-  }
+  } finally { confirming.value = false; }
   await doSubmit(false);
 }
 
 /** 暂存并退出：保留已作答内容，回到「我的考试」（倒计时不暂停） */
 async function handleSaveExit(): Promise<void> {
-  if (submitted.value) return;
+  if (submitted.value || busy.value) return;
+  confirming.value = true;
   try {
     await ElMessageBox.confirm(
       settingsStore.settings.abnormalExitResumePolicy === 'admin_required'
@@ -220,25 +261,31 @@ async function handleSaveExit(): Promise<void> {
     );
   } catch {
     return;
-  }
+  } finally { confirming.value = false; }
+  if (submitting.value || remaining.value <= 0) return;
+  exiting.value = true;
+  try {
   if (saveTimer) window.clearTimeout(saveTimer);
-  await silenceSave();
-  void router.push('/exam/my');
+  if (await silenceSave() && !submitting.value && remaining.value > 0) await router.push('/exam/my');
+  } finally { exiting.value = false; }
 }
 
 async function doSubmit(auto: boolean): Promise<void> {
-  if (submitted.value) return;
+  if (submitted.value || submitting.value) return;
+  if (auto && confirming.value) ElMessageBox.close();
   submitting.value = true;
+  submittingError.value = false;
   try {
     if (saveTimer) window.clearTimeout(saveTimer);
-    const res = await recordsApi.submit(recordId, auto);
+    if (!(await silenceSave())) { submittingError.value = true; return; }
+    const res = await recordsApi.submit(recordId, auto || remaining.value <= 0);
     submitted.value = true;
     if (tickTimer) window.clearInterval(tickTimer);
     // 弹窗展示考试结果（成绩明细由用户点击按钮后再看）
     result.value = res;
     resultVisible.value = true;
   } catch {
-    // 错误提示已由 http.ts 响应拦截器统一弹出
+    submittingError.value = true;
   } finally {
     submitting.value = false;
   }
@@ -260,9 +307,10 @@ function gotoMyExams(): void {
 
 /* ------------------------------ 其它 ------------------------------ */
 function jump(index: number): void {
+  if (index < 0 || index >= questions.value.length || busy.value) return;
   currentIndex.value = index;
-  const el = document.getElementById(`question-${index}`);
-  el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  sheetVisible.value = false;
+  void nextTick(() => document.getElementById(`question-${index}`)?.scrollIntoView?.({ behavior: 'auto', block: 'start' }));
 }
 
 function beforeUnloadHandler(event: BeforeUnloadEvent): void {
@@ -273,7 +321,7 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
 </script>
 
 <template>
-  <div
+  <div data-ui-layout="answer" data-ui-page="ExamTakingPage"
     class="taking"
     @copy="guardCopy"
     @cut="guardCopy"
@@ -288,6 +336,7 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
 
     <!-- 全屏品牌脉冲（进入考试，冷启动 > 800ms 场景，Loading 方案 ① 深底态） -->
     <BootSplash :show="loading" dark caption="正在准备考试…" />
+    <div v-if="loadError" class="taking__load-error"><RequestError text="考试加载失败，答卷状态以服务器为准" @retry="initialize" /><el-button @click="gotoMyExams">返回我的考试</el-button></div>
 
     <template v-if="record && exam">
       <!-- 顶部固定栏（设计稿 .exambar） -->
@@ -324,8 +373,9 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
         </div>
 
         <div class="taking__bar-actions">
-          <el-button :disabled="submitted" @click="handleSaveExit">暂存退出</el-button>
-          <el-button type="primary" :loading="submitting" :disabled="submitted" @click="handleSubmit">
+          <el-button v-if="isMobile" :disabled="busy" @click="sheetVisible = true">答题卡</el-button>
+          <el-button :loading="exiting" :disabled="submitted || busy" @click="handleSaveExit">暂存退出</el-button>
+          <el-button type="primary" :loading="submitting" :disabled="submitted || busy" @click="handleSubmit">
             交卷
           </el-button>
         </div>
@@ -334,6 +384,8 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
       <!-- 主体：左答题区 + 右吸顶答题卡（设计稿 .ans-wrap） -->
       <div class="taking__wrap">
         <div class="taking__main">
+          <div class="taking__save-state" :class="{ 'is-error': saveError }" role="status"><span>{{ saveStatus }}</span><el-button v-if="saveError" link type="primary" :loading="saving" @click="silenceSave">重新暂存</el-button></div>
+          <el-alert v-if="submittingError" type="error" :closable="false" show-icon title="交卷尚未成功，答案仍保留在本页。请重新交卷。" />
           <div v-if="cheatCount > 0" class="taking__tip">
             <el-icon class="taking__tip-icon"><Warning /></el-icon>
             <div>
@@ -349,16 +401,20 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
               :id="`question-${index}`"
               :key="item.questionId"
               class="taking__question"
+              v-show="!isMobile || index === currentIndex"
+              @focusin="currentIndex = index"
             >
               <QuestionCard
                 :index="index"
                 :question="item.question"
                 :score="item.score"
                 :model-value="answers[item.questionId] ?? []"
+                :disabled="answerLocked"
                 @update:model-value="(value) => updateAnswer(item.questionId, value)"
               />
             </div>
           </section>
+          <nav v-if="isMobile" class="taking__pager" aria-label="题目导航"><el-button :disabled="currentIndex === 0 || busy" @click="jump(currentIndex - 1)">上一题</el-button><span>{{ currentIndex + 1 }} / {{ questions.length }}</span><el-button type="primary" :disabled="currentIndex >= questions.length - 1 || busy" @click="jump(currentIndex + 1)">下一题</el-button></nav>
         </div>
 
         <aside class="taking__aside">
@@ -375,7 +431,7 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
 
           <el-card class="taking__sheet" shadow="never">
             <AnswerSheet
-              :questions="questions.map((q) => ({ id: q.questionId, type: q.question.type }))"
+              :questions="sheetQuestions"
               :answers="answers"
               :current-index="currentIndex"
               @jump="jump"
@@ -396,6 +452,8 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
       <VisibilityGuard :disabled="submitted" @away="onAway" />
     </template>
 
+    <el-drawer v-model="sheetVisible" title="答题卡" class="taking-sheet" direction="btt" size="75%" append-to-body><AnswerSheet :questions="sheetQuestions" :answers="answers" :current-index="currentIndex" @jump="jump" /><template #footer><el-button type="primary" @click="sheetVisible = false">继续作答</el-button></template></el-drawer>
+
     <ExamResultDialog
       v-model="resultVisible"
       :result="result"
@@ -413,6 +471,9 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
 .taking {
   min-height: 100vh;
   background: $bg-page;
+  &__load-error { max-width: 620px; margin: 80px auto; padding: 24px; text-align: center; }
+  &__save-state { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; color: $text-secondary; font-size: 13px; &.is-error { color: $color-error-text; } }
+  &__pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0; color: $text-secondary; font-size: 14px; .el-button { min-height: 44px; min-width: 92px; } }
 
   &__watermark {
     position: fixed;
@@ -467,7 +528,7 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
     height: 26px;
     border-radius: $radius-sm;
     background: $color-primary;
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 700;
     color: #fff;
   }
@@ -489,7 +550,7 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
   }
 
   &__sub {
-    font-size: 11px;
+    font-size: 12px;
     color: $text-secondary;
     white-space: nowrap;
   }
@@ -518,7 +579,7 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
     border-radius: $radius-xs;
     background: $color-warning-bg;
     border: 1px solid $color-warning-border;
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 550;
     color: $color-warning-text;
     white-space: nowrap;
@@ -532,7 +593,7 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
     padding: 0 8px;
     border-radius: $radius-xs;
     background: $color-neutral-bg;
-    font-size: 11.5px;
+    font-size: 12px;
     color: $text-secondary;
     white-space: nowrap;
   }
@@ -670,7 +731,7 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
   }
 
   &__who-sub {
-    font-size: 11px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -773,14 +834,14 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
       width: 100%;
     }
     &__progress { flex: 1 1 auto; width: auto; }
-    &__progress-text { font-size: 11px; }
+    &__progress-text { font-size: 12px; }
 
     &__bar-actions {
       position: fixed;
       inset: auto 0 0;
       z-index: 120;
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: .8fr 1fr 1fr;
       padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
       background: rgba(255, 255, 255, 0.97);
       border-top: 1px solid $border-color;

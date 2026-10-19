@@ -1,0 +1,177 @@
+[
+  {
+    "controls": [
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      }
+    ],
+    "footer": {
+      "bottom": 958.0000228881836,
+      "height": 80.0999984741211,
+      "left": 262,
+      "right": 1402,
+      "top": 877.9000244140625,
+      "width": 1140,
+      "x": 262,
+      "y": 877.9000244140625
+    },
+    "name": "",
+    "overviewVisible": true,
+    "page": "ExamEditorPage",
+    "scrollWidth": 1140,
+    "viewport": [
+      1440,
+      1000
+    ],
+    "width": 1140
+  },
+  {
+    "controls": [
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      }
+    ],
+    "footer": {
+      "bottom": 723.9999923706055,
+      "height": 107.70000457763672,
+      "left": 16,
+      "right": 296,
+      "top": 616.2999877929688,
+      "width": 280,
+      "x": 16,
+      "y": 616.2999877929688
+    },
+    "name": "",
+    "overviewVisible": true,
+    "page": "ExamEditorPage",
+    "scrollWidth": 280,
+    "viewport": [
+      320,
+      740
+    ],
+    "width": 280
+  },
+  {
+    "controls": [
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      }
+    ],
+    "footer": {
+      "bottom": 992.0000228881836,
+      "height": 80.0999984741211,
+      "left": 252,
+      "right": 740,
+      "top": 911.9000244140624,
+      "width": 488,
+      "x": 252,
+      "y": 911.9000244140624
+    },
+    "name": "",
+    "overviewVisible": true,
+    "page": "ExamEditorPage",
+    "scrollWidth": 488,
+    "viewport": [
+      768,
+      1024
+    ],
+    "width": 488
+  },
+  {
+    "controls": [
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      }
+    ],
+    "footer": {
+      "bottom": 358.40001678466797,
+      "height": 80.0999984741211,
+      "left": 252,
+      "right": 816,
+      "top": 278.3000183105469,
+      "width": 564,
+      "x": 252,
+      "y": 278.3000183105469
+    },
+    "name": "",
+    "overviewVisible": true,
+    "page": "ExamEditorPage",
+    "scrollWidth": 564,
+    "viewport": [
+      844,
+      390
+    ],
+    "width": 564
+  },
+  {
+    "controls": [
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      }
+    ],
+    "footer": {
+      "bottom": 827.9999923706055,
+      "height": 107.70000457763672,
+      "left": 16,
+      "right": 366.3999938964844,
+      "top": 720.2999877929688,
+      "width": 350.3999938964844,
+      "x": 16,
+      "y": 720.2999877929688
+    },
+    "name": "",
+    "overviewVisible": true,
+    "page": "ExamEditorPage",
+    "scrollWidth": 350,
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 350
+  }
+]

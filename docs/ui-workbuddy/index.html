@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>企业考试 · UI 设计提案</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="proposal-bar"><span><i></i> UI 设计提案 <b>01</b> <em>参考练题云 · 适配现有考试系统</em></span><div><span class="demo-label">全部为示例数据 · 不连接业务接口</span><button data-page="guide">设计说明 ↗</button></div></div>
+  <aside class="sidebar" aria-label="方案页面导航">
+    <a class="brand" href="#dashboard"><span class="brand-mark">考</span><span><strong>企业考试</strong><small>EXAM MANAGEMENT</small></span></a>
+    <div class="nav-scroll">
+      <div class="nav-label">工作台</div><button class="nav-item" data-page="dashboard" data-icon="dashboard">数据总览</button>
+      <div class="nav-label">教学资源</div><button class="nav-item" data-page="subjects" data-icon="folder">科目管理</button><button class="nav-item" data-page="banks" data-icon="book">题库管理</button>
+      <div class="nav-label">考试运营</div><button class="nav-item" data-page="exams" data-icon="calendar">考试管理</button><button class="nav-item" data-page="appeals" data-icon="review">成绩复核 <span class="nav-count">3</span></button><button class="nav-item" data-page="scores" data-icon="chart">成绩报表</button>
+      <div class="nav-label">组织与系统</div><button class="nav-item" data-page="users" data-icon="users">用户管理</button>
+      <div class="nav-label">方案展示 <span>非正式菜单</span></div><button class="nav-item" data-page="login" data-icon="lock">登录页设计</button><button class="nav-item" data-page="practice" data-icon="phone">移动端延展</button><button class="nav-item" data-page="guide" data-icon="design">设计说明与落地清单</button><a class="nav-item" href="./coverage/index.html">全部页面与手机设计 ↗</a>
+    </div>
+    <div class="sidebar-foot"><span class="status-dot"></span><div><strong>方案预览环境</strong><small>菜单仅展示本次重点样例</small></div></div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar"><div class="top-title"><div class="breadcrumb" id="breadcrumb"></div><h1 id="page-title">数据总览</h1></div><div class="top-actions"><span class="date">2026 年 10 月 18 日 · 周日</span><button class="icon-btn" aria-label="打开消息示例" data-action="notifications" data-icon="bell"></button><button class="account" data-action="account"><span class="avatar">管</span><span><b>系统管理员</b><small>管理员</small></span><span class="chevron">⌄</span></button></div></header>
+    <main id="main" tabindex="-1"></main>
+    <footer class="page-foot"><span>企业内部在线考试系统</span><span>设计提案 01 · 2026.10.18</span></footer>
+  </div>
+  <div class="overlay" id="overlay" hidden></div>
+  <dialog id="drawer" aria-labelledby="drawer-title"><div class="drawer-header"><div><small id="drawer-eyebrow">内容编辑</small><h2 id="drawer-title"></h2></div><button class="icon-btn close-drawer" aria-label="关闭面板">✕</button></div><div id="drawer-body"></div><div id="drawer-footer"></div></dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+  <script src="./app.js"></script>
+</body>
+</html>

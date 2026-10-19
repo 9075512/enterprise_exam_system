@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SelectedImportFile from '@/components/common/SelectedImportFile.vue';
 /**
  * Excel 批量导入弹窗（W3-T5，PRD §6.1 / §7.5）。
  * 4 步向导：① 选题库 → ② 上传文件 → ③ 预览结果 → ④ 完成。
@@ -8,6 +9,7 @@
  */
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import RingProgress from '@/components/common/RingProgress.vue';
+import EmptyState from '@/components/common/EmptyState.vue';
 import { ElMessage } from 'element-plus';
 import type { UploadFile, UploadInstance } from 'element-plus';
 import { Download, UploadFilled } from '@element-plus/icons-vue';
@@ -147,6 +149,7 @@ function handleExceed(files: File[]): void {
 
 /** 解析预览 */
 async function handlePreview(): Promise<void> {
+  if (parsing.value || committing.value) return;
   if (!selectedFile.value) {
     ElMessage.warning('请先选择 .xlsx 文件');
     return;
@@ -185,7 +188,7 @@ function handleExportErrors(): void {
 
 /** 确认导入 */
 async function handleCommit(): Promise<void> {
-  if (!preview.value || !selectedFile.value) return;
+  if (!preview.value || !selectedFile.value || committing.value || parsing.value) return;
   committing.value = true;
   try {
     result.value = await importsApi.commit({
@@ -215,6 +218,13 @@ function importAgain(): void {
   selectedFile.value = null;
   preview.value = null;
   result.value = null;
+  uploadRef.value?.clearFiles();
+}
+
+function removeSelectedFile(): void {
+  if (parsing.value || committing.value) return;
+  selectedFile.value = null;
+  preview.value = null;
   uploadRef.value?.clearFiles();
 }
 </script>
@@ -253,6 +263,7 @@ function importAgain(): void {
         下载导入模板
       </el-button>
       <div class="import-hint">
+        <p>Excel 模板支持单选、多选、判断题；填空与简答题可通过新增、编辑试题维护。</p>
         <p><strong>模板 12 列表头：</strong>{{ templateHint.headers }}</p>
         <p><strong>答案填写规范：</strong>{{ templateHint.answerRule }}</p>
         <p>判断题的 C~H 选项列可留空，系统自动填充「正确 / 错误」。</p>
@@ -266,10 +277,12 @@ function importAgain(): void {
         drag
         :accept="IMPORT_ALLOWED_EXTENSION"
         :auto-upload="false"
+        :disabled="parsing || committing"
         :limit="1"
         :on-change="handleFileChange"
         :on-exceed="handleExceed"
       >
+        <template #file="{ file }"><SelectedImportFile :name="file.name" :disabled="parsing || committing" @remove="removeSelectedFile" /></template>
         <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
         <div class="el-upload__text">将 .xlsx 文件拖到此处，或<em>点击选择</em></div>
         <template #tip>
@@ -285,10 +298,10 @@ function importAgain(): void {
     <div v-else-if="step === 2 && preview" class="import-pane">
       <div class="import-stats">
         <div class="import-stats__item import-stats__item--success">
-          ✅ 成功 {{ preview.successCount }} 条
+          可导入 {{ preview.successCount }} 条
         </div>
         <div class="import-stats__item import-stats__item--fail">
-          ❌ 失败 {{ preview.failCount }} 条
+          校验失败 {{ preview.failCount }} 条
         </div>
         <div class="import-stats__item">共 {{ preview.totalRows }} 行</div>
       </div>
@@ -327,12 +340,13 @@ function importAgain(): void {
       >
         <el-table-column prop="row" label="行号" width="80" align="center" />
         <el-table-column prop="column" label="列" width="120" />
-        <el-table-column prop="value" label="原始值" min-width="140" show-overflow-tooltip />
-        <el-table-column prop="reason" label="原因" min-width="220" show-overflow-tooltip />
+        <el-table-column prop="value" label="原始值" min-width="140" />
+        <el-table-column prop="reason" label="原因" min-width="220" />
+        <template #empty><EmptyState text="没有失败行，可继续确认导入" /></template>
       </el-table>
 
       <div class="import-dedupe">
-        <el-switch v-model="dedupe" />
+        <el-switch v-model="dedupe" aria-label="跳过重复题目（内容去重）" :disabled="committing" />
         <span class="import-dedupe__label">跳过重复题目（内容去重）</span>
         <span class="import-dedupe__hint">
           开启后，「题型 + 题干 + 选项 + 答案」完全相同且已存在于本题库的题目将不再重复写入
@@ -466,6 +480,8 @@ function importAgain(): void {
   margin-bottom: 8px;
   font-weight: 600;
   color: $text-primary;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .import-tip {
@@ -491,6 +507,7 @@ function importAgain(): void {
   }
 
   &__hint {
+    flex-basis: 100%;
     font-size: 12px;
     color: $text-disabled;
   }

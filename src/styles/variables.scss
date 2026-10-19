@@ -1,134 +1,73 @@
-// =============================================================
-// 业务设计 token（PRD §7 / 架构 §5.9）
-// 供业务样式通过 @use '@/styles/variables.scss' as *; 复用
-//
-// v3.1 方向 C「精密蓝」：发丝线代替阴影、电光蓝只做「可点」表达、
-// 语义色三件套结构不变（原色仅图形 / 浅底 / 深字）。
-// 规范与实测对比度见 docs/ui-v3b/DESIGN-C.md §2。
-// =============================================================
-
-// 主色 / 辅助色
-$color-primary: #1268FF;
-$color-primary-light: #548CFF; // = EP light-3
-$color-primary-dark: #0754DB; // = EP dark-2
-// 主色 50 号浅底（C 规范 = EP light-9 #E7EFFF）。
-// 注意：与 $color-primary-soft(#EDF4FF) 自 v3.1 起不再是同值——
-// 前者用于 ::selection 等「更浅的铺底」，后者用于选中行/信息块底。
-$color-primary-50: #E7EFFF;
-// 分类色 —— 仅用于「题型编码」（考试作答页题型徽标 / 答题卡分组点），不参与状态表达。
-// 规范 §2.1 的「单一主色」约束的是主题装饰色；分类色板是唯一允许的例外场景（见 §2.5）。
+// 管理端主方向：白侧栏、浅灰蓝底、蓝色操作、16px 内容卡片。
+// JS 图表色板同步在 constants/theme.ts；控件与内容卡片使用独立圆角。
+$color-primary: #2563EB;
+$color-primary-light: #6692F1;
+$color-primary-dark: #1D4ED8;
+$color-primary-50: #E9EFFD;
+$color-primary-soft: #EFF5FF;
+$color-primary-border: #BFD1F8;
 $color-secondary: #7C3AED;
-$color-secondary-soft: #F5F3FF; // 分类色浅底（替代 rgba(...) 硬编码透明度）
+$color-secondary-soft: #F5F3FF;
 
-// 语义色（三件套：底 / 描边 / 文本）
-// ⚠️ 原色仅可用于「图形」——进度条、圆点、图标、表意符号，以及 Element Plus 覆盖；
-//    任何「文字」必须用 -text 档（700 档，对白底 ≥ 4.5:1 达 WCAG AA 正文）。
-$color-success: #12B76A; // 2.24:1 仅图形
+// 状态色三件套保持原有语义，深字色供正文使用。
+$color-success: #12B76A;
 $color-success-bg: #ECFDF3;
 $color-success-border: #A6F4C5;
-$color-success-text: #027A48; // 5.41:1 ✅
-
-$color-warning: #F79009; // 2.03:1 仅图形
+$color-success-text: #027A48;
+$color-warning: #F79009;
 $color-warning-bg: #FFFAEB;
 $color-warning-border: #FEDF89;
-$color-warning-text: #B54708; // 5.43:1 ✅
-
-$color-error: #F04438; // 3.44:1 仅图形
+$color-warning-text: #B54708;
+$color-error: #F04438;
 $color-error-bg: #FEF3F2;
 $color-error-border: #FECDCA;
-$color-error-text: #B42318; // 6.57:1 ✅
-
-$color-info: #2E90FA; // 3.29:1 仅图形
+$color-error-text: #B42318;
+$color-info: #2E90FA;
 $color-info-bg: #EFF8FF;
 $color-info-border: #B2DDFF;
-$color-info-text: #175CD3; // 5.99:1 ✅
-
-// 兼容旧名（等价 $color-info-bg）
+$color-info-text: #175CD3;
 $color-info-50: #EFF8FF;
 
-// 背景
-$bg-page: #F3F7FD;
+$bg-page: #F4F6FB;
 $bg-paper: #FFFFFF;
-
-// 文本（四档，对齐 DESIGN-C §2 的 text-1/2/3 + icon）
-$text-primary: #102247; // 18.7:1 ✅ = DESIGN-C --text-1
-// 设计稿 text-2 档：表格正文 / 表单标签 / 次按钮字色。
-// 保真度审计 A9 发现：工程此前只有 primary/secondary/disabled 三档，
-// 凡设计稿用 text-2 处都落到了 text-3(#647593)，整体比设计稿「灰一档」。
-// $text-secondary 保持 = 设计稿的 text-3，勿改语义。
-$text-body: #354D76; // 9.5:1 ✅ = DESIGN-C --text-2
-$text-secondary: #647593; // 6.0:1 ✅ = DESIGN-C --text-3
-$text-disabled: #858F9E; // 3.27:1 —— 图形档，禁止承载正文 = DESIGN-C --icon
-
-// 边框 / 圆角 / 阴影
-$border-color: #E1EAF8; // 发丝线：行分隔 / 卡片边
-// 强发丝线：输入框边 / 表头分隔线（DESIGN-C §2.1 的 --line-strong）。
-// 与 $border-color 只差一档明度，用于「需要比行线更明确但仍不喧宾夺主」的分界。
-$line-strong: #D9DEE7;
-$radius-base: 8px; // 卡片上限
-$radius-sm: 6px; // 控件
-$radius-xs: 4px; // 小件：标签 / 勾选框 / 进度条
-$shadow-card: none; // v3.1 方向 C：卡片零投影，层次交给发丝线
-
-// 表格
-$color-table-head: #FAFBFC; // 发丝线表头，去灰底块
-$color-table-hover: #FAFBFD; // 行 hover 底（配左缘 2px 主色条）
-// 中性浅底（中性标签 / 中性块底），与行 hover 底区分：后者更接近白
+$text-primary: #172338;
+$text-body: #39485E;
+$text-secondary: #66758A;
+$text-disabled: #858F9E;
+$border-color: #E7EBF2;
+$line-strong: #DFE5EE;
+$color-table-head: #F8F9FC;
+$color-table-hover: #F6F9FF;
 $color-neutral-bg: #F1F3F6;
+$radius-base: 8px;
+$radius-sm: 8px;
+$radius-xs: 4px;
+$radius-lg: 16px;
+$radius-xl: 16px;
+$shadow-card: 0 3px 18px rgba(23, 35, 56, 0.025);
+$shadow-sm: 0 2px 8px rgba(23, 35, 56, 0.03);
+$shadow-md: 0 4px 14px -4px rgba(23, 35, 56, 0.10);
+$shadow-lg: 0 10px 30px -8px rgba(23, 35, 56, 0.16);
+$gradient-brand: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
 
-// =============================================================
-// 视觉扩展 token
-// =============================================================
-
-// 阴影阶梯：常态与悬停一律无投影，只有浮层（弹窗 / 下拉）保留
-$shadow-sm: none;
-$shadow-md: 0 4px 10px -4px rgba(13, 18, 32, 0.1);
-$shadow-lg: 0 10px 24px -8px rgba(13, 18, 32, 0.16);
-
-// 圆角阶梯
-// v3.1 方向 C：卡片圆角上限 8px（DESIGN-C §2.4）。$radius-lg 保留为别名而非删除，
-// 避免全站 20+ 处引用一起改；改值与 $radius-base 对齐后，卡片圆角不再出现两档。
-$radius-lg: 8px;
-$radius-xl: 12px;
-
-// 主色浅底（选中/标签/信息块）
-$color-primary-soft: #EDF4FF;
-// 主色描边（浅底配套）——同时是 DESIGN-C 的 `--primary-line`：
-// 图表的「非聚焦浅柱」也用它，故不要在图表侧另起一个同值 token。
-$color-primary-border: #BFD4FF;
-
-// 品牌渐变（登录页品牌区 / 焦点页点缀）—— 同色系蓝，禁止混入 indigo / violet
-$gradient-brand: linear-gradient(135deg, #1268FF 0%, #0754DB 100%);
-
-// 深色侧栏配色（石墨：#0B0F19 比纯黑柔和、比藏蓝中性）
-$sidebar-bg: #142848;
-$sidebar-text: #C6D3E8;
-$sidebar-text-hover: #f4f7fb;
-$sidebar-text-active: #ffffff;
-$sidebar-hover-bg: rgba(255, 255, 255, 0.05);
-$sidebar-active-bg: #1268FF;
-$sidebar-border: rgba(255, 255, 255, 0.06);
-$sidebar-scrollbar: rgba(255, 255, 255, 0.16);
-// 侧栏宽度（展开 / 折叠）
-$sidebar-width: 216px;
-// 折叠宽 60px（DESIGN-C §2.2）。EP 2.8 的折叠宽由 `--el-menu-icon-width + base-level-padding*2`
-// 推导出 64px，但 AppLayout 在 `.el-menu--collapse` 上已写 `width: 100%` 接管，
-// 实际宽度只由本 token 决定，无需再同步 EP 变量（改值后请实测折叠态图标居中）。
-$sidebar-width-collapsed: 60px;
-
-// 过渡
+$sidebar-bg: #FFFFFF;
+$sidebar-text: #536176;
+$sidebar-text-hover: #172338;
+$sidebar-text-active: #2563EB;
+$sidebar-hover-bg: #F7F9FD;
+$sidebar-active-bg: #EFF5FF;
+$sidebar-border: #E7EBF2;
+$sidebar-scrollbar: #CFD7E4;
+$sidebar-width: 232px;
+$sidebar-width-collapsed: 64px;
+$header-height: 94px;
+$page-padding: 30px;
 $transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 $transition-base: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
-// 顶栏（DESIGN-C §2.2：52px，与侧栏品牌区等高）
-$header-height: 56px;
-
-// 页面内距（内容区四周留白，DESIGN-C §2.2 的 --pad-page）
-$page-padding: 24px;
-
-// UI 2026.10：业务分类色；不替代成功、警告、错误状态。
-$category-blue: #1268FF;
-$category-blue-soft: #F0F5FF;
+// 分类图表可使用辅助色；页面主操作统一为蓝色。
+$category-blue: #2563EB;
+$category-blue-soft: #EFF5FF;
 $category-teal: #00AAB5;
 $category-teal-soft: #EFFBFC;
 $category-violet: #773CFF;
@@ -136,16 +75,16 @@ $category-violet-soft: #F5F1FF;
 $category-amber: #F29309;
 $category-amber-soft: #FFF8EF;
 
-// 练题模块兼容 token（PC 与主系统同源，移动端由 PracticeLayout 使用）。
+// 主系统练题模块保留独立布局与移动控件尺度。
 $practice-primary: $color-primary;
 $practice-primary-dark: $color-primary-dark;
 $practice-primary-light: $color-primary-light;
 $practice-soft: #EEF4FF;
 $practice-border-soft: #C9D9FF;
 $practice-header: $bg-paper;
-$practice-bg: #F6F8FC;
+$practice-bg: $bg-page;
 $practice-surface-2: #FAFBFD;
 $practice-surface-3: #F0F3F8;
 $practice-border: #E3E8F0;
-$practice-radius: 10px;
+$practice-radius: $radius-lg;
 $practice-radius-sm: 8px;

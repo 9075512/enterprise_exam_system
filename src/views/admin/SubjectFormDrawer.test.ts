@@ -39,6 +39,52 @@ function item(label: string) {
 }
 
 describe('树形科目编辑抽屉', () => {
+  it('创建已成功而权限保存失败时，重试沿用同一科目，不产生重复节点', async () => {
+    banksApi.create.mockResolvedValue({ id: 'new-subject' });
+    banksApi.update.mockResolvedValue({ id: 'new-subject' });
+    banksApi.updateAccess.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({});
+    await openDrawer(); await item('科目名称').get('input').setValue('新科目');
+    const save = () => wrapper.findAllComponents(ElButton).find((button) => button.text() === '保存')!;
+    await save().trigger('click'); await flushPromises();
+    expect(document.body.textContent).toContain('科目已创建，访问权限尚未保存');
+    await save().trigger('click'); await flushPromises();
+    expect(banksApi.create).toHaveBeenCalledTimes(1);
+    expect(banksApi.update).toHaveBeenCalledWith('new-subject', expect.objectContaining({ name: '新科目' }));
+    expect(banksApi.updateAccess).toHaveBeenLastCalledWith('new-subject', expect.objectContaining({ viewAll: true, departmentIds: [], userIds: [] }));
+    expect(wrapper.emitted('saved')?.at(-1)).toEqual([{ id: 'new-subject' }]);
+  });
+  it('原权限请求失败时阻止默认值覆盖，重试恢复原有范围', async () => {
+    banksApi.access.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({
+      permissionMode: 'override', viewAll: false, includeChildDepartments: false,
+      departmentIds: ['dept-existing'], userIds: ['user-existing'], editorIds: ['author-existing'],
+    });
+    await openDrawer({ id: 'existing', name: '原科目' } as QuestionBank);
+    expect(document.body.textContent).toContain('科目权限或人员选项加载失败');
+    const save = () => wrapper.findAllComponents(ElButton).find((button) => button.text() === '保存')!;
+    expect(save().props('disabled')).toBe(true);
+    expect(banksApi.update).not.toHaveBeenCalled();
+    await wrapper.findAllComponents(ElButton).find((button) => button.text() === '重新加载')!.trigger('click');
+    await flushPromises();
+    expect(save().props('disabled')).toBe(false);
+    expect(item('浏览部门').getComponent(ElSelect).props('modelValue')).toEqual(['dept-existing']);
+    expect(item('浏览人员').getComponent(ElSelect).props('modelValue')).toEqual(['user-existing']);
+    expect(item('编辑人员').getComponent(ElSelect).props('modelValue')).toEqual(['author-existing']);
+  });
+
+  it('快速切换科目时，较早权限响应不能覆盖当前科目', async () => {
+    let resolveOld!: (value: unknown) => void;
+    banksApi.access.mockImplementation((id: string) => id === 'old'
+      ? new Promise(resolve => { resolveOld = resolve; })
+      : Promise.resolve({ permissionMode: 'override', viewAll: false, includeChildDepartments: true, departmentIds: ['new-dept'], userIds: [], editorIds: [] }));
+    await openDrawer({ id: 'old', name: '旧科目' } as QuestionBank);
+    await wrapper.setProps({ bank: { id: 'new', name: '新科目' } as QuestionBank });
+    await flushPromises();
+    resolveOld({ permissionMode: 'override', viewAll: true, includeChildDepartments: false, departmentIds: ['old-dept'], userIds: [], editorIds: [] });
+    await flushPromises();
+    expect(item('科目名称').get('input').element.value).toBe('新科目');
+    expect(item('浏览部门').getComponent(ElSelect).props('modelValue')).toEqual(['new-dept']);
+    expect(item('浏览范围').getComponent(ElCheckbox).props('modelValue')).toBe(false);
+  });
   it('展示层级、状态与访问权限字段，不再展示题库分类', async () => {
     wrapper = mount(SubjectFormDrawer, {
       props: { visible: false, bank: null, tree: [] },

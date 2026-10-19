@@ -9,9 +9,10 @@
 import { computed } from 'vue';
 import { QUESTION_TYPE_LABELS } from '@/constants';
 import type { QuestionType } from '@/types';
+import { isAnswered } from '@/utils/answerState';
 
 const props = defineProps<{
-  questions: { id: string; type: QuestionType }[];
+  questions: { id: string; type: QuestionType; blanks?: number }[];
   answers: Record<string, number[] | string[]>;
   currentIndex: number;
 }>();
@@ -33,13 +34,14 @@ const groups = computed<Array<{ type: QuestionType; items: Array<{ id: string; i
 });
 
 const answeredCount = computed<number>(
-  () => props.questions.filter((q) => (props.answers[q.id]?.length ?? 0) > 0).length,
+  () => props.questions.filter((q) => isAnswered(props.answers[q.id], q.type, q.blanks)).length,
 );
 
 const unansweredCount = computed<number>(() => props.questions.length - answeredCount.value);
 
 function answered(id: string): boolean {
-  return (props.answers[id]?.length ?? 0) > 0;
+  const question = props.questions.find(q => q.id === id);
+  return isAnswered(props.answers[id], question?.type, question?.blanks);
 }
 
 function cellTitle(no: number, id: string): string {
@@ -122,7 +124,7 @@ function cellTitle(no: number, id: string): string {
 
   /* 微标签：10.5px / 大写 / 加字距（DESIGN-C §2.3） */
   &__kicker {
-    font-size: 10.5px;
+    font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.11em;
     text-transform: uppercase;
@@ -148,7 +150,7 @@ function cellTitle(no: number, id: string): string {
 
   &__sec-count {
     margin-left: 4px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
     color: $text-secondary;
   }
@@ -161,7 +163,7 @@ function cellTitle(no: number, id: string): string {
     padding: 0 6px;
     border-radius: $radius-xs;
     background: $color-neutral-bg;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 550;
     color: $text-secondary;
   }
@@ -252,5 +254,10 @@ function cellTitle(no: number, id: string): string {
       border-width: 2px;
     }
   }
+}
+
+@media (max-width: 900px) {
+  .answer-sheet__grid { grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 8px; }
+  .answer-sheet__cell { min-width: 44px; min-height: 44px; }
 }
 </style>

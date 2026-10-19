@@ -10,6 +10,8 @@ import { computed, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import * as banksApi from '@/api/banks';
 import * as usersApi from '@/api/users';
+import { useRequest } from '@/composables/useRequest';
+import RequestError from '@/components/common/RequestError.vue';
 import type { QuestionBank } from '@/types';
 
 const props = defineProps<{
@@ -25,7 +27,10 @@ const emit = defineEmits<{
 }>();
 
 const submitting = ref(false);
-const authorOptions = ref<Array<{ id: string; name: string }>>([]);
+const { data: authorOptions, loading: authorsLoading, error: authorsError, refresh: loadAuthors } = useRequest(
+  async () => (await usersApi.list({ role: 'author' })).map(user => ({ id: user.id, name: user.name })),
+  [], { immediate: false, keepPreviousData: false },
+);
 
 const form = ref({
   name: '',
@@ -35,31 +40,24 @@ const form = ref({
 
 const dialogVisible = computed({
   get: () => props.visible,
-  set: (v: boolean) => emit('update:visible', v),
+  set: (v: boolean) => { if (!v && submitting.value) return; emit('update:visible', v); },
 });
 
 watch(
   () => props.visible,
-  async (open) => {
+  (open) => {
     if (!open || !props.bank) return;
     form.value = {
       name: `${props.bank.name}（副本）`,
       copyQuestions: true,
       authorIds: [...(props.bank.authorIds ?? [])],
     };
-    if (props.isAdmin && authorOptions.value.length === 0) {
-      try {
-        const list = await usersApi.list({ role: 'author' });
-        authorOptions.value = list.map((u) => ({ id: u.id, name: u.name }));
-      } catch {
-        /* 已由拦截器提示 */
-      }
-    }
+    if (props.isAdmin) void loadAuthors();
   },
 );
 
 async function handleSubmit(): Promise<void> {
-  if (!props.bank) return;
+  if (!props.bank || submitting.value || (props.isAdmin && (authorsLoading.value || authorsError.value))) return;
   const name = form.value.name.trim();
   if (!name) {
     ElMessage.warning('请填写新题库名称');
@@ -79,7 +77,7 @@ async function handleSubmit(): Promise<void> {
         : '题库已复制',
     );
     emit('saved', result.bank);
-    dialogVisible.value = false;
+    emit('update:visible', false);
   } catch {
     /* 已由拦截器提示 */
   } finally {
@@ -89,11 +87,10 @@ async function handleSubmit(): Promise<void> {
 </script>
 
 <template>
-  <el-dialog v-model="dialogVisible" title="复制题库" width="520px" append-to-body>
-    <el-form label-width="96px">
-      <el-form-item label="源题库">
-        <span class="bank-clone__source">{{ bank?.name ?? '' }}</span>
-      </el-form-item>
+  <el-dialog v-model="dialogVisible" title="复制题库" width="560px" append-to-body destroy-on-close :close-on-click-modal="!submitting" :close-on-press-escape="!submitting" :show-close="!submitting">
+    <div class="admin-detail-block"><strong>源题库 · {{ bank?.name ?? '' }}</strong><p>新题库独立维护，复制结果会显示新建与内容复用的实际题数。</p></div>
+    <RequestError v-if="isAdmin && authorsError" text="授权出题人加载失败，请重试后复制" @retry="loadAuthors" />
+    <el-form label-position="top" :disabled="submitting">
       <el-form-item label="新题库名称" required>
         <el-input v-model="form.name" maxlength="100" show-word-limit placeholder="请输入新题库名称" />
       </el-form-item>
@@ -107,6 +104,8 @@ async function handleSubmit(): Promise<void> {
       <el-form-item v-if="isAdmin" label="授权出题人">
         <el-select
           v-model="form.authorIds"
+          :loading="authorsLoading"
+          :disabled="Boolean(authorsError) || authorsLoading"
           class="bank-clone__full"
           multiple
           filterable
@@ -114,13 +113,13 @@ async function handleSubmit(): Promise<void> {
           collapse-tags-tooltip
           placeholder="默认继承源题库授权出题人"
         >
-          <el-option v-for="a in authorOptions" :key="a.id" :label="a.name" :value="a.id" />
+          <el-option v-for="a in authorOptions ?? []" :key="a.id" :label="a.name" :value="a.id" />
         </el-select>
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="dialogVisible = false">取消</el-button>
-      <el-button type="primary" :loading="submitting" @click="handleSubmit">确认复制</el-button>
+      <el-button :disabled="submitting" @click="dialogVisible = false">取消</el-button>
+      <el-button type="primary" :loading="submitting" :disabled="Boolean(isAdmin && (authorsLoading || authorsError))" @click="handleSubmit">确认复制</el-button>
     </template>
   </el-dialog>
 </template>
@@ -138,7 +137,9 @@ async function handleSubmit(): Promise<void> {
   }
 
   &__hint {
-    margin-left: 10px;
+    display: block;
+    width: 100%;
+    margin-top: 8px;
     font-size: 12px;
     line-height: 1.5;
     color: $text-secondary;

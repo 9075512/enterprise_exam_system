@@ -11,7 +11,7 @@
  * v1.6：支持填空/简答展示；含简答题的答卷交卷后进 pending_review（客观题先行计分），
  *       显示「待阅卷」态，阅卷完成后总分 = 客观 + 主观。
  */
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import dayjs from 'dayjs';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -28,6 +28,7 @@ import { formatDateTime } from '@/utils/datetime';
 import { formatScore, optionLetter } from '@/utils/format';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
 import type { ExamRecord, PaperSnapshotQuestion, Question, QuestionType, ReviewNote } from '@/types';
 
@@ -36,15 +37,16 @@ const router = useRouter();
 const auth = useAuthStore();
 const settingsStore = useSettingsStore();
 
-const recordId = String(route.params.recordId ?? '');
+const recordId = computed(() => String(route.params.recordId ?? ''));
 const isAdmin = computed<boolean>(() => auth.currentUser?.role === 'admin');
 
 async function reportQuestion(questionId: string): Promise<void> {
   try {
     const { value } = await ElMessageBox.prompt('请说明题干、选项、答案或解析存在的问题', '题目纠错反馈', {
+      confirmButtonText: '提交反馈', cancelButtonText: '取消',
       inputType: 'textarea', inputPlaceholder: '请输入问题描述', inputValidator: (v) => Boolean(v.trim()) || '请输入问题描述',
     });
-    await feedbackApi.create({ questionId, source: 'exam', sourceRefId: recordId, category: '题目纠错', content: value.trim() });
+    await feedbackApi.create({ questionId, source: 'exam', sourceRefId: recordId.value, category: '题目纠错', content: value.trim() });
     ElMessage.success('反馈已提交');
   } catch { /* 用户取消或请求错误已统一提示 */ }
 }
@@ -54,8 +56,9 @@ const examMap = computed<Record<string, { id: string; name: string; passScore: n
   Object.fromEntries((exams.value ?? []).map((e) => [e.id, { id: e.id, name: e.name, passScore: e.passScore }])),
 );
 
-const record = ref<ExamRecord | null>(null);
-const loading = ref(true);
+const { data: record, loading, error: recordError, refresh: loadRecord } = useRequest<ExamRecord>(
+  () => recordsApi.detail(recordId.value), [recordId], { keepPreviousData: false },
+);
 
 /** 考试名称：详情字段优先，兜底考试列表，再兜底试卷快照名 */
 const examName = computed<string>(() => {
@@ -68,7 +71,7 @@ const examName = computed<string>(() => {
 });
 
 /** 姓名：详情字段优先，兜底当前登录用户 */
-const examineeName = computed<string>(() => record.value?.userName || auth.currentUser?.name || '—');
+const examineeName = computed<string>(() => record.value?.userName || (!isAdmin.value ? auth.currentUser?.name : '') || '—');
 
 /** 科室：以记录为准（管理员查看他人记录时尤其如此），仅本人无记录科室时回退登录用户 */
 const departmentName = computed<string>(() => {
@@ -99,7 +102,7 @@ const passed = computed<boolean>(() => {
 /** 结论徽标（文案 + 色调） */
 const resultBadge = computed<{ label: string; tone: 'ok' | 'err' | 'warn' | 'gray' }>(() => {
   if (isPendingReview.value) return { label: '待阅卷', tone: 'warn' };
-  if (passScore.value === null) return { label: '未设及格线', tone: 'gray' };
+  if (passScore.value === null) return { label: '及格线未知', tone: 'gray' };
   return passed.value ? { label: '及格', tone: 'ok' } : { label: '未及格', tone: 'err' };
 });
 
@@ -145,6 +148,8 @@ const subjectiveTotal = computed<number>(() => subjectiveQuestions.value.reduce(
 const subjectiveScored = computed<number>(() =>
   subjectiveQuestions.value.reduce((s, q) => s + (subjectiveScore(q.questionId) ?? 0), 0),
 );
+const questionScoreSum = computed(() => Math.round((objectiveScored.value + subjectiveScored.value) * 10) / 10);
+const hasScoreAdjustment = computed(() => record.value?.status === 'submitted' && Math.abs(record.value.score - questionScoreSum.value) > 0.01);
 
 /** 明细筛选：全部 / 仅答错（题号始终沿用原始全局索引） */
 const detailFilter = ref<'all' | 'wrong'>('all');
@@ -160,6 +165,7 @@ const detailQuestions = computed<{ item: PaperSnapshotQuestion; index: number }[
 
 /** 解析统一展开开关（设计稿「展开全部解析」，默认折叠） */
 const analysisOpen = ref(false);
+watch(recordId, () => { detailFilter.value = 'all'; analysisOpen.value = false; });
 
 /** 管理员查看到尚未交卷的记录：无答题入口，落到提示态 */
 const inProgressByAdmin = computed<boolean>(
@@ -349,27 +355,17 @@ function goMyExams(): void {
   void router.push('/exam/my');
 }
 
-onMounted(async () => {
-  void settingsStore.load();
-  try {
-    const rec = await recordsApi.detail(recordId);
-    if (rec.status === 'in_progress' || !rec.submittedAt) {
-      ElMessage.warning('该考试尚未交卷，暂不能查看成绩明细');
-      await router.replace(isAdmin.value ? '/admin/scores' : '/exam/scores');
-      return;
-    }
-    record.value = rec;
-  } catch {
-    ElMessage.error('无法查看该成绩明细');
-    back();
-  } finally {
-    loading.value = false;
-  }
+onMounted(() => { void settingsStore.load(); });
+watch(record, (rec) => {
+  if (!rec || (rec.status !== 'in_progress' && rec.submittedAt)) return;
+  ElMessage.warning('该考试尚未交卷，暂不能查看成绩明细');
+  record.value = null;
+  void router.replace(isAdmin.value ? '/admin/scores' : '/exam/scores');
 });
 </script>
 
 <template>
-  <div class="sd">
+  <div data-ui-layout="result" data-ui-page="ScoreDetailPage" class="sd">
     <button type="button" class="sd__back" @click="back">
       <el-icon><ArrowLeft /></el-icon>
       返回{{ isAdmin ? '成绩报表' : '我的成绩' }}
@@ -382,6 +378,7 @@ onMounted(async () => {
     </PageHeader>
 
     <LoadingSkeleton v-if="loading" :rows="6" />
+    <RequestError v-else-if="recordError" text="无法加载成绩明细，请确认访问权限或重试" @retry="loadRecord" />
 
     <EmptyState v-else-if="!record" text="未找到该成绩记录" />
 
@@ -407,7 +404,7 @@ onMounted(async () => {
                 <span v-if="record.autoSubmitted" class="sd__bdg sd__bdg--warn">超时自动交卷</span>
               </div>
               <div class="sd__hero-score">
-                <span class="sd__score" :class="isPendingReview ? '' : passed ? 'is-pass' : 'is-fail'">
+                <span class="sd__score" :class="isPendingReview || passScore === null ? '' : passed ? 'is-pass' : 'is-fail'">
                   {{ formatScore(record.score) }}
                 </span>
                 <span class="sd__score-total">/ {{ formatScore(record.paperSnapshot.totalScore) }} 分</span>
@@ -441,6 +438,8 @@ onMounted(async () => {
           </div>
         </el-card>
 
+        <el-alert v-if="hasScoreAdjustment" type="info" :closable="false" show-icon :title="`记录总分 ${formatScore(record.score)} 分；逐题得分合计 ${formatScore(questionScoreSum)} 分。总分以成绩记录为准。`" />
+
         <!-- 切屏异常提示 -->
         <div v-if="cheatCount > 0" class="sd__tip" :class="{ 'sd__tip--err': cheatAbnormal }">
           <el-icon class="sd__tip-icon"><CircleClose /></el-icon>
@@ -455,7 +454,7 @@ onMounted(async () => {
         <el-card class="sd__detail" shadow="never">
           <template #header>
             <h3 class="sd__card-title">逐题明细</h3>
-            <span class="sd__sub">共 {{ totalQuestions }} 题 · 答对 {{ correctCount }} 题</span>
+            <span class="sd__sub">共 {{ totalQuestions }} 题 · 客观题（含填空）答对 {{ correctCount }} / {{ gradableCount }} 题</span>
             <div class="sd__seg">
               <button
                 type="button"
@@ -524,7 +523,7 @@ onMounted(async () => {
                   <span class="sd__opt-kk">{{ optionLetter(i) }}</span>
                   <span class="sd__opt-tx">{{ opt }}</span>
                   <span v-if="isCorrectOption(item, i)" class="sd__opt-tag sd__opt-tag--ok">正确答案</span>
-                  <span v-else-if="isWrongPick(item, i)" class="sd__opt-tag sd__opt-tag--bad">你的选择</span>
+                  <span v-else-if="isWrongPick(item, i)" class="sd__opt-tag sd__opt-tag--bad">{{ isAdmin ? '考生选择' : '你的选择' }}</span>
                 </li>
               </ul>
 
@@ -532,7 +531,7 @@ onMounted(async () => {
               <template v-if="isObjectiveType(item.question.type)">
                 <div class="sd__ans-grid">
                   <div>
-                    <span class="sd__kicker">你的答案</span>
+                    <span class="sd__kicker">{{ isAdmin ? '考生答案' : '你的答案' }}</span>
                     <div class="sd__ans" :class="qStatus(item) === 'correct' ? 'is-ok' : 'is-err'">
                       <span class="sd__ans-letters">
                         {{ lettersOf(userAnswer(item.questionId) as number[]) || '未作答' }}
@@ -570,7 +569,7 @@ onMounted(async () => {
               <template v-else>
                 <div class="sd__short">
                   <div class="sd__short-row">
-                    <span class="sd__kicker">你的作答</span>
+                    <span class="sd__kicker">{{ isAdmin ? '考生作答' : '你的作答' }}</span>
                     <!-- 富文本作答：内容已由服务端白名单净化（v1.7③ S1），此处渲染安全 -->
                     <div
                       v-if="shortUserText(item.questionId)"
@@ -606,7 +605,7 @@ onMounted(async () => {
             </article>
           </div>
 
-          <EmptyState v-if="detailQuestions.length === 0" text="全部答对，没有错题" />
+          <EmptyState v-if="detailQuestions.length === 0" :text="detailFilter === 'wrong' ? '当前答卷没有答错的客观题（含填空）' : '该答卷暂无题目明细'" />
         </el-card>
       </div>
 
@@ -633,9 +632,10 @@ onMounted(async () => {
             <span class="sd__kv-v">{{ subjectiveQuestions.length }} 题</span>
           </div>
           <div class="sd__kv">
-            <span class="sd__kv-k">正确率</span>
-            <span class="sd__kv-v">{{ accuracy }}%</span>
+            <span class="sd__kv-k">客观题正确率</span>
+            <span class="sd__kv-v">{{ gradableCount ? accuracy + '%' : '—' }}</span>
           </div>
+          <p class="admin-hint">对错与正确率仅统计客观题（含填空），简答题按阅卷得分展示。</p>
         </el-card>
 
         <el-card class="sd__side-card" shadow="never">
@@ -706,6 +706,7 @@ onMounted(async () => {
 @use '@/styles/variables.scss' as *;
 
 .sd {
+  container: score-detail / inline-size;
   &__back {
     display: inline-flex;
     align-items: center;
@@ -727,7 +728,7 @@ onMounted(async () => {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 300px;
     align-items: start;
-    gap: 14px;
+    gap: 20px;
   }
 
   &__main {
@@ -753,7 +754,7 @@ onMounted(async () => {
   }
 
   &__sub {
-    font-size: 11.5px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -880,7 +881,7 @@ onMounted(async () => {
   /* 微标签 */
   &__kicker {
     display: block;
-    font-size: 10.5px;
+    font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.11em;
     text-transform: uppercase;
@@ -895,7 +896,7 @@ onMounted(async () => {
     height: 20px;
     padding: 0 7px;
     border-radius: 5px;
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 580;
     white-space: nowrap;
 
@@ -995,7 +996,7 @@ onMounted(async () => {
     height: 22px;
     border-radius: $radius-sm;
     background: $color-primary;
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 700;
     color: #fff;
     font-variant-numeric: tabular-nums;
@@ -1008,13 +1009,13 @@ onMounted(async () => {
     padding: 0 6px;
     border-radius: $radius-xs;
     background: $color-neutral-bg;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 550;
     color: $text-secondary;
   }
 
   &__q-score {
-    font-size: 11px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -1089,7 +1090,7 @@ onMounted(async () => {
     place-items: center;
     border-radius: 50%;
     border: 1.5px solid $line-strong;
-    font-size: 10.5px;
+    font-size: 12px;
     font-weight: 600;
     color: $text-secondary;
   }
@@ -1102,7 +1103,7 @@ onMounted(async () => {
 
   &__opt-tag {
     flex: 0 0 auto;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 560;
 
     &--ok {
@@ -1353,7 +1354,7 @@ onMounted(async () => {
 
   &__tl-d {
     margin-top: 2px;
-    font-size: 11.5px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -1417,12 +1418,12 @@ onMounted(async () => {
   }
 
   &__kbar-sub {
-    font-size: 11px;
+    font-size: 12px;
     color: $text-secondary;
     font-variant-numeric: tabular-nums;
   }
 
-  @media (max-width: 1080px) {
+  @container score-detail (max-width: 980px) {
     &__wrap {
       grid-template-columns: minmax(0, 1fr);
     }

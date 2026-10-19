@@ -385,7 +385,7 @@ function openDetail(item: Announcement): void {
   }
 
   &__notice-count {
-    font-size: 11px;
+    font-size: 12px;
     font-variant-numeric: tabular-nums;
     color: $text-disabled;
   }
@@ -531,7 +531,7 @@ function openDetail(item: Announcement): void {
       border-radius: 11px;
       background: rgba(15, 23, 42, 0.58);
       color: #fff;
-      font-size: 11px;
+      font-size: 12px;
       line-height: 1;
       font-variant-numeric: tabular-nums;
       backdrop-filter: blur(4px);
@@ -646,7 +646,7 @@ function openDetail(item: Announcement): void {
       flex: 0 0 auto;
       min-width: 30px;
       color: $text-disabled;
-      font-size: 10.5px;
+      font-size: 12px;
       line-height: 1;
       text-align: right;
       font-variant-numeric: tabular-nums;

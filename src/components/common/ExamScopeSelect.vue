@@ -17,6 +17,7 @@ const props = defineProps<{
   modelValue: string;
   /** 左侧标签文案 */
   label?: string;
+  disabled?: boolean;
 }>();
 
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
@@ -28,7 +29,7 @@ const unavailable = ref(false);
 
 const inner = computed<string>({
   get: () => props.modelValue,
-  set: (v) => emit('update:modelValue', v ?? ''),
+  set: (v) => { if (!props.disabled && !unavailable.value) emit('update:modelValue', v ?? ''); },
 });
 
 onMounted(async () => {
@@ -53,7 +54,7 @@ onMounted(async () => {
       filterable
       clearable
       :loading="loading"
-      :disabled="unavailable"
+      :disabled="unavailable || disabled"
       :placeholder="unavailable ? '需管理员权限' : '全部考试'"
     >
       <el-option v-for="e in exams" :key="e.id" :label="e.name" :value="e.id" />
@@ -65,11 +66,14 @@ onMounted(async () => {
 @use '@/styles/variables.scss' as *;
 
 .exam-scope {
+  min-width: 0;
+  max-width: 100%;
   display: inline-flex;
   align-items: center;
   gap: 8px;
 
   &__label {
+    flex-shrink: 0;
     font-size: 13px;
     font-weight: 600;
     color: $text-secondary;
@@ -77,6 +81,9 @@ onMounted(async () => {
 
   &__select {
     width: 240px;
+    min-width: 0;
+    max-width: 100%;
   }
 }
+@media (max-width: 900px) { .exam-scope { width: 100%; &__select { flex: 1; width: auto; } } }
 </style>

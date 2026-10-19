@@ -6,7 +6,7 @@
 @forward 'element-plus/theme-chalk/src/common/var.scss' with (
   $colors: (
     'primary': (
-      'base': #1268FF,
+      'base': #2563EB,
     ),
     // ⚠️ 语义色基准一律取「700 档」（对应 variables.scss 的 $color-*-text）。
     // 原因：EP 把 base 直接当作文字色——el-tag plain / el-button plain·link·text /
@@ -32,7 +32,7 @@
   ),
   $border-radius: (
     'base': 8px,
-    'small': 6px,
+    'small': 8px,
     'round': 20px,
     'circle': 100%,
   ),

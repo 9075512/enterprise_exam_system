@@ -11,36 +11,36 @@
 @use './variables.scss' as *;
 
 :root {
-  // v3.1 方向 C「精密蓝」主色阶梯（= mix(white, base, 30/50/70/80/90%)）
-  --el-color-primary: #1268FF;
-  --el-color-primary-light-3: #548cff;
-  --el-color-primary-light-5: #85adff;
-  --el-color-primary-light-7: #b6ceff;
-  --el-color-primary-light-8: #cedeff;
-  --el-color-primary-light-9: #e7efff;
-  --el-color-primary-dark-2: #0754DB;
+  // 与 variables.scss 及 Element Plus 编译期主色保持同源。
+  --el-color-primary: #{$color-primary};
+  --el-color-primary-light-3: #{$color-primary-light};
+  --el-color-primary-light-5: #92b1f5;
+  --el-color-primary-light-7: #bed0f9;
+  --el-color-primary-light-8: #d3e0fb;
+  --el-color-primary-light-9: #{$color-primary-50};
+  --el-color-primary-dark-2: #{$color-primary-dark};
   --el-border-radius-base: 8px;
-  --el-bg-color-page: #F3F7FD;
+  --el-bg-color-page: #{$bg-page};
   --el-fill-color-light: #f1f3f6;
   // 基准字号：设计稿正文 13.5px / 控件 13px / 标签 12px。
   // EP 组件的默认字号全部派生自 --el-font-size-base（表格/输入框/按钮…），
   // 此前未设 → 取 EP 默认 14px，比设计稿大一档（保真度审计 B5）。
   --el-font-size-base: 13px;
-  --el-text-color-primary: #102247;
+  --el-text-color-primary: #{$text-primary};
   // 设计稿 text-2（表格正文 / 表单标签 / 次按钮字色）。
   // EP 各组件「常规文字」默认取本变量，改这里一次性把落错档的文字提回 text-2（审计 A2/A4/A5）。
   --el-text-color-regular: #{$text-body};
   // 弱化文字档（设计稿 text-3）
   --el-text-color-secondary: #{$text-secondary};
-  --el-border-color: #E1EAF8;
+  --el-border-color: #{$border-color};
   // 表单控件用「强发丝线」：比卡片/行线更明确，但不引入阴影（DESIGN-C §2.1）
   --el-input-border-color: #{$line-strong};
 
   // 表格单元格纵向内距（密度切换的唯一调节点，规范 §8.3）
-  // 舒适 7px ≈ 行高 38（v3.1 方向 C：一屏多看 20% 的行）；紧凑 4px ≈ 行高 32。
+  // 默认纵向留白 12px，紧凑模式 4px；只调行高，不改变文字和状态颜色。
   // 实测方法见 docs/ui-v2.1/迁移清单进度.md —— 注意该值必须落成「高优先级选择器」，
   // 否则会被 Element Plus 的 .el-table .el-table__cell 覆盖（同优先级时取决于样式注入顺序）。
-  --table-cell-padding-y: 7px;
+  --table-cell-padding-y: 12px;
 }
 
 * {
@@ -58,24 +58,24 @@ body,
 body {
   overflow-wrap: anywhere;
   font-family: 'Noto Sans SC Variable', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  // 基准字号 13.5px（DESIGN-C）。EP 浮层（弹窗 / 下拉 / 气泡）teleport 到 body，
+  // 正文 14px。EP 浮层（弹窗 / 下拉 / 气泡）teleport 到 body，
   // 其根字号继承自 body —— 此前未设，取浏览器默认 16px，导致弹窗整层大一档（审计 B1）。
-  font-size: 13.5px;
-  // 正文行距 1.55（= kit/c.css 的 body）：B1 只补了字号，行高漏了，
+  font-size: 14px;
+  // 正文行距 1.6；控件使用各自的行高，避免改变输入与表格对齐。
   // 自然文本实际取浏览器 normal（≈1.2），全站正文行距比设计稿紧一档（逐页审计补遗）。
   // EP 组件内部均自设 line-height，故只影响页面级自然文本。
-  line-height: 1.55;
+  line-height: 1.6;
   color: $text-primary;
   background-color: $bg-page;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-// 卡片：圆角 + 发丝线（v3.1 方向 C：零投影，层次交给线条）
+// 内容卡片：16px 圆角与细边框。
 .el-card.el-card {
   min-width: 0;
   max-width: 100%;
-  border-radius: $radius-base;
+  border-radius: $radius-lg;
   border-color: $border-color;
 }
 
@@ -94,9 +94,8 @@ body {
   color: $text-secondary;
   font-weight: 600;
   font-size: 12px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  border-bottom: 1px solid $line-strong;
+  letter-spacing: normal;
+  border-bottom: 1px solid $border-color;
 }
 
 .el-table .el-table__body tr:hover > td.el-table__cell {
@@ -122,7 +121,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: darken($text-disabled, 12%);
+  background: $text-secondary;
 }
 
 ::-webkit-scrollbar-track {
@@ -140,12 +139,13 @@ body {
 
 // ---------- Element Plus 运行时统一精修 ----------
 
-// 卡片：圆角 + 细边框（v3.1 方向 C：零投影；需要强调层次时加深线条，不加阴影）
+// 共享内容卡片使用统一轻投影，避免页面各自定义不同阴影。
 .el-card.el-card {
   // 多色分类版规范：卡片内容内距 20px。
   --el-card-padding: 20px;
-  border-radius: $radius-base;
+  border-radius: $radius-lg;
   border-color: $border-color;
+  box-shadow: $shadow-card;
   transition: border-color $transition-base;
 
   // 卡头：16px 20px 内距，56px 最小高度，15px 标题。
@@ -165,23 +165,23 @@ body {
   }
 }
 
-// 零投影兜底：EP 的 `.el-card.is-always-shadow` / `.is-hover-shadow` 是 (0,2,0) 的组件级规则，
+// 轻投影兜底：EP 的 `.el-card.is-always-shadow` / `.is-hover-shadow` 是 (0,2,0) 的组件级规则，
 // 且 EP 样式懒加载分包后注入 —— 与全局 `.el-card.el-card` 同优先级时 EP 胜出，
 // 导致未显式 `shadow="never"` 的卡片仍带默认投影（实测：题库卡片 rgba(0,0,0,.12) 0 0 12px）。
-// 三写类名抬到 (0,3,0) 才能真正压过，兑现「卡片零投影」（层次交给线条）。
+// 三写类名抬到 (0,3,0)，避免懒加载组件恢复 Element Plus 的默认重投影。
 .el-card.el-card.is-always-shadow,
 .el-card.el-card.is-hover-shadow:hover,
 .el-card.el-card.is-hover-shadow:focus {
-  box-shadow: none;
+  box-shadow: $shadow-card;
 }
 
-// 可交互卡片：悬停用「左缘主色条 + 描边加深」表达可点，不做上浮与投影
+// 可交互卡片：悬停使用主色描边与低强度阴影。
 .hover-lift {  cursor: pointer;
   transition: border-color $transition-base, box-shadow $transition-base;
 
   &:hover {
     border-color: $color-primary-border;
-    box-shadow: inset 2px 0 0 $color-primary;
+    box-shadow: $shadow-sm;
   }
 }
 
@@ -250,7 +250,7 @@ body {
   //    与 Element Plus 自带规则同优先级，实际会被对方按注入顺序覆盖，导致密度切换点了没反应。
   td.el-table__cell,
   th.el-table__cell {
-    padding: var(--table-cell-padding-y, 7px) 0;
+    padding: var(--table-cell-padding-y, 12px) 0;
   }
 }
 
@@ -313,7 +313,7 @@ html[data-density='compact'] {
 // 弹窗只让正文滚动，标题、关闭入口和操作区始终留在视口内。
 .el-dialog.el-dialog {
   padding: 0;
-  border-radius: $radius-base;
+  border-radius: $radius-lg;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -487,7 +487,7 @@ html[data-density='compact'] {
   white-space: normal;
   padding: 0 7px;
   border-radius: 5px;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.4;
 
@@ -658,7 +658,7 @@ html[data-density='compact'] {
 // 列表容器卡：统一「工具栏 / 表格 / 分页」的承载面
 .table-card {
   min-width: 0;
-  border-radius: $radius-base;
+  border-radius: $radius-lg;
 
   .table-card__toolbar {
     display: flex;

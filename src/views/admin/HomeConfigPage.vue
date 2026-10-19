@@ -15,6 +15,8 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { getConfigs, saveConfig, resetConfig } from '@/api/home';
 import { list as listBanks } from '@/api/banks';
+import EmptyState from '@/components/common/EmptyState.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
 import { formatDateTime } from '@/utils/datetime';
 import type { HomeConfigOverview, HomeDeptConfig, HomeShortcutConfigItem, QuestionBank } from '@/types';
@@ -23,6 +25,7 @@ import type { HomeConfigOverview, HomeDeptConfig, HomeShortcutConfigItem, Questi
 const GLOBAL_ID = '*';
 
 const loading = ref(true);
+const loadError = ref(false);
 const saving = ref(false);
 const resetting = ref(false);
 const overview = ref<HomeConfigOverview | null>(null);
@@ -95,12 +98,14 @@ onMounted(() => {
 
 async function loadAll(): Promise<void> {
   loading.value = true;
+  loadError.value = false;
   try {
     const [ov, bankList] = await Promise.all([getConfigs(), listBanks()]);
     overview.value = ov;
     banks.value = bankList;
     applyTarget(selectedDept.value);
   } catch {
+    loadError.value = true;
     // 错误提示已由 http.ts 响应拦截器统一弹出
   } finally {
     loading.value = false;
@@ -220,26 +225,16 @@ function formatAt(v: string | null): string {
 </script>
 
 <template>
-  <div class="home-config-page">
+  <div data-ui-layout="settings" data-ui-page="HomeConfigPage" class="home-config-page">
     <PageHeader
       title="首页配置"
       description="按科室下发考试端首页的快捷入口与推荐练题题库；未单独配置的科室继承「全局默认」"
     >
-      <template #actions>
-        <el-button :disabled="!dirty" @click="applyTarget(selectedDept)">放弃修改</el-button>
-        <el-button
-          v-if="configured"
-          :loading="resetting"
-          @click="handleReset()"
-        >
-          重置为{{ isGlobalTarget ? '内置默认' : '全局默认' }}
-        </el-button>
-        <el-button type="primary" :loading="saving" :disabled="!dirty" @click="handleSave">
-          保存配置
-        </el-button>
-      </template>
+
     </PageHeader>
 
+    <RequestError v-if="loadError" text="首页配置加载失败" @retry="loadAll" />
+    <div v-else class="home-config-page__content">
     <!-- ============ 1. 选择配置范围 ============ -->
     <el-card v-loading="loading" class="home-config-page__panel" shadow="never">
       <template #header>
@@ -458,7 +453,6 @@ function formatAt(v: string | null): string {
         row-key="departmentId"
         stripe
         size="small"
-        empty-text="暂无科室级配置"
       >
         <el-table-column label="配置范围" min-width="200">
           <template #default="{ row }">
@@ -504,15 +498,39 @@ function formatAt(v: string | null): string {
             </el-button>
           </template>
         </el-table-column>
+        <template #empty><EmptyState text="暂无科室级配置，未单独配置的科室继承全局默认" /></template>
       </el-table>
     </el-card>
-  </div>
+    </div>
+
+    <footer class="design-savebar" aria-label="配置保存操作"><el-button :disabled="!dirty || loading || loadError || saving || resetting" @click="applyTarget(selectedDept)">放弃修改</el-button><el-button
+          v-if="configured"
+          :loading="resetting"
+          @click="handleReset()"
+        >
+          重置为{{ isGlobalTarget ? '内置默认' : '全局默认' }}
+        </el-button><el-button type="primary" :loading="saving" :disabled="!dirty || loading || loadError || resetting" @click="handleSave">
+          保存配置
+        </el-button></footer>
+</div>
 </template>
 
 <style scoped lang="scss">
 @use '@/styles/variables.scss' as *;
 
+.home-config-page__content {
+  display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; min-width: 0; align-items: start;
+  > .el-card { margin: 0; min-width: 0; }
+  > .el-card:nth-child(3) { grid-column: 1; grid-row: 2 / span 2; }
+  > .el-card:nth-child(4) { grid-column: 2; grid-row: 2; }
+  > .el-card:nth-child(5) { grid-column: 2; grid-row: 3; }
+  > .el-card:last-child { grid-column: 1 / -1; }
+}
+@container home-config (max-width: 850px) {
+  .home-config-page__content { grid-template-columns: minmax(0, 1fr); > .el-card { grid-column: auto; grid-row: auto; } }
+}
 .home-config-page {
+  container: home-config / inline-size;
   &__panel {
     margin-bottom: 18px;
     border-radius: $radius-lg;

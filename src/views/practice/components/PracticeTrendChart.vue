@@ -230,7 +230,7 @@ const hasData = computed<boolean>(() => props.points.some((p) => p.doneCount > 0
     flex-wrap: wrap;
     gap: 14px;
     margin-top: 8px;
-    font-size: 11px;
+    font-size: 12px;
     color: $text-secondary;
   }
 

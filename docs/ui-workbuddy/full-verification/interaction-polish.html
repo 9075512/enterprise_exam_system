@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>交互与布局精修验收 · Workbuddy 01</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#f4f6fb;color:#172338;font:14px/1.8 system-ui,"Microsoft YaHei",sans-serif}main{max-width:1120px;margin:auto;padding:32px 24px 64px}h1{font-size:26px;margin:8px 0}h2{font-size:19px;margin:0 0 14px}a{color:#2563eb}small,.muted,figcaption{color:#66758a}.card{padding:24px;background:white;border:1px solid #e7ebf2;border-radius:16px;margin:20px 0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}.phone{max-width:390px;margin:auto}img{width:100%;display:block;border:1px solid #e7ebf2;border-radius:12px}figure{margin:0}figcaption{font-size:13px;margin-top:10px}.links{display:flex;gap:18px;flex-wrap:wrap}table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;padding:12px;border-bottom:1px solid #e7ebf2}th{background:#f4f6fb}.table{overflow:auto}.ok{color:#178358;font-weight:600}@media(max-width:700px){main{padding:24px 16px}.card{padding:18px}.grid{grid-template-columns:1fr}h1{font-size:23px}}</style>
+<main><small>2026-10-19 · 全页面实施后的交互与布局精修</small><h1>修正手机触控、分页和横屏表单</h1><p>沿用白侧栏、浅灰蓝底、蓝色操作和16 px卡片。此次修正作用于实际页面和共享组件，保留现有事件、数据接口与权限规则。</p><nav class="links"><a href="index.html">全页面实施记录</a><a href="../coverage/index.html">逐页设计与手机稿</a><a href="interaction-checks.json">本轮页面检查</a><a href="interaction-drawer-checks.json">本轮抽屉检查</a></nav>
+<section class="card"><h2>发现并修正的问题</h2><div class="table"><table><thead><tr><th>原问题</th><th>修正结果</th></tr></thead><tbody>
+<tr><td>导航、帮助、密度切换、分类和关闭操作部分只有28–38 px</td><td>手机端触控区域至少44 px；保持原有按钮样式和事件</td></tr>
+<tr><td>窄屏面包屑换行挤压标题</td><td>面包屑单行截断，页面标题完整展示</td></tr>
+<tr><td>页码缩小后难以点击，较多页码拥挤</td><td>手机采用上一页、页码输入、下一页；桌面保留现有分页布局；输入校验边界、空值及重复确认</td></tr>
+<tr><td>通用列表样式误清除说明、筛选卡片的内边距</td><td>仅表格卡片采用零正文内边距；筛选、异常说明和补考规则卡恢复留白；公告筛选明确显示全部范围和全部状态</td></tr>
+<tr><td>568 × 320 横屏时系统设置正文被挤到0高度</td><td>低高度屏幕改用页面滚动，取消说明区吸顶；正文恢复可读、可聚焦，底部保存栏保持可见</td></tr>
+</tbody></table></div></section>
+<section class="card"><h2>实际手机页面与抽屉</h2><div class="grid"><figure class="phone"><a href="interaction-content-mobile.png"><img src="interaction-content-mobile.png" alt="修正后的手机公告列表、筛选和分页"></a><figcaption>公告筛选、密度切换与可输入页码。</figcaption></figure><figure class="phone"><a href="interaction-user-drawer.png"><img src="interaction-user-drawer.png" alt="修正后的手机用户编辑抽屉"></a><figcaption>关闭按钮44 px，正文独立滚动，操作区固定。</figcaption></figure></div></section>
+<section class="card"><h2>实际横屏表单</h2><figure><a href="interaction-settings-landscape.png"><img src="interaction-settings-landscape.png" alt="568乘320手机横屏中可见且可聚焦的考试时长输入及保存栏"></a><figcaption>568 × 320：滚动并聚焦考试时长输入，正文和保存栏可同时操作；未修改字段或保存配置。</figcaption></figure></section>
+<section class="card"><h2>实际桌面布局</h2><a href="interaction-content-desktop.png"><img src="interaction-content-desktop.png" alt="保留原有分页布局的桌面公告管理"></a></section>
+<section class="card"><h2>验证结果</h2><p class="ok">60个测试文件、450项测试全部通过；类型检查和生产构建通过。</p><p>新增6项分页测试，验证前后翻页、跳页边界、重复确认、空值、禁用、响应式切换、页大小事件和视口监听清理。</p><p>生产构建中检查公告、补考、设置、审计、登录日志、权限、用户、复核、阅卷、角色10个页面；尺寸为320 × 568、390 × 844、568 × 320、768 × 844、1440 × 960，共50次。未发现页面横向溢出、接口错误或设置正文被压为0高度；手机页头按钮均达到44 px。</p><p>用户编辑抽屉另检查4档手机和平板尺寸，正文无横向溢出、关闭按钮44 px、底部操作未超出视口。</p><p class="muted">本轮采用生产构建复查，避免开发热更新干扰。未开始考试、提交成绩、变更权限或保存业务配置。页面图片来自实际接口数据。浏览器视口验收不等同于实体手机键盘与设备测试。</p></section>
+</main></html>

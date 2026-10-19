@@ -1,4 +1,5 @@
 <script setup lang="ts" generic="T">
+import ResponsivePagination from '@/components/common/ResponsivePagination.vue';
 import { computed, ref, watch } from 'vue';
 
 /** Overview lists stay short; the complete ordered list is browsed in a paged dialog. */
@@ -38,7 +39,7 @@ function open(): void {
         <slot :items="paged" :offset="offset" />
       </div>
       <template #footer>
-        <el-pagination
+        <ResponsivePagination
           v-model:current-page="page"
           :total="items.length"
           :page-size="pageSize"

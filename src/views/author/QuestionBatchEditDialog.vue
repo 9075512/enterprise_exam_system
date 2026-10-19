@@ -22,7 +22,7 @@ const emit = defineEmits<{
 
 const dialogVisible = computed<boolean>({
   get: () => props.visible,
-  set: (value) => emit('update:visible', value),
+  set: (value) => { if (!value && submitting.value) return; emit('update:visible', value); },
 });
 
 const form = reactive({
@@ -45,10 +45,11 @@ watch(
 
 /** 未勾选任何字段时提交按钮禁用 */
 const canSubmit = computed<boolean>(
-  () => form.changeDifficulty,
+  () => form.changeDifficulty && props.questionIds.length > 0,
 );
 
 async function handleSubmit(): Promise<void> {
+  if (submitting.value) return;
   if (!canSubmit.value) {
     ElMessage.warning('请至少选择一个要修改的字段');
     return;
@@ -61,7 +62,7 @@ async function handleSubmit(): Promise<void> {
     const { updated } = await questionsApi.batchEdit(payload);
     ElMessage.success(`已批量更新 ${updated} 道试题`);
     emit('saved');
-    dialogVisible.value = false;
+    emit('update:visible', false);
   } catch {
     // 错误提示已由 http.ts 响应拦截器统一弹出
   } finally {
@@ -82,12 +83,15 @@ function handleCancel(): void {
     top="8vh"
     append-to-body
     destroy-on-close
+    :close-on-click-modal="!submitting"
+    :close-on-press-escape="!submitting"
+    :show-close="!submitting"
   >
     <p class="batch-tip">
       已选择 <strong>{{ questionIds.length }}</strong> 道试题；仅勾选的字段会被修改，其余字段保持原值。
     </p>
 
-    <el-form label-position="top">
+    <el-form label-position="top" :disabled="submitting">
       <el-form-item>
         <el-checkbox v-model="form.changeDifficulty">修改难度</el-checkbox>
         <el-select
@@ -108,7 +112,7 @@ function handleCancel(): void {
     </el-form>
 
     <template #footer>
-      <el-button @click="handleCancel">取消</el-button>
+      <el-button :disabled="submitting" @click="handleCancel">取消</el-button>
       <el-button type="primary" :loading="submitting" :disabled="!canSubmit" @click="handleSubmit">
         确认修改
       </el-button>

@@ -21,6 +21,8 @@ import {
   WRONG_AUTO_REMOVE_MAX,
   WRONG_AUTO_REMOVE_MIN,
 } from '@/constants/practiceSettings';
+import EmptyState from '@/components/common/EmptyState.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
 import type { PracticeSettings, QuestionBank, QuestionType } from '@/types';
 
@@ -118,7 +120,7 @@ async function loadBanks(): Promise<void> {
   banksLoading.value = true;
   banksLoadError.value = false;
   try {
-    banks.value = await listBanks();
+    banks.value = (await listBanks()).filter(bank => bank.isLeaf);
   } catch {
     banksLoadError.value = true;
   } finally {
@@ -175,12 +177,9 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
 </script>
 
 <template>
-  <div class="practice-settings-page">
+  <div data-ui-layout="settings" data-ui-page="PracticeSettingsPage" class="practice-settings-page">
     <PageHeader title="练题端设置" description="管理题库开放与学员练题体验">
-      <template #actions>
-        <span v-if="hasChanges" class="practice-settings-page__unsaved" role="status">有未保存的修改</span>
-        <el-button type="primary" :loading="practiceSaving" :disabled="!hasChanges || practiceLoading || practiceLoadError" @click="handleSavePractice">保存配置</el-button>
-      </template>
+
     </PageHeader>
 
     <section class="practice-settings-page__overview" aria-label="练题开放概况">
@@ -233,7 +232,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
             </el-select>
             <el-button text :disabled="banksLoading || bankBatchSaving || Boolean(bankSavingId)" @click="loadBanks">刷新列表</el-button>
           </div>
-          <div v-if="banksLoadError" class="practice-settings-page__error" role="alert">题库加载失败，请点击刷新列表重试。</div>
+          <RequestError v-if="banksLoadError" text="练题题库加载失败" @retry="loadBanks" />
           <template v-else>
 <el-table :data="filteredBanks" row-key="id" :empty-text="banks.length ? '没有匹配的题库' : '暂无题库，请先在题库管理中创建'">
             <el-table-column prop="name" label="题库名称" min-width="180" show-overflow-tooltip />
@@ -258,6 +257,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
                 <el-tag v-else type="info" size="small" effect="plain">未开放</el-tag>
               </template>
             </el-table-column>
+            <template #empty><EmptyState :text="banks.length ? '没有匹配的题库' : '暂无题库，请先在题库管理中创建'" :filtered="Boolean(bankSearch || bankFilter !== 'all')" @clear="bankSearch = ''; bankFilter = 'all'" /></template>
           </el-table>
             <p class="practice-settings-page__table-note">共 {{ filteredBanks.length }} 个题库<span v-if="bankSearch || bankFilter !== 'all'">（总计 {{ banks.length }} 个）</span> · 空题库无法开放</p>
           </template>
@@ -533,7 +533,9 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
       </el-tab-pane>
     </el-tabs>
     <p class="practice-settings-page__page-note">设置仅作用于练题模块，不影响考试。练题数据可在「练题监控」中查看。</p>
-  </div>
+
+    <footer class="design-savebar" aria-label="配置保存操作"><span v-if="hasChanges" class="practice-settings-page__unsaved" role="status">有未保存的修改</span><el-button type="primary" :loading="practiceSaving" :disabled="!hasChanges || practiceLoading || practiceLoadError" @click="handleSavePractice">保存配置</el-button></footer>
+</div>
 </template>
 
 <style scoped lang="scss">

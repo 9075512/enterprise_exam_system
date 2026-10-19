@@ -40,6 +40,7 @@ import DataTablePagination from '@/components/common/DataTablePagination.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import QuestionFormDialog from './QuestionFormDialog.vue';
 import QuestionImportDialog from './QuestionImportDialog.vue';
 import QuestionBatchEditDialog from './QuestionBatchEditDialog.vue';
@@ -55,8 +56,9 @@ const settingsStore = useSettingsStore();
 const bankId = computed<string>(() => props.selectedBankId || String(route.params.bankId ?? ''));
 
 /* ------------------------------ 题库信息 ------------------------------ */
-const { data: bank, loading: bankLoading, refresh: refreshBank } = useRequest(() =>
+const { data: bank, loading: bankLoading, error: bankError, refresh: refreshBank } = useRequest(() =>
   banksApi.detail(bankId.value),
+  [], { keepPreviousData: false },
 );
 const canEdit = computed<boolean>(() => bank.value?.canEdit === true);
 
@@ -64,8 +66,9 @@ const canEdit = computed<boolean>(() => bank.value?.canEdit === true);
 /**
  * 复用后端统计结果展示总量与题型分布；正确率和知识点健康度不再在题库管理中展示。
  */
-const { data: stats, refresh: refreshStats } = useRequest(() =>
+const { data: stats, error: statsError, refresh: refreshStats } = useRequest(() =>
   banksApi.questionStats(bankId.value),
+  [], { keepPreviousData: false },
 );
 
 /** 题型分布（未加载时给全 0，避免模板判空） */
@@ -87,7 +90,9 @@ const {
   pageSize,
   total,
   loading,
+  error: questionsError,
   load,
+  clear: clearQuestions,
   onPageChange,
   onSizeChange,
   reset,
@@ -165,16 +170,20 @@ function onBatchSaved(): void {
 }
 
 const migrateVisible = ref(false);
-const migrateBanks = ref<QuestionBank[]>([]);
+const { data: migrateBanks, loading: migrateLoading, error: migrateError, refresh: refreshMigrateBanks } = useRequest(async () =>
+  migrateVisible.value ? (await banksApi.list()).filter((item) => item.id !== bankId.value && item.canEdit) : [] as QuestionBank[],
+  [migrateVisible, bankId], { immediate: false, keepPreviousData: false },
+);
 const migrateTargetBankId = ref('');
 const qualityLoading = ref(false);
 
 async function runQualityAction(action: 'enable' | 'disable' | 'delete' | 'validate'): Promise<void> {
-  if (!selectedRows.value.length) return;
+  if (!selectedRows.value.length || qualityLoading.value) return;
   if (action === 'delete') {
     const ok = await confirm('确认物理删除所选试题？已被试卷引用的题目会被后端拒绝，请改为停用。', { title: '批量删除' });
     if (!ok) return;
   }
+  if (qualityLoading.value) return;
   qualityLoading.value = true;
   try {
     const result = await qualityApi.batch(selectedRows.value.map((q) => q.id), action);
@@ -187,14 +196,16 @@ async function runQualityAction(action: 'enable' | 'disable' | 'delete' | 'valid
   } finally { qualityLoading.value = false; }
 }
 
-async function openMigrate(): Promise<void> {
-  migrateBanks.value = (await banksApi.list()).filter((item) => item.id !== bankId.value && item.canEdit);
+function openMigrate(): void {
+  if (!canEdit.value || !selectedRows.value.length || qualityLoading.value) return;
   migrateTargetBankId.value = '';
   migrateVisible.value = true;
 }
 
 async function submitMigrate(): Promise<void> {
+  if (qualityLoading.value || migrateLoading.value || migrateError.value || !canEdit.value || !selectedRows.value.length) return;
   if (!migrateTargetBankId.value) { ElMessage.warning('请选择目标题库'); return; }
+  if (!migrateBanks.value?.some((item) => item.id === migrateTargetBankId.value)) return;
   qualityLoading.value = true;
   try {
     const result = await qualityApi.batch(selectedRows.value.map((q) => q.id), 'migrate', migrateTargetBankId.value);
@@ -202,7 +213,8 @@ async function submitMigrate(): Promise<void> {
     migrateVisible.value = false;
     clearSelection();
     reloadAll();
-  } finally { qualityLoading.value = false; }
+  } catch { /* 失败保留目标与选择，供用户重试。 */ }
+  finally { qualityLoading.value = false; }
 }
 
 /* ------------------------------ 试题弹窗 ------------------------------ */
@@ -247,6 +259,12 @@ function goBack(): void {
 
 /** bankId 变化时重新初始化（同一组件实例内切换路由参数） */
 watch(bankId, () => {
+  migrateVisible.value = false;
+  formVisible.value = false;
+  batchVisible.value = false;
+  importVisible.value = false;
+  clearSelection();
+  clearQuestions();
   void refreshBank();
   void refreshStats();
   reset();
@@ -260,7 +278,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="bank-detail">
+  <div data-ui-layout="tree" data-ui-page="QuestionBankDetailPage" class="bank-detail">
     <PageHeader v-if="!props.embedded" title="题库详情" :description="bank?.name || '维护题库内的试题'">
       <template #actions>
         <el-button :icon="ArrowLeft" @click="goBack">返回列表</el-button>
@@ -268,6 +286,7 @@ onMounted(() => {
     </PageHeader>
 
     <LoadingSkeleton v-if="bankLoading && !bank" :rows="2" />
+    <RequestError v-else-if="bankError" text="科目信息加载失败" @retry="refreshBank" />
     <section v-else-if="bank" class="bank-overview">
       <div class="bank-overview__heading">
         <div class="bank-overview__title-row">
@@ -287,28 +306,29 @@ onMounted(() => {
     </section>
 
     <!-- 题目概览：仅保留题量与题型分布。 -->
+    <p class="bank-detail__scope">当前科目全部题目 · 不受下方题目筛选影响</p>
+    <el-alert v-if="statsError" type="warning" :closable="false" title="题量统计加载失败，请重试"><el-button type="primary" link @click="refreshStats">重新加载统计</el-button></el-alert>
     <div class="bank-detail__stats">
-      <StatCard density="compact" label="题目总数" :value="stats?.total ?? 0" unit="道" :icon="Collection" />
+      <StatCard density="compact" label="题目总数" :value="stats?.total ?? '—'" unit="道" :icon="Collection" />
       <StatCard
         density="compact"
         label="单选 / 多选"
-        :value="`${typeCount.single} / ${typeCount.multiple}`"
+        :value="stats ? `${typeCount.single} / ${typeCount.multiple}` : '— / —'"
         :icon="ListIcon"
       />
       <StatCard
         density="compact"
-        label="判断 / 简答"
-        :value="`${typeCount.judge} / ${typeCount.short}`"
+        label="判断 / 填空 / 简答"
+        :value="stats ? `${typeCount.judge} / ${typeCount.fill} / ${typeCount.short}` : '— / — / —'"
         :icon="CircleCheck"
       >
-        <template v-if="typeCount.fill > 0" #foot>含填空 {{ typeCount.fill }} 道</template>
       </StatCard>
     </div>
 
     <section class="bank-detail__main">
         <el-card class="table-card" shadow="never">
           <div class="table-card__toolbar">
-            <h3 class="bank-detail__title">试题（{{ total }}）</h3>
+            <h3 class="bank-detail__title">{{ hasFilter ? '筛选结果' : '试题列表' }}（{{ questionsError ? '—' : total }}）</h3>
             <div class="bank-detail__toolbar-actions">
               <el-button v-if="canEdit" type="primary" :icon="Plus" @click="openCreate">手动新增</el-button>
               <el-button v-if="canEdit" :icon="Upload" @click="openImport">批量导入 Excel</el-button>
@@ -370,7 +390,8 @@ onMounted(() => {
             <el-button type="danger" :loading="qualityLoading" @click="runQualityAction('delete')">删除</el-button>
           </BatchActionBar>
 
-          <el-table
+          <el-alert v-if="questionsError" type="error" :closable="false" title="试题列表加载失败，请重试；当前数量尚未确认"><el-button type="primary" link @click="load">重新加载试题</el-button></el-alert>
+          <el-table v-else
             ref="tableRef"
             v-loading="loading"
             :data="questions"
@@ -427,7 +448,7 @@ onMounted(() => {
             </template>
           </el-table>
 
-          <div v-if="total > 0" class="table-card__pagination">
+          <div v-if="!questionsError && total > 0" class="table-card__pagination">
             <DataTablePagination
               :page="page"
               :page-size="pageSize"
@@ -468,9 +489,12 @@ onMounted(() => {
       :question-ids="selectedRows.map((q) => q.id)"
       @saved="onBatchSaved"
     />
-    <el-dialog v-model="migrateVisible" title="迁移试题" width="460px" append-to-body>
-      <el-form label-width="90px"><el-form-item label="目标题库" required><el-select v-model="migrateTargetBankId" filterable style="width:100%"><el-option v-for="item in migrateBanks" :key="item.id" :label="item.name" :value="item.id"/></el-select></el-form-item></el-form>
-      <template #footer><el-button @click="migrateVisible=false">取消</el-button><el-button type="primary" :loading="qualityLoading" @click="submitMigrate">确认迁移</el-button></template>
+    <el-dialog v-model="migrateVisible" title="迁移试题" width="560px" append-to-body :close-on-click-modal="!qualityLoading" :close-on-press-escape="!qualityLoading" :show-close="!qualityLoading">
+      <div class="admin-detail-block"><strong>{{ bank?.name }}</strong><p>已选 {{ selectedRows.length }} 道试题 · 请选择有编辑权限的其他题库。</p></div>
+      <RequestError v-if="migrateError" text="目标题库加载失败" @retry="refreshMigrateBanks" />
+      <EmptyState v-else-if="!migrateLoading && !migrateBanks?.length" text="暂无其他可编辑的目标题库" />
+      <el-form v-else label-position="top" :disabled="qualityLoading || migrateLoading"><el-form-item label="目标题库" required><el-select v-model="migrateTargetBankId" filterable :loading="migrateLoading" placeholder="请选择目标题库" style="width:100%"><el-option v-for="item in migrateBanks ?? []" :key="item.id" :label="item.name" :value="item.id"/></el-select></el-form-item></el-form>
+      <template #footer><el-button :disabled="qualityLoading" @click="migrateVisible=false">取消</el-button><el-button type="primary" :loading="qualityLoading" :disabled="migrateLoading || Boolean(migrateError) || !migrateTargetBankId || !selectedRows.length" @click="submitMigrate">确认迁移</el-button></template>
     </el-dialog>
   </div>
 </template>
@@ -481,6 +505,7 @@ onMounted(() => {
 .bank-detail {
   container: bank-detail / inline-size;
   min-width: 0;
+  &__scope { margin: 18px 0 0; color: $text-secondary; font-size: 12px; }
   &__back {
     margin-bottom: 12px;
   }
@@ -612,11 +637,13 @@ onMounted(() => {
 }
 
 .cell-stem {
-  display: inline-block;
+  display: -webkit-box;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   vertical-align: bottom;
 }
 

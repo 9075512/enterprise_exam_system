@@ -1,0 +1,1286 @@
+[
+  {
+    "page": "页面 · 暂无页面权限",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 登录",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 在线答题",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 数据总览",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 科室管理",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 用户管理",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 科目管理",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 角色管理",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      598.4000244140625,
+      598.4000244140625
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 岗位管理",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 模板管理",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 题目反馈",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 重复题审计",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 练题监控",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 考试管理",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 新建考试",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 编辑考试",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 题目预览",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 监考监控",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 补考管理",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 成绩报表",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 成绩复核",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 人工阅卷",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 练题端设置",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 公告与轮播",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      392.2625122070313,
+      392.2625122070313,
+      392.2749938964844
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 首页配置",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 系统设置",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 菜单权限",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 审计日志",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      598.4000244140625,
+      598.4000244140625
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 登录日志",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 系统维护",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 题库管理",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 首页",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 我的考试",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 我的成绩",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 我的补考",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 成绩明细",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 消息中心",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 个人中心",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 练题",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 开始练题",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 再次练习",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 错题本",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 学习报告",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 收藏夹",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 我的练题",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 科目题库详情",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 特殊考试安排",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 导出成绩",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 科目编辑",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 批量导入账号",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 批量维护授权出题人",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 复制题库",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 批量编辑试题",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 试题编辑",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 批量导入试题",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 考试结果",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 练题公告",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      598.4000244140625,
+      598.4000244140625
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 练题方式",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 账号安全",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 修改密码",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 公告详情与必读通知",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      598.4000244140625,
+      598.4000244140625
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 完整列表",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      1216.800048828125
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 全局搜索与帮助",
+    "mode": "desktop",
+    "frameClient": 1215,
+    "frameScroll": 1215,
+    "mobile": false,
+    "overlayWidths": [
+      598.4000244140625,
+      598.4000244140625
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 暂无页面权限",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 登录",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 在线答题",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 数据总览",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 科室管理",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 用户管理",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 科目管理",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 角色管理",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390,
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 岗位管理",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 模板管理",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 题目反馈",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 重复题审计",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 练题监控",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 考试管理",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 新建考试",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 编辑考试",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 题目预览",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 监考监控",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 补考管理",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 成绩报表",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 成绩复核",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 人工阅卷",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 练题端设置",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 公告与轮播",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390,
+      390,
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 首页配置",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 系统设置",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 菜单权限",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 审计日志",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390,
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 登录日志",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 系统维护",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 题库管理",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 首页",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 我的考试",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 我的成绩",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 我的补考",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 成绩明细",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 消息中心",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 个人中心",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 练题",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 开始练题",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 再次练习",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "页面 · 错题本",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 学习报告",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 收藏夹",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 我的练题",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [],
+    "text": true
+  },
+  {
+    "page": "页面 · 科目题库详情",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 特殊考试安排",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 导出成绩",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 科目编辑",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 批量导入账号",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 批量维护授权出题人",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 复制题库",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 批量编辑试题",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 试题编辑",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 批量导入试题",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 考试结果",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 练题公告",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390,
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 练题方式",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 账号安全",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 修改密码",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 公告详情与必读通知",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390,
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 完整列表",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390
+    ],
+    "text": true
+  },
+  {
+    "page": "组件 · 全局搜索与帮助",
+    "mode": "mobile",
+    "frameClient": 388,
+    "frameScroll": 388,
+    "mobile": true,
+    "overlayWidths": [
+      390,
+      390
+    ],
+    "text": true
+  }
+]

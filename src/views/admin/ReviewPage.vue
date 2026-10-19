@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ResponsivePagination from '@/components/common/ResponsivePagination.vue';
 /**
  * 人工阅卷（v1.6②，管理员 + 出题人）。
  *
@@ -28,6 +29,8 @@ import { usePagination } from '@/composables/usePagination';
 import { useSettingsStore } from '@/stores/settings';
 import { formatDateTime } from '@/utils/datetime';
 import { formatScore } from '@/utils/format';
+import RequestError from '@/components/common/RequestError.vue';
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import ExamScopeSelect from '@/components/common/ExamScopeSelect.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
@@ -44,6 +47,8 @@ const {
   pageSize,
   total,
   loading,
+  error,
+  clear,
   load,
   onPageChange,
 } = usePagination<ExamRecord>((p, ps) =>
@@ -124,6 +129,7 @@ function resetScores(): void {
 
 /** 选中队列项 → 成为当前记录 */
 function selectRecord(record: ExamRecord): void {
+  if (submittingReview.value) return;
   if (record.id === currentId.value) return;
   currentId.value = record.id;
   resetScores();
@@ -139,7 +145,8 @@ function ensureSelection(): void {
 
 async function refresh(): Promise<void> {
   await load();
-  ensureSelection();
+  if (error.value) { currentId.value = ''; resetScores(); }
+  else ensureSelection();
 }
 
 onMounted(() => {
@@ -154,6 +161,9 @@ onUnmounted(() => {
 
 /** 考试范围变化 → 回到第 1 页重查 */
 watch(examId, () => {
+  clear();
+  currentId.value = '';
+  resetScores();
   page.value = 1;
   void refresh();
 });
@@ -164,7 +174,7 @@ const emptyText = computed(() => (examId.value ? '该考试暂无待阅卷答卷
 /** 页头副标题：待阅总量取自分页 total；「今日已阅」后端无聚合，留 — */
 const headerText = computed(
   // 数据缺口：listPending 仅返回待阅分页数据，无「今日已阅」统计
-  () => `待阅 ${total.value} 份 · 今日已阅 —`,
+  () => `待阅 ${error.value || loading.value ? '—' : total.value} 份 · 今日已阅 —`,
 );
 
 /* ------------------------------ 待阅队列展示 ------------------------------ */
@@ -315,6 +325,7 @@ function moveActive(delta: number): void {
  * 光标处于输入框 / 文本域 / 下拉 / 按钮内时不触发（避免与原生交互冲突）。
  */
 function onKeydown(event: KeyboardEvent): void {
+  if (submittingReview.value) return;
   if (event.ctrlKey || event.metaKey || event.altKey) return;
   const el = event.target as HTMLElement | null;
   if (el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(el.tagName))) return;
@@ -353,6 +364,7 @@ const submittingReview = ref(false);
  * 返回是否成功（Enter 快捷键据此决定是否推进到下一份）。
  */
 async function handleSubmitReview(): Promise<boolean> {
+  if (submittingReview.value) return false;
   const record = current.value;
   if (!record) return false;
   for (const sq of shortQuestions(record)) {
@@ -389,14 +401,19 @@ async function submitAndAdvance(): Promise<void> {
 </script>
 
 <template>
-  <div ref="rootRef" class="review-page">
+  <div data-ui-layout="review" data-ui-page="ReviewPage" ref="rootRef" class="review-page">
     <PageHeader title="人工阅卷" :description="headerText">
       <template #actions>
-        <ExamScopeSelect v-model="examId" />
+        <ExamScopeSelect v-model="examId" :disabled="submittingReview" />
       </template>
     </PageHeader>
 
-    <div class="review-page__grid">
+    <LoadingSkeleton v-if="loading && !current" :rows="6" />
+    <el-card v-else-if="!loading && (error || list.length === 0)" shadow="never">
+      <RequestError v-if="error" text="待阅答卷加载失败" @retry="refresh" />
+      <EmptyState v-else :text="emptyText" />
+    </el-card>
+    <div v-else class="review-page__grid">
       <!-- ① 待阅队列 -->
       <el-card class="review-page__queue" shadow="never">
         <template #header>
@@ -413,6 +430,8 @@ async function submitAndAdvance(): Promise<void> {
             type="button"
             class="review-page__queue-item"
             :class="{ 'is-active': row.id === currentId }"
+            :aria-pressed="row.id === currentId"
+            :disabled="submittingReview"
             @click="selectRecord(row)"
           >
             <span class="review-page__avatar" aria-hidden="true">{{ initial(row.userName) }}</span>
@@ -430,16 +449,18 @@ async function submitAndAdvance(): Promise<void> {
             </span>
           </button>
 
-          <EmptyState v-if="!loading && list.length === 0" :text="emptyText" />
+          <RequestError v-if="error" text="待阅答卷加载失败" @retry="refresh" />
+          <EmptyState v-else-if="!loading && list.length === 0" :text="emptyText" />
         </div>
 
-        <el-pagination
+        <ResponsivePagination
           v-if="total > pageSize"
           class="review-page__pager"
           layout="total, prev, pager, next"
           :total="total"
           :page-size="pageSize"
           :current-page="page"
+          :disabled="submittingReview"
           @current-change="onPageChange"
         />
       </el-card>
@@ -512,6 +533,9 @@ async function submitAndAdvance(): Promise<void> {
                 type="button"
                 class="review-page__flag"
                 :class="{ 'is-on': doubtful[sq.questionId] }"
+                :aria-pressed="!!doubtful[sq.questionId]"
+                :aria-label="`第 ${i + 1} 题${doubtful[sq.questionId] ? '取消存疑标记' : '标记存疑'}`"
+                :disabled="submittingReview"
                 @click.stop="toggleDoubtful(sq.questionId)"
               >
                 <el-icon><Flag /></el-icon>
@@ -550,6 +574,8 @@ async function submitAndAdvance(): Promise<void> {
                     type="button"
                     class="review-page__rubric-band"
                     :class="{ 'is-active': scores[sq.questionId] === band.score }"
+                    :aria-pressed="scores[sq.questionId] === band.score"
+                    :disabled="submittingReview"
                     @click="applyBand(sq.questionId, band.score)"
                   >
                     <span class="review-page__rubric-score num">{{ formatScore(band.score) }} 分</span>
@@ -571,12 +597,15 @@ async function submitAndAdvance(): Promise<void> {
                 :step="0.5"
                 :precision="1"
                 size="small"
+                :aria-label="`第 ${i + 1} 题得分`"
+                :disabled="submittingReview"
+                @change="rated[sq.questionId] = false"
               />
               <span class="review-page__score-max">/ {{ formatScore(sq.score) }} 分</span>
-              <el-button size="small" @click="setFull(sq)">满分</el-button>
-              <el-button size="small" @click="setZero(sq)">零分</el-button>
+              <el-button size="small" :disabled="submittingReview" @click="setFull(sq)">满分</el-button>
+              <el-button size="small" :disabled="submittingReview" @click="setZero(sq)">零分</el-button>
               <span class="review-page__score-spacer" />
-              <el-button size="small" type="primary" @click="rateQuestion(sq)">本题评分</el-button>
+              <el-button size="small" type="primary" :disabled="submittingReview" @click="rateQuestion(sq)">本题评分</el-button>
             </div>
 
             <div class="review-page__note">
@@ -590,8 +619,10 @@ async function submitAndAdvance(): Promise<void> {
                   show-word-limit
                   resize="none"
                   placeholder="填写给考生的评语（可选）…"
+                  :aria-label="`第 ${i + 1} 题评语`"
+                  :disabled="submittingReview"
                 />
-                <el-checkbox v-model="commentVisible[sq.questionId]" size="small">
+                <el-checkbox v-model="commentVisible[sq.questionId]" size="small" :disabled="submittingReview">
                   评语同步展示给考生
                 </el-checkbox>
               </div>
@@ -675,10 +706,11 @@ async function submitAndAdvance(): Promise<void> {
 @use '@/styles/variables.scss' as *;
 
 .review-page {
+  container: review-workspace / inline-size;
   &__grid {
     display: grid;
-    grid-template-columns: 250px minmax(0, 1fr) 286px;
-    gap: 12px;
+    grid-template-columns: 240px minmax(0, 1fr) 260px;
+    gap: 20px;
     align-items: start;
   }
 
@@ -755,13 +787,15 @@ async function submitAndAdvance(): Promise<void> {
   }
 
   &__queue-name {
+    overflow-wrap: anywhere;
     font-size: 12.5px;
     font-weight: 600;
     color: $text-primary;
   }
 
   &__queue-sub {
-    font-size: 11px;
+    overflow-wrap: anywhere;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -774,7 +808,7 @@ async function submitAndAdvance(): Promise<void> {
     border-radius: 50%;
     background: $color-primary-soft;
     color: $color-primary;
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 600;
 
     &--lg {
@@ -788,7 +822,7 @@ async function submitAndAdvance(): Promise<void> {
     flex: 0 0 auto;
     padding: 2px 7px;
     border-radius: $radius-xs;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     white-space: nowrap;
 
@@ -828,12 +862,14 @@ async function submitAndAdvance(): Promise<void> {
   }
 
   &__record-name {
+    overflow-wrap: anywhere;
     font-size: 14px;
     font-weight: 600;
     color: $text-primary;
   }
 
   &__record-sub {
+    overflow-wrap: anywhere;
     margin-top: 2px;
     font-size: 12px;
     color: $text-secondary;
@@ -854,7 +890,7 @@ async function submitAndAdvance(): Promise<void> {
   }
 
   &__stat-k {
-    font-size: 11.5px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -887,7 +923,7 @@ async function submitAndAdvance(): Promise<void> {
     border-radius: $radius-xs;
     background: $color-secondary-soft;
     color: $color-secondary;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
   }
 
@@ -960,6 +996,7 @@ async function submitAndAdvance(): Promise<void> {
   }
 
   &__stem {
+    overflow-wrap: anywhere;
     margin: 0 0 12px;
     font-size: 13.5px;
     line-height: 1.6;
@@ -1021,6 +1058,7 @@ async function submitAndAdvance(): Promise<void> {
   }
 
   &__rubric-bands {
+    width: 100%;
     display: flex;
     flex: 1;
     flex-direction: column;
@@ -1029,8 +1067,10 @@ async function submitAndAdvance(): Promise<void> {
   }
 
   &__rubric-band {
-    display: flex;
-    align-items: baseline;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    min-height: 44px;
     gap: 8px;
     width: 100%;
     padding: 7px 10px;
@@ -1059,12 +1099,16 @@ async function submitAndAdvance(): Promise<void> {
   }
 
   &__rubric-label {
-    flex: 0 0 auto;
+    min-width: 0;
+    flex: 0 1 auto;
+    overflow-wrap: anywhere;
     font-weight: 600;
     color: $text-primary;
   }
 
   &__rubric-desc {
+    grid-column: 1 / -1;
+    overflow-wrap: anywhere;
     flex: 1;
     min-width: 0;
     font-size: 12px;
@@ -1178,7 +1222,7 @@ async function submitAndAdvance(): Promise<void> {
     border-radius: $radius-xs;
     background: $bg-paper;
     font-family: inherit;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     color: $text-primary;
   }
@@ -1189,17 +1233,44 @@ async function submitAndAdvance(): Promise<void> {
 }
 
 /* 窄屏降级为单列（对齐设计稿 grid 断点） */
-@media (max-width: 1200px) {
+@container review-workspace (max-width: 1100px) {
   .review-page__grid {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 230px minmax(0, 1fr);
   }
+  .review-page__main { grid-column: 2; grid-row: 1 / span 2; }
+  .review-page__side { grid-column: 1; grid-row: 2; }
 
   .review-page__side {
     position: static;
   }
 
   .review-page__queue-body {
-    max-height: none;
+    max-height: 360px;
+  }
+}
+@container review-workspace (max-width: 720px) {
+  .review-page__grid { grid-template-columns: minmax(0, 1fr); }
+  .review-page__main, .review-page__side { grid-column: auto; grid-row: auto; }
+  .review-page__queue-body { max-height: 260px; }
+}
+
+@media (max-width: 900px) {
+  .review-page {
+    &__qhead { flex-wrap: wrap; }
+    &__qhead-spacer { display: none; }
+    &__flag { min-height: 44px; min-width: 44px; margin-left: auto; }
+    &__queue-item { min-height: 64px; }
+    &__queue-item:disabled { cursor: wait; }
+    &__record-head { flex-wrap: wrap; }
+    &__record-head > .review-page__badge { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+    &__answer-row { flex-direction: column; }
+    &__answer-label { flex: none; }
+    &__answer-text { width: 100%; }
+    &__note { flex-direction: column; }
+    &__note-label { flex: none; padding-top: 0; }
+    &__note-body { width: 100%; }
+    &__note :deep(.el-checkbox) { min-height: 44px; }
+    &__note :deep(.el-checkbox__label) { white-space: normal; }
   }
 }
 </style>

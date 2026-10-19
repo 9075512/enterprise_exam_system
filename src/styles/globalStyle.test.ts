@@ -149,8 +149,8 @@ describe('全局样式 · 表格密度护栏', () => {
   const densityBlockBody = /html\[data-density=['"]compact['"]\]\s*\{([^}]*)\}/.exec(scss)?.[1] ?? '';
 
   it('行高由 --table-cell-padding-y 变量驱动，而非写死 padding', () => {
-    expect(scss).toMatch(/--table-cell-padding-y:\s*7px/);
-    expect(scss).toMatch(/padding:\s*var\(--table-cell-padding-y,\s*7px\)\s*0/);
+    expect(scss).toMatch(/--table-cell-padding-y:\s*12px/);
+    expect(scss).toMatch(/padding:\s*var\(--table-cell-padding-y,\s*12px\)\s*0/);
   });
 
   it('内距规则用 td/th.el-table__cell，优先级压过 Element Plus 原生规则', () => {
@@ -202,8 +202,8 @@ describe('全站色值 · 合规护栏', () => {
     expect(gradient).not.toBe('');
     expect(gradient).not.toMatch(/#4f46e5|#7c3aed/i);
     // v3.1 方向 C：渐收取 已选主色 #1268FF → dark-2 #0754DB
-    expect(gradient).toMatch(/#1268ff/i);
-    expect(gradient).toMatch(/#0754db/i);
+    expect(gradient).toMatch(/#2563eb/i);
+    expect(gradient).toMatch(/#1d4ed8/i);
   });
 
   it('规范外色值 #EEF2FF（indigo-50）不出现在任何样式文件', () => {
@@ -229,7 +229,7 @@ describe('全站色值 · 合规护栏', () => {
  * 4) icon 图形档 #858F9E 不得承载文字。
  * 注：styles/ 是 token 源与 EP 覆盖层，豁免「业务层硬编码 hex」类检查。
  */
-describe('全站样式 · v3.1 方向 C 护栏', () => {
+describe('全站样式 · 白侧栏与轻卡片主题护栏', () => {
   const ROOT = resolve(process.cwd(), 'src');
   const stripComments = (s: string) =>
     s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
@@ -251,32 +251,34 @@ describe('全站样式 · v3.1 方向 C 护栏', () => {
   const businessFiles = files.filter((f) => !/[\\/]styles[\\/]/.test(f));
   const vars = stripComments(readFileSync(resolve(ROOT, 'styles/variables.scss'), 'utf8'));
 
-  it('主色唯一：业务层不再出现 v2.2 主色 #2563eb / #1d4ed8 / rgba(37, 99, 235)', () => {
-    const offenders = businessFiles.filter((f) =>
+  it('页面品牌色走主题 token，THEME 是 JS 色板源', () => {
+    const offenders = businessFiles.filter((f) => !/[\\/]constants[\\/]theme\.ts$/.test(f)).filter((f) =>
       /#2563eb|#1d4ed8|rgba\(\s*37\s*,\s*99\s*,\s*235/i.test(stripComments(readFileSync(f, 'utf8'))),
     );
     expect(offenders).toEqual([]);
   });
 
-  it('卡片零投影：$shadow-card 与 $shadow-sm 必须为 none', () => {
-    expect(vars).toMatch(/\$shadow-card\s*:\s*none/);
-    expect(vars).toMatch(/\$shadow-sm\s*:\s*none/);
+  it('卡片使用轻投影，白色侧栏配蓝色浅底选中态', () => {
+    expect(vars).toMatch(/\$shadow-card\s*:\s*0 3px 18px rgba\(23, 35, 56, 0\.025\)/);
+    expect(vars).toMatch(/\$shadow-sm\s*:\s*0 2px 8px rgba\(23, 35, 56, 0\.03\)/);
+    expect(vars).toMatch(/\$sidebar-bg:\s*#FFFFFF/i);
+    expect(vars).toMatch(/\$sidebar-active-bg:\s*#EFF5FF/i);
   });
 
-  it('圆角有上限：$radius-lg ≤ 8px、$radius-xl ≤ 12px（卡片 8px、控件 6px）', () => {
+  it('控件圆角 8px，内容卡片圆角 16px', () => {
     const px = (name: string) => {
       const m = new RegExp(`\\$${name}\\s*:\\s*(\\d+)px`).exec(vars);
       expect(m, `variables.scss 缺少 $${name}`).not.toBeNull();
       return Number(m?.[1]);
     };
     expect(px('radius-base')).toBeLessThanOrEqual(8);
-    expect(px('radius-sm')).toBeLessThanOrEqual(6);
-    // v3.1 方向 C §2.4：卡片圆角上限 8px，$radius-lg 不再是 10px 这一档
-    expect(px('radius-lg')).toBeLessThanOrEqual(8);
-    expect(px('radius-xl')).toBeLessThanOrEqual(12);
+    expect(px('radius-sm')).toBe(8);
+    // 白侧栏方案：内容卡片统一 16px，控件保留 8px。
+    expect(px('radius-lg')).toBe(16);
+    expect(px('radius-xl')).toBe(16);
   });
 
-  it('业务层不出现 14px 及以上大圆角（v2.2 的 $radius-lg: 14px 回归即失败；行内 radius-exception 标记豁免）', () => {
+  it('业务层大圆角使用主题 token，避免硬编码（行内 radius-exception 标记豁免）', () => {
     const offenders = businessFiles.filter((f) =>
       readFileSync(f, 'utf8')
         .split('\n')
@@ -314,10 +316,10 @@ describe('全站样式 · v3.1 方向 C 布局与表头护栏', () => {
   const layoutSource = readFileSync(resolve(process.cwd(), 'src/layouts/AppLayout.vue'), 'utf8');
 
   const VARS: Array<[string, number]> = [
-    ['header-height', 56],
-    ['sidebar-width', 216],
-    ['sidebar-width-collapsed', 60],
-    ['page-padding', 24],
+    ['header-height', 94],
+    ['sidebar-width', 232],
+    ['sidebar-width-collapsed', 64],
+    ['page-padding', 30],
   ];
 
   it.each(VARS)('骨架尺寸 $%s 取设计稿值 %spx', (name, px) => {
@@ -331,14 +333,14 @@ describe('全站样式 · v3.1 方向 C 布局与表头护栏', () => {
     expect(layoutSource).toMatch(/padding:\s*0\s*\$page-padding/);
   });
 
-  it('表头「标签化」：小号 + 加字距 + 大写 + 弱文字色 + 强发丝线分隔', () => {
+  it('浅底表头使用自然字距，不强制大写', () => {
     const header = /\.el-table\.el-table th\.el-table__cell[^{]*\{([^}]*)\}/.exec(scss)?.[1] ?? '';
     expect(header).not.toBe('');
     expect(header).toMatch(/font-size:\s*12px/);
-    expect(header).toMatch(/letter-spacing:\s*0?\.0[3-9]em/);
-    expect(header).toMatch(/text-transform:\s*uppercase/);
+    expect(header).toMatch(/letter-spacing:\s*normal/);
+    expect(header).not.toMatch(/text-transform:\s*uppercase/);
     expect(header).toMatch(/color:\s*\$text-secondary/);
-    expect(header).toMatch(/border-bottom:\s*1px solid \$line-strong/);
+    expect(header).toMatch(/border-bottom:\s*1px solid \$border-color/);
   });
 
   it('覆盖 EP 内部样式一律双写类名抬优先级（防注入顺序翻车）', () => {
@@ -516,9 +518,9 @@ describe('全站样式 · v3.1 方向 C 表单控件族护栏', () => {
     expect(scss).toMatch(/\.el-tabs__nav-wrap::after\s*\{[^}]*height:\s*1px/);
   });
 
-  it('页签刻度只在全局定义，页面不得再局部覆盖 el-tabs__item', () => {
-    expect(settings).not.toMatch(/el-tabs__item/);
-    expect(settings).not.toMatch(/el-tabs__active-bar/);
+  it('设置页独立分类导航沿用全局文字与品牌 token', () => {
+    expect(settings).toMatch(/:deep\(\.el-tabs__item\)[\s\S]*?color:\s*\$text-body/);
+    expect(settings).toMatch(/:hover\s*\{\s*color:\s*\$color-primary-dark/);
   });
 
   it('分页：选中态是主色实底 + 白字（EP 默认只染文字色）', () => {
@@ -668,8 +670,8 @@ describe('全站样式 · 保真度审计修复（B/A 类）', () => {
   const scss = readFileSync(resolve(process.cwd(), 'src/styles/index.scss'), 'utf8');
   const layout = strip(readFileSync(resolve(process.cwd(), 'src/layouts/AppLayout.vue'), 'utf8'));
 
-  it('B1 基准字号：body 13.5px + EP 组件基准 13px（浮层继承 body，此前取浏览器 16px）', () => {
-    expect(scss).toMatch(/body\s*\{[\s\S]*?font-size:\s*13\.5px/);
+  it('正文 14px，EP 控件基准 13px', () => {
+    expect(scss).toMatch(/body\s*\{[\s\S]*?font-size:\s*14px/);
     expect(scss).toMatch(/--el-font-size-base:\s*13px/);
   });
 
@@ -726,11 +728,11 @@ describe('全站样式 · 保真度审计修复（B/A 类）', () => {
     expect(block).toMatch(/color:\s*\$text-body/);
   });
 
-  it('A6 徽标刻度：20px 高 / 5px 圆角 / 11.5px', () => {
+  it('A6 徽标刻度：20px 高 / 5px 圆角 / 12px', () => {
     const block = /\.el-tag\.el-tag\s*\{([\s\S]*?)\n\}/.exec(scss)?.[1] ?? '';
     expect(block).toMatch(/height:\s*20px/);
     expect(block).toMatch(/border-radius:\s*5px/);
-    expect(block).toMatch(/font-size:\s*11\.5px/);
+    expect(block).toMatch(/font-size:\s*12px/);
   });
 
   it('A8 品牌区：mark 24px/r6 + 名称 13.5px/600 + 英文副标题', () => {
@@ -743,13 +745,13 @@ describe('全站样式 · 保真度审计修复（B/A 类）', () => {
 describe('全站样式 · 逐页审计修复（第十轮）', () => {
   it('B1 补遗：body 正文行距 1.55（kit/c.css body 的 line-height）', () => {
     const block = /body\s*\{([^}]*)\}/.exec(scss)?.[1] ?? '';
-    expect(block).toMatch(/font-size:\s*13\.5px/);
-    expect(block).toMatch(/line-height:\s*1\.55/);
+    expect(block).toMatch(/font-size:\s*14px/);
+    expect(block).toMatch(/line-height:\s*1\.6/);
   });
 
   it('卡片零投影兜底：三写类名 (0,3,0) 压过 EP 的 is-always-shadow / is-hover-shadow', () => {
     expect(scss).toMatch(
-      /\.el-card\.el-card\.is-always-shadow[\s\S]*?\.el-card\.el-card\.is-hover-shadow:hover[\s\S]*?\.el-card\.el-card\.is-hover-shadow:focus\s*\{\s*box-shadow:\s*none/,
+      /\.el-card\.el-card\.is-always-shadow[\s\S]*?\.el-card\.el-card\.is-hover-shadow:hover[\s\S]*?\.el-card\.el-card\.is-hover-shadow:focus\s*\{\s*box-shadow:\s*\$shadow-card/,
     );
   });
 });

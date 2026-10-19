@@ -10,6 +10,9 @@ import * as authApi from '@/api/auth';
 import { useAuthStore } from '@/stores/auth';
 import { formatDateTime } from '@/utils/datetime';
 import type { LoginSession } from '@/types';
+import { useRequest } from '@/composables/useRequest';
+import RequestError from '@/components/common/RequestError.vue';
+import EmptyState from '@/components/common/EmptyState.vue';
 
 const props = defineProps<{ modelValue: boolean }>();
 const emit = defineEmits<{ (e: 'update:modelValue', value: boolean): void }>();
@@ -17,12 +20,14 @@ const emit = defineEmits<{ (e: 'update:modelValue', value: boolean): void }>();
 const auth = useAuthStore();
 const visible = computed({
   get: () => props.modelValue,
-  set: (v: boolean) => emit('update:modelValue', v),
+  set: (v: boolean) => { if (!busy.value && !devicesBusy.value) emit('update:modelValue', v); },
 });
 
 /* ------------------------------ 密码策略 ------------------------------ */
-const policyText = ref('');
-const expireDays = ref(0);
+const { data: policy, loading: policyLoading, error: policyError, refresh: loadPolicy } = useRequest(
+  () => visible.value ? authApi.twoFactorPolicy() : Promise.resolve(null),
+  [visible], { immediate: props.modelValue, keepPreviousData: false },
+);
 
 /* ------------------------------ 两步验证 ------------------------------ */
 const twoFactorEnabled = computed(() => auth.currentUser?.twoFactorEnabled === true);
@@ -34,39 +39,20 @@ const disableCode = ref('');
 const busy = ref(false);
 
 /* 恢复码（v1.8② U2）：明文仅在下发时展示一次 */
-const recoveryRemaining = ref(0);
+const recoveryRemaining = ref<number | null>(null);
+watch(policy, (value) => { recoveryRemaining.value = value?.recoveryCodesRemaining ?? null; });
 const recoveryCodes = ref<string[]>([]);
 const regenPassword = ref('');
 const regenCode = ref('');
 
 /* ------------------------------ 登录设备 ------------------------------ */
-const sessions = ref<LoginSession[]>([]);
-const sessionsLoading = ref(false);
+const devicesBusy = ref(false);
+const { data: sessions, loading: sessionsLoading, error: sessionsError, refresh: loadSessions } = useRequest(
+  () => visible.value ? authApi.listSessions() : Promise.resolve([] as LoginSession[]),
+  [visible], { immediate: props.modelValue, keepPreviousData: false },
+);
 
-async function loadPolicy(): Promise<void> {
-  try {
-    const res = await authApi.twoFactorPolicy();
-    policyText.value = res.text;
-    expireDays.value = res.expireDays;
-    recoveryRemaining.value = res.recoveryCodesRemaining;
-  } catch {
-    policyText.value = '';
-  }
-}
-
-async function loadSessions(): Promise<void> {
-  sessionsLoading.value = true;
-  try {
-    sessions.value = await authApi.listSessions();
-  } catch {
-    sessions.value = [];
-  } finally {
-    sessionsLoading.value = false;
-  }
-}
-
-watch(visible, (open) => {
-  if (!open) return;
+watch(visible, () => {
   setupSecret.value = '';
   setupUrl.value = '';
   setupCode.value = '';
@@ -75,13 +61,12 @@ watch(visible, (open) => {
   recoveryCodes.value = [];
   regenPassword.value = '';
   regenCode.value = '';
-  void loadPolicy();
-  void loadSessions();
 });
 
 /* ------------------------------ 两步验证操作 ------------------------------ */
 
 async function startSetup(): Promise<void> {
+  if (busy.value) return;
   busy.value = true;
   try {
     const res = await authApi.setupTwoFactor();
@@ -95,6 +80,7 @@ async function startSetup(): Promise<void> {
 }
 
 async function confirmEnable(): Promise<void> {
+  if (busy.value) return;
   if (!setupCode.value.trim()) {
     ElMessage.warning('请输入验证器中的 6 位验证码');
     return;
@@ -118,18 +104,20 @@ async function confirmEnable(): Promise<void> {
 
 /** 重新生成恢复码（需密码 + 验证码；旧码立即失效，v1.8②）。 */
 async function confirmRegenerate(): Promise<void> {
+  if (busy.value) return;
   if (!regenPassword.value || !regenCode.value.trim()) {
     ElMessage.warning('请输入登录密码与验证码');
     return;
   }
+  busy.value = true;
   try {
     await ElMessageBox.confirm('重新生成后，此前保存的所有恢复码将立即失效。确认继续？', '重新生成恢复码', {
       type: 'warning',
     });
   } catch {
+    busy.value = false;
     return;
   }
-  busy.value = true;
   try {
     const res = await authApi.regenerateRecoveryCodes(regenPassword.value, regenCode.value.trim());
     recoveryCodes.value = res.recoveryCodes;
@@ -170,6 +158,7 @@ function dismissRecoveryCodes(): void {
 }
 
 async function confirmDisable(): Promise<void> {
+  if (busy.value) return;
   if (!disablePassword.value || !disableCode.value.trim()) {
     ElMessage.warning('请输入登录密码与验证码');
     return;
@@ -200,6 +189,8 @@ async function copySecret(): Promise<void> {
 /* ------------------------------ 设备操作 ------------------------------ */
 
 async function revokeOne(row: LoginSession): Promise<void> {
+  if (devicesBusy.value || row.current) return;
+  devicesBusy.value = true;
   try {
     await ElMessageBox.confirm(
       `确认下线「${describeAgent(row.userAgent)}」这台设备？`,
@@ -207,6 +198,7 @@ async function revokeOne(row: LoginSession): Promise<void> {
       { type: 'warning' },
     );
   } catch {
+    devicesBusy.value = false;
     return;
   }
   try {
@@ -215,15 +207,18 @@ async function revokeOne(row: LoginSession): Promise<void> {
     await loadSessions();
   } catch {
     /* 拦截器已提示 */
-  }
+  } finally { devicesBusy.value = false; }
 }
 
 async function revokeOthers(): Promise<void> {
+  if (devicesBusy.value || sessionsLoading.value || sessionsError.value) return;
+  devicesBusy.value = true;
   try {
     await ElMessageBox.confirm('确认下线除当前设备外的全部设备？', '下线其他设备', {
       type: 'warning',
     });
   } catch {
+    devicesBusy.value = false;
     return;
   }
   try {
@@ -232,7 +227,7 @@ async function revokeOthers(): Promise<void> {
     await loadSessions();
   } catch {
     /* 拦截器已提示 */
-  }
+  } finally { devicesBusy.value = false; }
 }
 
 /** UA 简要描述（取浏览器/系统关键词，避免整串过长）。 */
@@ -263,24 +258,24 @@ function describeAgent(ua: string): string {
 </script>
 
 <template>
-  <el-dialog v-model="visible" title="账号安全" width="720px" top="6vh" append-to-body>
+  <el-dialog v-model="visible" title="账号安全" width="800px" top="6vh" append-to-body :close-on-click-modal="!busy && !devicesBusy" :close-on-press-escape="!busy && !devicesBusy" :show-close="!busy && !devicesBusy">
     <div class="security">
       <!-- 密码策略 -->
       <el-card class="security__card" shadow="never">
         <template #header>
           <span class="security__title"><el-icon><Key /></el-icon> 密码策略</span>
         </template>
-        <p class="security__desc">
-          当前策略：{{ policyText || '加载中…' }}
-        </p>
-        <p class="security__desc">
+        <RequestError v-if="policyError" text="密码策略与恢复码数量加载失败" @retry="loadPolicy" />
+        <p v-else-if="policyLoading" class="security__desc">正在加载账号安全策略…</p>
+        <p v-else class="security__desc">当前策略：{{ policy?.text || '—' }}</p>
+        <p v-if="policy" class="security__desc">
           {{
-            expireDays > 0
-              ? `密码有效期为 ${expireDays} 天，超期登录时会提示修改。`
+            policy.expireDays > 0
+              ? `密码有效期为 ${policy.expireDays} 天，超期登录时会提示修改。`
               : '密码未设置有效期。'
           }}
         </p>
-        <p class="security__hint">如需修改密码，请使用右上角头像菜单中的「修改密码」。</p>
+        <p class="security__hint">可在个人中心或头像菜单中选择「修改密码」。</p>
       </el-card>
 
       <!-- 两步验证 -->
@@ -319,7 +314,7 @@ function describeAgent(ua: string): string {
             </el-input>
             <p class="security__hint">添加完成后，在下方输入 App 当前显示的 6 位验证码以确认开启。</p>
             <div class="security__confirm">
-              <el-input v-model="setupCode" class="security__code" placeholder="6 位验证码" maxlength="6" />
+              <el-input v-model="setupCode" class="security__code" :disabled="busy" placeholder="6 位验证码" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
               <el-button type="primary" :loading="busy" @click="confirmEnable">确认开启</el-button>
             </div>
           </div>
@@ -331,20 +326,22 @@ function describeAgent(ua: string): string {
           </p>
           <p class="security__desc">
             恢复码剩余
-            <el-tag size="small" :type="recoveryRemaining > 3 ? 'info' : 'warning'">
-              {{ recoveryRemaining }} / 10
+            <el-tag size="small" :type="recoveryRemaining === null || recoveryRemaining > 3 ? 'info' : 'warning'">
+              {{ recoveryRemaining ?? '—' }} / 10
             </el-tag>
             ；每个恢复码仅可使用一次，用于手机丢失时登录。用尽或疑似泄露可重新生成。
           </p>
           <div class="security__confirm">
             <el-input
               v-model="disablePassword"
+              :disabled="busy"
+              autocomplete="current-password"
               class="security__code"
               type="password"
               show-password
               placeholder="登录密码"
             />
-            <el-input v-model="disableCode" class="security__code" placeholder="6 位验证码" maxlength="6" />
+            <el-input v-model="disableCode" class="security__code" :disabled="busy" placeholder="6 位验证码" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
             <el-button type="danger" :loading="busy" @click="confirmDisable">关闭两步验证</el-button>
           </div>
 
@@ -353,12 +350,14 @@ function describeAgent(ua: string): string {
           <div class="security__confirm">
             <el-input
               v-model="regenPassword"
+              :disabled="busy"
+              autocomplete="current-password"
               class="security__code"
               type="password"
               show-password
               placeholder="登录密码"
             />
-            <el-input v-model="regenCode" class="security__code" placeholder="6 位验证码" maxlength="6" />
+            <el-input v-model="regenCode" class="security__code" :disabled="busy" placeholder="6 位验证码" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
             <el-button :loading="busy" @click="confirmRegenerate">重新生成</el-button>
           </div>
         </template>
@@ -384,12 +383,14 @@ function describeAgent(ua: string): string {
         <template #header>
           <span class="security__title"><el-icon><Monitor /></el-icon> 登录设备</span>
           <div class="security__header-actions">
-            <el-button text :icon="Refresh" @click="loadSessions">刷新</el-button>
-            <el-button text type="danger" @click="revokeOthers">下线其他设备</el-button>
+            <el-button text :icon="Refresh" :loading="sessionsLoading" :disabled="devicesBusy" @click="loadSessions">刷新</el-button>
+            <el-button text type="danger" :loading="devicesBusy" :disabled="sessionsLoading || Boolean(sessionsError) || !sessions?.some(s => !s.current)" @click="revokeOthers">下线其他设备</el-button>
           </div>
         </template>
 
-        <el-table v-loading="sessionsLoading" :data="sessions" size="small" row-key="id">
+        <p class="security__hint">当前账号的有效登录会话 · {{ sessionsLoading ? '加载中…' : sessionsError ? '数量未知' : `${sessions?.length ?? 0} 台设备` }}</p>
+        <RequestError v-if="sessionsError" text="登录设备加载失败" @retry="loadSessions" />
+        <el-table v-else v-loading="sessionsLoading || devicesBusy" :data="sessions ?? []" row-key="id">
           <el-table-column label="设备" min-width="160">
             <template #default="{ row }">
               {{ describeAgent(row.userAgent) }}
@@ -402,18 +403,19 @@ function describeAgent(ua: string): string {
           </el-table-column>
           <el-table-column class-name="table-actions-cell" label="操作" width="90">
             <template #default="{ row }">
-              <el-button v-if="!row.current" type="danger" link @click="revokeOne(row as LoginSession)">
+              <el-button v-if="!row.current" type="danger" link :disabled="devicesBusy" @click="revokeOne(row as LoginSession)">
                 下线
               </el-button>
               <span v-else class="security__dash">—</span>
             </template>
           </el-table-column>
           <template #empty>
-            <span class="security__hint">暂无有效登录设备</span>
+            <EmptyState text="暂无有效登录设备" />
           </template>
         </el-table>
       </el-card>
     </div>
+    <template #footer><el-button :disabled="busy || devicesBusy" @click="visible = false">关闭</el-button></template>
   </el-dialog>
 </template>
 
@@ -423,7 +425,8 @@ function describeAgent(ua: string): string {
 .security {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 20px;
+  min-width: 0;
 
   &__card {
     border: 1px solid $border-color;
@@ -432,12 +435,15 @@ function describeAgent(ua: string): string {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 16px;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 16px 20px;
     }
   }
 
   &__title {
     display: inline-flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 6px;
     font-size: 14px;
@@ -493,6 +499,7 @@ function describeAgent(ua: string): string {
     gap: 8px;
 
     code {
+      min-width: 0;
       flex: 1;
       padding: 8px 10px;
       font-family: Consolas, monospace;
@@ -545,6 +552,7 @@ function describeAgent(ua: string): string {
     display: flex;
     align-items: center;
     gap: 4px;
+    flex-wrap: wrap;
     margin: 8px 0;
   }
 
@@ -554,6 +562,7 @@ function describeAgent(ua: string): string {
     gap: 6px 12px;
 
     code {
+      overflow-wrap: anywhere;
       padding: 6px 10px;
       font-family: Consolas, monospace;
       font-size: 13px;
@@ -563,6 +572,15 @@ function describeAgent(ua: string): string {
       border: 1px solid $border-color;
       border-radius: $radius-sm;
     }
+  }
+  @media (max-width: 600px) {
+    gap: 16px;
+    &__card :deep(.el-card__header), &__card :deep(.el-card__body) { padding: 16px; }
+    &__code { width: 100%; }
+    &__recovery-list { grid-template-columns: minmax(0, 1fr); }
+    &__secret { flex-wrap: wrap; }
+    &__secret code { flex-basis: 100%; }
+    &__confirm .el-button { margin-left: 0; }
   }
 }
 </style>

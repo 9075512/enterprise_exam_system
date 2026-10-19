@@ -1,0 +1,322 @@
+[
+  {
+    "client": 320,
+    "empty": true,
+    "failed": false,
+    "h": 568,
+    "page": "ReviewPage",
+    "scroll": 320,
+    "w": 320
+  },
+  {
+    "client": 390,
+    "empty": true,
+    "failed": false,
+    "h": 844,
+    "page": "ReviewPage",
+    "scroll": 390,
+    "w": 390
+  },
+  {
+    "client": 568,
+    "empty": true,
+    "failed": false,
+    "h": 320,
+    "page": "ReviewPage",
+    "scroll": 568,
+    "w": 568
+  },
+  {
+    "client": 768,
+    "empty": true,
+    "failed": false,
+    "h": 844,
+    "page": "ReviewPage",
+    "scroll": 768,
+    "w": 768
+  },
+  {
+    "client": 1440,
+    "empty": true,
+    "failed": false,
+    "h": 960,
+    "page": "ReviewPage",
+    "scroll": 1440,
+    "w": 1440
+  },
+  {
+    "client": 320,
+    "failed": false,
+    "h": 568,
+    "page": "AppealManagePage",
+    "scroll": 320,
+    "w": 320
+  },
+  {
+    "client": 390,
+    "failed": false,
+    "h": 844,
+    "page": "AppealManagePage",
+    "scroll": 390,
+    "w": 390
+  },
+  {
+    "client": 568,
+    "failed": false,
+    "h": 320,
+    "page": "AppealManagePage",
+    "scroll": 568,
+    "w": 568
+  },
+  {
+    "client": 768,
+    "failed": false,
+    "h": 844,
+    "page": "AppealManagePage",
+    "scroll": 768,
+    "w": 768
+  },
+  {
+    "client": 1440,
+    "failed": false,
+    "h": 960,
+    "page": "AppealManagePage",
+    "scroll": 1440,
+    "w": 1440
+  },
+  {
+    "autoHeight": 44,
+    "cards": [
+      {
+        "label": "应考人数",
+        "radius": "16px",
+        "value": "5"
+      },
+      {
+        "label": "作答中",
+        "radius": "16px",
+        "value": "0"
+      },
+      {
+        "label": "未开始",
+        "radius": "16px",
+        "value": "5"
+      },
+      {
+        "label": "已交卷",
+        "radius": "16px",
+        "value": "0"
+      },
+      {
+        "label": "待阅卷",
+        "radius": "16px",
+        "value": "0"
+      },
+      {
+        "label": "切屏异常",
+        "radius": "16px",
+        "value": "0"
+      },
+      {
+        "label": "平均分（已出成绩）",
+        "radius": "16px",
+        "value": "—"
+      }
+    ],
+    "client": 320,
+    "columns": "135px 135px",
+    "failed": false,
+    "h": 568,
+    "page": "ExamMonitorPage",
+    "scroll": 320,
+    "w": 320
+  },
+  {
+    "autoHeight": 44,
+    "cards": [
+      {
+        "label": "应考人数",
+        "radius": "16px",
+        "value": "5"
+      },
+      {
+        "label": "作答中",
+        "radius": "16px",
+        "value": "0"
+      },
+      {
+        "label": "未开始",
+        "radius": "16px",
+        "value": "5"
+      },
+      {
+        "label": "已交卷",
+        "radius": "16px",
+        "value": "0"
+      },
+      {
+        "label": "待阅卷",
+        "radius": "16px",
+        "value": "0"
+      },
+      {
+        "label": "切屏异常",
+        "radius": "16px",
+        "value": "0"
+      },
+      {
+        "label": "平均分（已出成绩）",
+        "radius": "16px",
+        "value": "—"
+      }
+    ],
+    "client": 390,
+    "columns": "170.2px 170.2px",
+    "failed": false,
+    "h": 844,
+    "page": "ExamMonitorPage",
+    "scroll": 390,
+    "w": 390
+  },
+  {
+    "autoHeight": 44,
+    "cards": [
+      {
+        "label": "应考人数",
+        "radius": "16px",
+        "value": "5"
+      },
+      {
+        "label": "作答中",
+        "radius": "16px",
+        "value": "0"
+      },
+      {
+        "label": "未开始",
+        "radius": "16px",
+        "value": "5"
+      },
+      {
+        "label": "已交卷",
+        "radius": "16px",
+        "value": "0"
+      },
+      {
+        "label": "待阅卷",
+        "radius": "16px",
+        "value": "0"
+      },
+      {
+        "label": "切屏异常",
+        "radius": "16px",
+        "value": "0"
+      },
+      {
+        "label": "平均分（已出成绩）",
+        "radius": "16px",
+        "value": "—"
+      }
+    ],
+    "client": 568,
+    "columns": "259px 259px",
+    "failed": false,
+    "h": 320,
+    "page": "ExamMonitorPage",
+    "scroll": 568,
+    "w": 568
+  },
+  {
+    "autoHeight": 44,
+    "cards": [
+      {
+        "label": "应考人数",
+        "radius": "16px",
+        "value": "5"
+      },
+      {
+        "label": "作答中",
+        "radius": "16px",
+        "value": "0"
+      },
+      {
+        "label": "未开始",
+        "radius": "16px",
+        "value": "5"
+      },
+      {
+        "label": "已交卷",
+        "radius": "16px",
+        "value": "0"
+      },
+      {
+        "label": "待阅卷",
+        "radius": "16px",
+        "value": "0"
+      },
+      {
+        "label": "切屏异常",
+        "radius": "16px",
+        "value": "0"
+      },
+      {
+        "label": "平均分（已出成绩）",
+        "radius": "16px",
+        "value": "—"
+      }
+    ],
+    "client": 768,
+    "columns": "239px 239px",
+    "failed": false,
+    "h": 844,
+    "page": "ExamMonitorPage",
+    "scroll": 768,
+    "w": 768
+  },
+  {
+    "autoHeight": 32,
+    "cards": [
+      {
+        "label": "应考人数",
+        "radius": "16px",
+        "value": "5"
+      },
+      {
+        "label": "作答中",
+        "radius": "16px",
+        "value": "0"
+      },
+      {
+        "label": "未开始",
+        "radius": "16px",
+        "value": "5"
+      },
+      {
+        "label": "已交卷",
+        "radius": "16px",
+        "value": "0"
+      },
+      {
+        "label": "待阅卷",
+        "radius": "16px",
+        "value": "0"
+      },
+      {
+        "label": "切屏异常",
+        "radius": "16px",
+        "value": "0"
+      },
+      {
+        "label": "平均分（已出成绩）",
+        "radius": "16px",
+        "value": "—"
+      }
+    ],
+    "client": 1440,
+    "columns": "152.562px 152.575px 152.575px 152.562px 152.575px 152.575px 152.562px",
+    "failed": false,
+    "h": 960,
+    "page": "ExamMonitorPage",
+    "scroll": 1440,
+    "w": 1440
+  }
+]

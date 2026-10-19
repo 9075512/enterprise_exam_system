@@ -21,6 +21,7 @@ import { formatDateTime } from '@/utils/datetime';
 import { getExamStatus } from '@/utils/examStatus';
 import { openMonitorStream, type MonitorStreamHandle, type MonitorStreamState } from '@/utils/monitorStream';
 import PageHeader from '@/components/common/PageHeader.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import type { ExamMonitor, ExamMonitorRow, MonitorStatus } from '@/types';
@@ -33,6 +34,7 @@ const examId = String(route.params.id ?? '');
 const monitor = ref<ExamMonitor | null>(null);
 const loading = ref(false);
 const refreshing = ref(false);
+const loadError = ref(false);
 /** 自动刷新开关（默认开） */
 const autoRefresh = ref(true);
 /** 轮询降级间隔（秒） */
@@ -49,6 +51,7 @@ const pushSeconds = ref(5);
 let stream: MonitorStreamHandle | null = null;
 let pollTimer: number | undefined;
 let tickTimer: number | undefined;
+let disposed = false;
 
 const STATUS_LABELS: Record<MonitorStatus, string> = {
   not_started: '未开始',
@@ -208,7 +211,9 @@ const hiddenAlertCount = computed(() => Math.max(0, alerts.value.length - ALERT_
 
 /** 应用一份监考数据（推送/轮询共用）。 */
 function apply(data: ExamMonitor): void {
+  if (disposed) return;
   monitor.value = data;
+  loadError.value = false;
   tickOffset.value = 0;
 }
 
@@ -218,6 +223,7 @@ async function load(silent = false): Promise<void> {
   try {
     apply(await examsApi.monitor(examId));
   } catch {
+    loadError.value = true;
     /* 错误已由拦截器统一提示 */
   } finally {
     loading.value = false;
@@ -351,6 +357,7 @@ async function handleAllowResume(row: ExamMonitorRow): Promise<void> {
 onMounted(async () => {
   void settingsStore.load();
   await load();
+  if (disposed) return;
   startStream();
   tickTimer = window.setInterval(() => {
     tickOffset.value += 1;
@@ -358,6 +365,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  disposed = true;
   stopStream();
   stopPolling();
   if (tickTimer !== undefined) window.clearInterval(tickTimer);
@@ -369,7 +377,8 @@ function goBack(): void {
 </script>
 
 <template>
-  <div class="monitor">
+  <div data-ui-layout="monitor" data-ui-page="ExamMonitorPage" class="monitor">
+    <el-alert v-if="loadError && monitor" type="warning" :closable="false" title="刷新失败，当前展示最近一次成功快照，请核对数据时效。" />
     <PageHeader :title="monitor ? `监考监控 · ${monitor.exam.name}` : '监考监控'" description="准实时掌握作答进度，异常可一键处置">
       <template #actions>
         <el-button :icon="ArrowLeft" @click="goBack">返回考试列表</el-button>
@@ -378,6 +387,7 @@ function goBack(): void {
           :model-value="autoRefresh"
           class="monitor__auto"
           active-text="自动刷新"
+          aria-label="监考自动刷新"
           @update:model-value="onToggleAuto($event as boolean)"
         />
       </template>
@@ -385,6 +395,7 @@ function goBack(): void {
 
     <LoadingSkeleton v-if="loading && !monitor" :rows="5" />
 
+    <RequestError v-else-if="!monitor && loadError" text="监考数据加载失败" @retry="load()" />
     <EmptyState v-else-if="!monitor" text="考试不存在或已被删除" />
 
     <template v-else>
@@ -404,6 +415,7 @@ function goBack(): void {
         </span>
       </div>
 
+      <p class="admin-scope">当前考试生效名单及已有作答人员 · 每人最近一次作答 · 平均分仅统计已出成绩答卷</p>
       <div class="monitor__cards">
         <div class="monitor__card">
           <div class="monitor__card-label">应考人数</div>
@@ -433,7 +445,7 @@ function goBack(): void {
         </div>
         <div class="monitor__card">
           <div class="monitor__card-label">平均分（已出成绩）</div>
-          <div class="monitor__card-value">{{ summary?.averageScore ?? 0 }}</div>
+          <div class="monitor__card-value">{{ summary && summary.submitted > 0 ? summary.averageScore : '—' }}</div>
         </div>
       </div>
 
@@ -447,7 +459,7 @@ function goBack(): void {
           </div>
         </template>
 
-        <p v-if="alerts.length === 0" class="monitor__alert-empty">当前无异常，考生作答正常。</p>
+        <p v-if="alerts.length === 0" class="monitor__alert-empty">当前快照未发现异常告警。</p>
 
         <ul v-else class="monitor__alert-list">
           <li
@@ -612,7 +624,7 @@ function goBack(): void {
     padding: 14px 16px;
     background: $bg-paper;
     border: 1px solid $border-color;
-    border-radius: $radius-sm;
+    border-radius: $radius-lg;
   }
 
   &__card-label {
@@ -622,6 +634,7 @@ function goBack(): void {
   }
 
   &__card-value {
+    overflow-wrap: anywhere;
     font-size: 24px;
     font-weight: 600;
     line-height: 1.2;
@@ -737,6 +750,7 @@ function goBack(): void {
   }
 
   &__alert-title {
+    overflow-wrap: anywhere;
     font-size: 13px;
     font-weight: 600;
     line-height: 1.4;
@@ -745,6 +759,7 @@ function goBack(): void {
   }
 
   &__alert-detail {
+    overflow-wrap: anywhere;
     margin-top: 2px;
     font-size: 12px;
     color: $text-secondary;
@@ -758,5 +773,12 @@ function goBack(): void {
     color: $text-secondary;
     border-top: 1px solid $border-color;
   }
+}
+@media (max-width: 900px) {
+  .monitor__cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .monitor__card { min-width: 0; padding: 16px; }
+  .monitor__card:last-child { grid-column: 1 / -1; }
+  .monitor__auto { min-height: 44px; }
+  .monitor__meta { overflow-wrap: anywhere; }
 }
 </style>

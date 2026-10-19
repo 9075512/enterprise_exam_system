@@ -1,0 +1,21 @@
+[
+  {
+    "ruleCount": 0,
+    "scrollWidth": 356,
+    "stage": "02 手动选题",
+    "width": 356
+  },
+  {
+    "ruleCount": 5,
+    "scrollWidth": 356,
+    "stage": "02 按题型抽题",
+    "width": 356
+  },
+  {
+    "ruleCount": 0,
+    "scrollWidth": 356,
+    "stage": "01 考试设置",
+    "summary": "考试摘要 · 可展开收起完整考试名称60分钟 · 60分及格 · 闭卷科室与人员数量取自当前表单。手机保留摘要，放在设置下方。",
+    "width": 356
+  }
+]

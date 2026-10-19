@@ -11,6 +11,7 @@ import { useRouter } from 'vue-router';
 import { ElMessageBox } from 'element-plus';
 import { SwitchButton, TrendCharts } from '@element-plus/icons-vue';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import PracticeLoading from '@/components/common/PracticeLoading.vue';
 import * as practiceApi from '@/api/practice';
 import { usePracticeAuthStore } from '@/stores/practiceAuth';
@@ -24,6 +25,7 @@ const configStore = usePracticeConfigStore();
 const config = computed(() => configStore.config);
 
 const loading = ref(true);
+const loadError = ref(false);
 const doneTotal = ref(0);
 const correctTotal = ref(0);
 const wrongTotal = ref(0);
@@ -49,6 +51,7 @@ const accuracy = computed<number>(() =>
 /** 加载练题统计：统一走学习报告总览（与报告页同口径，全量 practice_answers 聚合） */
 async function loadStats(): Promise<void> {
   loading.value = true;
+  loadError.value = false;
   try {
     await configStore.load();
     // 功能被后台关闭时接口会 404 → 各自静默降级（不影响另一项统计）
@@ -60,12 +63,13 @@ async function loadStats(): Promise<void> {
         ? practiceApi.reportSummary().catch(() => null)
         : Promise.resolve(null),
     ]);
+    loadError.value = (configStore.config.wrongBookEnabled && !wrongPage) || (configStore.config.reportEnabled && !report);
     wrongTotal.value = wrongPage?.total ?? 0;
     streakDays.value = report?.streakDays ?? 0;
     doneTotal.value = report?.doneTotal ?? 0;
     correctTotal.value = report?.correctTotal ?? 0;
   } catch {
-    // 错误提示已由 http 拦截器统一弹出
+    loadError.value = true;
   } finally {
     loading.value = false;
   }
@@ -96,7 +100,7 @@ onMounted(loadStats);
 </script>
 
 <template>
-  <PracticeLayout tabbar>
+  <PracticeLayout data-ui-layout="profile" data-ui-page="PracticeProfilePage" tabbar>
     <template #actions>
       <span class="pf__user">{{ userName }}</span>
     </template>
@@ -120,25 +124,27 @@ onMounted(loadStats);
 
       <!-- 练题统计 -->
       <div class="pf__section">练题统计</div>
+      <p class="learner-scope">当前账号累计首次作答记录 · 未作答时正确率显示“—”</p>
       <div class="pf__stats">
         <div class="pf__stat">
-          <span class="pf__num">{{ loading ? '—' : doneTotal }}</span>
+          <span class="pf__num">{{ loading || loadError || !config.reportEnabled ? '—' : doneTotal }}</span>
           <span class="pf__label">累计练题</span>
         </div>
         <div class="pf__stat">
-          <span class="pf__num pf__num--ok">{{ loading ? '—' : correctTotal }}</span>
+          <span class="pf__num pf__num--ok">{{ loading || loadError || !config.reportEnabled ? '—' : correctTotal }}</span>
           <span class="pf__label">累计答对</span>
         </div>
         <div class="pf__stat">
-          <span class="pf__num">{{ loading ? '—' : `${accuracy}%` }}</span>
+          <span class="pf__num">{{ loading || loadError || !doneTotal ? '—' : `${accuracy}%` }}</span>
           <span class="pf__label">正确率</span>
         </div>
         <div class="pf__stat">
-          <span class="pf__num pf__num--err">{{ loading ? '—' : wrongTotal }}</span>
+          <span class="pf__num pf__num--err">{{ loading || loadError || !config.wrongBookEnabled ? '—' : wrongTotal }}</span>
           <span class="pf__label">错题数</span>
         </div>
       </div>
       <PracticeLoading :loading="loading" compact caption="正在加载练题统计…" />
+      <RequestError v-if="loadError" text="练题统计加载失败" @retry="loadStats" />
 
       <!-- 学习（学习报告入口可被后台关闭，v1.9⑤） -->
       <template v-if="config.reportEnabled">
@@ -217,6 +223,7 @@ onMounted(loadStats);
     font-weight: 650;
     letter-spacing: -0.01em;
     color: $text-primary;
+    overflow-wrap: anywhere;
   }
 
   &__dept {
@@ -224,7 +231,7 @@ onMounted(loadStats);
     align-items: center;
     gap: 6px;
     margin: 6px 0 0;
-    font-size: 11.5px;
+    font-size: 12px;
     line-height: 1.4;
   }
 
@@ -237,7 +244,7 @@ onMounted(loadStats);
     border-radius: $radius-xs;
     background: $practice-soft;
     color: $practice-primary;
-    font-size: 10.5px;
+    font-size: 12px;
     font-weight: 600;
   }
 
@@ -249,7 +256,7 @@ onMounted(loadStats);
 
   &__meta {
     margin: 5px 0 0;
-    font-size: 11px;
+    font-size: 12px;
     color: $text-secondary;
     word-break: break-word;
   }
@@ -271,6 +278,7 @@ onMounted(loadStats);
   }
 
   &__stat {
+    min-width: 0;
     padding: 12px 6px;
     text-align: center;
     background: $bg-paper;
@@ -286,6 +294,7 @@ onMounted(loadStats);
     line-height: 1.1;
     color: $text-primary;
     font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
 
     &--ok {
       color: $color-success-text;
@@ -299,13 +308,13 @@ onMounted(loadStats);
   &__label {
     display: block;
     margin-top: 4px;
-    font-size: 10px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
   &__loading {
     margin: -8px 0 16px;
-    font-size: 11.5px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -378,16 +387,22 @@ onMounted(loadStats);
     padding: 0 7px;
     border-radius: 99px; // radius-exception: status badge pill
     background: $practice-soft;
-    font-size: 10.5px;
+    font-size: 12px;
     font-weight: 620;
     color: $practice-primary;
   }
 
   &__tip {
     margin: 0 2px;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.7;
     color: $text-secondary;
+  }
+
+  @media (max-width: 480px) {
+    &__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    &__stat { padding: 18px 12px; border-radius: $radius-lg; }
+    &__num { font-size: 22px; line-height: 1.4; }
   }
 }
 </style>

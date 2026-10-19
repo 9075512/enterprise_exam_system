@@ -1,0 +1,102 @@
+[
+  {
+    "page": "完整答题页（隔离样例）",
+    "width": 320,
+    "barClient": 312,
+    "barScroll": 312,
+    "body": 312,
+    "view": 320,
+    "visibleQuestions": 1
+  },
+  {
+    "page": "完整答题页（隔离样例）",
+    "width": 390,
+    "barClient": 382,
+    "barScroll": 382,
+    "body": 382,
+    "view": 390,
+    "visibleQuestions": 1
+  },
+  {
+    "page": "完整答题页（隔离样例）",
+    "width": 768,
+    "barClient": 760,
+    "barScroll": 760,
+    "body": 760,
+    "view": 768,
+    "visibleQuestions": 1
+  },
+  {
+    "page": "完整答题页（隔离样例）",
+    "width": 1440,
+    "barClient": 1432,
+    "barScroll": 1432,
+    "body": 1432,
+    "view": 1440,
+    "visibleQuestions": 5
+  },
+  {
+    "page": "成绩明细（隔离样例）",
+    "width": 320,
+    "body": 312,
+    "client": 280,
+    "scroll": 280,
+    "view": 320
+  },
+  {
+    "page": "成绩明细（隔离样例）",
+    "width": 390,
+    "body": 382,
+    "client": 350,
+    "scroll": 350,
+    "view": 390
+  },
+  {
+    "page": "成绩明细（隔离样例）",
+    "width": 768,
+    "body": 760,
+    "client": 728,
+    "scroll": 728,
+    "view": 768
+  },
+  {
+    "page": "成绩明细（隔离样例）",
+    "width": 1440,
+    "body": 1432,
+    "client": 1392,
+    "scroll": 1392,
+    "view": 1440
+  },
+  {
+    "page": "人工阅卷（隔离样例）",
+    "width": 320,
+    "body": 312,
+    "client": 280,
+    "scroll": 280,
+    "view": 320
+  },
+  {
+    "page": "人工阅卷（隔离样例）",
+    "width": 390,
+    "body": 382,
+    "client": 350,
+    "scroll": 350,
+    "view": 390
+  },
+  {
+    "page": "人工阅卷（隔离样例）",
+    "width": 768,
+    "body": 760,
+    "client": 728,
+    "scroll": 728,
+    "view": 768
+  },
+  {
+    "page": "人工阅卷（隔离样例）",
+    "width": 1440,
+    "body": 1432,
+    "client": 1392,
+    "scroll": 1392,
+    "view": 1440
+  }
+]

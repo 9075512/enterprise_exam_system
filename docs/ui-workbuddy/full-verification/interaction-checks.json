@@ -1,0 +1,1287 @@
+[
+  {
+    "path": "/admin/content",
+    "client": 320,
+    "failed": false,
+    "h": 568,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "ContentViewPage",
+    "scroll": 320,
+    "w": 320
+  },
+  {
+    "path": "/admin/retakes",
+    "client": 320,
+    "failed": false,
+    "h": 568,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "RetakeManagePage",
+    "scroll": 320,
+    "w": 320
+  },
+  {
+    "path": "/admin/settings",
+    "client": 320,
+    "failed": false,
+    "h": 568,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "SettingsPage",
+    "scroll": 320,
+    "settingsHeight": 716.9000244140625,
+    "w": 320
+  },
+  {
+    "path": "/admin/audit",
+    "client": 320,
+    "failed": false,
+    "filterPadding": "20px",
+    "h": 568,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "AuditLogPage",
+    "scroll": 320,
+    "w": 320
+  },
+  {
+    "path": "/admin/login-logs",
+    "client": 320,
+    "failed": false,
+    "filterPadding": "20px",
+    "h": 568,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "LoginLogPage",
+    "scroll": 320,
+    "w": 320
+  },
+  {
+    "path": "/admin/permissions",
+    "client": 320,
+    "failed": false,
+    "h": 568,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "MenuPermissionPage",
+    "scroll": 320,
+    "w": 320
+  },
+  {
+    "path": "/admin/users",
+    "client": 320,
+    "failed": false,
+    "h": 568,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "UserPage",
+    "scroll": 320,
+    "w": 320
+  },
+  {
+    "path": "/admin/appeals",
+    "client": 320,
+    "failed": false,
+    "h": 568,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "AppealManagePage",
+    "scroll": 320,
+    "w": 320
+  },
+  {
+    "path": "/admin/reviews",
+    "client": 320,
+    "failed": false,
+    "h": 568,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "ReviewPage",
+    "scroll": 320,
+    "w": 320
+  },
+  {
+    "path": "/admin/roles",
+    "client": 320,
+    "failed": false,
+    "h": 568,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "RoleManagePage",
+    "scroll": 320,
+    "w": 320
+  },
+  {
+    "path": "/admin/content",
+    "client": 390,
+    "failed": false,
+    "h": 844,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "ContentViewPage",
+    "scroll": 390,
+    "w": 390
+  },
+  {
+    "path": "/admin/retakes",
+    "client": 390,
+    "failed": false,
+    "h": 844,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "RetakeManagePage",
+    "scroll": 390,
+    "w": 390
+  },
+  {
+    "path": "/admin/settings",
+    "client": 390,
+    "failed": false,
+    "h": 844,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "SettingsPage",
+    "scroll": 390,
+    "settingsHeight": 492.8999938964844,
+    "w": 390
+  },
+  {
+    "path": "/admin/audit",
+    "client": 390,
+    "failed": false,
+    "filterPadding": "20px",
+    "h": 844,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "AuditLogPage",
+    "scroll": 390,
+    "w": 390
+  },
+  {
+    "path": "/admin/login-logs",
+    "client": 390,
+    "failed": false,
+    "filterPadding": "20px",
+    "h": 844,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "LoginLogPage",
+    "scroll": 390,
+    "w": 390
+  },
+  {
+    "path": "/admin/permissions",
+    "client": 390,
+    "failed": false,
+    "h": 844,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "MenuPermissionPage",
+    "scroll": 390,
+    "w": 390
+  },
+  {
+    "path": "/admin/users",
+    "client": 390,
+    "failed": false,
+    "h": 844,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "UserPage",
+    "scroll": 390,
+    "w": 390
+  },
+  {
+    "path": "/admin/appeals",
+    "client": 390,
+    "failed": false,
+    "h": 844,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "AppealManagePage",
+    "scroll": 390,
+    "w": 390
+  },
+  {
+    "path": "/admin/reviews",
+    "client": 390,
+    "failed": false,
+    "h": 844,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "ReviewPage",
+    "scroll": 390,
+    "w": 390
+  },
+  {
+    "path": "/admin/roles",
+    "client": 390,
+    "failed": false,
+    "h": 844,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "RoleManagePage",
+    "scroll": 390,
+    "w": 390
+  },
+  {
+    "path": "/admin/content",
+    "client": 568,
+    "failed": false,
+    "h": 320,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "ContentViewPage",
+    "scroll": 568,
+    "w": 568
+  },
+  {
+    "path": "/admin/retakes",
+    "client": 568,
+    "failed": false,
+    "h": 320,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "RetakeManagePage",
+    "scroll": 568,
+    "w": 568
+  },
+  {
+    "path": "/admin/settings",
+    "client": 568,
+    "failed": false,
+    "h": 320,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "SettingsPage",
+    "scroll": 568,
+    "settingsHeight": 674.9000244140625,
+    "w": 568
+  },
+  {
+    "path": "/admin/audit",
+    "client": 568,
+    "failed": false,
+    "filterPadding": "20px",
+    "h": 320,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "AuditLogPage",
+    "scroll": 568,
+    "w": 568
+  },
+  {
+    "path": "/admin/login-logs",
+    "client": 568,
+    "failed": false,
+    "filterPadding": "20px",
+    "h": 320,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "LoginLogPage",
+    "scroll": 568,
+    "w": 568
+  },
+  {
+    "path": "/admin/permissions",
+    "client": 568,
+    "failed": false,
+    "h": 320,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "MenuPermissionPage",
+    "scroll": 568,
+    "w": 568
+  },
+  {
+    "path": "/admin/users",
+    "client": 568,
+    "failed": false,
+    "h": 320,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "UserPage",
+    "scroll": 568,
+    "w": 568
+  },
+  {
+    "path": "/admin/appeals",
+    "client": 568,
+    "failed": false,
+    "h": 320,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "AppealManagePage",
+    "scroll": 568,
+    "w": 568
+  },
+  {
+    "path": "/admin/reviews",
+    "client": 568,
+    "failed": false,
+    "h": 320,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "ReviewPage",
+    "scroll": 568,
+    "w": 568
+  },
+  {
+    "path": "/admin/roles",
+    "client": 568,
+    "failed": false,
+    "h": 320,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "RoleManagePage",
+    "scroll": 568,
+    "w": 568
+  },
+  {
+    "path": "/admin/content",
+    "client": 768,
+    "failed": false,
+    "h": 844,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "ContentViewPage",
+    "scroll": 768,
+    "w": 768
+  },
+  {
+    "path": "/admin/retakes",
+    "client": 768,
+    "failed": false,
+    "h": 844,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "RetakeManagePage",
+    "scroll": 768,
+    "w": 768
+  },
+  {
+    "path": "/admin/settings",
+    "client": 768,
+    "failed": false,
+    "h": 844,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "SettingsPage",
+    "scroll": 768,
+    "settingsHeight": 496.8999938964844,
+    "w": 768
+  },
+  {
+    "path": "/admin/audit",
+    "client": 768,
+    "failed": false,
+    "filterPadding": "20px",
+    "h": 844,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "AuditLogPage",
+    "scroll": 768,
+    "w": 768
+  },
+  {
+    "path": "/admin/login-logs",
+    "client": 768,
+    "failed": false,
+    "filterPadding": "20px",
+    "h": 844,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "LoginLogPage",
+    "scroll": 768,
+    "w": 768
+  },
+  {
+    "path": "/admin/permissions",
+    "client": 768,
+    "failed": false,
+    "h": 844,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "MenuPermissionPage",
+    "scroll": 768,
+    "w": 768
+  },
+  {
+    "path": "/admin/users",
+    "client": 768,
+    "failed": false,
+    "h": 844,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "UserPage",
+    "scroll": 768,
+    "w": 768
+  },
+  {
+    "path": "/admin/appeals",
+    "client": 768,
+    "failed": false,
+    "h": 844,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "AppealManagePage",
+    "scroll": 768,
+    "w": 768
+  },
+  {
+    "path": "/admin/reviews",
+    "client": 768,
+    "failed": false,
+    "h": 844,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "ReviewPage",
+    "scroll": 768,
+    "w": 768
+  },
+  {
+    "path": "/admin/roles",
+    "client": 768,
+    "failed": false,
+    "h": 844,
+    "header": [
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      },
+      {
+        "h": 44,
+        "w": 44
+      }
+    ],
+    "page": "RoleManagePage",
+    "scroll": 768,
+    "w": 768
+  },
+  {
+    "path": "/admin/content",
+    "client": 1440,
+    "failed": false,
+    "h": 960,
+    "header": [
+      {
+        "h": 32,
+        "w": 32
+      },
+      {
+        "h": 36,
+        "w": 36
+      },
+      {
+        "h": 32,
+        "w": 32
+      },
+      {
+        "h": 47.60000228881836,
+        "w": 140.60000610351562
+      }
+    ],
+    "page": "ContentViewPage",
+    "scroll": 1440,
+    "w": 1440
+  },
+  {
+    "path": "/admin/retakes",
+    "client": 1440,
+    "failed": false,
+    "h": 960,
+    "header": [
+      {
+        "h": 32,
+        "w": 32
+      },
+      {
+        "h": 36,
+        "w": 36
+      },
+      {
+        "h": 32,
+        "w": 32
+      },
+      {
+        "h": 47.60000228881836,
+        "w": 140.60000610351562
+      }
+    ],
+    "page": "RetakeManagePage",
+    "scroll": 1440,
+    "w": 1440
+  },
+  {
+    "path": "/admin/settings",
+    "client": 1440,
+    "failed": false,
+    "h": 960,
+    "header": [
+      {
+        "h": 32,
+        "w": 32
+      },
+      {
+        "h": 36,
+        "w": 36
+      },
+      {
+        "h": 32,
+        "w": 32
+      },
+      {
+        "h": 47.60000228881836,
+        "w": 140.60000610351562
+      }
+    ],
+    "page": "SettingsPage",
+    "scroll": 1440,
+    "settingsHeight": 671.7000122070312,
+    "w": 1440
+  },
+  {
+    "path": "/admin/audit",
+    "client": 1440,
+    "failed": false,
+    "filterPadding": "20px",
+    "h": 960,
+    "header": [
+      {
+        "h": 32,
+        "w": 32
+      },
+      {
+        "h": 36,
+        "w": 36
+      },
+      {
+        "h": 32,
+        "w": 32
+      },
+      {
+        "h": 47.60000228881836,
+        "w": 140.60000610351562
+      }
+    ],
+    "page": "AuditLogPage",
+    "scroll": 1440,
+    "w": 1440
+  },
+  {
+    "path": "/admin/login-logs",
+    "client": 1440,
+    "failed": false,
+    "filterPadding": "20px",
+    "h": 960,
+    "header": [
+      {
+        "h": 32,
+        "w": 32
+      },
+      {
+        "h": 36,
+        "w": 36
+      },
+      {
+        "h": 32,
+        "w": 32
+      },
+      {
+        "h": 47.60000228881836,
+        "w": 140.60000610351562
+      }
+    ],
+    "page": "LoginLogPage",
+    "scroll": 1440,
+    "w": 1440
+  },
+  {
+    "path": "/admin/permissions",
+    "client": 1440,
+    "failed": false,
+    "h": 960,
+    "header": [
+      {
+        "h": 32,
+        "w": 32
+      },
+      {
+        "h": 36,
+        "w": 36
+      },
+      {
+        "h": 32,
+        "w": 32
+      },
+      {
+        "h": 47.60000228881836,
+        "w": 140.60000610351562
+      }
+    ],
+    "page": "MenuPermissionPage",
+    "scroll": 1440,
+    "w": 1440
+  },
+  {
+    "path": "/admin/users",
+    "client": 1440,
+    "failed": false,
+    "h": 960,
+    "header": [
+      {
+        "h": 32,
+        "w": 32
+      },
+      {
+        "h": 36,
+        "w": 36
+      },
+      {
+        "h": 32,
+        "w": 32
+      },
+      {
+        "h": 47.60000228881836,
+        "w": 140.60000610351562
+      }
+    ],
+    "page": "UserPage",
+    "scroll": 1440,
+    "w": 1440
+  },
+  {
+    "path": "/admin/appeals",
+    "client": 1440,
+    "failed": false,
+    "h": 960,
+    "header": [
+      {
+        "h": 32,
+        "w": 32
+      },
+      {
+        "h": 36,
+        "w": 36
+      },
+      {
+        "h": 32,
+        "w": 32
+      },
+      {
+        "h": 47.60000228881836,
+        "w": 140.60000610351562
+      }
+    ],
+    "page": "AppealManagePage",
+    "scroll": 1440,
+    "w": 1440
+  },
+  {
+    "path": "/admin/reviews",
+    "client": 1440,
+    "failed": false,
+    "h": 960,
+    "header": [
+      {
+        "h": 32,
+        "w": 32
+      },
+      {
+        "h": 36,
+        "w": 36
+      },
+      {
+        "h": 32,
+        "w": 32
+      },
+      {
+        "h": 47.60000228881836,
+        "w": 140.60000610351562
+      }
+    ],
+    "page": "ReviewPage",
+    "scroll": 1440,
+    "w": 1440
+  },
+  {
+    "path": "/admin/roles",
+    "client": 1440,
+    "failed": false,
+    "h": 960,
+    "header": [
+      {
+        "h": 32,
+        "w": 32
+      },
+      {
+        "h": 36,
+        "w": 36
+      },
+      {
+        "h": 32,
+        "w": 32
+      },
+      {
+        "h": 47.60000228881836,
+        "w": 140.60000610351562
+      }
+    ],
+    "page": "RoleManagePage",
+    "scroll": 1440,
+    "w": 1440
+  }
+]

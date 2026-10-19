@@ -1,0 +1,1312 @@
+[
+  {
+    "footer": {
+      "bottom": 739.9999923706055,
+      "height": 107.70000457763672,
+      "left": 16,
+      "right": 296,
+      "top": 632.2999877929688,
+      "width": 280,
+      "x": 16,
+      "y": 632.2999877929688
+    },
+    "numberControls": [
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      }
+    ],
+    "overviewVisible": true,
+    "scrollWidth": 280,
+    "stage": "settings",
+    "stepHeights": [
+      47.60000228881836,
+      47.60000228881836
+    ],
+    "viewport": [
+      320,
+      740
+    ],
+    "width": 280
+  },
+  {
+    "footer": {
+      "bottom": 843.9999923706055,
+      "height": 107.70000457763672,
+      "left": 16,
+      "right": 366.3999938964844,
+      "top": 736.2999877929688,
+      "width": 350.3999938964844,
+      "x": 16,
+      "y": 736.2999877929688
+    },
+    "numberControls": [
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      }
+    ],
+    "overviewVisible": true,
+    "scrollWidth": 350,
+    "stage": "settings",
+    "stepHeights": [
+      44,
+      44
+    ],
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 350
+  },
+  {
+    "footer": {
+      "bottom": 1012.0000228881836,
+      "height": 80.0999984741211,
+      "left": 16,
+      "right": 744,
+      "top": 931.9000244140624,
+      "width": 728,
+      "x": 16,
+      "y": 931.9000244140624
+    },
+    "numberControls": [
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      }
+    ],
+    "overviewVisible": true,
+    "scrollWidth": 728,
+    "stage": "settings",
+    "stepHeights": [
+      48.20000076293945,
+      48.20000076293945
+    ],
+    "viewport": [
+      768,
+      1024
+    ],
+    "width": 728
+  },
+  {
+    "footer": {
+      "bottom": 378.400016784668,
+      "height": 80.0999984741211,
+      "left": 16,
+      "right": 820,
+      "top": 298.3000183105469,
+      "width": 804,
+      "x": 16,
+      "y": 298.3000183105469
+    },
+    "numberControls": [
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      }
+    ],
+    "overviewVisible": true,
+    "scrollWidth": 804,
+    "stage": "settings",
+    "stepHeights": [
+      48.20000076293945,
+      48.20000076293945
+    ],
+    "viewport": [
+      844,
+      390
+    ],
+    "width": 804
+  },
+  {
+    "footer": {
+      "bottom": 988.0000228881836,
+      "height": 80.0999984741211,
+      "left": 24,
+      "right": 1408,
+      "top": 907.9000244140624,
+      "width": 1384,
+      "x": 24,
+      "y": 907.9000244140624
+    },
+    "numberControls": [
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      }
+    ],
+    "overviewVisible": true,
+    "scrollWidth": 1384,
+    "stage": "settings",
+    "stepHeights": [
+      48.20000076293945,
+      48.20000076293945
+    ],
+    "viewport": [
+      1440,
+      1000
+    ],
+    "width": 1384
+  },
+  {
+    "asideScroll": 278,
+    "asideWidth": 278,
+    "choiceHeights": [
+      51.10000228881836,
+      44,
+      44
+    ],
+    "footer": {
+      "bottom": 739.9999923706055,
+      "height": 107.70000457763672,
+      "left": 16,
+      "right": 296,
+      "top": 632.2999877929688,
+      "width": 280,
+      "x": 16,
+      "y": 632.2999877929688
+    },
+    "numbers": [
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      }
+    ],
+    "scrollWidth": 280,
+    "selectedCount": 5,
+    "stage": "manual",
+    "viewport": [
+      320,
+      740
+    ],
+    "width": 280
+  },
+  {
+    "asideScroll": 349,
+    "asideWidth": 349,
+    "choiceHeights": [
+      51.10000228881836,
+      44,
+      44
+    ],
+    "footer": {
+      "bottom": 843.9999923706055,
+      "height": 107.70000457763672,
+      "left": 16,
+      "right": 366.3999938964844,
+      "top": 736.2999877929688,
+      "width": 350.3999938964844,
+      "x": 16,
+      "y": 736.2999877929688
+    },
+    "numbers": [
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      }
+    ],
+    "scrollWidth": 350,
+    "selectedCount": 5,
+    "stage": "manual",
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 350
+  },
+  {
+    "asideScroll": 726,
+    "asideWidth": 726,
+    "choiceHeights": [
+      44,
+      44,
+      44
+    ],
+    "footer": {
+      "bottom": 1012.0000228881836,
+      "height": 80.0999984741211,
+      "left": 16,
+      "right": 744,
+      "top": 931.9000244140624,
+      "width": 728,
+      "x": 16,
+      "y": 931.9000244140624
+    },
+    "numbers": [
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      }
+    ],
+    "scrollWidth": 728,
+    "selectedCount": 5,
+    "stage": "manual",
+    "viewport": [
+      768,
+      1024
+    ],
+    "width": 728
+  },
+  {
+    "asideScroll": 802,
+    "asideWidth": 802,
+    "choiceHeights": [
+      44,
+      44,
+      44
+    ],
+    "footer": {
+      "bottom": 378.400016784668,
+      "height": 80.0999984741211,
+      "left": 16,
+      "right": 820,
+      "top": 298.3000183105469,
+      "width": 804,
+      "x": 16,
+      "y": 298.3000183105469
+    },
+    "numbers": [
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      }
+    ],
+    "scrollWidth": 804,
+    "selectedCount": 5,
+    "stage": "manual",
+    "viewport": [
+      844,
+      390
+    ],
+    "width": 804
+  },
+  {
+    "asideScroll": 318,
+    "asideWidth": 318,
+    "choiceHeights": [
+      32,
+      29,
+      29
+    ],
+    "footer": {
+      "bottom": 988.0000228881836,
+      "height": 80.0999984741211,
+      "left": 24,
+      "right": 1408,
+      "top": 907.9000244140624,
+      "width": 1384,
+      "x": 24,
+      "y": 907.9000244140624
+    },
+    "numbers": [
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      }
+    ],
+    "scrollWidth": 1384,
+    "selectedCount": 5,
+    "stage": "manual",
+    "viewport": [
+      1440,
+      1000
+    ],
+    "width": 1384
+  },
+  {
+    "footer": {
+      "bottom": 739.9999923706055,
+      "height": 107.70000457763672,
+      "left": 16,
+      "right": 296,
+      "top": 632.2999877929688,
+      "width": 280,
+      "x": 16,
+      "y": 632.2999877929688
+    },
+    "numberControls": [
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      }
+    ],
+    "rules": [
+      {
+        "scrollWidth": 253,
+        "width": 253
+      },
+      {
+        "scrollWidth": 253,
+        "width": 253
+      },
+      {
+        "scrollWidth": 253,
+        "width": 253
+      },
+      {
+        "scrollWidth": 253,
+        "width": 253
+      },
+      {
+        "scrollWidth": 253,
+        "width": 253
+      }
+    ],
+    "scrollWidth": 280,
+    "stage": "draw",
+    "viewport": [
+      320,
+      740
+    ],
+    "width": 280
+  },
+  {
+    "footer": {
+      "bottom": 843.9999923706055,
+      "height": 107.70000457763672,
+      "left": 16,
+      "right": 366.3999938964844,
+      "top": 736.2999877929688,
+      "width": 350.3999938964844,
+      "x": 16,
+      "y": 736.2999877929688
+    },
+    "numberControls": [
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      }
+    ],
+    "rules": [
+      {
+        "scrollWidth": 323,
+        "width": 323
+      },
+      {
+        "scrollWidth": 323,
+        "width": 323
+      },
+      {
+        "scrollWidth": 323,
+        "width": 323
+      },
+      {
+        "scrollWidth": 323,
+        "width": 323
+      },
+      {
+        "scrollWidth": 323,
+        "width": 323
+      }
+    ],
+    "scrollWidth": 350,
+    "stage": "draw",
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 350
+  },
+  {
+    "footer": {
+      "bottom": 1012.0000228881836,
+      "height": 80.0999984741211,
+      "left": 16,
+      "right": 744,
+      "top": 931.9000244140624,
+      "width": 728,
+      "x": 16,
+      "y": 931.9000244140624
+    },
+    "numberControls": [
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      }
+    ],
+    "rules": [
+      {
+        "scrollWidth": 693,
+        "width": 693
+      },
+      {
+        "scrollWidth": 693,
+        "width": 693
+      },
+      {
+        "scrollWidth": 693,
+        "width": 693
+      },
+      {
+        "scrollWidth": 693,
+        "width": 693
+      },
+      {
+        "scrollWidth": 693,
+        "width": 693
+      }
+    ],
+    "scrollWidth": 728,
+    "stage": "draw",
+    "viewport": [
+      768,
+      1024
+    ],
+    "width": 728
+  },
+  {
+    "footer": {
+      "bottom": 378.400016784668,
+      "height": 80.0999984741211,
+      "left": 16,
+      "right": 820,
+      "top": 298.3000183105469,
+      "width": 804,
+      "x": 16,
+      "y": 298.3000183105469
+    },
+    "numberControls": [
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      },
+      {
+        "height": 44,
+        "width": 44
+      }
+    ],
+    "rules": [
+      {
+        "scrollWidth": 769,
+        "width": 769
+      },
+      {
+        "scrollWidth": 769,
+        "width": 769
+      },
+      {
+        "scrollWidth": 769,
+        "width": 769
+      },
+      {
+        "scrollWidth": 769,
+        "width": 769
+      },
+      {
+        "scrollWidth": 769,
+        "width": 769
+      }
+    ],
+    "scrollWidth": 804,
+    "stage": "draw",
+    "viewport": [
+      844,
+      390
+    ],
+    "width": 804
+  },
+  {
+    "footer": {
+      "bottom": 988.0000228881836,
+      "height": 80.0999984741211,
+      "left": 24,
+      "right": 1408,
+      "top": 907.9000244140624,
+      "width": 1384,
+      "x": 24,
+      "y": 907.9000244140624
+    },
+    "numberControls": [
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      },
+      {
+        "height": 34,
+        "width": 32
+      }
+    ],
+    "rules": [
+      {
+        "scrollWidth": 1013,
+        "width": 1013
+      },
+      {
+        "scrollWidth": 1013,
+        "width": 1013
+      },
+      {
+        "scrollWidth": 1013,
+        "width": 1013
+      },
+      {
+        "scrollWidth": 1013,
+        "width": 1013
+      },
+      {
+        "scrollWidth": 1013,
+        "width": 1013
+      }
+    ],
+    "scrollWidth": 1384,
+    "stage": "draw",
+    "viewport": [
+      1440,
+      1000
+    ],
+    "width": 1384
+  },
+  {
+    "controlsFirst": true,
+    "overflowCards": 0,
+    "overflowTags": 0,
+    "questionCount": 5,
+    "scrollWidth": 280,
+    "stage": "preview",
+    "switches": [
+      44,
+      44,
+      44
+    ],
+    "viewport": [
+      320,
+      740
+    ],
+    "width": 280
+  },
+  {
+    "controlsFirst": true,
+    "overflowCards": 0,
+    "overflowTags": 0,
+    "questionCount": 5,
+    "scrollWidth": 350,
+    "stage": "preview",
+    "switches": [
+      44,
+      44,
+      44
+    ],
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 350
+  },
+  {
+    "controlsFirst": true,
+    "overflowCards": 0,
+    "overflowTags": 0,
+    "questionCount": 5,
+    "scrollWidth": 728,
+    "stage": "preview",
+    "switches": [
+      44,
+      44,
+      44
+    ],
+    "viewport": [
+      768,
+      1024
+    ],
+    "width": 728
+  },
+  {
+    "controlsFirst": true,
+    "overflowCards": 0,
+    "overflowTags": 0,
+    "questionCount": 5,
+    "scrollWidth": 804,
+    "stage": "preview",
+    "switches": [
+      44,
+      44,
+      44
+    ],
+    "viewport": [
+      844,
+      390
+    ],
+    "width": 804
+  },
+  {
+    "controlsFirst": true,
+    "overflowCards": 0,
+    "overflowTags": 0,
+    "questionCount": 5,
+    "scrollWidth": 1384,
+    "stage": "preview",
+    "switches": [
+      32,
+      32,
+      32
+    ],
+    "viewport": [
+      1440,
+      1000
+    ],
+    "width": 1384
+  },
+  {
+    "composerCount": 0,
+    "footer": {
+      "bottom": 564.5500106811523,
+      "height": 107.70000457763672,
+      "left": 16,
+      "right": 296,
+      "top": 456.8500061035156,
+      "width": 280,
+      "x": 16,
+      "y": 456.8500061035156
+    },
+    "notice": "考试已开始或已有作答，题目配置锁定共 5 题，总分 100 分。仍可修改其他考试设置。预览题目",
+    "scrollWidth": 280,
+    "stage": "locked",
+    "startDisabled": true,
+    "viewport": [
+      320,
+      740
+    ],
+    "width": 280
+  },
+  {
+    "composerCount": 0,
+    "footer": {
+      "bottom": 536.9500045776367,
+      "height": 107.70000457763672,
+      "left": 16,
+      "right": 366.3999938964844,
+      "top": 429.25,
+      "width": 350.3999938964844,
+      "x": 16,
+      "y": 429.25
+    },
+    "notice": "考试已开始或已有作答，题目配置锁定共 5 题，总分 100 分。仍可修改其他考试设置。预览题目",
+    "scrollWidth": 350,
+    "stage": "locked",
+    "startDisabled": true,
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 350
+  },
+  {
+    "composerCount": 0,
+    "footer": {
+      "bottom": 488.2000045776367,
+      "height": 80.0999984741211,
+      "left": 16,
+      "right": 744,
+      "top": 408.1000061035156,
+      "width": 728,
+      "x": 16,
+      "y": 408.1000061035156
+    },
+    "notice": "考试已开始或已有作答，题目配置锁定共 5 题，总分 100 分。仍可修改其他考试设置。预览题目",
+    "scrollWidth": 728,
+    "stage": "locked",
+    "startDisabled": true,
+    "viewport": [
+      768,
+      1024
+    ],
+    "width": 728
+  },
+  {
+    "composerCount": 0,
+    "footer": {
+      "bottom": 378.400016784668,
+      "height": 80.0999984741211,
+      "left": 16,
+      "right": 820,
+      "top": 298.3000183105469,
+      "width": 804,
+      "x": 16,
+      "y": 298.3000183105469
+    },
+    "notice": "考试已开始或已有作答，题目配置锁定共 5 题，总分 100 分。仍可修改其他考试设置。预览题目",
+    "scrollWidth": 804,
+    "stage": "locked",
+    "startDisabled": true,
+    "viewport": [
+      844,
+      390
+    ],
+    "width": 804
+  },
+  {
+    "composerCount": 0,
+    "footer": {
+      "bottom": 426.30001068115234,
+      "height": 80.0999984741211,
+      "left": 24,
+      "right": 1408,
+      "top": 346.20001220703125,
+      "width": 1384,
+      "x": 24,
+      "y": 346.20001220703125
+    },
+    "notice": "考试已开始或已有作答，题目配置锁定共 5 题，总分 100 分。仍可修改其他考试设置。预览题目",
+    "scrollWidth": 1384,
+    "stage": "locked",
+    "startDisabled": true,
+    "viewport": [
+      1440,
+      1000
+    ],
+    "width": 1384
+  }
+]

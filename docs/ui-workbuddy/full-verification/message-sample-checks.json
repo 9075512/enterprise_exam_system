@@ -1,0 +1,400 @@
+[
+  {
+    "view": "长消息列表",
+    "client": 312,
+    "controls": [
+      {
+        "height": 44,
+        "width": 64.07500457763672
+      },
+      {
+        "height": 44,
+        "width": 64.07500457763672
+      },
+      {
+        "height": 44,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 44,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 44,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 44,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 44,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 44,
+        "width": 58
+      },
+      {
+        "height": 44,
+        "width": 58
+      }
+    ],
+    "h": 568,
+    "overlap": false,
+    "root": 312,
+    "rows": false,
+    "w": 320
+  },
+  {
+    "view": "长消息列表",
+    "client": 382,
+    "controls": [
+      {
+        "height": 44,
+        "width": 64.07500457763672
+      },
+      {
+        "height": 44,
+        "width": 64.07500457763672
+      },
+      {
+        "height": 44,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 44,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 44,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 44,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 44,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 44,
+        "width": 58
+      },
+      {
+        "height": 44,
+        "width": 58
+      }
+    ],
+    "h": 844,
+    "overlap": false,
+    "root": 382,
+    "rows": false,
+    "w": 390
+  },
+  {
+    "view": "长消息列表",
+    "client": 560,
+    "controls": [
+      {
+        "height": 44,
+        "width": 64.07500457763672
+      },
+      {
+        "height": 44,
+        "width": 64.07500457763672
+      },
+      {
+        "height": 44,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 44,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 44,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 44,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 44,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 44,
+        "width": 58
+      },
+      {
+        "height": 44,
+        "width": 58
+      }
+    ],
+    "h": 320,
+    "overlap": false,
+    "root": 560,
+    "rows": false,
+    "w": 568
+  },
+  {
+    "view": "长消息列表",
+    "client": 760,
+    "controls": [
+      {
+        "height": 44,
+        "width": 64.07500457763672
+      },
+      {
+        "height": 44,
+        "width": 64.07500457763672
+      },
+      {
+        "height": 44,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 44,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 44,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 44,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 44,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 44,
+        "width": 58
+      },
+      {
+        "height": 44,
+        "width": 58
+      }
+    ],
+    "h": 844,
+    "overlap": false,
+    "root": 760,
+    "rows": false,
+    "w": 768
+  },
+  {
+    "view": "长消息列表",
+    "client": 1432,
+    "controls": [
+      {
+        "height": 40,
+        "width": 64.07500457763672
+      },
+      {
+        "height": 40,
+        "width": 64.07500457763672
+      },
+      {
+        "height": 40,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 40,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 40,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 40,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 40,
+        "width": 82.8499984741211
+      },
+      {
+        "height": 27,
+        "width": 27
+      },
+      {
+        "height": 27,
+        "width": 27
+      }
+    ],
+    "h": 960,
+    "overlap": false,
+    "root": 1432,
+    "rows": false,
+    "w": 1440
+  },
+  {
+    "view": "长消息详情",
+    "bodyClient": 418,
+    "bodyScroll": 5412,
+    "bodyScrollW": 312,
+    "bodyW": 312,
+    "drawerWidth": 320,
+    "footer": 568.0000152587891,
+    "h": 568,
+    "w": 320
+  },
+  {
+    "view": "长消息详情",
+    "bodyClient": 694,
+    "bodyScroll": 5390,
+    "bodyScrollW": 382,
+    "bodyW": 382,
+    "drawerWidth": 390.3999938964844,
+    "footer": 844.0000152587891,
+    "h": 844,
+    "w": 390
+  },
+  {
+    "view": "长消息详情",
+    "bodyClient": 170,
+    "bodyScroll": 4078,
+    "bodyScrollW": 560,
+    "bodyW": 560,
+    "drawerWidth": 568,
+    "footer": 320,
+    "h": 320,
+    "w": 568
+  },
+  {
+    "view": "长消息详情",
+    "bodyClient": 694,
+    "bodyScroll": 2743,
+    "bodyScrollW": 760,
+    "bodyW": 760,
+    "drawerWidth": 768,
+    "footer": 844.0000152587891,
+    "h": 844,
+    "w": 768
+  },
+  {
+    "view": "长消息详情",
+    "bodyClient": 822,
+    "bodyScroll": 4086,
+    "bodyScrollW": 552,
+    "bodyW": 552,
+    "drawerWidth": 560,
+    "footer": 960.0000152587892,
+    "h": 960,
+    "w": 1440
+  },
+  {
+    "view": "长题库名错题分组",
+    "buttonHeight": 44,
+    "buttonTop": 392.3999938964844,
+    "client": 312,
+    "h": 568,
+    "nameBottom": 384.4000015258789,
+    "scroll": 312,
+    "w": 320
+  },
+  {
+    "view": "长题库名错题分组",
+    "buttonHeight": 44,
+    "buttonTop": 349.0500183105469,
+    "client": 382,
+    "h": 844,
+    "nameBottom": 341.0500068664551,
+    "scroll": 382,
+    "w": 390
+  },
+  {
+    "view": "长题库名错题分组",
+    "buttonHeight": 44,
+    "buttonTop": 297.0500183105469,
+    "client": 560,
+    "h": 320,
+    "nameBottom": 289.0500068664551,
+    "scroll": 560,
+    "w": 568
+  },
+  {
+    "view": "大数字个人统计",
+    "client": 312,
+    "columns": "106px 106px",
+    "h": 568,
+    "scroll": 312,
+    "values": [
+      {
+        "scroll": 104,
+        "w": 104
+      },
+      {
+        "scroll": 104,
+        "w": 104
+      },
+      {
+        "scroll": 104,
+        "w": 104
+      },
+      {
+        "scroll": 104,
+        "w": 104
+      }
+    ],
+    "w": 320
+  },
+  {
+    "view": "大数字个人统计",
+    "client": 382,
+    "columns": "141.2px 141.2px",
+    "h": 844,
+    "scroll": 382,
+    "values": [
+      {
+        "scroll": 140,
+        "w": 140
+      },
+      {
+        "scroll": 140,
+        "w": 140
+      },
+      {
+        "scroll": 140,
+        "w": 140
+      },
+      {
+        "scroll": 140,
+        "w": 140
+      }
+    ],
+    "w": 390
+  },
+  {
+    "view": "大数字个人统计",
+    "client": 560,
+    "columns": "109px 109px 109px 109px",
+    "h": 320,
+    "scroll": 560,
+    "values": [
+      {
+        "scroll": 107,
+        "w": 107
+      },
+      {
+        "scroll": 107,
+        "w": 107
+      },
+      {
+        "scroll": 107,
+        "w": 107
+      },
+      {
+        "scroll": 107,
+        "w": 107
+      }
+    ],
+    "w": 568
+  }
+]

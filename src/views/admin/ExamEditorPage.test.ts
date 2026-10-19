@@ -5,6 +5,7 @@ import ExamEditorPage from './ExamEditorPage.vue';
 
 const api = vi.hoisted(() => ({
   role: 'admin', id: '', valid: true,
+  validate: vi.fn(),
   create: vi.fn(), update: vi.fn(), saveQuestions: vi.fn(), detail: vi.fn(), questions: vi.fn(), departments: vi.fn(), push: vi.fn(), warning: vi.fn(),
 }));
 vi.mock('vue-router', () => ({ useRoute: () => ({ params: { id: api.id } }), useRouter: () => ({ push: api.push }) }));
@@ -13,18 +14,20 @@ vi.mock('@/api/exams', () => ({ create: api.create, update: api.update, saveQues
 vi.mock('@/api/departments', () => ({ list: api.departments }));
 vi.mock('element-plus', () => ({ ElMessage: { warning: api.warning, success: vi.fn() } }));
 vi.mock('./ExamSettingsForm.vue', () => ({ default: defineComponent({
+  props: ['disabled'],
   setup(_, { expose }) {
     const form = reactive({ name: '测试考试' });
-    expose({ form, validate: async () => api.valid, getPayload: () => ({ name: form.name, passScore: 60, authorIds: ['author-1'] }) });
+    expose({ form, validate: () => api.validate(), getPayload: () => ({ name: form.name, passScore: 60, authorIds: ['author-1'] }) });
     return { form };
-  }, template: '<input class="exam-name" v-model="form.name" />',
+  }, template: '<input class="exam-name" v-model="form.name" :disabled="disabled" />',
 }) }));
 vi.mock('@/components/exams/ExamQuestionComposer.vue', () => ({ default: defineComponent({
+  props: ['disabled'],
   setup(_, { expose }) {
     const score = ref(100);
     expose({ getPayload: () => ({ bankIds: ['bank-1'], questions: [{ questionId: 'q-1', score: score.value }] }) });
     return { score };
-  }, template: '<input class="question-score" type="number" v-model.number="score" />',
+  }, template: '<input class="question-score" type="number" v-model.number="score" :disabled="disabled" />',
 }) }));
 
 const slots = { template: '<div><slot /><slot name="extra" /></div>' };
@@ -44,12 +47,36 @@ async function click(wrapper: ReturnType<typeof render>, text: string) {
 
 beforeEach(() => {
   vi.clearAllMocks(); api.role = 'admin'; api.id = ''; api.valid = true;
+  api.validate.mockImplementation(async () => api.valid);
   api.departments.mockResolvedValue([]); api.create.mockResolvedValue({ id: 'new' }); api.push.mockResolvedValue(undefined);
   api.detail.mockResolvedValue({ id: 'exam-1', name: '已有考试', canReadQuestions: true, canEditQuestions: true });
   api.questions.mockResolvedValue({ bankIds: ['bank-1'], questions: [] });
 });
 
 describe('考试两步创建', () => {
+  it('异步校验开始即锁定两步表单，连点只提交一次，失败后恢复', async () => {
+    const wrapper = render(); await flushPromises();
+    await click(wrapper, '下一步：题目配置');
+    let finishValidation!: (valid: boolean) => void;
+    let failSave!: (error: Error) => void;
+    api.validate.mockReturnValueOnce(new Promise(resolve => { finishValidation = resolve; }));
+    api.create.mockReturnValueOnce(new Promise((_, reject) => { failSave = reject; }));
+    const button = wrapper.findAll('button').find(b => b.text() === '创建考试')!;
+    void button.trigger('click'); void button.trigger('click'); await flushPromises();
+    expect(api.validate).toHaveBeenCalledTimes(2); // 下一步一次，保存一次。
+    expect(wrapper.get('.exam-name').attributes('disabled')).toBeDefined();
+    expect(wrapper.get('.question-score').attributes('disabled')).toBeDefined();
+    expect(api.create).not.toHaveBeenCalled();
+    finishValidation(true); await flushPromises();
+    expect(api.create).toHaveBeenCalledTimes(1);
+    failSave(new Error('offline')); await flushPromises();
+    expect(wrapper.get('.question-score').attributes('disabled')).toBeUndefined();
+    expect((wrapper.get('.question-score').element as HTMLInputElement).value).toBe('100');
+    expect(api.push).not.toHaveBeenCalled();
+    await click(wrapper, '创建考试');
+    expect(api.create).toHaveBeenCalledTimes(2);
+  });
+
   it('切换步骤保留考试信息和题目，最终只发一次统一创建请求', async () => {
     const wrapper = render(); await flushPromises();
     await wrapper.get('.exam-name').setValue('安全月考');

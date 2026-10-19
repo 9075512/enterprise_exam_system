@@ -1,11 +1,13 @@
 <script setup lang="ts">
 /** 角色菜单授权与个人菜单例外，共用角色管理的权限数据。 */
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { getMenuPermissions, updateMenuPermissions } from '@/api/permissions';
 import * as usersApi from '@/api/users';
 import { menuOverridesApi } from '@/api/coreFeatures';
 import { groupKeyOf, groupOrderOf, groupTextOf } from '@/layouts/menuConfig';
+import EmptyState from '@/components/common/EmptyState.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
 import RoleMenuPicker from '@/components/common/RoleMenuPicker.vue';
 import { formatDateTime } from '@/utils/datetime';
@@ -17,6 +19,12 @@ const activeRole = computed(() => definitions.value.find(r => r.id === selectedR
 function roleName(id: string): string { return definitions.value.find(r => r.id === id)?.name ?? id; }
 
 const loading = ref(true);
+const loadError = ref(false);
+const usersError = ref(false);
+const overrideLoading = ref(false);
+const overrideError = ref(false);
+let overrideRequest = 0;
+onBeforeUnmount(() => { overrideRequest += 1; });
 const saving = ref(false);
 const catalog = ref<MenuPermission['catalog']>([]);
 const grants = reactive<MenuGrants>({ admin: [], author: [], examinee: [] });
@@ -46,18 +54,31 @@ const groupedCatalog = computed(() =>
 
 onMounted(() => {
   void load();
-  void usersApi.list().then((rows) => { users.value = rows; }).catch(() => {});
+  void loadUsers();
 });
 
+async function loadUsers(): Promise<void> {
+  usersError.value = false;
+  try { users.value = await usersApi.list(); } catch { usersError.value = true; }
+}
 async function loadOverrides(): Promise<void> {
+  const request = ++overrideRequest;
+  const userId = overrideUserId.value;
   for (const key of Object.keys(overrideDraft)) delete overrideDraft[key];
-  if (!overrideUserId.value) return;
-  const rows = await menuOverridesApi.list(overrideUserId.value);
-  for (const item of rows) overrideDraft[item.menuKey] = item.effect;
+  overrideError.value = false;
+  overrideLoading.value = Boolean(userId);
+  if (!userId) return;
+  try {
+    const rows = await menuOverridesApi.list(userId);
+    if (request !== overrideRequest) return;
+    for (const item of rows) overrideDraft[item.menuKey] = item.effect;
+  } catch { if (request === overrideRequest) overrideError.value = true; }
+  finally { if (request === overrideRequest) overrideLoading.value = false; }
 }
 
 async function saveOverrides(): Promise<void> {
   if (!overrideUserId.value) { ElMessage.warning('请先选择用户'); return; }
+  if (overrideSaving.value || overrideLoading.value || overrideError.value || loadError.value) return;
   overrideSaving.value = true;
   try {
     await menuOverridesApi.replace(overrideUserId.value, overrideCatalog.value.flatMap((item) => {
@@ -65,11 +86,13 @@ async function saveOverrides(): Promise<void> {
       return effect ? [{ menuKey: item.key, effect }] : [];
     }));
     ElMessage.success('个人菜单例外已保存');
-  } finally { overrideSaving.value = false; }
+  } catch { /* Keep the draft on API failure. */ }
+  finally { overrideSaving.value = false; }
 }
 
 async function load(): Promise<void> {
   loading.value = true;
+  loadError.value = false;
   try {
     const data = await getMenuPermissions();
     catalog.value = data.catalog;
@@ -77,13 +100,14 @@ async function load(): Promise<void> {
     for (const key of Object.keys(grants)) delete grants[key];
     Object.assign(grants, data.grants);
   } catch {
-    // 加载失败静默，保持空态
+    loadError.value = true;
   } finally {
     loading.value = false;
   }
 }
 
 async function handleSave(): Promise<void> {
+  if (saving.value || loading.value || loadError.value) return;
   saving.value = true;
   try {
     const data = await updateMenuPermissions(Object.fromEntries(Object.entries(grants).map(([id, keys]) => [id, [...keys]])));
@@ -100,14 +124,15 @@ async function handleSave(): Promise<void> {
 </script>
 
 <template>
-  <div class="menu-permission-page">
+  <div data-ui-layout="list" data-ui-page="MenuPermissionPage" class="menu-permission-page">
     <PageHeader title="菜单权限" description="配置各角色在侧边栏可见的菜单；管理员必授菜单不可关闭">
       <template #actions>
-        <el-button type="primary" :loading="saving" :disabled="loading || !definitions.length" @click="handleSave">保存权限</el-button>
+        <el-button type="primary" :loading="saving" :disabled="loading || loadError || !definitions.length" @click="handleSave">保存权限</el-button>
       </template>
     </PageHeader>
 
-    <div class="menu-permission-page__layout">
+    <RequestError v-if="loadError" text="菜单权限加载失败" @retry="load" />
+    <div v-else class="menu-permission-page__layout">
       <!-- 左栏：选择角色 + 当前统计（对齐设计稿 permissions.html 的独立卡） -->
       <div class="menu-permission-page__aside">
         <el-card class="menu-permission-page__panel" shadow="never">
@@ -123,6 +148,11 @@ async function handleSave(): Promise<void> {
               :key="role"
               class="menu-permission-page__role"
               :class="{ 'is-active': role === selectedRole }"
+              role="button"
+              tabindex="0"
+              :aria-pressed="role === selectedRole"
+              @keydown.enter="selectedRole = role"
+              @keydown.space.prevent="selectedRole = role"
               @click="selectedRole = role"
             >
               <span class="menu-permission-page__role-name">{{ roleName(role) }}</span>
@@ -172,14 +202,14 @@ async function handleSave(): Promise<void> {
           title="按所选角色的基础身份配置可见菜单；权限修改后受影响成员需重新登录，管理员必授菜单不可关闭"
         />
 
-        <RoleMenuPicker v-if="activeRole" v-model="grants[selectedRole]" :base-role="activeRole.baseRole" :catalog="catalog" />
+        <RoleMenuPicker v-if="activeRole" v-model="grants[selectedRole]" :base-role="activeRole.baseRole" :catalog="catalog" :disabled="saving || loading || loadError" />
       </el-card>
     </div>
 
     <el-card class="menu-permission-page__panel" shadow="never">
       <template #header><div class="menu-permission-page__head"><span class="menu-permission-page__head-title">个人菜单例外</span><span class="menu-permission-page__head-meta">在基础角色权限之上设置允许或拒绝；管理员必备菜单不可拒绝</span></div></template>
-      <div style="display:flex;gap:12px;margin-bottom:14px"><el-select v-model="overrideUserId" filterable clearable placeholder="选择用户" style="width:260px" @change="loadOverrides"><el-option v-for="user in users" :key="user.id" :label="`${user.name}（${user.username}）`" :value="user.id"/></el-select><el-button type="primary" :loading="overrideSaving" :disabled="!overrideUserId" @click="saveOverrides">保存个人例外</el-button></div>
-      <el-table v-if="overrideUserId" :data="overrideCatalog" row-key="key" size="small" border><el-table-column prop="name" label="菜单" min-width="180"/><el-table-column label="个人例外" width="220"><template #default="{ row }"><el-radio-group v-model="overrideDraft[row.key]"><el-radio-button value="">继承角色</el-radio-button><el-radio-button value="allow">允许</el-radio-button><el-radio-button value="deny" :disabled="users.find(u=>u.id===overrideUserId)?.role==='admin' && row.adminRequired">拒绝</el-radio-button></el-radio-group></template></el-table-column></el-table>
+      <RequestError v-if="usersError" text="用户选项加载失败" @retry="loadUsers" /><div class="admin-toolbar"><el-select v-model="overrideUserId" :disabled="overrideSaving || usersError || loadError" filterable clearable placeholder="选择用户" style="width:260px" @change="loadOverrides"><el-option v-for="user in users" :key="user.id" :label="`${user.name}（${user.username}）`" :value="user.id"/></el-select><el-button type="primary" :loading="overrideSaving" :disabled="!overrideUserId || overrideLoading || overrideError || loadError" @click="saveOverrides">保存个人例外</el-button></div>
+      <RequestError v-if="overrideError" text="个人菜单例外加载失败" @retry="loadOverrides" /><el-table v-else-if="overrideUserId" v-loading="overrideLoading || overrideSaving" :data="overrideCatalog" row-key="key"><el-table-column prop="name" label="菜单" min-width="180"/><el-table-column label="个人例外" min-width="330"><template #default="{ row }"><el-radio-group v-model="overrideDraft[row.key]"><el-radio-button value="">继承角色</el-radio-button><el-radio-button value="allow">允许</el-radio-button><el-radio-button value="deny" :disabled="users.find(u=>u.id===overrideUserId)?.role==='admin' && row.adminRequired">拒绝</el-radio-button></el-radio-group></template></el-table-column><template #empty><EmptyState text="该用户暂无可配置菜单" /></template></el-table>
       <p v-else class="menu-permission-page__hint">选择用户后配置个人菜单允许/拒绝例外。</p>
     </el-card>
   </div>
@@ -189,10 +219,12 @@ async function handleSave(): Promise<void> {
 @use '@/styles/variables.scss' as *;
 
 .menu-permission-page {
+  display: flex; flex-direction: column; gap: 20px; min-width: 0;
+  > :deep(.page-header) { margin-bottom: 0; }
   &__layout {
     display: grid;
     grid-template-columns: 236px minmax(0, 1fr);
-    gap: 14px;
+    gap: 20px;
     align-items: start;
 
     @media (max-width: 1100px) {
@@ -217,6 +249,7 @@ async function handleSave(): Promise<void> {
   &__head {
     display: flex;
     align-items: baseline;
+    flex-wrap: wrap;
     justify-content: space-between;
     gap: 8px;
   }
@@ -268,7 +301,7 @@ async function handleSave(): Promise<void> {
   }
 
   &__role-meta {
-    font-size: 11.5px;
+    font-size: 12px;
     color: $text-secondary;
   }
 

@@ -4,7 +4,7 @@
  * 勾选要导出的字段 → 调用 reports.exportExamScores 下载 .xlsx。
  * 注：后端返回裸二进制，http.ts 响应拦截器原样透传为 Blob。
  */
-import { computed, ref, watch } from 'vue';
+import { computed, ref, useId, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import type { CheckboxValueType } from 'element-plus';
 import { Download } from '@element-plus/icons-vue';
@@ -17,10 +17,11 @@ const emit = defineEmits<{ (e: 'update:modelValue', v: boolean): void }>();
 const selected = ref<string[]>([...DEFAULT_SCORE_EXPORT_FIELDS]);
 const exporting = ref(false);
 const format = ref<'xlsx' | 'pdf'>('xlsx');
+const fieldLabelId = `score-export-fields-${useId()}`;
 
 const visible = computed({
   get: () => props.modelValue,
-  set: (v: boolean) => emit('update:modelValue', v),
+  set: (v: boolean) => { if (!v && exporting.value) return; emit('update:modelValue', v); },
 });
 
 const allChecked = computed(() => selected.value.length === SCORE_EXPORT_FIELDS.length);
@@ -51,7 +52,7 @@ function stamp(): string {
 }
 
 async function handleExport(): Promise<void> {
-  if (!props.examId) return;
+  if (!props.examId || exporting.value) return;
   if (selected.value.length === 0) {
     ElMessage.warning('请至少选择一个导出字段');
     return;
@@ -72,7 +73,7 @@ async function handleExport(): Promise<void> {
     a.remove();
     URL.revokeObjectURL(url);
     ElMessage.success('导出成功');
-    visible.value = false;
+    emit('update:modelValue', false);
   } catch {
     // 失败提示已由 http.ts 响应拦截器统一弹出，此处不重复提示
   } finally {
@@ -82,34 +83,35 @@ async function handleExport(): Promise<void> {
 </script>
 
 <template>
-  <el-dialog v-model="visible" title="导出成绩" width="560px" :close-on-click-modal="false" append-to-body>
+  <el-dialog v-model="visible" title="导出成绩" width="560px" :close-on-click-modal="false" :close-on-press-escape="!exporting" :show-close="!exporting" append-to-body>
+    <div class="score-export__context"><span>当前考试</span><strong>{{ examName || '未命名考试' }}</strong></div>
     <el-alert
       class="score-export__alert"
       type="info"
       :closable="false"
       show-icon
-      title="按「每位考生最新一次作答」导出"
-      description="同一考生多次作答只导出最新一次；支持 Excel（.xlsx）与 PDF（.pdf）两种格式。"
+      title="按系统补考成绩口径导出"
+      description="每位考生取最近一次或最高分的已交卷成绩，以系统设置为准；支持 Excel（.xlsx）与 PDF（.pdf）。"
     />
 
     <div class="score-export__header">
       <span class="score-export__title">导出格式</span>
-      <el-radio-group v-model="format">
+      <el-radio-group v-model="format" :disabled="exporting" aria-label="导出格式">
         <el-radio-button value="xlsx">Excel（.xlsx）</el-radio-button>
         <el-radio-button value="pdf">PDF（.pdf）</el-radio-button>
       </el-radio-group>
     </div>
 
     <div class="score-export__header">
-      <span class="score-export__title">导出字段</span>
+      <span :id="fieldLabelId" class="score-export__title">导出字段</span>
       <div class="score-export__header-right">
         <span class="score-export__count">已选 {{ selected.length }}/{{ SCORE_EXPORT_FIELDS.length }}</span>
-        <el-checkbox :model-value="allChecked" @change="onCheckAll">全选</el-checkbox>
+        <el-checkbox :model-value="allChecked" :indeterminate="selected.length > 0 && !allChecked" :disabled="exporting" @change="onCheckAll">全选</el-checkbox>
       </div>
     </div>
 
     <div class="score-export__fields">
-      <el-checkbox-group v-model="selected" class="score-export__group">
+      <el-checkbox-group v-model="selected" class="score-export__group" :disabled="exporting" :aria-labelledby="fieldLabelId">
         <el-checkbox v-for="f in SCORE_EXPORT_FIELDS" :key="f.key" :value="f.key">
           {{ f.label }}
         </el-checkbox>
@@ -117,7 +119,7 @@ async function handleExport(): Promise<void> {
     </div>
 
     <template #footer>
-      <el-button @click="visible = false">取消</el-button>
+      <el-button :disabled="exporting" @click="visible = false">取消</el-button>
       <el-button
         type="primary"
         :loading="exporting"
@@ -135,6 +137,7 @@ async function handleExport(): Promise<void> {
 @use '@/styles/variables.scss' as *;
 
 .score-export {
+  &__context { display: grid; gap: 6px; margin-bottom: 16px; padding: 16px; border: 1px solid $border-color; border-radius: $radius-lg; background: $bg-page; span { color: $text-secondary; font-size: 12px; } strong { color: $text-primary; font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; } }
   &__alert {
     margin-bottom: 16px;
   }
@@ -180,6 +183,12 @@ async function handleExport(): Promise<void> {
   &__group :deep(.el-checkbox) {
     min-width: 0;
     margin-right: 0;
+  }
+
+  @media (max-width: 900px) {
+    &__group :deep(.el-checkbox), &__header-right :deep(.el-checkbox) { min-height: 44px; }
+    &__header :deep(.el-radio-button__inner) { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; }
+    &__group :deep(.el-checkbox__label) { white-space: normal; overflow-wrap: anywhere; }
   }
 }
 </style>

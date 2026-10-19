@@ -165,7 +165,7 @@ function backToCredentials(): void {
 </script>
 
 <template>
-  <div class="login">
+  <div data-ui-layout="login" data-ui-page="LoginPage" class="login">
     <!-- 左：品牌区（设计稿 .login__brand：深底 + 主色辐光） -->
     <section class="login__brand">
       <div class="login__brand-inner">
@@ -347,7 +347,7 @@ function backToCredentials(): void {
     align-items: stretch;
     padding: 44px 48px;
     overflow: hidden;
-    background: $sidebar-bg;
+    background: $gradient-brand;
     color: #fff;
 
     /* 右下主色辐光（设计稿 ::after） */
@@ -396,12 +396,12 @@ function backToCredentials(): void {
     flex-direction: column;
     font-size: 14px;
     font-weight: 620;
-    color: $sidebar-text-hover;
+    color: $bg-paper;
 
     small {
-      font-size: 10px;
+      font-size: 12px;
       letter-spacing: 0.11em;
-      color: $sidebar-text;
+      color: rgba($bg-paper, 0.8);
     }
   }
 
@@ -419,7 +419,7 @@ function backToCredentials(): void {
     max-width: 410px;
     font-size: 13px;
     line-height: 1.7;
-    color: $sidebar-text;
+    color: rgba($bg-paper, 0.85);
   }
 
   &__features {
@@ -436,7 +436,7 @@ function backToCredentials(): void {
     align-items: center;
     gap: 9px;
     font-size: 12.5px;
-    color: $sidebar-text;
+    color: rgba($bg-paper, 0.85);
   }
 
   &__feature-icon {
@@ -453,8 +453,8 @@ function backToCredentials(): void {
   &__copyright {
     margin: auto 0 0;
     padding-top: 30px;
-    font-size: 11px;
-    color: $sidebar-text;
+    font-size: 12px;
+    color: rgba($bg-paper, 0.8);
     opacity: 0.75;
   }
 
@@ -534,7 +534,7 @@ function backToCredentials(): void {
 
   &__hint {
     margin: 20px 0 0;
-    font-size: 11.5px;
+    font-size: 12px;
     line-height: 1.65;
     color: $text-secondary;
   }
@@ -577,7 +577,7 @@ function backToCredentials(): void {
     }
 
     small {
-      font-size: 11.5px;
+      font-size: 12px;
       color: $text-secondary;
       font-family: Consolas, monospace;
     }
@@ -626,7 +626,7 @@ function backToCredentials(): void {
         max(20px, env(safe-area-inset-left));
       background:
         radial-gradient(circle at 92% 12%, rgba($color-primary-light, 0.3), transparent 35%),
-        linear-gradient(145deg, $sidebar-bg 8%, #0d3977 100%);
+        $gradient-brand;
 
       &::before {
         content: '';
@@ -675,7 +675,7 @@ function backToCredentials(): void {
 
       small {
         margin-top: 1px;
-        font-size: 9px;
+        font-size: 12px;
         letter-spacing: 0.14em;
       }
     }

@@ -45,7 +45,7 @@ const analysisVisible = computed<boolean>(() => props.result.analysisVisible !==
       </div>
       <div v-else class="feedback__row">
         <span class="feedback__label">正确答案</span>
-        <span class="feedback__value feedback__value--muted">已隐藏（后台关闭了答案展示）</span>
+        <span class="feedback__value feedback__value--muted">当前练习未开放答案</span>
       </div>
 
       <div class="feedback__row">
@@ -60,7 +60,7 @@ const analysisVisible = computed<boolean>(() => props.result.analysisVisible !==
     </div>
     <div v-else class="feedback__analysis feedback__analysis--muted">
       <div class="feedback__analysis-head">解析</div>
-      <p class="feedback__analysis-text">已隐藏（后台关闭了解析展示）</p>
+      <p class="feedback__analysis-text">当前练习未开放解析</p>
     </div>
   </div>
 </template>
@@ -131,7 +131,7 @@ const analysisVisible = computed<boolean>(() => props.result.analysisVisible !==
 
   &__badge {
     margin-left: auto;
-    font-size: 11px;
+    font-size: 12px;
     color: $text-disabled;
   }
 
@@ -143,7 +143,7 @@ const analysisVisible = computed<boolean>(() => props.result.analysisVisible !==
 
   &__row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 10px;
   }
 
@@ -154,6 +154,8 @@ const analysisVisible = computed<boolean>(() => props.result.analysisVisible !==
   }
 
   &__value {
+    min-width: 0;
+    overflow-wrap: anywhere;
     font-size: 13.5px;
     font-weight: 640;
     color: $text-primary;

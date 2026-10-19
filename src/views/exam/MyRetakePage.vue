@@ -7,12 +7,14 @@
  * 申请记录改「卡头状态筛选 + 表格 + 分页」；
  * 右侧列新增「申请补考」表单卡与「补考规则」说明卡（表单动作复用既有 applyRetake 接口）。
  */
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { CircleCheck, CircleClose, Clock, InfoFilled, Refresh } from '@element-plus/icons-vue';
 import * as examsApi from '@/api/exams';
 import { applyRetake, listMyRetakes } from '@/api/retakes';
 import { useRequest } from '@/composables/useRequest';
+import { useSettingsStore } from '@/stores/settings';
+import RequestError from '@/components/common/RequestError.vue';
 import { formatDateTime } from '@/utils/datetime';
 import EmptyState from '@/components/common/EmptyState.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
@@ -31,27 +33,14 @@ const STATUS_TAG: Record<RetakeStatus, 'warning' | 'success' | 'danger'> = {
   rejected: 'danger',
 };
 
-const loading = ref(false);
-const list = ref<Retake[]>([]);
+const { data: retakePage, loading, error: loadError, refresh: load } = useRequest(() => listMyRetakes(1, 100));
+const list = computed(() => retakePage.value?.list ?? []);
+const settingsStore = useSettingsStore();
 
-const { data: myExams, refresh: refreshExams } = useRequest(() => examsApi.my());
+const { data: myExams, loading: examsLoading, error: examsError, refresh: refreshExams } = useRequest(() => examsApi.my());
 
 /** 可发起补考申请的考试（后端已按「未及格 + 未申请过 + 未超期」判定） */
 const eligibleExams = computed<ExamMy[]>(() => (myExams.value ?? []).filter((e) => e.canApplyRetake));
-
-async function load(): Promise<void> {
-  loading.value = true;
-  try {
-    const data = await listMyRetakes(1, 100);
-    list.value = data.list;
-  } catch {
-    list.value = [];
-  } finally {
-    loading.value = false;
-  }
-}
-
-void load();
 
 /* ------------------------------ 状态筛选 + 分页 ------------------------------ */
 type FilterKey = '' | RetakeStatus;
@@ -64,6 +53,7 @@ const filtered = computed<Retake[]>(() =>
 );
 const paged = computed<Retake[]>(() => filtered.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE));
 const totalPages = computed<number>(() => Math.max(1, Math.ceil(filtered.value.length / PAGE_SIZE)));
+watch(totalPages, value => { if (page.value > value) page.value = value; });
 
 function onFilterChange(): void {
   page.value = 1;
@@ -83,7 +73,7 @@ const counts = computed(() => {
     else if (r.status === 'approved') stat.approved += 1;
     else stat.rejected += 1;
   }
-  return { eligible: eligibleExams.value.length, ...stat };
+  return { eligible: myExams.value && !examsError.value ? eligibleExams.value.length : '—', ...(!retakePage.value || loadError.value ? { pending: '—', approved: '—', rejected: '—' } : stat) };
 });
 
 /* ------------------------------ 申请补考 ------------------------------ */
@@ -97,6 +87,7 @@ function resetApply(): void {
 }
 
 async function submitApply(): Promise<void> {
+  if (applying.value || examsLoading.value || examsError.value) return;
   if (!applyExamId.value) {
     ElMessage.warning('请选择需要补考的考试');
     return;
@@ -125,16 +116,16 @@ async function submitApply(): Promise<void> {
  * - 成绩：以最近一次作答成绩为准（系统不合并历史最高分）；
  * - 时限：后端未设申请截止时间（无「逾期不再受理」约束）。
  */
-const RULES = [
+const RULES = computed(() => [
   { k: '补考资格', v: '未及格，且答题次数已用完' },
   { k: '审批方式', v: '管理员逐条审批，通过后可再作答一次' },
   { k: '申请次数', v: '每场至多一条有效申请，被驳回后可重新申请' },
-  { k: '成绩口径', v: '以最近一次作答成绩为准，及格即通过' },
-];
+  { k: '成绩口径', v: settingsStore.settings.retakeScorePolicy === 'highest' ? '报表和导出取本人最高分的已交卷答卷' : '报表和导出取本人最近一次已交卷答卷' },
+]);
 </script>
 
 <template>
-  <div class="my-retake">
+  <div data-ui-layout="request" data-ui-page="MyRetakePage" class="my-retake">
     <PageHeader title="我的补考" description="查看补考申请与审批结果 · 未及格可申请补考，由管理员审批">
       <template #actions>
         <el-button :icon="Refresh" @click="load">刷新状态</el-button>
@@ -148,6 +139,8 @@ const RULES = [
       <StatCard label="已通过" :value="counts.approved" unit="项" tone="success" :icon="CircleCheck" />
       <StatCard label="已驳回" :value="counts.rejected" unit="项" :icon="CircleClose" />
     </div>
+
+    <p class="learner-scope">{{ loadError ? '申请记录数量未知' : `已加载 ${list.length} / ${retakePage?.total ?? 0} 条申请，统计与状态筛选限于已加载记录` }}</p>
 
     <el-card class="my-retake__panel" shadow="never">
       <template #header>
@@ -165,7 +158,8 @@ const RULES = [
         </el-select>
       </template>
 
-      <div class="my-retake__desktop-table">
+      <RequestError v-if="loadError" text="补考申请加载失败" @retry="load" />
+      <div v-else class="my-retake__desktop-table">
       <el-table v-loading="loading" :data="paged" row-key="id" stripe>
         <el-table-column label="考试名称" min-width="200">
           <template #default="{ row }">
@@ -196,7 +190,7 @@ const RULES = [
       </el-table>
       </div>
 
-      <div v-loading="loading" class="my-retake__mobile-list">
+      <div v-if="!loadError" v-loading="loading" class="my-retake__mobile-list">
         <EmptyState
           v-if="paged.length === 0"
           :text="filterStatus ? '没有该状态的补考申请' : '暂无补考申请'"
@@ -247,10 +241,11 @@ const RULES = [
         <template #header>
           <h3 class="my-retake__card-title">申请补考</h3>
         </template>
+        <RequestError v-if="examsError" text="可申请考试加载失败" @retry="refreshExams" />
 
         <div class="my-retake__field">
           <label>选择考试 <span class="my-retake__req">*</span></label>
-          <el-select v-model="applyExamId" class="my-retake__select" placeholder="请选择需要补考的考试" clearable>
+          <el-select v-model="applyExamId" :disabled="applying || examsLoading || Boolean(examsError)" class="my-retake__select" placeholder="请选择需要补考的考试" clearable>
             <el-option v-for="exam in eligibleExams" :key="exam.id" :label="exam.name" :value="exam.id" />
           </el-select>
           <span class="my-retake__hint">
@@ -262,6 +257,7 @@ const RULES = [
           <label>申请说明 <span class="my-retake__req">*</span></label>
           <el-input
             v-model="applyReason"
+            :disabled="applying"
             type="textarea"
             :rows="3"
             maxlength="500"
@@ -273,13 +269,13 @@ const RULES = [
         <div class="my-retake__tip">
           <el-icon class="my-retake__tip-icon"><InfoFilled /></el-icon>
           <div>
-            补考由管理员审批并统一安排场次，审批结果会通过<b>消息中心</b>通知你；同一场考试的待审批 / 已通过申请不可重复提交。
+            补考由管理员审批，通过后增加一次作答机会，仍需遵守考试开放时间；同一场考试的待审批 / 已通过申请不可重复提交。
           </div>
         </div>
 
         <div class="my-retake__form-act">
-          <el-button @click="resetApply">重置</el-button>
-          <el-button type="primary" :loading="applying" @click="submitApply">提交补考申请</el-button>
+          <el-button :disabled="applying" @click="resetApply">重置</el-button>
+          <el-button type="primary" :loading="applying" :disabled="examsLoading || Boolean(examsError) || !eligibleExams.length" @click="submitApply">提交补考申请</el-button>
         </div>
       </el-card>
 
@@ -438,7 +434,7 @@ const RULES = [
   }
 
   &__hint {
-    font-size: 11px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
