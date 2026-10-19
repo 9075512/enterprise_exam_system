@@ -18,6 +18,7 @@ import { ROLE_LABELS } from '@/constants';
 import { formatDateTime } from '@/utils/datetime';
 import { buildDepartmentNameMap, buildDepartmentTree } from '@/utils/departmentTree';
 import PageHeader from '@/components/common/PageHeader.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
@@ -32,10 +33,19 @@ const settingsStore = useSettingsStore();
 const importDialogVisible = ref(false);
 const positions = ref<Position[]>([]);
 const roles = ref<RoleDefinition[]>([]);
+const optionsLoading = ref(false);
+const optionsError = ref(false);
+async function loadOptions(): Promise<void> {
+  optionsLoading.value = true;
+  optionsError.value = false;
+  try { const [p, g] = await Promise.all([positionsApi.list(), rolesApi.list()]); positions.value = p; roles.value = g; }
+  catch { optionsError.value = true; }
+  finally { optionsLoading.value = false; }
+}
 
 onMounted(() => {
   void settingsStore.load();
-  void Promise.all([positionsApi.list(), rolesApi.list()]).then(([p, g]) => { positions.value = p; roles.value = g; });
+  void loadOptions();
 });
 
 /* ------------------------------ 科室映射 ------------------------------ */
@@ -56,6 +66,7 @@ const hasFilter = computed<boolean>(() => Boolean(filterRoleId.value || filterKe
 const {
   data: users,
   loading,
+  error,
   refresh,
 } = useRequest(() =>
   usersApi.list({
@@ -78,6 +89,7 @@ function onReset(): void {
 const dialogVisible = ref(false);
 const editingId = ref('');
 const submitting = ref(false);
+const validating = ref(false);
 const formRef = ref<FormInstance>();
 const form = reactive({
   username: '',
@@ -162,8 +174,11 @@ function openEdit(user: User): void {
 }
 
 async function handleSubmit(): Promise<void> {
-  if (!formRef.value) return;
-  const valid = await validateAndFocus(formRef.value);
+  if (!formRef.value || submitting.value || validating.value || optionsLoading.value || optionsError.value) return;
+  validating.value = true;
+  let valid = false;
+  try { valid = await validateAndFocus(formRef.value); }
+  finally { validating.value = false; }
   if (!valid) return;
 
   if (!derivedFormRole.value) {
@@ -308,7 +323,7 @@ async function handleDelete(user: User): Promise<void> {
 </script>
 
 <template>
-  <div class="user-page">
+  <div data-ui-layout="list" data-ui-page="UserPage" class="user-page">
     <PageHeader title="用户管理" description="维护系统账号、角色、岗位与科室">
       <template #actions>
         <el-button :icon="Upload" @click="importDialogVisible = true">批量导入账号</el-button>
@@ -319,7 +334,7 @@ async function handleDelete(user: User): Promise<void> {
     <el-card class="table-card" shadow="never">
       <div class="table-card__toolbar">
         <div class="table-card__toolbar-filters">
-          <el-select v-model="filterRoleId" class="user-page__filter-item" placeholder="全部角色" clearable filterable>
+          <el-select v-model="filterRoleId" class="user-page__filter-item" aria-label="筛选角色" popper-class="organization-choice-popper" placeholder="全部角色" clearable filterable>
             <el-option v-for="role in roles" :key="role.id" :label="role.name" :value="role.id" />
           </el-select>
           <el-input
@@ -340,6 +355,7 @@ async function handleDelete(user: User): Promise<void> {
 
       <LoadingSkeleton v-if="loading && !users" :rows="5" />
 
+      <RequestError v-else-if="error" text="用户加载失败" @retry="refresh" />
       <EmptyState
         v-else-if="!users || users.length === 0"
         :text="hasFilter ? '没有匹配的用户' : '暂无用户，点击「新建用户」添加第一个账号'"
@@ -400,14 +416,19 @@ async function handleDelete(user: User): Promise<void> {
       </el-table>
     </el-card>
 
-    <el-dialog
+    <el-drawer
       v-model="dialogVisible"
       :title="editingId ? '编辑用户' : '新建用户'"
-      width="520px"
+      size="720px"
+      class="user-editor-drawer"
       append-to-body
+      :close-on-click-modal="!submitting && !validating"
+      :close-on-press-escape="!submitting && !validating"
+      :show-close="!submitting && !validating"
       destroy-on-close
-    >
-      <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
+     data-ui-role="editor">
+      <RequestError v-if="optionsError" text="角色与岗位选项加载失败，请重试后保存" @retry="loadOptions" />
+      <el-form v-else ref="formRef" class="user-page__form" :model="form" :rules="rules" label-position="top" :disabled="submitting || optionsLoading">
         <el-form-item label="登录账号" prop="username">
           <el-input v-model="form.username" maxlength="20" placeholder="3~20 位字母/数字/下划线" />
         </el-form-item>
@@ -415,7 +436,7 @@ async function handleDelete(user: User): Promise<void> {
           <el-input v-model="form.name" maxlength="30" placeholder="请输入姓名" />
         </el-form-item>
         <el-form-item label="角色" prop="roleId">
-          <el-select v-model="form.roleId" filterable class="user-page__full">
+          <el-select v-model="form.roleId" filterable popper-class="organization-choice-popper" class="user-page__full">
             <el-option v-for="role in roles" :key="role.id" :label="role.name" :value="role.id" />
           </el-select>
         </el-form-item>
@@ -435,18 +456,18 @@ async function handleDelete(user: User): Promise<void> {
           />
         </el-form-item>
         <el-form-item label="岗位">
-          <el-select v-model="form.positionId" clearable class="user-page__full"><el-option v-for="p in positions" :key="p.id" :label="p.name" :value="p.id" /></el-select>
+          <el-select v-model="form.positionId" clearable popper-class="organization-choice-popper" class="user-page__full"><el-option v-for="p in positions" :key="p.id" :label="p.name" :value="p.id" /></el-select>
         </el-form-item>
         <el-form-item label="邮箱" prop="email">
           <el-input v-model="form.email" maxlength="120" placeholder="用于邮件通知，可留空" />
         </el-form-item>
         <el-form-item label="状态">
-          <el-radio-group v-model="form.status">
+          <el-radio-group v-model="form.status" aria-label="账号状态">
             <el-radio value="active">启用</el-radio>
             <el-radio value="disabled">停用</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item v-if="!editingId" label="初始密码" prop="password">
+        <el-form-item v-if="!editingId" class="user-page__password" label="初始密码" prop="password">
           <el-input
             v-model="form.password"
             type="password"
@@ -456,12 +477,12 @@ async function handleDelete(user: User): Promise<void> {
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleSubmit">
+        <el-button :disabled="submitting || validating" @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="submitting || validating" :disabled="optionsLoading || optionsError" @click="handleSubmit">
           {{ editingId ? '保存' : '创建' }}
         </el-button>
       </template>
-    </el-dialog>
+    </el-drawer>
 
     <UserImportDialog v-model:visible="importDialogVisible" @imported="refresh" />
   </div>
@@ -489,9 +510,14 @@ async function handleDelete(user: User): Promise<void> {
   }
 }
 
+.user-page__form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 20px; :deep(.el-form-item) { min-width: 0; } .user-page__password { grid-column: 1 / -1; } }
+@media (max-width: 600px) { .user-page__form { grid-template-columns: minmax(0, 1fr); } }
+
 .user-page__full {
   width: 100%;
+  :deep(.el-select__selected-item) { white-space: normal; overflow-wrap: anywhere; }
 }
+@media (max-width: 900px) { .user-page__form :deep(.el-radio) { min-height: 44px; height: auto; } }
 
 .user-page__groups {
   display: flex;

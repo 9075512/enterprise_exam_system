@@ -20,7 +20,7 @@ const tone = computed(() => pending.value ? 'warning' : passed.value === null ? 
 
 <template>
   <el-dialog v-model="visible" title="考试结果" width="480px" align-center append-to-body
-    :close-on-click-modal="false" class="exam-result">
+    :close-on-click-modal="false" :close-on-press-escape="false" :show-close="false" class="exam-result">
     <div v-if="result" class="exam-result__content" aria-live="polite">
       <p class="exam-result__name">{{ examName }}</p>
       <el-tag :type="tone" effect="light" round>{{ status }}</el-tag>

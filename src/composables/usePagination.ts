@@ -42,11 +42,19 @@ export function usePagination<T>(
     loading.value = true;
     error.value = null;
     try {
-      const res = await loadFn(page.value, pageSize.value);
+      const requestedPage = page.value;
+      const res = await loadFn(requestedPage, pageSize.value);
       if (currentId !== requestId) return;
+      // 审批或删除最后一条后，回到仍存在的最后一页，避免停留在无效空页。
+      const lastPage = Math.max(1, Math.ceil(res.total / res.pageSize));
+      if (!res.list.length && requestedPage > lastPage) {
+        page.value = lastPage;
+        await load();
+        return;
+      }
       list.value = res.list;
       total.value = res.total;
-      page.value = res.page;
+      page.value = Math.max(1, Math.min(res.page, lastPage));
       pageSize.value = res.pageSize;
     } catch (e) {
       // 接口提示由 HTTP 层处理；事件回调中的 void load() 不再产生未处理拒绝。

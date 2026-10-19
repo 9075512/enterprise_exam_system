@@ -18,6 +18,26 @@ const result = (page: number): Page<string> => ({ list: [`第 ${page} 页`], tot
 beforeEach(() => setActivePinia(createPinia()));
 
 describe('usePagination 快速翻页与失败恢复', () => {
+  it('审批后末页消失时，回到最后有效页并读取真实数据', async () => {
+    const fn = vi.fn().mockResolvedValueOnce({ list: [], total: 21, page: 3, pageSize: 20 })
+      .mockResolvedValueOnce({ list: ['剩余申请'], total: 21, page: 2, pageSize: 20 });
+    const state = usePagination<string>(fn);
+    state.page.value = 3;
+    await state.load();
+    expect(fn.mock.calls).toEqual([[3, 20], [2, 20]]);
+    expect([state.page.value, state.total.value, state.loading.value]).toEqual([2, 21, false]);
+    expect(state.list.value).toEqual(['剩余申请']);
+  });
+
+  it('全部记录移除后回到第 1 页，后端返回过期页码也不会无限重试', async () => {
+    const fn = vi.fn().mockResolvedValue({ list: [], total: 0, page: 2, pageSize: 20 });
+    const state = usePagination<string>(fn);
+    state.page.value = 2;
+    await state.load();
+    expect(fn.mock.calls).toEqual([[2, 20], [1, 20]]);
+    expect(state.list.value).toEqual([]);
+    expect(state.page.value).toBe(1);
+  });
   it('响应乱序时，列表、页码与总数都以最新请求为准', async () => {
     const old = deferred<Page<string>>();
     const latest = deferred<Page<string>>();

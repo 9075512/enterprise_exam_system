@@ -12,6 +12,9 @@ import { Plus } from '@element-plus/icons-vue';
 import * as banksApi from '@/api/banks';
 import * as departmentsApi from '@/api/departments';
 import * as usersApi from '@/api/users';
+import { useRequest } from '@/composables/useRequest';
+import RequestError from '@/components/common/RequestError.vue';
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import { buildDepartmentTree, getDescendantIds } from '@/utils/departmentTree';
 import type { Department, Role, User } from '@/types';
 
@@ -29,13 +32,16 @@ const emit = defineEmits<{
 
 const dialogVisible = computed<boolean>({
   get: () => props.visible,
-  set: (value) => emit('update:visible', value),
+  set: (value) => { if (!value && submitting.value) return; emit('update:visible', value); },
 });
 
-const loading = ref(false);
 const submitting = ref(false);
-const departments = ref<Department[]>([]);
-const users = ref<User[]>([]);
+const { data: options, loading, error, refresh: loadOptions } = useRequest(async () => {
+  const [departments, users] = await Promise.all([departmentsApi.list(), usersApi.list()]);
+  return { departments, users };
+}, [], { immediate: false, keepPreviousData: false });
+const departments = computed<Department[]>(() => options.value?.departments ?? []);
+const users = computed<User[]>(() => options.value?.users ?? []);
 
 const departmentTree = computed(() => buildDepartmentTree(departments.value));
 /** 候选手选出题人（仅 author 角色） */
@@ -51,22 +57,13 @@ const form = reactive({
 /** 打开时重置并加载基础数据 */
 watch(
   () => props.visible,
-  async (visible) => {
+  (visible) => {
     if (!visible) return;
     form.userIds = [];
     form.departmentId = '';
     form.includeSubDepartments = true;
     form.role = undefined;
-    loading.value = true;
-    try {
-      const [depts, list] = await Promise.all([departmentsApi.list(), usersApi.list()]);
-      departments.value = depts;
-      users.value = list;
-    } catch {
-      // 错误已由拦截器提示
-    } finally {
-      loading.value = false;
-    }
+    void loadOptions();
   },
 );
 
@@ -109,6 +106,7 @@ const hasSelector = computed<boolean>(
 );
 
 async function execute(kind: 'grant' | 'revoke'): Promise<void> {
+  if (loading.value || error.value || submitting.value) return;
   if (!hasSelector.value) {
     ElMessage.warning('请至少选择一名用户、一个科室或一个角色');
     return;
@@ -116,7 +114,7 @@ async function execute(kind: 'grant' | 'revoke'): Promise<void> {
   submitting.value = true;
   try {
     const payload = {
-      userIds: form.userIds,
+      userIds: [...form.userIds],
       departmentId: form.departmentId || undefined,
       includeSubDepartments: form.includeSubDepartments,
       role: form.role,
@@ -134,7 +132,7 @@ async function execute(kind: 'grant' | 'revoke'): Promise<void> {
       `批量${verb}完成：${result.changed} 人${extra.length > 0 ? `（${extra.join('，')}）` : ''}`,
     );
     emit('saved');
-    dialogVisible.value = false;
+    emit('update:visible', false);
   } catch {
     // 错误已由拦截器提示
   } finally {
@@ -147,11 +145,16 @@ async function execute(kind: 'grant' | 'revoke'): Promise<void> {
   <el-dialog
     v-model="dialogVisible"
     title="批量维护授权出题人"
+    class="bank-author-batch-dialog"
     width="620px"
     append-to-body
     destroy-on-close
+    :close-on-click-modal="!submitting"
+    :close-on-press-escape="!submitting"
+    :show-close="!submitting"
   >
-    <div v-loading="loading" class="bank-author-batch">
+    <RequestError v-if="error" text="人员与科室加载失败，暂无法预演授权范围" @retry="loadOptions" />
+    <div v-else class="bank-author-batch">
       <el-alert
         class="bank-author-batch__notice"
         type="info"
@@ -159,7 +162,7 @@ async function execute(kind: 'grant' | 'revoke'): Promise<void> {
         title="按科室 / 角色批量圈选，或从下方手选出题人；只有「出题人」角色账号可被授权"
       />
 
-      <el-form label-position="top">
+      <el-form label-position="top" :disabled="loading || submitting">
         <el-form-item label="按科室圈选">
           <el-tree-select
             v-model="form.departmentId"
@@ -172,7 +175,7 @@ async function execute(kind: 'grant' | 'revoke'): Promise<void> {
             placeholder="选择科室（可留空）"
           />
           <div class="bank-author-batch__switch">
-            <el-switch v-model="form.includeSubDepartments" active-text="包含子科室" />
+            <el-switch v-model="form.includeSubDepartments" aria-label="包含子科室" active-text="包含子科室" />
           </div>
         </el-form-item>
 
@@ -193,6 +196,7 @@ async function execute(kind: 'grant' | 'revoke'): Promise<void> {
             class="bank-author-batch__full"
             multiple
             filterable
+            popper-class="organization-choice-popper"
             placeholder="选择要授权/取消授权的出题人（可多选）"
           >
             <el-option
@@ -205,26 +209,24 @@ async function execute(kind: 'grant' | 'revoke'): Promise<void> {
         </el-form-item>
       </el-form>
 
-      <el-alert
-        class="bank-author-batch__preview"
-        type="warning"
-        :closable="false"
-        show-icon
-        :title="`命中 ${preview.matched} 名用户（出题人 ${preview.authors}，非出题人 ${preview.nonAuthor}）`"
-        :description="`本次将授权 ${preview.toGrant} 人（另有 ${preview.alreadyGranted} 人已授权将跳过）；取消授权将移除 ${preview.toRevoke} 人`"
-      />
+      <LoadingSkeleton v-if="loading" :rows="3" />
+      <section v-else class="bank-author-batch__preview" aria-label="圈选范围预演" aria-live="polite">
+        <div class="bank-author-batch__counts"><div><small>命中用户</small><strong>{{ preview.matched }} 人</strong></div><div><small>出题人</small><strong>{{ preview.authors }} 人</strong></div><div><small>非出题人</small><strong>{{ preview.nonAuthor }} 人</strong></div></div>
+        <div class="bank-author-batch__outcomes"><article><h3>授权预演</h3><strong>新增 {{ preview.toGrant }} 人</strong><p>另有 {{ preview.alreadyGranted }} 人已授权，将跳过。</p></article><article><h3>取消授权预演</h3><strong>移除 {{ preview.toRevoke }} 人</strong><p>仅移除当前已授权的出题人。</p></article></div>
+        <p class="bank-author-batch__hint">按当前圈选和已授权名单预演，实际结果以提交返回为准；非出题人账号会跳过。</p>
+      </section>
     </div>
 
     <template #footer>
-      <el-button @click="dialogVisible = false">取消</el-button>
-      <el-button :loading="submitting" :disabled="!hasSelector" @click="execute('revoke')">
+      <el-button :disabled="submitting" @click="dialogVisible = false">取消</el-button>
+      <el-button :loading="submitting" :disabled="!hasSelector || loading || Boolean(error)" @click="execute('revoke')">
         取消授权
       </el-button>
       <el-button
         type="primary"
         :icon="Plus"
         :loading="submitting"
-        :disabled="!hasSelector"
+        :disabled="!hasSelector || loading || Boolean(error)"
         @click="execute('grant')"
       >
         批量授权
@@ -254,11 +256,15 @@ async function execute(kind: 'grant' | 'revoke'): Promise<void> {
     margin-top: 6px;
     font-size: 12px;
     line-height: 1.6;
-    color: #94a3b8;
+    color: $text-secondary;
   }
 
   &__preview {
     margin-top: 4px;
   }
+  &__counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; > div { padding: 14px; border: 1px solid $border-color; border-radius: $radius-lg; background: $bg-page; } small { display: block; color: $text-secondary; font-size: 12px; } strong { display: block; margin-top: 6px; font-size: 20px; } }
+  &__outcomes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; article { padding: 16px; border: 1px solid $border-color; border-radius: $radius-lg; background: $bg-page; } h3 { margin: 0 0 8px; font-size: 13px; color: $text-secondary; } strong { font-size: 20px; } p { margin: 8px 0 0; font-size: 12px; line-height: 1.7; color: $text-secondary; } }
 }
+@media (max-width: 900px) { .bank-author-batch__switch :deep(.el-switch) { min-height: 44px; } }
+@media (max-width: 480px) { .bank-author-batch__counts { grid-template-columns: repeat(2, minmax(0, 1fr)); > div:last-child { grid-column: 1/-1; } } .bank-author-batch__outcomes { grid-template-columns: minmax(0, 1fr); } }
 </style>

@@ -1,0 +1,77 @@
+[
+  {
+    "overlays": [
+      {
+        "bodyScroll": 373,
+        "bodyWidth": 373,
+        "buttons": [
+          "取消",
+          "保存"
+        ],
+        "scroll": 388,
+        "width": 388
+      },
+      {
+        "bodyScroll": 373,
+        "bodyWidth": 373,
+        "buttons": [
+          "取消",
+          "保存成员"
+        ],
+        "scroll": 388,
+        "width": 388
+      }
+    ],
+    "title": "角色管理 · 本轮补充设计 · src/views/admin/RoleMana"
+  },
+  {
+    "overlays": [
+      {
+        "bodyScroll": 373,
+        "bodyWidth": 373,
+        "buttons": [
+          "取消",
+          "保存"
+        ],
+        "scroll": 388,
+        "width": 388
+      }
+    ],
+    "title": "用户管理 · 已确认样例延展 · src/views/admin/UserPag"
+  },
+  {
+    "overlays": [
+      {
+        "bodyScroll": 388,
+        "bodyWidth": 388,
+        "buttons": [
+          "取消",
+          "保存"
+        ],
+        "scroll": 388,
+        "width": 388
+      }
+    ],
+    "title": "岗位管理 · 本轮补充设计 · src/views/admin/Position"
+  },
+  {
+    "overlays": [],
+    "title": "菜单权限 · 本轮补充设计 · src/views/admin/MenuPerm"
+  },
+  {
+    "overlays": [
+      {
+        "bodyScroll": 373,
+        "bodyWidth": 373,
+        "buttons": [
+          "取消",
+          "取消授权",
+          "批量授权"
+        ],
+        "scroll": 388,
+        "width": 388
+      }
+    ],
+    "title": "批量维护授权出题人 · 本轮补充设计 · src/views/author/Ba"
+  }
+]

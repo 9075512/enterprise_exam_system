@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mount } from '@vue/test-utils';
-import ElementPlus from 'element-plus';
+import ElementPlus, { ElCheckbox } from 'element-plus';
 import RoleMenuPicker from './RoleMenuPicker.vue';
 import type { MenuPermission } from '@/types';
 
@@ -11,6 +11,15 @@ const catalog: MenuPermission['catalog'] = [
 ];
 
 describe('角色菜单选择', () => {
+  it('父级锁定与管理员必授项不会发出权限修改', async () => {
+    const wrapper = mount(RoleMenuPicker, { props: { modelValue: ['reviews'], baseRole: 'admin', catalog, disabled: true }, global: { plugins: [ElementPlus] } });
+    for (const checkbox of wrapper.findAllComponents(ElCheckbox)) checkbox.vm.$emit('change', false);
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+    await wrapper.setProps({ disabled: false });
+    wrapper.findAllComponents(ElCheckbox).find(c => c.text().includes('角色管理'))!.vm.$emit('change', false);
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+    wrapper.unmount();
+  });
   it('仅展示基础身份可用的菜单，并提交勾选结果', async () => {
     const wrapper = mount(RoleMenuPicker, { props: { modelValue: [], baseRole: 'author', catalog }, global: { plugins: [ElementPlus] } });
     expect(wrapper.text()).toContain('人工阅卷');

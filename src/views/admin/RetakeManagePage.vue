@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ResponsivePagination from '@/components/common/ResponsivePagination.vue';
 /**
  * 补考管理（v1.5，管理员审批）。
  * 按状态 + 考试筛选补考申请，对待审批申请执行「通过 / 驳回」。
@@ -14,6 +15,8 @@ import { useExamScope } from '@/composables/useExamScope';
 import { useSettingsStore } from '@/stores/settings';
 import { formatDateTime } from '@/utils/datetime';
 import PageHeader from '@/components/common/PageHeader.vue';
+import RequestError from '@/components/common/RequestError.vue';
+import { usePagination } from '@/composables/usePagination';
 import EmptyState from '@/components/common/EmptyState.vue';
 import ExamScopeSelect from '@/components/common/ExamScopeSelect.vue';
 import type { Retake, RetakeStatus } from '@/types';
@@ -36,34 +39,15 @@ const filter = ref<Filter>('');
 /** 考试范围（与路由 ?examId= 双向同步） */
 const { examId } = useExamScope();
 
-const loading = ref(false);
-const page = ref(1);
-const pageSize = ref(20);
-const total = ref(0);
-const list = ref<Retake[]>([]);
-
-async function load(): Promise<void> {
-  loading.value = true;
-  try {
-    const data = await listRetakes({
-      status: filter.value || undefined,
-      examId: examId.value || undefined,
-      page: page.value,
-      pageSize: pageSize.value,
-    });
-    list.value = data.list;
-    total.value = data.total;
-  } catch {
-    list.value = [];
-  } finally {
-    loading.value = false;
-  }
-}
+const { list, loading, error, page, pageSize, total, load, clear } = usePagination<Retake>((p, ps) => listRetakes({
+  status: filter.value || undefined, examId: examId.value || undefined, page: p, pageSize: ps,
+}), 20);
 
 load();
 
 /** 考试范围变化 → 回到第 1 页重查（无论来自选择器还是 URL 直达） */
 watch(examId, () => {
+  clear();
   page.value = 1;
   void load();
 });
@@ -96,7 +80,7 @@ const retakeRules = computed<Array<{ label: string; value: string }>>(() => {
     { label: '补考资格', value: '未及格，且答题次数已用完' },
     { label: '审批方式', value: '管理员逐条审批，通过后可再作答一次' },
     { label: '申请次数', value: '每场至多一条有效申请，被驳回后可重新申请' },
-    { label: '补考成绩口径', value: '以最近一次作答成绩为准（不合并历史最高分）' },
+    { label: '补考成绩口径', value: s.retakeScorePolicy === 'highest' ? '报表与导出取每位考生最高分的已交卷答卷' : '报表与导出取每位考生最近一次已交卷答卷' },
     // —— 系统设置项 ——
     { label: '考试默认及格线', value: `${s.examDefaultPassScore} 分` },
     { label: '每人默认答题次数上限', value: `${s.examDefaultMaxAttempts} 次` },
@@ -109,6 +93,7 @@ function goSettings(): void {
 }
 
 function handleFilterChange(): void {
+  clear();
   page.value = 1;
   void load();
 }
@@ -160,10 +145,10 @@ async function handleReject(row: Retake): Promise<void> {
 </script>
 
 <template>
-  <div class="retake-manage-page">
+  <div data-ui-layout="list" data-ui-page="RetakeManagePage" class="retake-manage-page">
     <PageHeader title="补考管理" description="审批考生的补考申请；通过后考生获得一次补考机会" />
 
-    <el-card class="retake-manage-page__panel" shadow="never">
+    <el-card class="retake-manage-page__panel" data-ui-role="table" shadow="never">
       <div class="retake-manage-page__toolbar">
         <ExamScopeSelect v-model="examId" />
         <el-radio-group v-model="filter" @change="handleFilterChange">
@@ -174,7 +159,9 @@ async function handleReject(row: Retake): Promise<void> {
         </el-radio-group>
       </div>
 
-      <el-table v-loading="loading" :data="list" row-key="id" stripe>
+      <p class="admin-scope">当前考试与审批状态范围 · {{ error ? '数量未知' : total + ' 条申请' }}</p>
+      <RequestError v-if="error" text="补考申请加载失败" @retry="load" />
+      <el-table v-else v-loading="loading" :data="list" row-key="id" stripe>
         <el-table-column prop="examName" label="考试名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="userName" label="考生姓名" width="110" show-overflow-tooltip />
         <el-table-column prop="username" label="登录账号" width="130" show-overflow-tooltip />
@@ -197,7 +184,7 @@ async function handleReject(row: Retake): Promise<void> {
         <el-table-column class-name="table-actions-cell" label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <template v-if="row.status === 'pending'">
-              <el-button type="success" link @click="handleApprove(row as Retake)">通过</el-button>
+              <el-button type="primary" link @click="handleApprove(row as Retake)">通过</el-button>
               <el-button type="danger" link @click="handleReject(row as Retake)">驳回</el-button>
             </template>
             <span v-else class="retake-manage-page__muted">—</span>
@@ -208,8 +195,8 @@ async function handleReject(row: Retake): Promise<void> {
         </template>
       </el-table>
 
-      <el-pagination
-        v-if="total > pageSize"
+      <ResponsivePagination
+        v-if="!error && total > pageSize"
         class="retake-manage-page__pager"
         layout="total, prev, pager, next"
         :total="total"

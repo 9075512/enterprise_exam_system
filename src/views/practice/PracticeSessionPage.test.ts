@@ -20,6 +20,7 @@ function mountPage() {
   wrapper = shallowMount(PracticeSessionPage, { global: { stubs: {
     PracticeLayout: { template: '<div><slot /></div>' },
     ElButton: { props: ['disabled', 'loading'], template: '<button :disabled="disabled"><slot /></button>' },
+    ElDrawer: { props: ['modelValue'], template: '<div v-if="modelValue"><slot /></div>' },
   } } });
   return wrapper;
 }
@@ -46,6 +47,33 @@ afterEach(() => {
 });
 
 describe('练题来源与异步反馈', () => {
+  it('答题卡跳题保留未提交选择，完成时返回遗漏题，全部判分后才生成小结', async () => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    mocks.api.createSession.mockResolvedValue({ sessionToken: 'session', questionIds: ['q1', 'q2'], total: 2 });
+    mocks.api.questionsByIds.mockResolvedValue(['q1', 'q2'].map(id => ({ id, bankId: 'bank-1', type: 'judge', stem: '题目', options: ['正确', '错误'], subject: '' })));
+    mountPage(); await flushPromises();
+    wrapper.getComponent(QuestionCard).vm.$emit('update:modelValue', [1]); await flushPromises();
+    await wrapper.findAll('button').find(b => b.text() === '答题卡')!.trigger('click');
+    await wrapper.findAll('.session__sheet-cell')[1]!.trigger('click');
+    await answer(); await wrapper.get('.session__next').trigger('click'); await flushPromises();
+    expect(wrapper.find('.summary').exists()).toBe(false);
+    expect(wrapper.getComponent(QuestionCard).props('question').id).toBe('q1');
+    expect(wrapper.getComponent(QuestionCard).props('modelValue')).toEqual([1]);
+    await wrapper.get('.session__submit').trigger('click'); await flushPromises();
+    await wrapper.get('.session__next').trigger('click'); await flushPromises();
+    expect(wrapper.getComponent(QuestionCard).props('modelValue')).toEqual([0]);
+    await wrapper.get('.session__next').trigger('click'); await flushPromises();
+    expect(wrapper.find('.summary').exists()).toBe(true);
+    expect(mocks.api.check).toHaveBeenCalledTimes(2);
+  });
+  it('重做不改变首次统计，答错后重做正确，小结仍按首次答错计数', async () => {
+    mocks.api.check.mockResolvedValueOnce({ correct: false, correctAnswer: [1], analysis: '', type: 'judge' }).mockResolvedValueOnce({ correct: true, correctAnswer: [0], analysis: '', type: 'judge' });
+    mountPage(); await flushPromises(); await answer();
+    await wrapper.get('.session__redo').trigger('click'); await answer();
+    await wrapper.get('.session__next').trigger('click'); await flushPromises();
+    expect(wrapper.get('.summary__stat--ok .summary__num').text()).toBe('0');
+    expect(wrapper.get('.summary__stat--rate .summary__num').text()).toBe('0%');
+  });
   it.each(['daily', 'favorite', 'wrong'])('%s 会话判分后不向占位题库保存进度', async source => {
     mocks.route.params.bankId = source;
     if (source === 'wrong') mocks.route.name = 'practice-reans';

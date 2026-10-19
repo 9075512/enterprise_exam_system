@@ -1,0 +1,48 @@
+[
+  {
+    "action": "保存",
+    "bodyScrollWidth": 341,
+    "bodyWidth": 341,
+    "heading": [
+      "选项",
+      "正确答案"
+    ],
+    "type": "单选题"
+  },
+  {
+    "action": "保存",
+    "bodyScrollWidth": 341,
+    "bodyWidth": 341,
+    "heading": [
+      "选项",
+      "正确答案"
+    ],
+    "type": "多选题"
+  },
+  {
+    "action": "保存",
+    "bodyScrollWidth": 341,
+    "bodyWidth": 341,
+    "heading": [
+      "选项",
+      "正确答案"
+    ],
+    "type": "判断题"
+  },
+  {
+    "action": "保存",
+    "bodyScrollWidth": 341,
+    "bodyWidth": 341,
+    "heading": [],
+    "type": "填空题"
+  },
+  {
+    "action": "保存",
+    "bodyScrollWidth": 341,
+    "bodyWidth": 341,
+    "heading": [
+      "评分细则（选填）"
+    ],
+    "type": "简答题"
+  }
+]

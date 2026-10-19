@@ -1,12 +1,15 @@
 <script setup lang="ts">
 /** 页头：标题 + 描述 + 右侧操作插槽 */
-defineProps<{ title: string; description?: string }>();
+import { computed, inject, type ComputedRef } from 'vue';
+const props = defineProps<{ title: string; description?: string }>();
+const layoutTitle = inject<ComputedRef<string> | null>('exam-layout-page-title', null);
+const titleInFrame = computed(() => layoutTitle?.value === props.title);
 </script>
 
 <template>
-  <div class="page-header">
+  <div class="page-header" :class="{ 'page-header--contextual': titleInFrame }">
     <div class="page-header__text">
-      <h2 class="page-header__title">{{ title }}</h2>
+      <h2 class="page-header__title" :class="{ 'page-header__title--in-frame': titleInFrame }">{{ title }}</h2>
       <p v-if="description" class="page-header__desc">{{ description }}</p>
     </div>
     <div class="page-header__actions">

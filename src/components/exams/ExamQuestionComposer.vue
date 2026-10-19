@@ -38,6 +38,8 @@ import {
 } from '@/services/examRules';
 import DataTablePagination from '@/components/common/DataTablePagination.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
+import EmptyState from '@/components/common/EmptyState.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import type {
   DrawRules,
   DrawShortage,
@@ -60,7 +62,7 @@ interface SelectedQuestion {
   correctRate?: number | null;
 }
 
-const props = defineProps<{ examName: string; initial?: PaperDetail | null }>();
+const props = defineProps<{ examName: string; initial?: PaperDetail | null; disabled?: boolean }>();
 const settingsStore = useSettingsStore();
 
 /* ------------------------------ 试卷基本信息 ------------------------------ */
@@ -70,6 +72,8 @@ const mode = ref<'manual' | 'draw'>('manual');
 const selected = ref<SelectedQuestion[]>([]);
 const paperTemplates = ref<PaperTemplate[]>([]);
 const selectedTemplateId = ref('');
+const templatesError = ref(false);
+const templatesLoading = ref(false);
 
 const hasBanks = computed<boolean>(() => selectedBankIds.value.length > 0);
 
@@ -77,7 +81,7 @@ const hasBanks = computed<boolean>(() => selectedBankIds.value.length > 0);
 const typeOptions = QUESTION_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }));
 
 /* ------------------------------ 来源题库 ------------------------------ */
-const { data: banks, loading: banksLoading } = useRequest(() => banksApi.list());
+const { data: banks, loading: banksLoading, error: banksError, refresh: reloadBanks } = useRequest(() => banksApi.list());
 
 /* ------------------------------ 抽题规则 ------------------------------ */
 const drawRules = reactive<Record<QuestionType, { count: number; score: number }>>({
@@ -89,10 +93,15 @@ const drawRules = reactive<Record<QuestionType, { count: number; score: number }
 });
 
 async function loadPaperTemplates(): Promise<void> {
-  try { paperTemplates.value = await templatesApi.papers(); } catch { paperTemplates.value = []; }
+  templatesLoading.value = true;
+  templatesError.value = false;
+  try { paperTemplates.value = await templatesApi.papers(); }
+  catch { templatesError.value = true; }
+  finally { templatesLoading.value = false; }
 }
 
 function applyPaperTemplate(): void {
+  if (props.disabled || drawing.value) return;
   const template = paperTemplates.value.find((item) => item.id === selectedTemplateId.value);
   if (!template) return;
   const config = template.config as {
@@ -108,6 +117,7 @@ function applyPaperTemplate(): void {
 }
 
 async function savePaperTemplate(): Promise<void> {
+  if (props.disabled || drawing.value) return;
   try {
     const { value } = await ElMessageBox.prompt('保存当前题库范围、题型题量和分值', '保存组卷参数模板', {
       inputPlaceholder: '请输入模板名称', inputValidator: (v) => Boolean(v.trim()) || '请输入模板名称',
@@ -128,7 +138,7 @@ const drawing = ref(false);
 
 /** 按题型重新抽题，成功后整体替换当前已选清单。 */
 async function generateDraft(): Promise<void> {
-  if (drawing.value) return;
+  if (drawing.value || props.disabled) return;
   if (!hasBanks.value) {
     ElMessage.warning('请先选择至少一个题库');
     return;
@@ -178,7 +188,11 @@ const poolType = ref<QuestionType | ''>('');
 const poolSubject = ref('');
 const poolDifficulty = ref<QuestionDifficulty | ''>('');
 const poolKeyword = ref('');
-const subjects = ref<string[]>([]);
+const { data: subjectsData, error: subjectsError, loading: subjectsLoading, refresh: loadPoolSubjects } = useRequest(
+  () => hasBanks.value ? questionsApi.subjects([...selectedBankIds.value]) : Promise.resolve([] as string[]),
+  [selectedBankIds], { keepPreviousData: false },
+);
+const subjects = computed(() => subjectsData.value ?? []);
 
 const {
   list: poolList,
@@ -186,6 +200,9 @@ const {
   pageSize: poolPageSize,
   total: poolTotal,
   loading: poolLoading,
+  error: poolError,
+  load: loadPool,
+  clear: clearPool,
   onPageChange: onPoolPageChange,
   onSizeChange: onPoolSizeChange,
   reset: resetPool,
@@ -203,30 +220,17 @@ const {
   settingsStore.settings.defaultPageSize,
 );
 
-async function loadPoolSubjects(): Promise<void> {
-  if (selectedBankIds.value.length === 0) {
-    subjects.value = [];
-    return;
-  }
-  try {
-    subjects.value = await questionsApi.subjects([...selectedBankIds.value]);
-  } catch {
-    subjects.value = [];
-  }
-}
-
 /** 按当前题库/筛选重新拉题池；未选题库则清空 */
 function refreshPool(): void {
+  clearPool();
   if (!hasBanks.value) {
-    poolList.value = [];
-    poolTotal.value = 0;
     return;
   }
   resetPool();
 }
 
 function onPoolSearch(): void {
-  resetPool();
+  refreshPool();
 }
 
 function onPoolResetFilters(): void {
@@ -234,7 +238,7 @@ function onPoolResetFilters(): void {
   poolSubject.value = '';
   poolDifficulty.value = '';
   poolKeyword.value = '';
-  resetPool();
+  refreshPool();
 }
 
 /* ------------------------------ 已选清单 ------------------------------ */
@@ -278,14 +282,17 @@ function addSelected(
 }
 
 function removeSelected(questionId: string): void {
+  if (props.disabled || drawing.value) return;
   selected.value = selected.value.filter((q) => q.questionId !== questionId);
 }
 
 function clearSelected(): void {
+  if (props.disabled || drawing.value) return;
   selected.value = [];
 }
 
 function togglePoolQuestion(row: Question, checked: boolean): void {
+  if (props.disabled || drawing.value) return;
   if (checked) {
     addSelected(row.id, row.defaultScore, row.stem, row.type, row.difficulty, row.correctRate ?? null);
   } else {
@@ -446,7 +453,6 @@ function onBanksChanged(): void {
   shortages.value = [];
   // 来源题库变化会影响题池与科目选项；已选清单保留（用户可手动微调）
   if (mode.value === 'manual') {
-    void loadPoolSubjects();
     refreshPool();
   }
 }
@@ -454,7 +460,6 @@ function onBanksChanged(): void {
 // 模式切换 / 题库变化 → 题池与科目联动
 watch(mode, (value) => {
   if (value === 'manual') {
-    void loadPoolSubjects();
     refreshPool();
   }
 });
@@ -468,13 +473,15 @@ watch(
 
 /* ------------------------------ 保存 ------------------------------ */
 function getPayload() {
+  if (drawing.value) { ElMessage.warning('请等待抽题完成'); return null; }
   if (!selectedBankIds.value.length) { ElMessage.warning('请至少选择一个题库'); return null; }
   if (!selected.value.length) { ElMessage.warning('考试至少需要一道题目'); return null; }
   if (selected.value.some(q => !Number.isFinite(q.score) || q.score <= 0)) { ElMessage.warning('每题分值必须为正数'); return null; }
   return { bankIds: [...selectedBankIds.value], questions: selected.value.map(q => ({ questionId: q.questionId, score: q.score })) };
 }
 const summary = computed(() => ({ questionCount: selected.value.length, totalScore: totalScore.value }));
-defineExpose({ getPayload, summary });
+const busy = computed(() => drawing.value);
+defineExpose({ getPayload, summary, busy });
 
 /* ------------------------------ 编辑回填 ------------------------------ */
 onMounted(async () => {
@@ -493,8 +500,6 @@ onMounted(async () => {
       correctRate: q.question.correctRate ?? null,
     }));
     sortSelected();
-    await loadPoolSubjects();
-    refreshPool();
   } catch {
     // 错误提示已由拦截器统一弹出
   }
@@ -508,9 +513,12 @@ onMounted(async () => {
       <!-- 左中：抽题 / 题池 -->
       <section class="composer__main">
         <div class="composer__source">
-          <div class="composer__source-head"><h3>来源题库<small>可多选</small></h3><div class="composer__template-actions"><el-select v-model="selectedTemplateId" clearable placeholder="应用组卷模板" @change="applyPaperTemplate"><el-option v-for="item in paperTemplates" :key="item.id" :label="item.name" :value="item.id" /></el-select><el-button @click="savePaperTemplate">保存为模板</el-button></div></div>
+          <div class="composer__source-head"><h3>来源题库<small>可多选</small></h3><div class="composer__template-actions"><el-select v-model="selectedTemplateId" clearable :loading="templatesLoading" :disabled="disabled || templatesError || drawing" placeholder="应用组卷模板" @change="applyPaperTemplate"><el-option v-for="item in paperTemplates" :key="item.id" :label="item.name" :value="item.id" /></el-select><el-button :disabled="disabled || drawing" @click="savePaperTemplate">保存为模板</el-button></div></div>
+          <p v-if="templatesError" class="admin-hint">组卷模板加载失败，<el-button link type="primary" @click="loadPaperTemplates">重新加载</el-button></p>
           <LoadingSkeleton v-if="banksLoading && !banks" :rows="2" />
-          <el-checkbox-group v-else v-model="selectedBankIds" class="composer__banks" aria-label="来源题库">
+          <RequestError v-else-if="banksError" text="来源题库加载失败" @retry="reloadBanks" />
+          <EmptyState v-else-if="!banks?.length" text="暂无可用题库，请先在科目题库中维护题目" />
+          <el-checkbox-group v-else v-model="selectedBankIds" :disabled="disabled || drawing" class="composer__banks" aria-label="来源题库">
             <el-checkbox
               v-for="bank in banks || []"
               :key="bank.id"
@@ -522,7 +530,7 @@ onMounted(async () => {
             </el-checkbox>
           </el-checkbox-group>
         </div>
-        <el-radio-group v-model="mode" class="composer__mode">
+        <el-radio-group v-model="mode" :disabled="disabled || drawing" class="composer__mode" aria-label="选题方式">
           <el-radio-button value="manual">手动勾选</el-radio-button>
           <el-radio-button value="draw">按题型抽题</el-radio-button>
         </el-radio-group>
@@ -537,32 +545,30 @@ onMounted(async () => {
 
         <!-- 抽题模式 -->
         <template v-if="mode === 'draw'">
-          <el-table :data="typeOptions" class="composer__rule-table">
-            <el-table-column label="题型" width="140">
-              <template #default="{ row }">{{ row.label }}</template>
-            </el-table-column>
-            <el-table-column label="抽题数量" width="180">
-              <template #default="{ row }">
+          <div class="composer__rule-grid" aria-label="按题型抽题规则">
+            <section v-for="row in typeOptions" :key="row.value" class="composer__rule-row" :aria-label="row.label">
+              <h3>{{ row.label }}</h3>
+              <div class="composer__rule-field"><span>抽题数量</span>
                 <el-input-number
                   v-model="drawRules[row.value as QuestionType].count"
                   :min="0"
                   :max="200"
-                  :disabled="!hasBanks"
+                  :disabled="!hasBanks || disabled || drawing"
+                  :aria-label="`${row.label}抽题数量`"
                 />
-              </template>
-            </el-table-column>
-            <el-table-column label="每题分值">
-              <template #default="{ row }">
+              </div>
+              <div class="composer__rule-field"><span>每题分值</span>
                 <el-input-number
                   v-model="drawRules[row.value as QuestionType].score"
                   :min="0.5"
                   :max="100"
                   :step="0.5"
-                  :disabled="!hasBanks"
+                  :disabled="!hasBanks || disabled || drawing"
+                  :aria-label="`${row.label}每题分值`"
                 />
-              </template>
-            </el-table-column>
-          </el-table>
+              </div>
+            </section>
+          </div>
           <p class="composer__rule-hint">
             随机抽题仅支持单选 / 多选 / 判断题；填空题与简答题请在「手动勾选」中按题选取。
           </p>
@@ -585,7 +591,7 @@ onMounted(async () => {
             type="primary"
             :icon="Plus"
             :loading="drawing"
-            :disabled="!hasBanks"
+            :disabled="disabled || !hasBanks"
             @click="generateDraft"
           >
             生成试卷草稿
@@ -595,7 +601,7 @@ onMounted(async () => {
         <!-- 手动勾选题池 -->
         <template v-else>
           <div class="composer__filter">
-            <el-select v-model="poolType" class="composer__filter-item" placeholder="全部题型" clearable>
+            <el-select v-model="poolType" :disabled="disabled" class="composer__filter-item" aria-label="题型" placeholder="全部题型" clearable>
               <el-option label="全部题型" value="" />
               <el-option
                 v-for="opt in QUESTION_TYPE_OPTIONS"
@@ -604,12 +610,14 @@ onMounted(async () => {
                 :value="opt.value"
               />
             </el-select>
-            <el-select v-model="poolSubject" class="composer__filter-item" placeholder="全部科目" clearable>
+            <el-select v-model="poolSubject" :loading="subjectsLoading" :disabled="disabled || Boolean(subjectsError)" class="composer__filter-item" aria-label="科目" placeholder="全部科目" clearable>
               <el-option label="全部科目" value="" />
               <el-option v-for="s in subjects" :key="s" :label="s" :value="s" />
             </el-select>
             <el-select
               v-model="poolDifficulty"
+              :disabled="disabled"
+              aria-label="难度"
               class="composer__filter-item"
               placeholder="全部难度"
               clearable
@@ -628,13 +636,16 @@ onMounted(async () => {
               placeholder="按题干搜索"
               clearable
               :prefix-icon="Search"
-              :disabled="!hasBanks"
+              :disabled="disabled || !hasBanks"
               @keyup.enter="onPoolSearch"
             />
-            <div class="composer__filter-actions"><el-button type="primary" :icon="Search" :disabled="!hasBanks" @click="onPoolSearch">查询</el-button><el-button :icon="Refresh" :disabled="!hasBanks" @click="onPoolResetFilters">重置</el-button></div>
+            <div class="composer__filter-actions"><el-button type="primary" :icon="Search" :disabled="disabled || !hasBanks" @click="onPoolSearch">查询</el-button><el-button :icon="Refresh" :disabled="disabled || !hasBanks" @click="onPoolResetFilters">重置</el-button></div>
           </div>
 
-          <el-table
+          <p v-if="subjectsError" class="admin-hint">科目选项加载失败，<el-button link type="primary" @click="loadPoolSubjects">重新加载</el-button></p>
+          <p class="admin-scope">当前题库与筛选范围 · {{ poolLoading ? '加载中' : poolError ? '数量未知' : poolTotal + ' 道匹配题目' }}</p>
+          <RequestError v-if="poolError" text="题池加载失败，已选题目已保留" @retry="loadPool" />
+          <el-table v-else
             v-loading="poolLoading"
             :data="poolList"
             row-key="id"
@@ -645,7 +656,8 @@ onMounted(async () => {
               <template #default="{ row }">
                 <el-checkbox
                   :model-value="isSelected((row as Question).id)"
-                  :disabled="!hasBanks"
+                  :disabled="!hasBanks || disabled"
+                  :aria-label="`选择题目：${row.stem}`"
                   @change="(val: unknown) => togglePoolQuestion(row as Question, Boolean(val))"
                 />
               </template>
@@ -660,9 +672,10 @@ onMounted(async () => {
               <template #default="{ row }"><div class="composer__question-tags"><el-tag size="small" effect="plain" :type="row.type === 'judge' ? 'warning' : 'primary'">{{ QUESTION_TYPE_LABELS[row.type as QuestionType] }}</el-tag><span>{{ row.difficulty ? QUESTION_DIFFICULTY_LABELS[row.difficulty as QuestionDifficulty] : '未标注难度' }}</span></div></template>
             </el-table-column>
             <el-table-column label="分值" width="70" align="right"><template #default="{ row }">{{ row.defaultScore }} 分</template></el-table-column>
+            <template #empty><EmptyState :text="hasBanks ? '没有匹配的题目' : '请先选择来源题库'" :filtered="hasBanks && Boolean(poolType || poolSubject || poolDifficulty || poolKeyword)" @clear="onPoolResetFilters" /></template>
           </el-table>
 
-          <DataTablePagination
+          <DataTablePagination v-if="hasBanks && !poolError"
             :page="poolPage"
             :page-size="poolPageSize"
             :total="poolTotal"
@@ -677,7 +690,7 @@ onMounted(async () => {
         <div class="composer__aside-head">
           <span>已选题目</span>
           <div class="composer__aside-actions">
-            <el-button type="danger" link size="small" :disabled="selected.length === 0 || drawing" @click="clearSelected">清空全部</el-button>
+            <el-button type="danger" link size="small" :disabled="disabled || selected.length === 0 || drawing" @click="clearSelected">清空全部</el-button>
             <el-tag size="small" effect="plain">{{ selected.length }} 题</el-tag>
           </div>
         </div>
@@ -686,10 +699,10 @@ onMounted(async () => {
         <ul v-else class="composer__selected-list">
           <li v-for="(item, index) in selected" :key="item.questionId" class="composer__selected-item">
             <span class="composer__selected-index">{{ index + 1 }}</span>
-            <el-tooltip :content="item.stem" placement="top" :show-after="300"><span class="composer__selected-stem">{{ item.stem }}</span></el-tooltip>
+            <span class="composer__selected-stem">{{ item.stem }}</span>
             <div class="composer__selected-controls">
               <span class="composer__selected-type">{{ QUESTION_TYPE_LABELS[item.type] }}<template v-if="item.difficulty"> · {{ QUESTION_DIFFICULTY_LABELS[item.difficulty] }}</template></span>
-              <div class="composer__score-control"><el-input-number v-model="item.score" class="composer__selected-score" :min="0.5" :max="100" :step="0.5" size="small" controls-position="right" :aria-label="'第' + (index + 1) + '题分值'" /><span>分</span><el-button type="danger" link :icon="Delete" :aria-label="'移除第' + (index + 1) + '题'" @click="removeSelected(item.questionId)" /></div>
+              <div class="composer__score-control"><el-input-number v-model="item.score" class="composer__selected-score" :min="0.5" :max="100" :step="0.5" :disabled="disabled || drawing" :aria-label="'第' + (index + 1) + '题分值'" /><span>分</span><el-button type="danger" link :icon="Delete" :disabled="disabled || drawing" :aria-label="'移除第' + (index + 1) + '题'" @click="removeSelected(item.questionId)" /></div>
             </div>
           </li>
         </ul>
@@ -820,21 +833,22 @@ onMounted(async () => {
 @use '@/styles/variables.scss' as *;
 
 .composer {
+  container: composer / inline-size;
   &__template-actions { display: flex; align-items: center; gap: 8px; :deep(.el-select) { width: 160px; } }
   &__source { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid $border-color; }
-  &__source-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; h3 { margin: 0; color: $text-primary; font-size: 13px; } small { margin-left: 8px; font-size: 11px; font-weight: 400; color: $text-secondary; } }
+  &__source-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; h3 { margin: 0; color: $text-primary; font-size: 13px; } small { margin-left: 8px; font-size: 12px; font-weight: 400; color: $text-secondary; } }
   &__bank-item { border: 1px solid $border-color; border-radius: $radius-sm; padding: 6px 10px; &.is-checked { border-color: $color-primary-border; background: $color-primary-soft; } }
   &__filter-actions { display: flex; gap: 8px; :deep(.el-button + .el-button) { margin-left: 0; } }
-  &__question-meta { display: block; font-size: 11px; color: $text-secondary; margin-top: 6px; }
-  &__question-tags { display: grid; justify-items: start; gap: 6px; span:last-child { font-size: 11px; color: $text-secondary; } }
+  &__question-meta { display: block; font-size: 12px; color: $text-secondary; margin-top: 6px; }
+  &__question-tags { display: grid; justify-items: start; gap: 6px; span:last-child { font-size: 12px; color: $text-secondary; } }
   &__aside-head { display: flex; justify-content: space-between; align-items: center; }
   &__aside-actions { display: flex; align-items: center; gap: 10px; }
   &__aside-hint { margin: -4px 0 8px; color: $text-secondary; font-size: 12px; line-height: 1.6; }
   &__empty-mark { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: $color-primary-dark; background: $color-primary-soft; font-size: 24px; }
   &__selected-controls { grid-column: 2; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-  &__selected-type { font-size: 11px; color: $text-secondary; }
-  &__score-control { display: flex; align-items: center; gap: 6px; font-size: 11px; color: $text-secondary; }
-  &__analysis { border: 1px solid $border-color; border-radius: $radius-base; background: $bg-paper; summary { display: flex; align-items: center; gap: 16px; padding: 18px 20px; cursor: pointer; list-style: none; } summary::-webkit-details-marker { display: none; } summary::after { content: '+'; margin-left: auto; font-size: 20px; color: $text-secondary; } &[open] summary::after { content: '−'; } strong, small { display: block; } strong { font-size: 13px; color: $text-primary; } small { margin-top: 6px; font-size: 12px; color: $text-secondary; } }
+  &__selected-type { font-size: 12px; color: $text-secondary; }
+  &__score-control { display: flex; align-items: center; gap: 6px; font-size: 12px; color: $text-secondary; }
+  &__analysis { border: 1px solid $border-color; border-radius: $radius-lg; background: $bg-paper; summary { display: flex; align-items: center; gap: 16px; padding: 18px 20px; cursor: pointer; list-style: none; } summary::-webkit-details-marker { display: none; } summary::after { content: '+'; margin-left: auto; font-size: 20px; color: $text-secondary; } &[open] summary::after { content: '−'; } strong, small { display: block; } strong {font-size: 13px; color: $text-primary; } small { margin-top: 6px; font-size: 12px; color: $text-secondary; } }
   &__analysis-total { margin-left: auto; color: $text-body; font-size: 12px; font-variant-numeric: tabular-nums; }
   &__analysis-body { padding: 0 16px 16px; }
   &__header {
@@ -860,7 +874,7 @@ onMounted(async () => {
   }
 
   &__panel.el-card {
-    border-radius: $radius-base;
+    border-radius: $radius-lg;
     margin-bottom: 16px;
   }
 
@@ -907,7 +921,7 @@ onMounted(async () => {
     min-width: 0;
     background: $bg-paper;
     border: 1px solid $border-color;
-    border-radius: $radius-base;
+    border-radius: $radius-lg;
     padding: 16px;
   }
 
@@ -976,7 +990,7 @@ onMounted(async () => {
     overflow: hidden;
     background: $bg-paper;
     border: 1px solid $border-color;
-    border-radius: $radius-base;
+    border-radius: $radius-lg;
     padding: 16px;
   }
 
@@ -1028,10 +1042,8 @@ onMounted(async () => {
   &__selected-stem {
     flex: 1;
     min-width: 0;
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
     line-height: 1.7;
     font-size: 13px;
     color: $text-primary;
@@ -1046,7 +1058,7 @@ onMounted(async () => {
   }
 
   &__selected-score {
-    width: 88px;
+    width: 136px;
   }
 
   &__total {
@@ -1103,6 +1115,7 @@ onMounted(async () => {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+    :deep(.el-tag) { height: auto; max-width: 100%; white-space: normal; overflow-wrap: anywhere; line-height: 22px; }
   }
 
   &__scope-empty {
@@ -1125,7 +1138,7 @@ onMounted(async () => {
   }
 
   &__insight.el-card {
-    border-radius: $radius-base;
+    border-radius: $radius-lg;
   }
 
   &__insight-empty {
@@ -1298,8 +1311,8 @@ onMounted(async () => {
   }
 }
 
-@media (max-width: 1100px) { .composer__body { grid-template-columns: minmax(0, 1fr); } .composer__aside { position: static; max-height: none; } .composer__selected-list { max-height: 360px; } }
-@media (max-width: 900px) {
+@container composer (max-width: 980px) { .composer__body { grid-template-columns: minmax(0, 1fr); } .composer__aside { position: static; max-height: none; } .composer__selected-list { max-height: 360px; } }
+@container composer (max-width: 720px) {
   .composer__body { grid-template-columns: minmax(0, 1fr); }
   .composer__aside { position: static; max-height: none; }
   .composer__selected-list { max-height: 360px; }
@@ -1310,5 +1323,18 @@ onMounted(async () => {
   .composer__main { padding: 12px; }
   .composer__template-actions { flex-wrap: wrap; width: 100%; }
   .composer__analysis-total { display: none; }
+}
+.composer__rule-grid { display: grid; gap: 12px; margin-bottom: 12px; }
+.composer__rule-row { display: grid; grid-template-columns: minmax(70px, .6fr) repeat(2, minmax(0, 1fr)); gap: 12px; align-items: center; padding: 16px; border: 1px solid $border-color; border-radius: $radius-lg; background: $bg-page; h3 { margin: 0; font-size: 14px; } }
+.composer__rule-field { display: grid; gap: 8px; min-width: 0; > span { font-size: 12px; color: $text-secondary; } :deep(.el-input-number) { width: 100%; max-width: 180px; } }
+@container composer (max-width: 640px) { .composer__rule-row { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 900px) {
+  .composer__mode :deep(.el-radio-button__inner), .composer__bank-item { min-height: 44px; }
+  .composer__mode :deep(.el-radio-button__inner) { display: flex; align-items: center; }
+  .composer__selected-controls { flex-wrap: wrap; }
+  .composer__score-control { flex-wrap: wrap; }
+  .composer__selected-score { width: 180px; }
+  .composer__score-control > .el-button, .composer__aside-actions .el-button { min-width: 44px; min-height: 44px; }
+  .composer__stem { white-space: normal; overflow-wrap: anywhere; }
 }
 </style>

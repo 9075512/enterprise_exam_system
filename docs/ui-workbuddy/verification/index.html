@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>管理端 UI 验收记录</title>
+  <style>
+    :root{font-family:"Microsoft YaHei",sans-serif;color:#172338;background:#F4F6FB;font-synthesis:none}*{box-sizing:border-box}body{margin:0}main{max-width:1160px;padding:40px 24px 60px;margin:auto}h1{font-size:28px;margin:10px 0}h2{font-size:19px;margin:0 0 18px}h3{font-size:15px}p,li{line-height:1.8;color:#526278;font-size:14px}a{color:#2563EB;text-decoration:none}a:hover{text-decoration:underline}.eyebrow{font-size:12px;letter-spacing:2px;color:#66758A}.intro{max-width:800px}.actions{display:flex;flex-wrap:wrap;gap:12px;margin:22px 0}.button{padding:11px 18px;border-radius:8px;background:#2563EB;color:white;display:inline-block}.secondary{background:white;color:#2563EB;border:1px solid #E7EBF2}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.card{background:white;border:1px solid #E7EBF2;border-radius:16px;padding:24px;margin-bottom:20px;min-width:0}.metric{display:block;font-size:30px;font-weight:700;margin-bottom:8px}.label{font-size:13px;color:#66758A}.badge{display:inline-block;font-size:12px;background:#ECFDF3;color:#027A48;padding:4px 8px;border-radius:6px}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:14px;min-width:520px}th{text-align:left;color:#66758A;background:#F8FAFD;font-weight:500}th,td{padding:12px 14px;border-bottom:1px solid #E7EBF2}td:not(:first-child){white-space:nowrap}.pass{color:#027A48}.preview-grid{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr);gap:20px;align-items:start}figure{margin:0;min-width:0}img{max-width:100%;border:1px solid #E7EBF2;border-radius:12px}figcaption{font-size:12px;color:#66758A;margin-top:8px}.note{font-size:13px;color:#66758A}details{margin:16px 0}summary{cursor:pointer;font-size:14px;color:#39485E}code{font-size:12px;overflow-wrap:anywhere}ul{padding-left:20px}.list-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 28px}.list-grid ul{margin:0}.footer{font-size:12px;color:#66758A}@media(max-width:700px){main{padding:24px 16px}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.card{padding:20px}.preview-grid,.list-grid{grid-template-columns:minmax(0,1fr)}.preview-grid figure:last-child{max-width:390px}.metric{font-size:26px}h1{font-size:24px}}
+  </style>
+</head>
+<body><main>
+  <div class="eyebrow">EXAM CENTER · 2026-10-19</div>
+  <h1>管理端 UI 验收记录</h1>
+  <p>此为上一轮样式与流程记录；全局框架的后续结构修正见 <a href="../fidelity-verification/index.html">最新设计对照与实际截图</a>。</p>
+  <p class="intro">实际程序已统一为白侧栏、浅灰蓝底、蓝色操作与 16 px 圆角卡片。本轮复查剩余页面、弹窗、窄屏布局与加载失败状态，保留原有题型、权限、考务及账号安全能力。</p>
+  <div class="actions"><a class="button" href="/admin/dashboard">打开实际管理端</a><a class="button secondary" href="/author/banks">查看科目题库</a></div>
+  <div class="grid">
+    <div class="card"><span class="metric">25 × 3</span><span class="label">入口页面 · 三档尺寸共 75 次检查</span></div>
+    <div class="card"><span class="metric">21</span><span class="label">本轮打开核查的弹窗与抽屉场景</span></div>
+    <div class="card"><span class="metric">7</span><span class="label">系统设置分组逐一检查</span></div>
+    <div class="card"><span class="metric">410</span><span class="label">前端回归用例 · 52 个测试文件</span></div>
+  </div>
+  <section class="card"><h2>实际程序截图</h2><div class="preview-grid">
+    <figure><a href="admin-desktop.png"><img src="admin-desktop.png" alt="管理端桌面数据总览，白色侧栏与浅灰蓝卡片背景" loading="lazy"></a><figcaption>桌面 1440 × 960。截图中的数值来自当时实际接口，后续会随业务数据变化。</figcaption></figure>
+    <figure><a href="admin-question-mobile.png"><img src="admin-question-mobile.png" alt="390 像素手机端试题编辑抽屉，五种题型同排且底部按钮固定" loading="lazy"></a><figcaption>手机 390 × 844。五种题型同排，长表单独立滚动，底部操作保留。</figcaption></figure>
+  </div></section>
+  <section class="card"><h2>页面逐项检查</h2><p class="note">检查尺寸：1440 × 960、768 × 1024、390 × 844。结果为页面主体无横向溢出；宽表格在表格内部横向滚动。</p><div class="table-wrap"><table><thead><tr><th>页面</th><th>桌面</th><th>平板</th><th>手机</th></tr></thead><tbody id="pages"></tbody></table></div></section>
+  <section class="card"><h2>弹窗、抽屉与次级流程</h2><div class="list-grid">
+    <div><h3>组织、角色与安全</h3><ul><li>新建用户、账号批量导入、新建科室</li><li>科目与访问权限、角色编辑、成员分配、岗位</li><li>账号安全、修改密码：仅查看布局；安全操作使用模拟请求验证</li></ul></div>
+    <div><h3>题库与考试</h3><ul><li>试题编辑、简答评分细则、试题迁移</li><li>组卷参数模板、人员抽考模板</li><li>考试生效名单、特殊考试安排；另复查实时监考</li></ul></div>
+    <div><h3>内容与审计</h3><ul><li>新建公告、轮播图、内容触达概览</li><li>审计导出字段、日志详情</li><li>长表单滚动、固定底栏、窄屏局部表格滚动</li></ul></div>
+    <div><h3>设置全部分组</h3><ul><li>考试默认值、作答与防作弊、阅卷与复核</li><li>账号与安全、通知与模板、数据与归档</li><li>网站与品牌；切换分组未修改或保存业务配置</li></ul></div>
+  </div></section>
+  <section class="card"><h2>本轮修复</h2><ul>
+    <li>考试生效名单、角色成员、题库迁移及账号安全增加加载、失败重试和统一空状态；快速切换只接受最新请求的数据。</li>
+    <li>科目原权限读取失败时阻止覆盖；创建成功但权限保存失败时，重试沿用同一节点，不生成重复科目。</li>
+    <li>密码、试题与权限相关表单提交期间禁用重复操作及关闭，接口失败后保留草稿。</li>
+    <li>修复手机端科目提示与开关挤在一行、五种题型换行、长安全表单及评分档位的布局问题。</li>
+    <li>审批或删除导致末页消失时回到有效页；同类考试详情切换时重新初始化表单及监控连接。</li>
+    <li>无已出成绩样本时平均分显示“—”；真实零分仍显示 0。旧答卷缺少及格线时保持未知，不误判未及格。</li>
+    <li>消息中心入口跟随已有菜单权限显示；原有服务端权限、五种题型、阅卷、复核、补考、防作弊、TOTP、恢复码与设备管理保持原有规则。</li>
+  </ul></section>
+  <section class="card"><h2>验证结果与范围</h2><p><span class="badge">前端 410 项测试通过</span> <span class="badge">类型检查通过</span> <span class="badge">生产构建通过</span> <span class="badge">差异格式检查通过</span></p>
+    <p>失败重试、旧响应隔离、重复提交、内置角色限制、五种题型及安全表单使用模拟接口验证。现有数据库缺少已交卷、待复核等完整样本，相应成功处理路径由回归用例覆盖，未写入虚构统计或修改真实业务记录。</p>
+    <details><summary>开发环境与证据</summary><p>本地开发服务在批量导航时出现过两次动态模块请求失败，均通过页面自带“重新加载”恢复后重测成功；失败状态未计为页面通过。生产构建已完成。本轮没有改动后端接口或数据库，也没有实际执行改密、授权、设备下线、删除或考务审批。</p><p class="note">日志保存在工作区忽略目录：<code>.build-verify/admin-ui-final-tests.log</code>、<code>.build-verify/admin-ui-final-types.log</code>、<code>.build-verify/admin-ui-final-build.log</code>。</p></details>
+  </section>
+  <p class="footer">此记录对应实际程序验收。原设计方向示例仍保存在上级目录，实际入口为 /admin/* 与 /author/banks。</p>
+</main>
+<script>
+  const pages=[['数据总览','/admin/dashboard'],['科室管理','/admin/departments'],['用户管理','/admin/users'],['科目管理','/admin/subjects'],['角色管理','/admin/roles'],['岗位管理','/admin/positions'],['模板管理','/admin/templates'],['题目反馈','/admin/question-feedback'],['重复题审计','/admin/duplicate-questions'],['练题监控','/admin/practice-monitor'],['考试管理','/admin/exams'],['补考管理','/admin/retakes'],['成绩报表','/admin/scores'],['成绩复核','/admin/appeals'],['人工阅卷','/admin/reviews'],['练题端设置','/admin/practice-settings'],['公告与轮播','/admin/content'],['首页配置','/admin/home-config'],['系统设置','/admin/settings'],['菜单权限','/admin/permissions'],['审计日志','/admin/audit'],['登录日志','/admin/login-logs'],['系统维护','/admin/maintenance'],['题库管理','/author/banks'],['个人中心','/profile']];
+  for(const [name,path] of pages){const tr=document.createElement('tr'),td=document.createElement('td'),a=document.createElement('a');a.href=path;a.textContent=name;td.append(a);tr.append(td);for(let i=0;i<3;i++){const cell=document.createElement('td');cell.className='pass';cell.textContent='通过';tr.append(cell);}document.querySelector('#pages').append(tr);}
+</script></body></html>

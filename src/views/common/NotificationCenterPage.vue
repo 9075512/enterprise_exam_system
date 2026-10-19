@@ -7,21 +7,23 @@
  * 页头下补三张统计卡（未读 / 今日新增 / 累计），主体改 2:1 分栏——
  * 左侧「分类页签 + 消息列表 + 分页」，右侧「消息详情卡 + 隔离说明」。
  *
- * 说明：后端列表接口暂不支持按 type / 未读筛选，故一次拉取最近 100 条
+ * 说明：后端列表接口暂不支持按 type / 未读筛选，故请求最近 100 条
  * （站内信保留 180 天，量级可控）后在前端做分类筛选与分页；
  * 「累计消息」取服务端 total（精确），未读数取 unread-count 接口（精确）。
  */
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Bell, Calendar, CircleCheck, Message } from '@element-plus/icons-vue';
 import { getUnreadCount, listNotifications, markAllRead, markRead } from '@/api/notifications';
 import { formatDateTime } from '@/utils/datetime';
 import EmptyState from '@/components/common/EmptyState.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
 import StatCard from '@/components/common/StatCard.vue';
 import type { Notification } from '@/types';
 
 const loading = ref(false);
+const loadError = ref(false);
 const list = ref<Notification[]>([]);
 /** 服务端 total（精确累计条数） */
 const totalCount = ref(0);
@@ -30,6 +32,8 @@ const unreadCount = ref(0);
 const active = ref<Notification | null>(null);
 /** 详情弹窗开关（点击列表项打开） */
 const detailVisible = ref(false);
+const markingAll = ref(false);
+const readingIds = new Set<string>();
 
 /** 通知分类文案（与后端 notify.ts 的 EVENT_TYPE 一一对应） */
 const TYPE_LABELS: Record<string, string> = {
@@ -51,6 +55,7 @@ const PAGE_SIZE = 20;
 
 async function load(): Promise<void> {
   loading.value = true;
+  loadError.value = false;
   try {
     const [page, unread] = await Promise.all([listNotifications(1, 100), getUnreadCount()]);
     list.value = page.list;
@@ -58,6 +63,7 @@ async function load(): Promise<void> {
     unreadCount.value = unread.unreadCount;
     if (!active.value && page.list.length > 0) active.value = page.list[0];
   } catch {
+    loadError.value = true;
     list.value = [];
   } finally {
     loading.value = false;
@@ -94,6 +100,7 @@ const paged = computed<Notification[]>(() =>
   filtered.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE),
 );
 const totalPages = computed<number>(() => Math.max(1, Math.ceil(filtered.value.length / PAGE_SIZE)));
+watch(totalPages, value => { if (page.value > value) page.value = value; });
 
 function switchTab(key: string): void {
   activeTab.value = key;
@@ -118,17 +125,22 @@ function typeTone(type: string): string {
 async function open(item: Notification): Promise<void> {
   active.value = item;
   detailVisible.value = true;
-  if (item.isRead) return;
+  if (item.isRead || readingIds.has(item.id)) return;
+  readingIds.add(item.id);
   try {
     await markRead(item.id);
     item.isRead = true;
     unreadCount.value = Math.max(0, unreadCount.value - 1);
   } catch {
     // 忽略
+  } finally {
+    readingIds.delete(item.id);
   }
 }
 
 async function handleMarkAll(): Promise<void> {
+  if (markingAll.value || loading.value || loadError.value || unreadCount.value === 0) return;
+  markingAll.value = true;
   try {
     await markAllRead();
     list.value = list.value.map((n) => ({ ...n, isRead: true }));
@@ -136,15 +148,17 @@ async function handleMarkAll(): Promise<void> {
     ElMessage.success('已全部标记为已读');
   } catch {
     // 忽略
+  } finally {
+    markingAll.value = false;
   }
 }
 </script>
 
 <template>
-  <div class="notif">
+  <div data-ui-layout="list" data-ui-page="NotificationCenterPage" class="notif">
     <PageHeader title="消息中心" description="考试发布、成绩与补考审批等通知">
       <template #actions>
-        <el-button :icon="CircleCheck" :disabled="unreadCount === 0" @click="handleMarkAll">
+        <el-button :icon="CircleCheck" :loading="markingAll" :disabled="loading || loadError || unreadCount === 0" @click="handleMarkAll">
           全部已读
         </el-button>
       </template>
@@ -152,9 +166,9 @@ async function handleMarkAll(): Promise<void> {
 
     <!-- 统计卡（设计稿 p-notifications） -->
     <div class="notif__stats">
-      <StatCard label="未读消息" :value="unreadCount" unit="条" tone="error" :icon="Bell" />
-      <StatCard label="今日新增" :value="todayCount" unit="条" :icon="Calendar" />
-      <StatCard label="累计消息" :value="totalCount" unit="条" :icon="Message" />
+      <StatCard label="未读消息" :value="loading || loadError ? '—' : unreadCount" unit="条" tone="error" :icon="Bell" />
+      <StatCard label="已加载消息中今日新增" :value="loading || loadError ? '—' : todayCount" unit="条" :icon="Calendar" />
+      <StatCard label="累计消息" :value="loading || loadError ? '—' : totalCount" unit="条" :icon="Message" />
     </div>
 
     <div class="notif__row">
@@ -163,23 +177,29 @@ async function handleMarkAll(): Promise<void> {
         <div>消息按<b>登录账号</b>隔离，仅你能看到本人相关的考试与成绩通知；消息保留 180 天后自动清理。</div>
       </div>
       <el-card class="notif__panel" shadow="never">
+        <p class="admin-scope">{{ loading ? '正在加载当前账号消息' : loadError ? '当前账号消息范围未知' : `当前账号已加载 ${list.length} / ${totalCount} 条消息` }} · 分类筛选、分页和今日新增仅基于已加载消息；未读和累计数量来自全量统计。</p>
         <!-- 分类页签（设计稿 .tabs） -->
-        <div class="notif__tabs">
+        <div class="notif__tabs" role="group" aria-label="消息分类">
           <button
             v-for="tab in tabs"
             :key="tab.key"
             type="button"
             class="notif__tab"
             :class="{ 'is-on': activeTab === tab.key }"
+            :aria-pressed="activeTab === tab.key"
             @click="switchTab(tab.key)"
           >
             {{ tab.label }} {{ tab.count }}
           </button>
         </div>
 
-        <div v-loading="loading" class="notif__list">
+        <div class="notif__list" :aria-busy="loading">
+          <div v-if="loading" class="notif__loading" role="status" aria-label="正在加载消息">
+            <el-skeleton :rows="5" animated />
+          </div>
+          <RequestError v-else-if="loadError" text="消息加载失败" @retry="load" />
           <EmptyState
-            v-if="filtered.length === 0"
+            v-else-if="filtered.length === 0"
             class="notif__empty"
             :text="activeTab === 'all' ? '暂无消息' : '没有该分类的消息'"
             :filtered="activeTab !== 'all'"
@@ -193,6 +213,7 @@ async function handleMarkAll(): Promise<void> {
               type="button"
               class="notif__item"
               :class="{ 'is-unread': !item.isRead, 'is-active': active?.id === item.id }"
+              :aria-label="`查看消息：${item.title}，${item.isRead ? '已读' : '未读'}`"
               @click="open(item)"
             >
               <span class="notif__dot" :class="{ 'is-none': item.isRead }" aria-hidden="true" />
@@ -211,7 +232,7 @@ async function handleMarkAll(): Promise<void> {
           </div>
         </div>
 
-        <div v-if="filtered.length > PAGE_SIZE" class="notif__pager">
+        <div v-if="!loading && !loadError && filtered.length > PAGE_SIZE" class="notif__pager" role="navigation" aria-label="消息分页">
           <span class="notif__pager-info">
             共 {{ filtered.length }} 条<span class="notif__page-size"> · 每页 {{ PAGE_SIZE }} 条</span>
           </span>
@@ -225,7 +246,7 @@ async function handleMarkAll(): Promise<void> {
             <span class="notif__pg-arrow">‹</span>
             <span class="notif__pg-label">上一页</span>
           </button>
-          <span class="notif__pg is-on">{{ page }}</span>
+          <span class="notif__pg is-on" aria-current="page">{{ page }}</span>
           <span class="notif__pg-text">/ {{ totalPages }}</span>
           <button
             type="button"
@@ -242,7 +263,7 @@ async function handleMarkAll(): Promise<void> {
     </div>
 
     <!-- 消息详情弹窗（点击列表项展开，替代旧版右侧常驻详情卡） -->
-    <el-dialog v-model="detailVisible" title="消息详情" width="520px" class="notif__dialog" append-to-body>
+    <el-drawer v-model="detailVisible" title="消息详情" size="560px" class="notif__dialog" append-to-body data-ui-role="editor">
       <template #header>
         <div class="notif__dialog-hd">
           <h3>消息详情</h3>
@@ -257,7 +278,7 @@ async function handleMarkAll(): Promise<void> {
       <template #footer>
         <el-button @click="detailVisible = false">关闭</el-button>
       </template>
-    </el-dialog>
+    </el-drawer>
   </div>
 </template>
 
@@ -282,6 +303,8 @@ async function handleMarkAll(): Promise<void> {
   &__panel {
     --el-card-padding: 0;
   }
+
+  &__panel .admin-scope { margin: 0; padding: 14px 16px; }
 
   /* 详情弹窗头 */
   &__dialog-hd {
@@ -333,6 +356,8 @@ async function handleMarkAll(): Promise<void> {
   &__list {
     min-height: 200px;
   }
+
+  &__loading { padding: 24px 20px; }
 
   &__empty {
     padding: 16px;
@@ -404,6 +429,7 @@ async function handleMarkAll(): Promise<void> {
     font-size: 13.5px;
     font-weight: 600;
     color: $text-primary;
+    overflow-wrap: anywhere;
   }
 
   &__item.is-unread &__title {
@@ -419,6 +445,7 @@ async function handleMarkAll(): Promise<void> {
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    overflow-wrap: anywhere;
   }
 
   &__foot {
@@ -426,17 +453,18 @@ async function handleMarkAll(): Promise<void> {
     align-items: center;
     gap: 9px;
     margin-top: 7px;
-    font-size: 11.5px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
   &__kind {
+    flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     height: 18px;
     padding: 0 6px;
     border-radius: 5px;
-    font-size: 10.5px;
+    font-size: 12px;
     font-weight: 600;
     background: $color-neutral-bg;
     color: $text-secondary;
@@ -468,10 +496,8 @@ async function handleMarkAll(): Promise<void> {
   }
 
   &__badge {
-    position: absolute;
-    right: 16px;
-    top: 50%;
-    transform: translateY(-50%);
+    flex-shrink: 0;
+    align-self: flex-start;
     display: inline-flex;
     align-items: center;
     gap: 5px;
@@ -479,7 +505,7 @@ async function handleMarkAll(): Promise<void> {
     padding: 0 7px;
     border-radius: 5px;
     background: $color-error-bg;
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 580;
     color: $color-error-text;
 
@@ -494,6 +520,7 @@ async function handleMarkAll(): Promise<void> {
 
   @media (max-width: 900px) {
     &__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    &__stats > :last-child { grid-column: 1 / -1; min-height: 88px; }
     &__tabs { padding-inline: 8px; }
     &__item { padding: 13px 12px; }
     &__badge { position: static; align-self: flex-start; transform: none; }
@@ -575,11 +602,12 @@ async function handleMarkAll(): Promise<void> {
     font-weight: 600;
     color: $text-primary;
     line-height: 1.6;
+    overflow-wrap: anywhere;
   }
 
   &__detail-time {
     margin-top: 4px;
-    font-size: 11.5px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -620,6 +648,8 @@ async function handleMarkAll(): Promise<void> {
 
   @media (max-width: 900px) {
     &__pager { gap: 7px; }
+    &__tab { height: 44px; min-height: 44px; }
+    &__pg { min-width: 44px; min-height: 44px; }
     &__pg.notif__pg--nav { min-width: 58px; }
     &__pg-arrow,
     &__page-size { display: none; }

@@ -15,12 +15,14 @@ import { useRequest } from '@/composables/useRequest';
 import { useSettingsStore } from '@/stores/settings';
 import { formatDateTime } from '@/utils/datetime';
 import PageHeader from '@/components/common/PageHeader.vue';
+import EmptyState from '@/components/common/EmptyState.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import type { ArchiveAutoRun, ArchiveResult, MaintenanceStats } from '@/types';
 
 const settingsStore = useSettingsStore();
 
-const { data: stats, loading, refresh } = useRequest<MaintenanceStats>(() => maintenanceApi.stats());
+const { data: stats, loading, error, refresh } = useRequest<MaintenanceStats>(() => maintenanceApi.stats());
 
 /** 归档表单：保留天数（默认取设置/365）、单次上限 */
 const archiveDays = ref<number>(0);
@@ -210,8 +212,8 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
 </script>
 
 <template>
-  <div class="maintenance">
-    <PageHeader title="系统维护" description="数据体量统计与历史成绩归档，控制业务表膨胀">
+  <div data-ui-layout="operations" data-ui-page="SystemMaintenancePage" class="maintenance">
+    <PageHeader title="系统维护" description="全系统业务表体量与历史成绩归档；统计时间以下方服务端快照为准">
       <template #actions>
         <el-button :icon="Refresh" :loading="loading" @click="refresh">刷新统计</el-button>
       </template>
@@ -219,6 +221,7 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
 
     <LoadingSkeleton v-if="loading && !stats" :rows="4" />
 
+    <el-card v-else-if="error" shadow="never"><RequestError text="维护统计加载失败" @retry="refresh" /></el-card>
     <template v-else>
       <div class="maintenance__cards">
         <div class="maintenance__card">
@@ -367,6 +370,7 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
           <el-table-column prop="label" label="数据对象" min-width="160" />
           <el-table-column prop="name" label="表名" min-width="200" />
           <el-table-column prop="rows" label="行数" width="140" align="right" />
+          <template #empty><EmptyState text="暂无核心表统计" /></template>
         </el-table>
       </el-card>
 
@@ -451,7 +455,7 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
     padding: 14px 16px;
     background: $bg-paper;
     border: 1px solid $border-color;
-    border-radius: $radius-sm;
+    border-radius: $radius-lg;
   }
 
   &__card-label {
@@ -614,7 +618,7 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
 
   &__tl-desc {
     margin-top: 2px;
-    font-size: 11.5px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -657,7 +661,7 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
 
   &__danger-desc {
     margin-top: 3px;
-    font-size: 11px;
+    font-size: 12px;
     color: $text-secondary;
 
     &--severe {
@@ -667,7 +671,7 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
 
   &__danger-badge {
     flex: 0 0 auto;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     color: $text-secondary;
 

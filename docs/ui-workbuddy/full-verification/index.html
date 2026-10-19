@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>全页面设计实施与验收 · Workbuddy 01</title>
+<style>
+:root{color-scheme:light;--blue:#2563eb;--bg:#f4f6fb;--line:#e7ebf2;--text:#172338;--muted:#66758a}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.8 system-ui,"Microsoft YaHei",sans-serif}main{max-width:1200px;margin:auto;padding:32px 24px 80px}h1{font-size:28px;margin:0 0 12px}h2{font-size:20px;margin:0 0 12px}p{margin:8px 0 16px}a{color:var(--blue)}.muted,small{color:var(--muted)}.links{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0}.links a{padding:8px 14px;border:1px solid var(--line);border-radius:8px;background:white;text-decoration:none}.links a:first-child{background:var(--blue);color:white}.card{background:white;border:1px solid var(--line);border-radius:16px;padding:24px;margin:22px 0}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}.stat{background:white;border:1px solid var(--line);border-radius:16px;padding:20px}.stat strong{display:block;font-size:30px}.stat span{color:var(--muted);font-size:13px}.table{overflow:auto}table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}th,td{border-bottom:1px solid var(--line);text-align:left;padding:12px}th{background:var(--bg)}.gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}figure{margin:0;min-width:0}img{display:block;width:100%;border:1px solid var(--line);border-radius:12px}figcaption{font-size:13px;margin:10px 0 20px;color:var(--muted)}.wide{margin-top:20px}.pass{color:#178358;font-weight:600}.notice{padding:14px 18px;background:#edf4ff;border:1px solid #cddfff;border-radius:8px}.files{display:flex;flex-wrap:wrap;gap:16px}code{font-size:12px;background:var(--bg);padding:2px 5px;border-radius:4px}@media(max-width:760px){main{padding:24px 16px 60px}.stats{grid-template-columns:repeat(2,1fr);gap:12px}.card{padding:18px}.gallery{grid-template-columns:1fr}.gallery figure{max-width:390px;margin:auto}h1{font-size:24px}.links a{min-height:44px}}
+</style>
+<main>
+<p class="muted">2026-10-19 · 规范版本 workbuddy-01 · 本地代码实施</p>
+<h1>全部页面，按同一套规范落地</h1>
+<p>白侧栏、浅灰蓝底、蓝色操作、16 px 圆角卡片。页面、编辑抽屉、任务弹窗和手机端共同遵守已确认的 Workbuddy 方案。</p>
+<nav class="links"><a href="../coverage/index.html">逐页设计与手机稿</a><a href="../index.html#guide">原始确认规范</a><a href="../specification.json">现行规范 JSON</a><a href="/admin/dashboard">实际应用</a></nav>
+<p class="notice">最新一轮：<a href="organization-polish.html">人员与权限验收</a>（完整成员清单、菜单分组、用户岗位和授权预演）。</p><p class="notice">上一轮：<a href="exam-editor-polish.html">考试编辑与预览验收</a>（两步配置、分组抽题、日期弹层与保存锁定）。</p><p class="notice">上一轮：<a href="question-polish.html">五种题型编辑验收</a>（长选项、评分档位、手机与横屏表单）。</p><p class="notice">上一轮：<a href="grading-polish.html">阅卷、复核与监考验收</a>（长评分细则、手机输入与操作锁定）。</p><p class="notice">上一轮：<a href="workflow-polish.html">导入导出任务验收</a>（文件卡片、校验预览、手机选择与固定操作）。</p><p class="notice">上一轮：<a href="message-polish.html">消息、错题与个人统计验收</a>（真实范围、手机列表与阅读流程）。</p><p class="notice">上一轮：<a href="learner-polish.html">考生与练题交互验收</a>（手机答题、练习设置、长内容弹窗）。</p><p class="notice">本页记录全覆盖实施阶段。后续交互与横屏问题已继续修正，最新结果为60个测试文件、450项测试通过，详见<a href="interaction-polish.html">交互与布局精修验收</a>。</p><div class="stats"><div class="stat"><strong>46</strong><span>页面 / 路由视图设计</span></div><div class="stat"><strong>41</strong><span>声明式弹窗 / 抽屉节点</span></div><div class="stat"><strong>168</strong><span>实际页面视口检查</span></div><div class="stat"><strong>444</strong><span>完整测试通过</span></div></div>
+<section class="card"><h2>实施内容与对应关系</h2><p>所有实际页面均登记在设计目录，并采用对应的页面模板。44 个独立页面组件覆盖管理、出题、考生、练题及公共页面；重复路由和嵌套题库工作区单独登记。另有 17 个含弹窗的组件或框架条目。</p><div class="table"><table><thead><tr><th>区域</th><th>已实施的规范</th><th>保留的行为</th></tr></thead><tbody>
+<tr><td>全局框架</td><td>232 px 白侧栏、分组菜单、94 px 桌面页头、面包屑与当前标题</td><td>菜单权限、账号安全、搜索、折叠菜单与消息</td></tr>
+<tr><td>管理列表与工作区</td><td>筛选、真实统计范围、表格层级、分页、空 / 错误状态</td><td>科室隔离、题库授权、题型、批量操作与考务能力</td></tr>
+<tr><td>编辑与配置</td><td>普通编辑统一侧抽屉；复杂表单 720 px；设置页底部保存栏</td><td>原字段、必填校验、提交保护、锁定规则、失败恢复</td></tr>
+<tr><td>手机管理端</td><td>全屏编辑抽屉、正文内部滚动、固定操作区、表格局部横滚</td><td>不以隐藏业务字段或删除操作换取适配</td></tr>
+<tr><td>考生与练题</td><td>统一卡片和按钮、五项底部导航、专注答题、44 px 触控</td><td>自动暂存、五种题型、答题卡、判分、复核与安全限制</td></tr>
+</tbody></table></div><p class="muted">导入、导出、复制、批量授权、特殊考务和安全验证按规范作为独立任务弹窗，保留步骤及校验。历史 ui-v3、ui-v3b、ui-redesign 文档保留作记录；当前实施依据为 <code>ui-workbuddy/specification.json</code>。</p></section>
+<section class="card"><h2>实际页面截图</h2><p class="muted">以下截图来自本地运行的实际应用。业务内容和数量来自当前账号接口，未用设计示例替换。</p><div class="gallery">
+<figure><a href="practice-mobile.png"><img src="practice-mobile.png" alt="实际手机练题首页"></a><figcaption>练题首页：每日任务、权限范围、科目进度。</figcaption></figure>
+<figure><a href="exams-mobile.png"><img src="exams-mobile.png" alt="实际手机考试列表"></a><figcaption>考试列表：状态、可考次数、时间窗及准考证。</figcaption></figure>
+<figure><a href="user-mobile.png"><img src="user-mobile.png" alt="实际手机新建用户抽屉"></a><figcaption>编辑抽屉：完整表单、内部滚动、固定操作区。</figcaption></figure>
+</div><figure class="wide"><a href="bank-desktop.png"><img src="bank-desktop.png" alt="实际桌面题库管理工作区"></a><figcaption>题库工作区：目录、对象上下文、真实题型统计、筛选与列表。</figcaption></figure><div class="files"><a href="practice-desktop.png">桌面练题首页</a><a href="template-desktop.png">桌面模板抽屉</a><a href="question-mobile.png">手机简答题编辑</a></div></section>
+<section class="card"><h2>答题流程与弹窗验收</h2><div class="notice">以下样例使用实际页面组件与隔离的内存数据，不连接业务接口。用于核对布局与流程，未开启正式考试、提交成绩、创建练题会话或修改用户权限。</div><p>已核对考试五种题型与长文本、成绩明细、人工阅卷，以及练题单选 / 多选 / 判断、即时判分、解析、答题卡跳题、取消退出和完成小结。</p><div class="gallery">
+<figure><a href="taking-mobile-sample.png"><img src="taking-mobile-sample.png" alt="隔离样例手机考试作答"></a><figcaption>考试作答（模拟数据）。</figcaption></figure>
+<figure><a href="practice-sheet-mobile-sample.png"><img src="practice-sheet-mobile-sample.png" alt="隔离样例手机练题答题卡"></a><figcaption>练题答题卡（模拟数据）。</figcaption></figure>
+<figure><a href="practice-summary-mobile-sample.png"><img src="practice-summary-mobile-sample.png" alt="隔离样例手机练题小结"></a><figcaption>按首次判分统计的小结（模拟数据）。</figcaption></figure>
+</div><div class="files"><a href="score-mobile-sample.png">成绩明细样例</a><a href="review-mobile-sample.png">阅卷样例</a><a href="practice-feedback-mobile-sample.png">纠错弹窗样例</a><a href="practice-exit-mobile-sample.png">退出确认样例</a></div></section>
+<section class="card"><h2>检查范围和结果</h2><div class="table"><table><thead><tr><th>检查</th><th>范围</th><th>结果</th></tr></thead><tbody>
+<tr><td>类型与生产构建</td><td>vue-tsc --noEmit / vite build</td><td class="pass">通过</td></tr>
+<tr><td>完整回归测试</td><td>59 个文件，444 项测试</td><td class="pass">通过</td></tr>
+<tr><td>最后改动定向复查</td><td>设计覆盖、练题作答、成绩明细，21 项</td><td class="pass">通过</td></tr>
+<tr><td>实际页面视口</td><td>42 个实际路径 × 320 / 390 / 768 / 1440 px</td><td class="pass">168 次，无页面横向溢出</td></tr>
+<tr><td>编辑抽屉</td><td>5 种题型 + 科室、用户、科目、角色、岗位、模板、公告、轮播</td><td class="pass">52 次，无正文横向溢出；手机底部按钮 44 px</td></tr>
+<tr><td>隔离答题与详情</td><td>考试、成绩、阅卷 12 次；练题反馈 / 小结 8 次</td><td class="pass">20 次，无页面横向溢出</td></tr>
+<tr><td>设计画板</td><td>63 个条目 × 桌面 / 手机</td><td class="pass">126 次结构检查通过</td></tr>
+</tbody></table></div><p class="muted">视口检查为浏览器实际渲染尺寸和页面溢出检查，结合代表页面目视复核；不等同于逐像素图像比对。设计中的加载、空、失败、无权限状态为规范演示；真实业务状态另由页面和功能测试验证。未为了产生验收数据而变更现有权限、考试、配置或题库内容。</p><div class="files"><a href="live-checks.json">实际页面记录</a><a href="overlay-checks.json">抽屉记录</a><a href="isolated-checks.json">隔离详情记录</a><a href="practice-isolated-checks.json">隔离练题记录</a><a href="design-canvas-checks.json">画板记录</a></div></section>
+<section class="card"><h2>逐页检查清单</h2><p class="muted">按实际路径汇总，详情可见上方 JSON。</p><div class="table"><table><thead><tr><th>路径</th><th>组件</th><th>已检查宽度</th><th>结果</th></tr></thead><tbody id="check-rows"><tr><td colspan="4">正在读取本地验收记录…</td></tr></tbody></table></div></section>
+</main>
+<script>
+fetch('./live-checks.json').then(r=>r.json()).then(rows=>{const groups=new Map();for(const row of rows){if(!groups.has(row.path))groups.set(row.path,{page:row.page,widths:[],ok:true});const g=groups.get(row.path);g.widths.push(row.width);g.ok&&=row.scroll<=row.client+1&&!row.failed;}const body=document.querySelector('#check-rows');body.textContent='';for(const [path,g]of groups){const tr=document.createElement('tr');for(const text of[path,g.page||'—',[...new Set(g.widths)].sort((a,b)=>a-b).join(' / '),g.ok?'通过':'待复查']){const td=document.createElement('td');td.textContent=text;tr.append(td)}body.append(tr)}}).catch(()=>{document.querySelector('#check-rows').innerHTML='<tr><td colspan="4">请通过本地开发服务器打开此报告，或直接查看 JSON 记录。</td></tr>'});
+</script>
+</html>

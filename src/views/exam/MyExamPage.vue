@@ -23,13 +23,15 @@ import { getExamStatus } from '@/utils/examStatus';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import type { ExamMy, ExamRecord, RetakeStatus } from '@/types';
 
 const router = useRouter();
 const settingsStore = useSettingsStore();
-const { data: exams, loading, refresh: refreshExams } = useRequest(() => examsApi.my());
+const { data: exams, loading, error: examsError, refresh: refreshExams } = useRequest(() => examsApi.my());
 /** 我的成绩（仅用于在卡片上展示得分与及格结论；失败静默） */
-const { data: recordsPage } = useRequest(() => recordsApi.my({ page: 1, pageSize: 100 }));
+const { data: recordsPage, error: recordsError, refresh: refreshRecords } = useRequest(() => recordsApi.my({ page: 1, pageSize: 100 }));
+function refreshAll(): void { void refreshExams(); void refreshRecords(); }
 
 /** examId → 本人最近一次已交卷记录 */
 const recordMap = computed<Record<string, ExamRecord>>(() => {
@@ -50,9 +52,11 @@ const RETAKE_STATUS_LABELS: Record<RetakeStatus, string> = {
 };
 
 /* ------------------------------ 卡片态 ------------------------------ */
-type CardState = 'not_started' | 'ongoing' | 'in_progress' | 'done' | 'failed' | 'ended';
+type CardState = 'not_started' | 'ongoing' | 'in_progress' | 'done' | 'failed' | 'ended' | 'pending_review' | 'exempt';
 
 const STATE_META: Record<CardState, { label: string; tone: 'gray' | 'pri' | 'ok' | 'info' | 'warn' | 'err' }> = {
+  pending_review: { label: '待阅卷', tone: 'warn' },
+  exempt: { label: '已免考', tone: 'gray' },
   not_started: { label: '未开始', tone: 'warn' },
   ongoing: { label: '可作答', tone: 'pri' },
   in_progress: { label: '进行中', tone: 'ok' },
@@ -62,7 +66,9 @@ const STATE_META: Record<CardState, { label: string; tone: 'gray' | 'pri' | 'ok'
 };
 
 function stateOf(row: ExamMy): CardState {
+  if (row.exempt) return 'exempt';
   if (row.recordStatus === 'in_progress') return 'in_progress';
+  if (row.recordStatus === 'pending_review') return 'pending_review';
   const rec = recordMap.value[row.id];
   if (rec) return rec.score >= row.passScore ? 'done' : 'failed';
   if (row.recordStatus === 'submitted') return 'done';
@@ -73,6 +79,7 @@ function stateOf(row: ExamMy): CardState {
 }
 
 function scoreOf(row: ExamMy): number | null {
+  if (row.recordStatus === 'pending_review') return null;
   const rec = recordMap.value[row.id];
   return rec ? rec.score : null;
 }
@@ -162,6 +169,7 @@ const starting = ref('');
 const applying = ref('');
 
 async function handleStart(exam: ExamMy): Promise<void> {
+  if (starting.value || !actionState(exam).enabled) return;
   starting.value = exam.id;
   try {
     const record = await examsApi.start(exam.id);
@@ -188,6 +196,8 @@ function goRetakes(): void {
 }
 
 function handleApplyRetake(exam: ExamMy): void {
+  if (applying.value || !exam.canApplyRetake) return;
+  applying.value = exam.id;
   void (async () => {
     let reason = '';
     try {
@@ -199,6 +209,7 @@ function handleApplyRetake(exam: ExamMy): void {
       });
       reason = (value as string).trim();
     } catch {
+      applying.value = '';
       return;
     }
     applying.value = exam.id;
@@ -227,6 +238,7 @@ interface ActionState {
  * - 补考：存在「已通过」申请时，可用次数 = maxAttempts + 1
  */
 function actionState(row: ExamMy): ActionState {
+  if (row.exempt) return { label: '已免考', enabled: false, tip: '你已获准免考，无需进入作答' };
   const status = getExamStatus(row);
   if (status !== 'ongoing') {
     return {
@@ -280,17 +292,20 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="my-exam">
-    <PageHeader title="我的考试" description="仅显示你所在科室的考试">
+  <div data-ui-layout="exam-cards" data-ui-page="MyExamPage" class="my-exam">
+    <PageHeader title="我的考试" description="显示当前账号获准参加的考试，包含科室、指定人员及冻结名单范围">
       <template #actions>
-        <el-button :icon="Refresh" @click="refreshExams">刷新</el-button>
+        <el-button :icon="Refresh" :loading="loading" @click="refreshAll">刷新</el-button>
         <el-button @click="goRetakes">我的补考</el-button>
       </template>
     </PageHeader>
 
     <LoadingSkeleton v-if="loading && !exams" :rows="5" />
+    <RequestError v-else-if="examsError" text="我的考试加载失败" @retry="refreshAll" />
 
     <template v-else>
+      <RequestError v-if="recordsError" text="成绩摘要加载失败，考试列表仍可使用" @retry="refreshRecords" />
+      <p v-if="recordsPage && recordsPage.total > recordsPage.list.length" class="learner-scope">卡片成绩摘要来自已加载的 {{ recordsPage.list.length }} / {{ recordsPage.total }} 份答卷，完整记录可在“我的成绩”查询。</p>
       <el-card class="my-exam__panel" shadow="never">
         <!-- 分段页签（设计稿 .tabs） -->
         <div class="my-exam__tabs">
@@ -319,7 +334,7 @@ onMounted(() => {
         <div class="my-exam__body">
           <EmptyState
             v-if="filteredExams.length === 0"
-            :text="keyword.trim() || activeTab !== 'all' ? '没有匹配的考试' : '暂无分配给本科室的考试'"
+            :text="keyword.trim() || activeTab !== 'all' ? '没有匹配的考试' : '当前账号暂无获准参加的考试'"
             :filtered="Boolean(keyword.trim()) || activeTab !== 'all'"
             @clear="resetFilter"
           />
@@ -366,6 +381,7 @@ onMounted(() => {
                     v-else
                     type="primary"
                     :loading="starting === row.id"
+                    :disabled="Boolean(starting)"
                     @click="handleStart(row)"
                   >
                     {{ actionState(row).label }}
@@ -596,7 +612,7 @@ onMounted(() => {
   }
 
   &__score-label {
-    font-size: 11px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -669,7 +685,7 @@ onMounted(() => {
     height: 20px;
     padding: 0 7px;
     border-radius: 5px;
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 580;
     white-space: nowrap;
 

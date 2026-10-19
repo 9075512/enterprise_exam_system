@@ -78,7 +78,7 @@ const percent = computed<number>(() => (
 
   &__label {
     flex: 0 0 auto;
-    font-size: 11px;
+    font-size: 12px;
     color: $text-secondary;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;

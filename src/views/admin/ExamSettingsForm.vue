@@ -16,6 +16,7 @@ import type { AudienceTemplate, Department, Exam, ExamMode, User } from '@/types
 const props = defineProps<{
   exam?: Exam | null;
   departments: Department[];
+  disabled?: boolean;
 }>();
 
 const departmentTree = computed(() => buildDepartmentTree(props.departments));
@@ -162,7 +163,7 @@ defineExpose({ validate, getPayload, form });
 <template>
   <div v-loading="loading" class="exam-settings">
     <el-alert v-if="loadFailed" title="人员或模板数据加载失败，请重试后继续" type="error" :closable="false"><el-button @click="load">重试</el-button></el-alert>
-    <el-form v-if="!loading && !loadFailed" ref="formRef" :model="form" :rules="rules" label-position="top">
+    <el-form v-if="!loading && !loadFailed" ref="formRef" :model="form" :rules="rules" label-position="top" :disabled="disabled">
       <section class="settings-section" aria-labelledby="exam-basic-heading">
         <header class="settings-section__head">
           <span class="settings-section__number">01</span>
@@ -178,7 +179,7 @@ defineExpose({ validate, getPayload, form });
             </el-select>
           </el-form-item>
           <el-form-item label="考试形式">
-            <el-radio-group v-model="form.examMode"><el-radio value="closed">闭卷</el-radio><el-radio value="open">开卷</el-radio></el-radio-group>
+            <el-radio-group v-model="form.examMode" aria-label="考试形式"><el-radio value="closed">闭卷</el-radio><el-radio value="open">开卷</el-radio></el-radio-group>
           </el-form-item>
         </div>
       </section>
@@ -190,16 +191,16 @@ defineExpose({ validate, getPayload, form });
         </header>
         <div class="settings-grid">
           <el-form-item label="开始时间" prop="startTime">
-            <el-date-picker v-model="form.startTime" :disabled="exam?.questionsLocked" type="datetime" class="exam-form__full" placeholder="选择开始时间" value-format="YYYY-MM-DD HH:mm:ss" />
+            <el-date-picker v-model="form.startTime" :disabled="exam?.questionsLocked" type="datetime" popper-class="exam-schedule-picker" class="exam-form__full" placeholder="选择开始时间" value-format="YYYY-MM-DD HH:mm:ss" />
           </el-form-item>
           <el-form-item label="截止时间" prop="endTime">
-            <el-date-picker v-model="form.endTime" type="datetime" class="exam-form__full" placeholder="选择截止时间" value-format="YYYY-MM-DD HH:mm:ss" />
+            <el-date-picker v-model="form.endTime" type="datetime" popper-class="exam-schedule-picker" class="exam-form__full" placeholder="选择截止时间" value-format="YYYY-MM-DD HH:mm:ss" />
           </el-form-item>
         </div>
         <div class="settings-grid settings-grid--three">
-          <el-form-item label="考试时长（分钟）"><el-input-number v-model="form.durationMinutes" :min="1" :max="600" controls-position="right" /></el-form-item>
-          <el-form-item label="及格分数线"><el-input-number v-model="form.passScore" :min="1" :max="1000" :step="1" controls-position="right" /></el-form-item>
-          <el-form-item label="答题次数（每人最多）" prop="maxAttempts"><el-input-number v-model="form.maxAttempts" :min="1" :max="10" controls-position="right" /></el-form-item>
+          <el-form-item label="考试时长（分钟）"><el-input-number v-model="form.durationMinutes" :min="1" :max="600" /></el-form-item>
+          <el-form-item label="及格分数线"><el-input-number v-model="form.passScore" :min="1" :max="1000" :step="1" /></el-form-item>
+          <el-form-item label="答题次数（每人最多）" prop="maxAttempts"><el-input-number v-model="form.maxAttempts" :min="1" :max="10" /></el-form-item>
         </div>
         <p v-if="exam?.questionsLocked" class="settings-section__note">考试已开始或已有作答，开始时间与题目配置已锁定。</p>
       </section>
@@ -248,7 +249,7 @@ defineExpose({ validate, getPayload, form });
   padding: 24px;
   background: $bg-paper;
   border: 1px solid $border-color;
-  border-radius: $radius-base;
+  border-radius: $radius-lg;
   &:last-child { margin-bottom: 0; }
   &__head { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 22px; }
   &__number { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: $radius-sm; background: $color-primary-soft; color: $color-primary-dark; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -271,4 +272,5 @@ defineExpose({ validate, getPayload, form });
 .exam-form__full { width: 100%; }
 .exam-form__hint { display: block; width: 100%; margin-top: 6px; font-size: 12px; line-height: 1.6; color: $text-secondary; }
 @container (max-width: 520px) { .settings-grid { grid-template-columns: minmax(0, 1fr); } .settings-section { padding: 18px; } .settings-section__expand { display: none; } }
+@media (max-width: 900px) { .settings-section :deep(.el-radio) { min-height: 44px; height: auto; } .settings-section summary { min-height: 44px; } }
 </style>

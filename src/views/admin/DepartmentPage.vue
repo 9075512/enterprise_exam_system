@@ -19,13 +19,14 @@ import { validateAndFocus } from '@/composables/useFormFocus';
 import { formatDateTime } from '@/utils/datetime';
 import { buildDepartmentNameMap, buildDepartmentTree, getDescendantIds } from '@/utils/departmentTree';
 import PageHeader from '@/components/common/PageHeader.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import type { Department } from '@/types';
 
 const { confirm } = useConfirm();
-const { data: departments, loading, refresh } = useRequest(() => departmentsApi.list());
+const { data: departments, loading, error, refresh } = useRequest(() => departmentsApi.list());
 /** 用户全量（用于「人员数」列与树上的计数） */
 const { data: users } = useRequest(() => usersApi.list());
 const settingsStore = useSettingsStore();
@@ -185,7 +186,7 @@ function resetFilter(): void {
 
 /** 页头描述（拼接放脚本里，避免模板内嵌模板字符串） */
 const headerDesc = computed<string>(
-  () => `共 ${departments.value?.length ?? 0} 个科室 · ${totalMembers.value} 名在册人员`,
+  () => `共 ${departments.value?.length ?? '—'} 个科室 · ${users.value ? totalMembers.value : '—'} 名在册人员`,
 );
 
 /** 列表层级缩进（模板内不做表达式计算，便于 TS 推断；el-table row 为 any，这里内部取值） */
@@ -301,7 +302,7 @@ async function handleDelete(department: Department): Promise<void> {
 </script>
 
 <template>
-  <div class="department-page">
+  <div data-ui-layout="tree" data-ui-page="DepartmentPage" class="department-page">
     <PageHeader title="科室管理" :description="headerDesc">
       <template #actions>
         <el-button type="primary" :icon="Plus" @click="openCreate">新建科室</el-button>
@@ -309,6 +310,8 @@ async function handleDelete(department: Department): Promise<void> {
     </PageHeader>
 
     <LoadingSkeleton v-if="loading && !departments" :rows="5" />
+
+    <RequestError v-else-if="error" text="科室加载失败" @retry="refresh" />
 
     <EmptyState
       v-else-if="!departments || departments.length === 0"
@@ -354,7 +357,7 @@ async function handleDelete(department: Department): Promise<void> {
             <span class="department-page__tnode" :title="data.id === ROOT_ID ? `${data.name}（点击改名）` : data.name">
               <el-icon v-if="data.id === ROOT_ID" class="department-page__tnode-ico"><OfficeBuilding /></el-icon>
               <span class="department-page__tnode-name">{{ data.name }}</span>
-              <span class="department-page__tnode-count">{{ data.count }}</span>
+              <span class="department-page__tnode-count">{{ users ? data.count : '—' }}</span>
               <el-icon
                 v-if="data.id === ROOT_ID"
                 class="department-page__tnode-edit"
@@ -377,7 +380,7 @@ async function handleDelete(department: Department): Promise<void> {
         <div class="table-card__toolbar">
           <div class="department-page__list-head">
             <span class="department-page__list-title">科室列表</span>
-            <span class="department-page__list-sub">当前范围：{{ activeScopeName }}</span>
+            <span class="department-page__list-sub">当前范围：{{ activeScopeName }}（含下级） · {{ filteredDepartments.length }} 个科室</span>
           </div>
           <div class="table-card__toolbar-filters">
             <el-input
@@ -395,7 +398,7 @@ async function handleDelete(department: Department): Promise<void> {
         </div>
 
         <el-table v-loading="loading" :data="filteredDepartments" row-key="id" stripe>
-          <el-table-column label="科室名称" min-width="200" show-overflow-tooltip>
+          <el-table-column label="科室信息" min-width="260">
             <template #default="{ row }">
               <span class="department-page__name" :style="{ paddingLeft: indentOf(row) }">
                 <span v-if="depthOf(row) > 0" class="department-page__branch">└</span>
@@ -403,23 +406,12 @@ async function handleDelete(department: Department): Promise<void> {
                   {{ row.name }}
                 </span>
               </span>
-            </template>
-          </el-table-column>
-          <el-table-column label="上级科室" min-width="140">
-            <template #default="{ row }">
-              <span class="department-page__muted">
-                {{ row.parentId ? departmentNameMap[row.parentId] || '—' : '全公司' }}
-              </span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="description" label="描述" min-width="240" show-overflow-tooltip>
-            <template #default="{ row }">
-              <span class="department-page__muted">{{ row.description || '—' }}</span>
+              <div class="department-page__row-meta" :style="{ paddingLeft: indentOf(row) }"><span>上级：{{ row.parentId ? departmentNameMap[row.parentId] || '—' : companyName }}</span><span v-if="row.description">{{ row.description }}</span></div>
             </template>
           </el-table-column>
           <el-table-column label="人员数" width="100" align="right">
             <template #default="{ row }">
-              <span class="num department-page__count">{{ memberCountMap[row.id] ?? 0 }}</span>
+              <span class="num department-page__count">{{ users ? memberCountMap[row.id] ?? 0 : '—' }}</span>
             </template>
           </el-table-column>
           <el-table-column label="创建时间" width="170">
@@ -451,13 +443,13 @@ async function handleDelete(department: Department): Promise<void> {
       </el-card>
     </div>
 
-    <el-dialog
+    <el-drawer
       v-model="dialogVisible"
       :title="editingId ? '编辑科室' : '新建科室'"
-      width="480px"
+      size="560px"
       append-to-body
       destroy-on-close
-    >
+     data-ui-role="editor">
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
         <el-form-item label="科室名称" prop="name">
           <el-input v-model="form.name" maxlength="60" show-word-limit placeholder="如：研发部" />
@@ -491,7 +483,7 @@ async function handleDelete(department: Department): Promise<void> {
           {{ editingId ? '保存' : '创建' }}
         </el-button>
       </template>
-    </el-dialog>
+    </el-drawer>
   </div>
 </template>
 
@@ -508,6 +500,11 @@ async function handleDelete(department: Department): Promise<void> {
   &:has(.department-page__tree-card.is-collapsed) {
     grid-template-columns: 52px minmax(0, 1fr);
   }
+}
+
+@media (max-width: 900px) {
+  .department-page__wrap, .department-page__wrap:has(.department-page__tree-card.is-collapsed) { grid-template-columns: minmax(0, 1fr); }
+  .department-page__tree { max-height: 240px; }
 }
 
 .department-page__tree-card.el-card {
@@ -597,7 +594,7 @@ async function handleDelete(department: Department): Promise<void> {
 
 .department-page__tnode-count {
   flex: 0 0 auto;
-  font-size: 11px;
+  font-size: 12px;
   color: $text-disabled;
   font-variant-numeric: tabular-nums;
 }
@@ -655,6 +652,7 @@ async function handleDelete(department: Department): Promise<void> {
   width: 220px;
 }
 
+.department-page__row-meta { display: flex; flex-wrap: wrap; gap: 2px 12px; color: $text-secondary; font-size: 12px; line-height: 1.6; margin-top: 4px; overflow-wrap: anywhere; }
 .department-page__full {
   width: 100%;
 }

@@ -14,6 +14,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import PracticeLoading from '@/components/common/PracticeLoading.vue';
 import PagedOverview from '@/components/common/PagedOverview.vue';
 import PracticeTrendChart from './components/PracticeTrendChart.vue';
@@ -31,6 +32,9 @@ const router = useRouter();
 const practiceAuth = usePracticeAuthStore();
 
 const loading = ref(true);
+const loadError = ref(false);
+const trendError = ref(false);
+const requestedDays = ref<7 | 30>(7);
 const summary = ref<PracticeReportSummary | null>(null);
 const trend = ref<PracticeTrendPoint[]>([]);
 const subjects = ref<PracticeSubjectStat[]>([]);
@@ -73,6 +77,7 @@ function accTone(acc: number): string {
 /** 加载全部报告数据 */
 async function load(): Promise<void> {
   loading.value = true;
+  loadError.value = false;
   try {
     const [s, t, sub, b, d] = await Promise.all([
       practiceApi.reportSummary(),
@@ -87,7 +92,7 @@ async function load(): Promise<void> {
     banks.value = b;
     daily.value = d;
   } catch {
-    // 错误提示已由 http 拦截器统一弹出
+    loadError.value = true;
   } finally {
     loading.value = false;
   }
@@ -95,13 +100,15 @@ async function load(): Promise<void> {
 
 /** 切换趋势区间 */
 async function switchDays(days: 7 | 30): Promise<void> {
-  if (trendDays.value === days || trendLoading.value) return;
+  if ((trendDays.value === days && !trendError.value) || trendLoading.value) return;
+  requestedDays.value = days;
   trendLoading.value = true;
+  trendError.value = false;
   try {
     trend.value = await practiceApi.reportTrend(days);
     trendDays.value = days;
   } catch {
-    /* 提示已统一 */
+    trendError.value = true;
   } finally {
     trendLoading.value = false;
   }
@@ -121,13 +128,14 @@ onMounted(load);
 </script>
 
 <template>
-  <PracticeLayout tabbar>
+  <PracticeLayout data-ui-layout="learning" data-ui-page="PracticeReportPage" tabbar>
     <template #actions>
       <span class="rpt__user">{{ userName }}</span>
     </template>
 
     <div class="rpt">
       <PracticeLoading v-if="loading" :loading="loading" :rows="6" caption="正在加载学习报告…" />
+      <RequestError v-else-if="loadError" text="学习报告加载失败" @retry="load" />
 
       <template v-else>
         <!-- 总览 -->
@@ -152,7 +160,7 @@ onMounted(load);
             <span class="rpt__label">累计答对</span>
           </div>
           <div class="rpt__stat">
-            <span class="rpt__num">{{ summary?.accuracy ?? 0 }}%</span>
+            <span class="rpt__num">{{ summary?.doneTotal ? `${summary.accuracy}%` : '—' }}</span>
             <span class="rpt__label">正确率</span>
           </div>
           <div class="rpt__stat">
@@ -187,6 +195,7 @@ onMounted(load);
               class="rpt__switch-btn"
               :disabled="trendLoading"
               :class="{ 'is-active': trendDays === 7 }"
+              :aria-pressed="trendDays === 7"
               @click="switchDays(7)"
             >
               近 7 天
@@ -196,6 +205,7 @@ onMounted(load);
               class="rpt__switch-btn"
               :disabled="trendLoading"
               :class="{ 'is-active': trendDays === 30 }"
+              :aria-pressed="trendDays === 30"
               @click="switchDays(30)"
             >
               近 30 天
@@ -204,7 +214,8 @@ onMounted(load);
         </div>
         <div class="rpt__card" :aria-busy="trendLoading">
           <PracticeLoading :loading="trendLoading" compact caption="正在更新趋势…" />
-          <PracticeTrendChart :points="trend" />
+          <RequestError v-if="trendError" text="练题趋势加载失败" @retry="switchDays(requestedDays)" />
+          <PracticeTrendChart v-else :points="trend" />
         </div>
 
         <!-- 科目掌握度 -->
@@ -217,9 +228,9 @@ onMounted(load);
                 <div class="rpt__subject-top">
                   <span class="rpt__subject-name">{{ item.subject }}</span>
                   <span v-if="item.weak" class="rpt__weak">薄弱</span>
-                  <span class="rpt__subject-acc" :class="accTone(item.accuracy)">{{ item.accuracy }}%</span>
+                  <span class="rpt__subject-acc" :class="item.doneCount ? accTone(item.accuracy) : ''">{{ item.doneCount ? `${item.accuracy}%` : '未练' }}</span>
                 </div>
-                <div class="rpt__bar" role="img" :aria-label="`正确率 ${item.accuracy}%`">
+                <div class="rpt__bar" role="img" :aria-label="item.doneCount ? `正确率 ${item.accuracy}%` : '尚未练习，暂无正确率'">
                   <span
                     class="rpt__bar-fill"
                     :class="{ 'is-weak': item.weak }"
@@ -247,7 +258,7 @@ onMounted(load);
               >
                 <div class="rpt__bank-top">
                   <span class="rpt__bank-name">{{ item.bankName }}</span>
-                  <span class="rpt__bank-acc">正确率 {{ item.accuracy }}%</span>
+                  <span class="rpt__bank-acc">{{ item.doneCount ? `正确率 ${item.accuracy}%` : '尚未开始' }}</span>
                 </div>
                 <div class="rpt__bar">
                   <span class="rpt__bar-fill" :style="{ width: `${bankPercent(item)}%` }" />
@@ -261,7 +272,7 @@ onMounted(load);
           </PagedOverview>
         </div>
 
-        <p class="rpt__tip">统计口径与考试一致（每题以首次作答为准）；练题数据独立保存，不影响考试成绩。</p>
+        <p class="rpt__tip">累计统计采用练题首次作答记录；趋势限于所选 7 / 30 天。练题数据独立保存，不影响考试成绩。</p>
       </template>
     </div>
   </PracticeLayout>
@@ -310,7 +321,7 @@ onMounted(load);
 
   &__hero-sub {
     margin: 5px 0 0;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.55;
     opacity: 0.85;
   }
@@ -332,7 +343,7 @@ onMounted(load);
   }
 
   &__streak-label {
-    font-size: 10px;
+    font-size: 12px;
     opacity: 0.85;
   }
 
@@ -371,7 +382,7 @@ onMounted(load);
   &__label {
     display: block;
     margin-top: 3px;
-    font-size: 11px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -401,7 +412,7 @@ onMounted(load);
     border: none;
     border-radius: 4px;
     background: transparent;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 580;
     color: $text-secondary;
     cursor: pointer;
@@ -471,7 +482,7 @@ onMounted(load);
     height: 30px;
     border-radius: $radius-xs;
     background: $practice-soft;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 680;
     color: $practice-primary;
   }
@@ -491,7 +502,7 @@ onMounted(load);
   }
 
   &__daily-sub {
-    font-size: 11.5px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -529,7 +540,7 @@ onMounted(load);
     padding: 0 6px;
     border-radius: 4px;
     background: $color-error-bg;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 620;
     color: $color-error-text;
   }
@@ -557,7 +568,7 @@ onMounted(load);
 
   &__subject-meta {
     margin: 5px 0 0;
-    font-size: 10.5px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -624,13 +635,13 @@ onMounted(load);
 
   &__bank-meta {
     margin: 5px 0 0;
-    font-size: 10.5px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
   &__tip {
     margin: 0;
-    font-size: 11.5px;
+    font-size: 12px;
     line-height: 1.7;
     color: $text-secondary;
   }

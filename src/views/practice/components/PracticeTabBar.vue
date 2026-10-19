@@ -95,7 +95,7 @@ function go(tab: TabItem): void {
     border: none;
     background: transparent;
     color: $text-secondary;
-    font-size: 10.5px;
+    font-size: 12px;
     font-weight: 550;
     line-height: 1;
     cursor: pointer;

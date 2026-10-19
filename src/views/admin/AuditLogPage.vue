@@ -19,6 +19,7 @@ import {
 } from '@/constants';
 import { formatDateTime } from '@/utils/datetime';
 import PageHeader from '@/components/common/PageHeader.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
 import DataTablePagination from '@/components/common/DataTablePagination.vue';
@@ -57,6 +58,7 @@ const {
   pageSize,
   total,
   loading,
+  error,
   load,
   reset,
   onPageChange,
@@ -196,7 +198,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="audit-page">
+  <div data-ui-layout="list" data-ui-page="AuditLogPage" class="audit-page">
     <PageHeader title="审计日志" description="记录用户、考试、题库与菜单权限的关键操作，便于追溯">
       <template #actions>
         <span v-if="retentionDays !== null" class="audit-page__retention">
@@ -252,7 +254,9 @@ onMounted(() => {
     </el-card>
 
     <el-card class="table-card" shadow="never">
-        <el-table
+        <div class="admin-toolbar"><span class="admin-scope">当前筛选范围 · {{ error ? '数量未知' : total + ' 条日志' }} · 展开或点击行查看详情</span></div>
+        <RequestError v-if="error" text="审计日志加载失败" @retry="load" />
+        <el-table v-else
           v-loading="loading"
           :data="logs"
           row-key="id"
@@ -293,7 +297,7 @@ onMounted(() => {
             />
           </template>
         </el-table>
-        <DataTablePagination
+        <DataTablePagination v-if="!error"
           :page="page"
           :page-size="pageSize"
           :total="total"
@@ -303,7 +307,7 @@ onMounted(() => {
       </el-card>
 
 <!-- 日志详情弹窗：点击行打开（替代旧版右侧常驻详情卡） -->
-    <el-dialog v-model="detailVisible" width="560px" append-to-body class="audit-page__dialog">
+    <el-drawer v-model="detailVisible" size="560px" append-to-body class="audit-page__dialog" data-ui-role="editor">
       <template #header>
         <div class="audit-page__detail-head">
           <span class="audit-page__detail-heading">日志详情</span>
@@ -361,7 +365,7 @@ onMounted(() => {
         <p class="audit-page__micro">变更前 → 变更后</p>
         <pre class="audit-page__detail-json">{{ JSON.stringify(selectedLog.detail, null, 2) }}</pre>
       </template>
-    </el-dialog>
+    </el-drawer>
 
     <!-- 导出字段勾选 -->
     <el-dialog v-model="columnDialogVisible" title="选择导出字段" width="480px" append-to-body>
@@ -514,7 +518,7 @@ onMounted(() => {
 
   &__micro {
     margin: 14px 0 6px;
-    font-size: 10.5px;
+    font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.11em;
     text-transform: uppercase;

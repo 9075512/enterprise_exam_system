@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ResponsivePagination from '@/components/common/ResponsivePagination.vue';
 /**
  * 公告与轮播（v1.9⑥）—— 管理端内容运营页。
  *
@@ -8,7 +9,7 @@
  * 说明：本页仅做**内容维护**，考生侧的可见性由服务端统一判定
  * （enabled=1 且 target ∈ {scope, both} 且落在生效时间窗内），前端不重复实现。
  */
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import {
   batchAnnouncements,
@@ -29,6 +30,7 @@ import { formatRange } from '@/utils/datetime';
 import PageHeader from '@/components/common/PageHeader.vue';
 import BatchActionBar from '@/components/common/BatchActionBar.vue';
 import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import RichTextEditor from '@/components/common/RichTextEditor.vue';
 import type { Announcement, AnnouncementLevel, Banner, ContentTarget, ContentTouchStats } from '@/types';
@@ -81,16 +83,20 @@ const activeTab = ref<'announcement' | 'banner'>('announcement');
 
 const touchVisible = ref(false);
 const touchLoading = ref(false);
+const touchError = ref(false);
 const touchStats = ref<ContentTouchStats | null>(null);
 const touchTab = ref<'announcement' | 'banner'>('announcement');
 
 async function openTouchStats(): Promise<void> {
   touchVisible.value = true;
   touchLoading.value = true;
+  touchError.value = false;
+  touchStats.value = null;
   try {
     touchStats.value = await getTouchStats();
   } catch {
     touchStats.value = null;
+    touchError.value = true;
   } finally {
     touchLoading.value = false;
   }
@@ -105,6 +111,8 @@ function richTextEmpty(html: string): boolean {
 /* ============================ 公告 ============================ */
 
 const annLoading = ref(false);
+const annError = ref(false);
+let annRequest = 0;
 const annList = ref<Announcement[]>([]);
 const annTotal = ref(0);
 const annPage = ref(1);
@@ -121,7 +129,10 @@ const annHasFilter = computed<boolean>(() =>
 const annEmptyText = computed<string>(() => (annHasFilter.value ? '没有符合条件的内容' : '暂无公告'));
 
 async function loadAnnouncements(): Promise<void> {
+  const request = ++annRequest;
   annLoading.value = true;
+  annError.value = false;
+  clearAnnSelection();
   try {
     const data = await listAnnouncements({
       target: annFilter.target || undefined,
@@ -130,13 +141,15 @@ async function loadAnnouncements(): Promise<void> {
       page: annPage.value,
       pageSize: annPageSize.value,
     });
+    if (request !== annRequest) return;
     annList.value = data.list;
     annTotal.value = data.total;
   } catch {
+    if (request !== annRequest) return;
     annList.value = [];
-    annTotal.value = 0;
+    annError.value = true;
   } finally {
-    annLoading.value = false;
+    if (request === annRequest) annLoading.value = false;
   }
 }
 
@@ -315,6 +328,9 @@ async function removeAnnouncement(row: Announcement): Promise<void> {
 /* ============================ 轮播图 ============================ */
 
 const bnLoading = ref(false);
+const bnError = ref(false);
+let bnRequest = 0;
+onBeforeUnmount(() => { annRequest += 1; bnRequest += 1; });
 const bnList = ref<Banner[]>([]);
 const bnTotal = ref(0);
 const bnPage = ref(1);
@@ -328,7 +344,10 @@ const bnHasFilter = computed<boolean>(() => Boolean(bnFilter.target || bnFilter.
 const bnEmptyText = computed<string>(() => (bnHasFilter.value ? '没有符合条件的轮播图' : '暂无轮播图'));
 
 async function loadBanners(): Promise<void> {
+  const request = ++bnRequest;
   bnLoading.value = true;
+  bnError.value = false;
+  clearBnSelection();
   try {
     const data = await listBanners({
       target: bnFilter.target || undefined,
@@ -336,13 +355,15 @@ async function loadBanners(): Promise<void> {
       page: bnPage.value,
       pageSize: bnPageSize.value,
     });
+    if (request !== bnRequest) return;
     bnList.value = data.list;
     bnTotal.value = data.total;
   } catch {
+    if (request !== bnRequest) return;
     bnList.value = [];
-    bnTotal.value = 0;
+    bnError.value = true;
   } finally {
-    bnLoading.value = false;
+    if (request === bnRequest) bnLoading.value = false;
   }
 }
 
@@ -546,7 +567,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="content-page">
+  <div data-ui-layout="list" data-ui-page="ContentViewPage" class="content-page">
     <PageHeader
       title="公告与轮播"
       description="面向考生发布公告与轮播图；可选择同步两端，或只发布到考试端 / 练题端"
@@ -556,16 +577,16 @@ onMounted(() => {
       </template>
     </PageHeader>
 
-    <el-card class="content-page__panel" shadow="never">
+    <el-card class="content-page__panel" data-ui-role="table" shadow="never">
       <el-tabs v-model="activeTab">
         <!-- ------------------------------ 公告管理 ------------------------------ -->
         <el-tab-pane label="公告管理" name="announcement">
           <div class="content-page__toolbar">
-            <el-select v-model="annFilter.target" class="content-page__select" @change="searchAnnouncements">
+            <el-select placeholder="全部范围" aria-label="发布范围" v-model="annFilter.target" class="content-page__select" @change="searchAnnouncements">
               <el-option label="全部范围" value="" />
               <el-option v-for="opt in TARGET_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
             </el-select>
-            <el-select v-model="annFilter.enabled" class="content-page__select" @change="searchAnnouncements">
+            <el-select placeholder="全部状态" aria-label="发布状态" v-model="annFilter.enabled" class="content-page__select" @change="searchAnnouncements">
               <el-option label="全部状态" value="" />
               <el-option label="已启用" value="on" />
               <el-option label="已停用" value="off" />
@@ -590,7 +611,9 @@ onMounted(() => {
             <el-button type="danger" plain @click="runAnnBatch('delete')">批量删除</el-button>
           </BatchActionBar>
 
-          <el-table
+          <p class="admin-scope">当前筛选范围 · {{ annError ? '数量未知' : annTotal + ' 条公告' }}</p>
+          <RequestError v-if="annError" text="公告加载失败" @retry="loadAnnouncements" />
+          <el-table v-else
             ref="annTableRef"
             v-loading="annLoading"
             :data="annList"
@@ -648,8 +671,8 @@ onMounted(() => {
             </template>
           </el-table>
 
-          <div class="content-page__pager">
-            <el-pagination
+          <div v-if="!annError" class="content-page__pager">
+            <ResponsivePagination
               v-model:current-page="annPage"
               v-model:page-size="annPageSize"
               :total="annTotal"
@@ -665,11 +688,11 @@ onMounted(() => {
         <!-- ------------------------------ 轮播图管理 ------------------------------ -->
         <el-tab-pane label="轮播图管理" name="banner">
           <div class="content-page__toolbar">
-            <el-select v-model="bnFilter.target" class="content-page__select" @change="searchBanners">
+            <el-select placeholder="全部范围" aria-label="发布范围" v-model="bnFilter.target" class="content-page__select" @change="searchBanners">
               <el-option label="全部范围" value="" />
               <el-option v-for="opt in TARGET_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
             </el-select>
-            <el-select v-model="bnFilter.enabled" class="content-page__select" @change="searchBanners">
+            <el-select placeholder="全部状态" aria-label="发布状态" v-model="bnFilter.enabled" class="content-page__select" @change="searchBanners">
               <el-option label="全部状态" value="" />
               <el-option label="已启用" value="on" />
               <el-option label="已停用" value="off" />
@@ -686,7 +709,9 @@ onMounted(() => {
             <el-button type="danger" plain @click="runBnBatch('delete')">批量删除</el-button>
           </BatchActionBar>
 
-          <el-table
+          <p class="admin-scope">当前筛选范围 · {{ bnError ? '数量未知' : bnTotal + ' 张轮播图' }}</p>
+          <RequestError v-if="bnError" text="轮播图加载失败" @retry="loadBanners" />
+          <el-table v-else
             ref="bnTableRef"
             v-loading="bnLoading"
             :data="bnList"
@@ -751,8 +776,8 @@ onMounted(() => {
             </template>
           </el-table>
 
-          <div class="content-page__pager">
-            <el-pagination
+          <div v-if="!bnError" class="content-page__pager">
+            <ResponsivePagination
               v-model:current-page="bnPage"
               v-model:page-size="bnPageSize"
               :total="bnTotal"
@@ -768,8 +793,8 @@ onMounted(() => {
     </el-card>
 
     <!-- ------------------------------ 公告弹窗 ------------------------------ -->
-    <el-dialog v-model="annDialogVisible" :title="annDialogTitle" width="640px" destroy-on-close append-to-body>
-      <el-form label-width="96px" label-position="right">
+    <el-drawer v-model="annDialogVisible" :title="annDialogTitle" size="720px" destroy-on-close append-to-body :close-on-click-modal="!annSubmitting" :close-on-press-escape="!annSubmitting" :show-close="!annSubmitting" data-ui-role="editor">
+      <el-form label-position="top" :disabled="annSubmitting">
         <el-form-item label="公告标题" required>
           <el-input v-model="annForm.title" maxlength="120" show-word-limit placeholder="请输入公告标题" />
         </el-form-item>
@@ -823,14 +848,14 @@ onMounted(() => {
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="annDialogVisible = false">取消</el-button>
+        <el-button :disabled="annSubmitting" @click="annDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="annSubmitting" @click="submitAnnouncement">保存</el-button>
       </template>
-    </el-dialog>
+    </el-drawer>
 
     <!-- ------------------------------ 轮播图弹窗 ------------------------------ -->
-    <el-dialog v-model="bnDialogVisible" :title="bnDialogTitle" width="640px" destroy-on-close append-to-body>
-      <el-form label-width="96px" label-position="right">
+    <el-drawer v-model="bnDialogVisible" :title="bnDialogTitle" size="720px" destroy-on-close append-to-body :close-on-click-modal="!bnSubmitting" :close-on-press-escape="!bnSubmitting" :show-close="!bnSubmitting" data-ui-role="editor">
+      <el-form label-position="top" :disabled="bnSubmitting">
         <el-form-item label="标题" required>
           <el-input v-model="bnForm.title" maxlength="120" show-word-limit placeholder="请输入轮播图标题" />
         </el-form-item>
@@ -887,17 +912,17 @@ onMounted(() => {
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="bnDialogVisible = false">取消</el-button>
+        <el-button :disabled="bnSubmitting" @click="bnDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="bnSubmitting" @click="submitBanner">保存</el-button>
       </template>
-    </el-dialog>
+    </el-drawer>
 
     <!-- ------------------------------ 触达概览（v2.0③） ------------------------------ -->
     <el-dialog v-model="touchVisible" title="内容触达概览" width="760px" destroy-on-close append-to-body>
-      <div v-loading="touchLoading" class="content-page__touch">
+      <RequestError v-if="touchError" text="内容触达统计加载失败" @retry="openTouchStats" /><div v-else v-loading="touchLoading" class="content-page__touch">
         <div class="content-page__touch-audience">
-          <span>受众规模：考试端 <b>{{ touchStats?.audience.exam ?? 0 }}</b> 人</span>
-          <span>练题端 <b>{{ touchStats?.audience.practice ?? 0 }}</b> 人</span>
+          <span>受众规模：考试端 <b>{{ touchStats?.audience.exam ?? '—' }}</b> 人</span>
+          <span>练题端 <b>{{ touchStats?.audience.practice ?? '—' }}</b> 人</span>
         </div>
         <el-tabs v-model="touchTab">
           <el-tab-pane label="公告阅读" name="announcement">

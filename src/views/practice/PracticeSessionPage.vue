@@ -61,6 +61,11 @@ const index = ref(0);
 const answers = ref<Record<string, number[]>>({});
 /** 已判分结果（qid → 结果） */
 const results = ref<Record<string, PracticeCheckResult>>({});
+const firstResults = ref<Record<string, PracticeCheckResult>>({});
+const sheetVisible = ref(false);
+const feedbackBusy = ref(false);
+let initGeneration = 0;
+let disposed = false;
 const submitting = ref(false);
 const finished = ref(false);
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
@@ -86,15 +91,15 @@ const isLast = computed<boolean>(() => index.value >= questions.value.length - 1
 /** 每题状态点 */
 const marks = computed<Array<'unanswered' | 'correct' | 'wrong'>>(() =>
   questions.value.map((q) => {
-    const r = results.value[q.id];
+    const r = firstResults.value[q.id];
     return r ? (r.correct ? 'correct' : 'wrong') : 'unanswered';
   }),
 );
 
 /** 本次小结统计 */
 const summary = computed(() => {
-  const answered = Object.keys(results.value).length;
-  const correct = Object.values(results.value).filter((r) => r.correct).length;
+  const answered = Object.keys(firstResults.value).length;
+  const correct = Object.values(firstResults.value).filter((r) => r.correct).length;
   const accuracy = answered > 0 ? Math.round((correct / answered) * 100) : 0;
   return { answered, correct, accuracy, total: questions.value.length };
 });
@@ -105,13 +110,16 @@ const summary = computed(() => {
 const favoriteIds = ref<Set<string>>(new Set());
 const favoriteBusy = ref(false);
 const favoriteReady = ref(false);
+const favoriteError = ref(false);
 
 /** 当前题是否已收藏 */
 const currentFavorited = computed<boolean>(() => favoriteIds.value.has(currentId.value));
 
 /** 拉取收藏态（失败静默降级为「未收藏」，不阻塞答题） */
 async function loadFavoriteIds(): Promise<void> {
+  const generation = initGeneration;
   favoriteReady.value = false;
+  favoriteError.value = false;
   // 收藏功能关闭时不再请求（服务端亦会拒绝），直接视为未收藏
   if (!configStore.config.favoriteEnabled) {
     favoriteIds.value = new Set();
@@ -120,11 +128,11 @@ async function loadFavoriteIds(): Promise<void> {
   }
   try {
     const ids = await practiceApi.favoriteIds(undefined, { suppressErrorToast: true });
+    if (disposed || generation !== initGeneration) return;
     favoriteIds.value = new Set(ids);
-  } catch {
-    favoriteIds.value = new Set();
-  } finally {
     favoriteReady.value = true;
+  } catch {
+    if (!disposed && generation === initGeneration) favoriteError.value = true;
   }
 }
 
@@ -197,17 +205,21 @@ function toQuestion(q: PracticeQuestion): Question {
 
 /** 初始化：生成会话 + 取题 */
 async function init(): Promise<void> {
+  const generation = ++initGeneration;
+  stopHeartbeat();
   loading.value = true;
   errorMessage.value = '';
   index.value = 0;
   answers.value = {};
   results.value = {};
+  firstResults.value = {};
   finished.value = false;
   questions.value = [];
   session.value = null;
   try {
     // 练题端配置（默认模式 / 题量范围）：失败保持默认，不阻塞作答
     await configStore.load();
+    if (disposed || generation !== initGeneration) return;
     // 辅助信息后台加载，不让收藏列表或今日统计拖住题目展示。
     void loadFavoriteIds();
     if (isDaily.value) void refreshDaily();
@@ -239,17 +251,27 @@ async function init(): Promise<void> {
         types: types && types.length > 0 ? types : undefined,
       });
     }
+    if (disposed || generation !== initGeneration) {
+      if (s.id) void practiceApi.finishSession(s.id, 'exited').catch(() => null);
+      return;
+    }
     session.value = s;
-    startHeartbeat();
     if (s.questionIds.length === 0) {
       questions.value = [];
       return;
     }
-    questions.value = await practiceApi.questionsByIds(s.questionIds);
+    const loaded = await practiceApi.questionsByIds(s.questionIds);
+    if (disposed || generation !== initGeneration) return;
+    const byId = new Map(loaded.map(q => [q.id, q]));
+    questions.value = s.questionIds.map(id => byId.get(id)).filter((q): q is PracticeQuestion => Boolean(q));
+    if (questions.value.length) startHeartbeat();
   } catch (err) {
-    errorMessage.value = (err as Error).message || '加载失败，请稍后重试';
+    if (!disposed && generation === initGeneration) {
+      errorMessage.value = (err as Error).message || '加载失败，请稍后重试';
+      finishExitedSession();
+    }
   } finally {
-    loading.value = false;
+    if (!disposed && generation === initGeneration) loading.value = false;
   }
 }
 
@@ -278,6 +300,7 @@ async function submit(): Promise<void> {
       answer: currentAnswer.value,
     });
     results.value = { ...results.value, [q.id]: res };
+    if (!firstResults.value[q.id]) firstResults.value = { ...firstResults.value, [q.id]: res };
     // 记录进度（普通练题；错题复习 / 收藏重练 / 每日一练无单一题库）
     if (normalBankId.value) {
       void practiceApi.saveProgress({ bankId: normalBankId.value, lastQuestionId: q.id }, { suppressErrorToast: true }).catch(() => {
@@ -296,7 +319,7 @@ async function submit(): Promise<void> {
 /** 重做本题（本地清空作答与结果，不扣分、不限次；统计以首次为准） */
 function redo(): void {
   const qid = currentId.value;
-  if (!qid) return;
+  if (!qid || submitting.value) return;
   const next = { ...results.value };
   delete next[qid];
   results.value = next;
@@ -304,19 +327,27 @@ function redo(): void {
 }
 
 async function reportQuestion(): Promise<void> {
-  if (!currentQuestion.value || !session.value?.id) return;
+  if (!currentQuestion.value || !session.value?.id || feedbackBusy.value) return;
+  const questionId = currentQuestion.value.id;
+  const sessionId = session.value.id;
+  feedbackBusy.value = true;
   try {
     const { value } = await ElMessageBox.prompt('请说明题干、选项、答案或解析存在的问题', '题目纠错反馈', {
+      confirmButtonText: '提交反馈', cancelButtonText: '取消',
       inputType: 'textarea', inputPlaceholder: '请输入问题描述', inputValidator: (v) => Boolean(v.trim()) || '请输入问题描述',
     });
-    await practiceApi.submitQuestionFeedback({ questionId: currentQuestion.value.id, sessionId: session.value.id, category: '题目纠错', content: value.trim() });
+    await practiceApi.submitQuestionFeedback({ questionId, sessionId, category: '题目纠错', content: value.trim() });
     ElMessage.success('反馈已提交');
   } catch { /* 用户取消或请求错误已统一提示 */ }
+  finally { feedbackBusy.value = false; }
 }
 
 /** 下一题 / 结束 */
 function next(): void {
+  if (submitting.value || !currentResult.value) return;
   if (isLast.value) {
+    const missing = questions.value.findIndex(q => !firstResults.value[q.id]);
+    if (missing >= 0) { ElMessage.info('还有题目未提交，请完成后查看小结'); jumpTo(missing); return; }
     finished.value = true;
     stopHeartbeat();
     if (session.value?.id) void practiceApi.finishSession(session.value.id, 'completed').catch(() => { /* 统计失败不阻塞小结 */ });
@@ -327,6 +358,16 @@ function next(): void {
     // PC 由主布局内容区滚动，移动端由窗口滚动；小结也需要回到顶部。
     document.querySelector<HTMLElement>('.layout__content')?.scrollTo({ top: 0, behavior: 'smooth' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+}
+
+function jumpTo(target: number): void {
+  if (submitting.value || target < 0 || target >= questions.value.length) return;
+  index.value = target;
+  sheetVisible.value = false;
+  void nextTick(() => {
+    document.querySelector<HTMLElement>('.layout__content')?.scrollTo?.({ top: 0, behavior: 'auto' });
+    window.scrollTo({ top: 0, behavior: 'auto' });
   });
 }
 
@@ -356,7 +397,7 @@ function restart(): void {
 // 离开作答页二次确认（微信返回键 = 浏览器后退，保证状态一致）
 onBeforeRouteLeave(async () => {
   if (finished.value) return true;
-  if (index.value === 0 && Object.keys(results.value).length === 0) {
+  if (Object.values(answers.value).every(value => value.length === 0) && Object.keys(firstResults.value).length === 0) {
     finishExitedSession();
     return true;
   }
@@ -374,11 +415,11 @@ onBeforeRouteLeave(async () => {
 });
 
 onMounted(init);
-onBeforeUnmount(stopHeartbeat);
+onBeforeUnmount(() => { disposed = true; initGeneration += 1; stopHeartbeat(); });
 </script>
 
 <template>
-  <PracticeLayout bare>
+  <PracticeLayout data-ui-layout="answer" data-ui-page="PracticeSessionPage" bare>
     <!-- 作答页无顶栏（设计图 p-session 为 bare）：进度工具栏由页面自带，满幅贴顶 -->
 
     <!-- 页内占位保留返回入口，快速取题不闪全屏遮罩。 -->
@@ -420,7 +461,7 @@ onBeforeUnmount(stopHeartbeat);
           <span class="summary__label">正确率</span>
         </div>
       </div>
-      <p class="summary__tip">进度与错题本已保存到你的账号</p>
+      <p class="summary__tip">本次小结按每题首次判分统计，重做不改变首次结果。</p>
       <p v-if="isDaily" class="summary__tip summary__tip--daily">
         今日一练 {{ dailyInfo ? `${dailyInfo.doneCount} / ${dailyInfo.total} 题` : '已记录' }}
         <template v-if="(dailyInfo?.streakDays ?? 0) > 0"> · 连续打卡 {{ dailyInfo?.streakDays }} 天</template>
@@ -447,21 +488,21 @@ onBeforeUnmount(stopHeartbeat);
               type="button"
               class="session__fav"
               :class="{ 'is-on': currentFavorited }"
-              :disabled="favoriteBusy || !favoriteReady"
-              :aria-pressed="currentFavorited"
-              @click="toggleFavorite"
+              :disabled="favoriteBusy || (!favoriteReady && !favoriteError)"
+              :aria-pressed="favoriteReady ? currentFavorited : undefined"
+              @click="favoriteError ? loadFavoriteIds() : toggleFavorite()"
             >
-              {{ !favoriteReady ? '收藏加载中…' : currentFavorited ? '已收藏' : '收藏本题' }}
+              {{ favoriteError ? '重试收藏状态' : !favoriteReady ? '收藏加载中…' : currentFavorited ? '已收藏' : '收藏本题' }}
             </button>
           </div>
         </div>
-        <PracticeProgressDots
+        <div class="session__progress-row"><PracticeProgressDots
           class="session__dots"
           :total="questions.length"
           :current="index"
           :marks="marks"
           variant="on-light"
-        />
+        /><el-button text :disabled="submitting" @click="sheetVisible = true">答题卡</el-button></div>
       </div>
 
       <div class="session__body">
@@ -471,12 +512,14 @@ onBeforeUnmount(stopHeartbeat);
             :question="toQuestion(currentQuestion)"
             :score="0"
             :model-value="currentAnswer"
+            :disabled="Boolean(currentResult) || submitting"
             @update:model-value="onAnswer"
           />
         </div>
 
         <!-- 反馈区（提交后） -->
         <PracticeFeedback v-if="currentResult" :result="currentResult" :selected="currentAnswer" />
+        <el-button v-if="index > 0" class="session__previous" :disabled="submitting" @click="jumpTo(index - 1)">上一题</el-button>
       </div>
 
       <!-- 操作区：PC 跟随题目，移动端吸底 -->
@@ -494,7 +537,7 @@ onBeforeUnmount(stopHeartbeat);
           </el-button>
         </template>
         <template v-else>
-          <el-button size="large" @click="reportQuestion">题目纠错</el-button>
+          <el-button size="large" :loading="feedbackBusy" @click="reportQuestion">题目纠错</el-button>
           <el-button size="large" class="session__redo" @click="redo">重做本题</el-button>
           <el-button type="primary" size="large" class="session__next" @click="next">
             {{ isLast ? '完成' : '下一题 ›' }}
@@ -502,6 +545,7 @@ onBeforeUnmount(stopHeartbeat);
         </template>
       </div>
     </div>
+    <el-drawer v-model="sheetVisible" title="练题答题卡" class="practice-sheet" direction="btt" size="70%" append-to-body><p class="session__sheet-note">已完成 {{ summary.answered }} / {{ questions.length }} 题 · 小结采用每题首次判分</p><div class="session__sheet-grid"><button v-for="(question, questionIndex) in questions" :key="question.id" type="button" :class="['session__sheet-cell', marks[questionIndex], { 'is-current': questionIndex === index }]" :aria-label="`第 ${questionIndex + 1} 题，${marks[questionIndex] === 'correct' ? '答对' : marks[questionIndex] === 'wrong' ? '答错' : '未提交'}`" :aria-current="questionIndex === index ? 'true' : undefined" @click="jumpTo(questionIndex)">{{ questionIndex + 1 }}</button></div></el-drawer>
   </PracticeLayout>
 </template>
 
@@ -509,6 +553,11 @@ onBeforeUnmount(stopHeartbeat);
 @use '@/styles/variables.scss' as *;
 
 .session {
+  &__progress-row { display: flex; align-items: center; gap: 12px; .session__dots { flex: 1; min-width: 0; } }
+  &__previous { margin-top: 20px; min-height: 44px; }
+  &__sheet-note { font-size: 13px; color: $text-secondary; line-height: 1.6; }
+  &__sheet-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(44px,1fr)); gap: 10px; }
+  &__sheet-cell { min-height: 44px; border: 1px solid $border-color; border-radius: $radius-sm; background: $bg-paper; color: $text-body; cursor: pointer; &.correct { background: $color-success-bg; color: $color-success-text; } &.wrong { background: $color-error-bg; color: $color-error-text; } &.is-current { outline: 2px solid $color-primary; outline-offset: 1px; } }
   &__preparing {
     padding: 14px;
   }
@@ -620,7 +669,7 @@ onBeforeUnmount(stopHeartbeat);
     padding: 0 8px;
     border-radius: $radius-sm;
     background: $practice-soft;
-    font-size: 10.5px;
+    font-size: 12px;
     font-weight: 620;
     color: $practice-primary;
   }
@@ -632,7 +681,7 @@ onBeforeUnmount(stopHeartbeat);
     border: 1px solid $line-strong;
     border-radius: 99px; // radius-exception: favorite action pill
     background: $bg-paper;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 580;
     color: $text-secondary;
     cursor: pointer;
@@ -825,7 +874,7 @@ onBeforeUnmount(stopHeartbeat);
   &__label {
     display: block;
     margin-top: 3px;
-    font-size: 11px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -844,7 +893,7 @@ onBeforeUnmount(stopHeartbeat);
     /* 每日一练完成态附加行：无勾选装饰，字号略小 */
     &--daily {
       margin-top: -12px;
-      font-size: 11.5px;
+      font-size: 12px;
       color: $practice-primary;
 
       &::before {

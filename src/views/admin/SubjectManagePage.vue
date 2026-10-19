@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, toRaw, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import {
@@ -14,27 +14,31 @@ import {
 } from '@element-plus/icons-vue';
 import * as banksApi from '@/api/banks';
 import { useConfirm } from '@/composables/useConfirm';
+import { useRequest } from '@/composables/useRequest';
 import { formatDateTime } from '@/utils/datetime';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import SubjectFormDrawer from './SubjectFormDrawer.vue';
-import type { BankAccessConfig, BankTreeNode, QuestionBank } from '@/types';
+import type { BankTreeNode, QuestionBank } from '@/types';
 
 const route = useRoute();
 const router = useRouter();
 const { confirm } = useConfirm();
 
-const loading = ref(false);
-const accessLoading = ref(false);
-const tree = ref<BankTreeNode[]>([]);
+const { data: treeData, loading, error: treeError, refresh: refreshTree } = useRequest(() => banksApi.tree(), [], { immediate: false, keepPreviousData: false });
+const tree = computed(() => treeData.value ?? []);
 const treeRef = ref<{
   filter: (value: string) => void;
   setCurrentKey: (key: string) => void;
 }>();
 const keyword = ref('');
 const selectedId = ref('');
-const access = ref<BankAccessConfig | null>(null);
+const { data: access, loading: accessLoading, error: accessError, refresh: refreshAccess } = useRequest(
+  () => selectedId.value ? banksApi.access(selectedId.value) : Promise.resolve(null),
+  [selectedId], { immediate: false, keepPreviousData: false },
+);
 const formVisible = ref(false);
 const editingSubject = ref<QuestionBank | null>(null);
 const defaultParentId = ref<string | null>(null);
@@ -84,46 +88,25 @@ function filterNode(value: string, data: { name?: string }): boolean {
 
 watch(keyword, (value) => treeRef.value?.filter(value));
 
-async function loadAccess(id: string): Promise<void> {
-  if (!id) {
-    access.value = null;
-    return;
-  }
-  accessLoading.value = true;
-  try {
-    access.value = await banksApi.access(id);
-  } catch {
-    access.value = null;
-  } finally {
-    accessLoading.value = false;
-  }
-}
-
 async function syncSelection(id: string, updateRoute = true): Promise<void> {
   if (!id || !flatMap.value.has(id)) return;
+  const unchanged = selectedId.value === id;
   selectedId.value = id;
   await nextTick();
   treeRef.value?.setCurrentKey(id);
   if (updateRoute && String(route.query.subjectId ?? '') !== id) {
     void router.replace({ path: '/admin/subjects', query: { subjectId: id } });
   }
-  await loadAccess(id);
+  if (unchanged) await refreshAccess();
 }
 
 async function loadTree(preferredId = ''): Promise<void> {
-  loading.value = true;
-  try {
-    tree.value = await banksApi.tree();
-    const requested = preferredId || String(route.query.subjectId ?? '') || selectedId.value;
-    const nextId = flatMap.value.has(requested) ? requested : (tree.value[0]?.id ?? '');
-    if (nextId) await syncSelection(nextId);
-    else {
-      selectedId.value = '';
-      access.value = null;
-    }
-  } finally {
-    loading.value = false;
-  }
+  const response = await refreshTree();
+  if (!response || response !== toRaw(treeData.value)) return;
+  const requested = preferredId || String(route.query.subjectId ?? '') || selectedId.value;
+  const nextId = flatMap.value.has(requested) ? requested : (tree.value[0]?.id ?? '');
+  if (nextId) await syncSelection(nextId);
+  else selectedId.value = '';
 }
 
 function selectNode(node: BankTreeNode): void {
@@ -187,7 +170,7 @@ onMounted(() => void loadTree());
 </script>
 
 <template>
-  <div class="subject-manage subject-workspace page">
+  <div data-ui-layout="tree" data-ui-page="SubjectManagePage" class="subject-manage subject-workspace page">
     <PageHeader title="科目管理" description="维护科目层级、状态、练题开放范围与数据权限">
       <template #actions>
         <el-button :icon="Refresh" :loading="loading" @click="loadTree()">刷新</el-button>
@@ -195,7 +178,8 @@ onMounted(() => void loadTree());
       </template>
     </PageHeader>
 
-    <div class="subject-manage__workspace subject-workspace__layout">
+    <RequestError v-if="treeError" text="科目目录加载失败" @retry="loadTree()" />
+    <div v-else class="subject-manage__workspace subject-workspace__layout">
       <aside class="subject-manage__tree-panel subject-workspace__sidebar" aria-label="科目目录">
         <div class="subject-workspace__nav-heading"><h3>科目目录</h3><span>共 {{ flatMap.size }} 个</span></div>
         <el-input v-model="keyword" clearable placeholder="搜索科目" aria-label="搜索科目" :prefix-icon="Search" />
@@ -279,8 +263,10 @@ onMounted(() => void loadTree());
 
             <el-card v-loading="accessLoading" shadow="never" class="subject-detail__card">
               <template #header><h3>有效权限</h3></template>
-              <dl class="subject-detail__list">
-                <div><dt>权限方式</dt><dd>{{ access?.permissionMode === 'inherit' ? '继承上级' : '完整覆盖' }}</dd></div>
+              <RequestError v-if="accessError" text="有效权限加载失败" @retry="refreshAccess" />
+              <p v-else-if="!access" class="admin-hint">正在加载有效权限…</p>
+              <dl v-else class="subject-detail__list">
+                <div><dt>权限方式</dt><dd>{{ access.permissionMode === 'inherit' ? '继承上级' : '完整覆盖' }}</dd></div>
                 <div><dt>权限来源</dt><dd>{{ access?.effectiveFromBankId ? flatMap.get(access.effectiveFromBankId)?.name || '上级科目' : '当前科目' }}</dd></div>
                 <div class="is-block">
                   <dt>浏览与编辑范围</dt>

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
-import ElementPlus, { ElMessage } from 'element-plus';
+import ElementPlus, { ElButton, ElMessage } from 'element-plus';
 import ExamQuestionComposer from './ExamQuestionComposer.vue';
 import type { DrawResult, PaperDetail, Question } from '@/types';
 
@@ -43,7 +43,7 @@ async function click(wrapper: Awaited<ReturnType<typeof render>>, text: string) 
 async function configureDraw(wrapper: Awaited<ReturnType<typeof render>>) {
   await wrapper.get('input[type="radio"][value="draw"]').setValue();
   await flushPromises();
-  const rows = wrapper.findAll('.composer__rule-table .el-table__body-wrapper tbody tr');
+  const rows = wrapper.findAll('.composer__rule-row');
   await rows[0]!.findAll('input')[0]!.setValue(1);
   await rows[1]!.findAll('input')[0]!.setValue(1);
 }
@@ -57,6 +57,64 @@ beforeEach(() => {
 afterEach(() => { wrappers.splice(0).forEach(wrapper => wrapper.unmount()); ElMessage.closeAll(); });
 
 describe('考试选题工作台', () => {
+  it('父级保存期间锁定选题、分值和清空，保留当前提交内容', async () => {
+    const wrapper = await render();
+    await wrapper.setProps({ disabled: true });
+    expect(wrapper.find('.composer__selected-score input').attributes('disabled')).toBeDefined();
+    expect(wrapper.get('.composer__banks input').attributes('disabled')).toBeDefined();
+    wrapper.findAllComponents(ElButton).find(b => b.text() === '清空全部')!.vm.$emit('click', new MouseEvent('click'));
+    await flushPromises();
+    expect(wrapper.vm.getPayload()?.questions).toEqual([{ questionId: 'old', score: 9 }]);
+    await wrapper.setProps({ disabled: false });
+    expect(wrapper.find('.composer__selected-score input').attributes('disabled')).toBeUndefined();
+  });
+
+  it('抽题期间禁止保存旧草稿，完成后返回新题目', async () => {
+    const wrapper = await render(); await configureDraw(wrapper);
+    let complete!: (value: DrawResult) => void;
+    api.draw.mockReturnValueOnce(new Promise(resolve => { complete = resolve; }));
+    await click(wrapper, '生成试卷草稿');
+    expect(wrapper.vm.busy).toBe(true);
+    expect(wrapper.vm.getPayload()).toBeNull();
+    complete(drawn); await flushPromises();
+    expect(wrapper.vm.busy).toBe(false);
+    expect(wrapper.vm.summary).toEqual({ questionCount: 2, totalScore: 6 });
+  });
+
+  it('题池加载失败提供重试，保留已经配置的题目和分值', async () => {
+    api.pool.mockRejectedValueOnce(new Error('offline'));
+    const wrapper = await render();
+    expect(wrapper.text()).toContain('题池加载失败，已选题目已保留');
+    expect(wrapper.text()).not.toContain('没有匹配的题目');
+    expect(wrapper.vm.summary).toEqual({ questionCount: 1, totalScore: 9 });
+    await click(wrapper, '重新加载');
+    expect(wrapper.text()).not.toContain('题池加载失败');
+    expect(wrapper.find('.composer__main .el-table__body').text()).toContain('原有题目');
+  });
+
+  it('取消来源题库作废在途题池响应，已选清单仍然保留', async () => {
+    let resolvePool!: (value: unknown) => void;
+    api.pool.mockImplementation(() => new Promise(resolve => { resolvePool = resolve; }));
+    const wrapper = await render();
+    wrapper.findComponent({ name: 'ElCheckboxGroup' }).vm.$emit('update:modelValue', []);
+    await flushPromises();
+    resolvePool({ list: [question], total: 1, page: 1, pageSize: 20 });
+    await flushPromises();
+    expect(wrapper.find('.composer__main .el-table__body').text()).not.toContain('原有题目');
+    expect(wrapper.text()).toContain('请先选择来源题库');
+    expect(wrapper.vm.summary).toEqual({ questionCount: 1, totalScore: 9 });
+  });
+
+  it('来源题库加载失败可恢复，不能误报没有可用题库', async () => {
+    api.banks.mockRejectedValueOnce(new Error('offline'));
+    const wrapper = await render();
+    expect(wrapper.text()).toContain('来源题库加载失败');
+    expect(wrapper.text()).not.toContain('暂无可用题库');
+    await click(wrapper, '重新加载');
+    expect(wrapper.find('.composer__banks').text()).toContain('安全题库');
+    expect(wrapper.vm.summary.totalScore).toBe(9);
+  });
+
   it('每次生成整体替换已选题目和分值，重复生成不累加，并保持题型顺序', async () => {
     const wrapper = await render();
     await configureDraw(wrapper);

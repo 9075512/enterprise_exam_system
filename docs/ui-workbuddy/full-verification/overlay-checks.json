@@ -1,0 +1,750 @@
+[
+  {
+    "view": "QuestionFormDialog",
+    "type": "单选题",
+    "viewport": 320,
+    "actualWidth": 320,
+    "bodyClient": 312,
+    "bodyScroll": 312,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增试题",
+    "width": 320
+  },
+  {
+    "view": "QuestionFormDialog",
+    "type": "单选题",
+    "viewport": 390,
+    "actualWidth": 390,
+    "bodyClient": 382,
+    "bodyScroll": 382,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增试题",
+    "width": 390.3999938964844
+  },
+  {
+    "view": "QuestionFormDialog",
+    "type": "单选题",
+    "viewport": 768,
+    "actualWidth": 768,
+    "bodyClient": 760,
+    "bodyScroll": 760,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增试题",
+    "width": 768
+  },
+  {
+    "view": "QuestionFormDialog",
+    "type": "单选题",
+    "viewport": 1440,
+    "actualWidth": 1440,
+    "bodyClient": 760,
+    "bodyScroll": 760,
+    "buttons": [
+      36,
+      36
+    ],
+    "footerBottom": 960.0000152587892,
+    "title": "新增试题",
+    "width": 760
+  },
+  {
+    "view": "QuestionFormDialog",
+    "type": "多选题",
+    "viewport": 320,
+    "actualWidth": 320,
+    "bodyClient": 312,
+    "bodyScroll": 312,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增试题",
+    "width": 320
+  },
+  {
+    "view": "QuestionFormDialog",
+    "type": "多选题",
+    "viewport": 390,
+    "actualWidth": 390,
+    "bodyClient": 382,
+    "bodyScroll": 382,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增试题",
+    "width": 390.3999938964844
+  },
+  {
+    "view": "QuestionFormDialog",
+    "type": "多选题",
+    "viewport": 768,
+    "actualWidth": 768,
+    "bodyClient": 760,
+    "bodyScroll": 760,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增试题",
+    "width": 768
+  },
+  {
+    "view": "QuestionFormDialog",
+    "type": "多选题",
+    "viewport": 1440,
+    "actualWidth": 1440,
+    "bodyClient": 760,
+    "bodyScroll": 760,
+    "buttons": [
+      36,
+      36
+    ],
+    "footerBottom": 960.0000152587892,
+    "title": "新增试题",
+    "width": 760
+  },
+  {
+    "view": "QuestionFormDialog",
+    "type": "判断题",
+    "viewport": 320,
+    "actualWidth": 320,
+    "bodyClient": 312,
+    "bodyScroll": 312,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增试题",
+    "width": 320
+  },
+  {
+    "view": "QuestionFormDialog",
+    "type": "判断题",
+    "viewport": 390,
+    "actualWidth": 390,
+    "bodyClient": 382,
+    "bodyScroll": 382,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增试题",
+    "width": 390.3999938964844
+  },
+  {
+    "view": "QuestionFormDialog",
+    "type": "判断题",
+    "viewport": 768,
+    "actualWidth": 768,
+    "bodyClient": 760,
+    "bodyScroll": 760,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增试题",
+    "width": 768
+  },
+  {
+    "view": "QuestionFormDialog",
+    "type": "判断题",
+    "viewport": 1440,
+    "actualWidth": 1440,
+    "bodyClient": 760,
+    "bodyScroll": 760,
+    "buttons": [
+      36,
+      36
+    ],
+    "footerBottom": 960.0000152587892,
+    "title": "新增试题",
+    "width": 760
+  },
+  {
+    "view": "QuestionFormDialog",
+    "type": "填空题",
+    "viewport": 320,
+    "actualWidth": 320,
+    "bodyClient": 320,
+    "bodyScroll": 320,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增试题",
+    "width": 320
+  },
+  {
+    "view": "QuestionFormDialog",
+    "type": "填空题",
+    "viewport": 390,
+    "actualWidth": 390,
+    "bodyClient": 390,
+    "bodyScroll": 390,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增试题",
+    "width": 390.3999938964844
+  },
+  {
+    "view": "QuestionFormDialog",
+    "type": "填空题",
+    "viewport": 768,
+    "actualWidth": 768,
+    "bodyClient": 768,
+    "bodyScroll": 768,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增试题",
+    "width": 768
+  },
+  {
+    "view": "QuestionFormDialog",
+    "type": "填空题",
+    "viewport": 1440,
+    "actualWidth": 1440,
+    "bodyClient": 760,
+    "bodyScroll": 760,
+    "buttons": [
+      36,
+      36
+    ],
+    "footerBottom": 960.0000152587892,
+    "title": "新增试题",
+    "width": 760
+  },
+  {
+    "view": "QuestionFormDialog",
+    "type": "简答题",
+    "viewport": 320,
+    "actualWidth": 320,
+    "bodyClient": 320,
+    "bodyScroll": 320,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增试题",
+    "width": 320
+  },
+  {
+    "view": "QuestionFormDialog",
+    "type": "简答题",
+    "viewport": 390,
+    "actualWidth": 390,
+    "bodyClient": 390,
+    "bodyScroll": 390,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增试题",
+    "width": 390.3999938964844
+  },
+  {
+    "view": "QuestionFormDialog",
+    "type": "简答题",
+    "viewport": 768,
+    "actualWidth": 768,
+    "bodyClient": 768,
+    "bodyScroll": 768,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增试题",
+    "width": 768
+  },
+  {
+    "view": "QuestionFormDialog",
+    "type": "简答题",
+    "viewport": 1440,
+    "actualWidth": 1440,
+    "bodyClient": 760,
+    "bodyScroll": 760,
+    "buttons": [
+      36,
+      36
+    ],
+    "footerBottom": 960.0000152587892,
+    "title": "新增试题",
+    "width": 760
+  },
+  {
+    "view": "新建科室",
+    "viewport": 320,
+    "actualWidth": 320,
+    "bodyClient": 320,
+    "bodyScroll": 320,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新建科室",
+    "width": 320
+  },
+  {
+    "view": "新建科室",
+    "viewport": 390,
+    "actualWidth": 390,
+    "bodyClient": 390,
+    "bodyScroll": 390,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新建科室",
+    "width": 390.3999938964844
+  },
+  {
+    "view": "新建科室",
+    "viewport": 768,
+    "actualWidth": 768,
+    "bodyClient": 768,
+    "bodyScroll": 768,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新建科室",
+    "width": 768
+  },
+  {
+    "view": "新建科室",
+    "viewport": 1440,
+    "actualWidth": 1440,
+    "bodyClient": 560,
+    "bodyScroll": 560,
+    "buttons": [
+      36,
+      36
+    ],
+    "footerBottom": 960.0000152587892,
+    "title": "新建科室",
+    "width": 560
+  },
+  {
+    "view": "新建用户",
+    "viewport": 320,
+    "actualWidth": 320,
+    "bodyClient": 312,
+    "bodyScroll": 312,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新建用户",
+    "width": 320
+  },
+  {
+    "view": "新建用户",
+    "viewport": 390,
+    "actualWidth": 390,
+    "bodyClient": 382,
+    "bodyScroll": 382,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新建用户",
+    "width": 390.3999938964844
+  },
+  {
+    "view": "新建用户",
+    "viewport": 768,
+    "actualWidth": 768,
+    "bodyClient": 768,
+    "bodyScroll": 768,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新建用户",
+    "width": 768
+  },
+  {
+    "view": "新建用户",
+    "viewport": 1440,
+    "actualWidth": 1440,
+    "bodyClient": 720,
+    "bodyScroll": 720,
+    "buttons": [
+      36,
+      36
+    ],
+    "footerBottom": 960.0000152587892,
+    "title": "新建用户",
+    "width": 720
+  },
+  {
+    "view": "新增根科目",
+    "viewport": 320,
+    "actualWidth": 320,
+    "bodyClient": 312,
+    "bodyScroll": 312,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增科目",
+    "width": 320
+  },
+  {
+    "view": "新增根科目",
+    "viewport": 390,
+    "actualWidth": 390,
+    "bodyClient": 382,
+    "bodyScroll": 382,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增科目",
+    "width": 390.3999938964844
+  },
+  {
+    "view": "新增根科目",
+    "viewport": 768,
+    "actualWidth": 768,
+    "bodyClient": 760,
+    "bodyScroll": 760,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增科目",
+    "width": 768
+  },
+  {
+    "view": "新增根科目",
+    "viewport": 1440,
+    "actualWidth": 1440,
+    "bodyClient": 712,
+    "bodyScroll": 712,
+    "buttons": [
+      36,
+      36
+    ],
+    "footerBottom": 960.0000152587892,
+    "title": "新增科目",
+    "width": 720
+  },
+  {
+    "view": "新增角色",
+    "viewport": 320,
+    "actualWidth": 320,
+    "bodyClient": 320,
+    "bodyScroll": 320,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增角色",
+    "width": 320
+  },
+  {
+    "view": "新增角色",
+    "viewport": 390,
+    "actualWidth": 390,
+    "bodyClient": 390,
+    "bodyScroll": 390,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增角色",
+    "width": 390.3999938964844
+  },
+  {
+    "view": "新增角色",
+    "viewport": 768,
+    "actualWidth": 768,
+    "bodyClient": 768,
+    "bodyScroll": 768,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增角色",
+    "width": 768
+  },
+  {
+    "view": "新增角色",
+    "viewport": 1440,
+    "actualWidth": 1440,
+    "bodyClient": 560,
+    "bodyScroll": 560,
+    "buttons": [
+      36,
+      36
+    ],
+    "footerBottom": 960.0000152587892,
+    "title": "新增角色",
+    "width": 560
+  },
+  {
+    "view": "新增岗位",
+    "viewport": 320,
+    "actualWidth": 320,
+    "bodyClient": 320,
+    "bodyScroll": 320,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增岗位",
+    "width": 320
+  },
+  {
+    "view": "新增岗位",
+    "viewport": 390,
+    "actualWidth": 390,
+    "bodyClient": 390,
+    "bodyScroll": 390,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增岗位",
+    "width": 390.3999938964844
+  },
+  {
+    "view": "新增岗位",
+    "viewport": 768,
+    "actualWidth": 768,
+    "bodyClient": 768,
+    "bodyScroll": 768,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增岗位",
+    "width": 768
+  },
+  {
+    "view": "新增岗位",
+    "viewport": 1440,
+    "actualWidth": 1440,
+    "bodyClient": 520,
+    "bodyScroll": 520,
+    "buttons": [
+      36,
+      36
+    ],
+    "footerBottom": 960.0000152587892,
+    "title": "新增岗位",
+    "width": 520
+  },
+  {
+    "view": "新增模板",
+    "viewport": 320,
+    "actualWidth": 320,
+    "bodyClient": 320,
+    "bodyScroll": 320,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增组卷参数模板",
+    "width": 320
+  },
+  {
+    "view": "新增模板",
+    "viewport": 390,
+    "actualWidth": 390,
+    "bodyClient": 390,
+    "bodyScroll": 390,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增组卷参数模板",
+    "width": 390.3999938964844
+  },
+  {
+    "view": "新增模板",
+    "viewport": 768,
+    "actualWidth": 768,
+    "bodyClient": 768,
+    "bodyScroll": 768,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新增组卷参数模板",
+    "width": 768
+  },
+  {
+    "view": "新增模板",
+    "viewport": 1440,
+    "actualWidth": 1440,
+    "bodyClient": 720,
+    "bodyScroll": 720,
+    "buttons": [
+      36,
+      36
+    ],
+    "footerBottom": 960.0000152587892,
+    "title": "新增组卷参数模板",
+    "width": 720
+  },
+  {
+    "view": "新建公告",
+    "viewport": 320,
+    "actualWidth": 320,
+    "bodyClient": 312,
+    "bodyScroll": 312,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新建公告",
+    "width": 320
+  },
+  {
+    "view": "新建公告",
+    "viewport": 390,
+    "actualWidth": 390,
+    "bodyClient": 382,
+    "bodyScroll": 382,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新建公告",
+    "width": 390.3999938964844
+  },
+  {
+    "view": "新建公告",
+    "viewport": 768,
+    "actualWidth": 768,
+    "bodyClient": 760,
+    "bodyScroll": 760,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新建公告",
+    "width": 768
+  },
+  {
+    "view": "新建公告",
+    "viewport": 1440,
+    "actualWidth": 1440,
+    "bodyClient": 712,
+    "bodyScroll": 712,
+    "buttons": [
+      36,
+      36
+    ],
+    "footerBottom": 960.0000152587892,
+    "title": "新建公告",
+    "width": 720
+  },
+  {
+    "view": "新建轮播图",
+    "viewport": 320,
+    "actualWidth": 320,
+    "bodyClient": 312,
+    "bodyScroll": 312,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新建轮播图",
+    "width": 320
+  },
+  {
+    "view": "新建轮播图",
+    "viewport": 390,
+    "actualWidth": 390,
+    "bodyClient": 382,
+    "bodyScroll": 382,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新建轮播图",
+    "width": 390.3999938964844
+  },
+  {
+    "view": "新建轮播图",
+    "viewport": 768,
+    "actualWidth": 768,
+    "bodyClient": 760,
+    "bodyScroll": 760,
+    "buttons": [
+      44,
+      44
+    ],
+    "footerBottom": 844.0000152587891,
+    "title": "新建轮播图",
+    "width": 768
+  },
+  {
+    "view": "新建轮播图",
+    "viewport": 1440,
+    "actualWidth": 1440,
+    "bodyClient": 720,
+    "bodyScroll": 720,
+    "buttons": [
+      36,
+      36
+    ],
+    "footerBottom": 960.0000152587892,
+    "title": "新建轮播图",
+    "width": 720
+  }
+]

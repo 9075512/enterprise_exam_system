@@ -2,7 +2,7 @@
 /**
  * 应用主布局：管理/出题/PC 考生使用桌面框架；900px 以下的考生端切换为移动框架。
  */
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, provide, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { ArrowDown, Bell, Expand, Fold, Key, Lock, QuestionFilled, Search, SwitchButton, User } from '@element-plus/icons-vue';
@@ -16,18 +16,14 @@ import AccountSecurityDialog from '@/components/account/AccountSecurityDialog.vu
 import ChangePasswordDialog from '@/components/account/ChangePasswordDialog.vue';
 import { MENU_GROUP_DEFS, getMenuGroups, getMenuItems, type MenuItem } from './menuConfig';
 
-/** el-menu 实例（用于跨分组导航时同步展开态） */
-interface MenuExposed {
-  open: (index: string) => void;
-}
-
 const route = useRoute();
 const isPracticeRoute = computed(() => route.path.startsWith('/exam/practice'));
 const isExamManagementRoute = computed(() => route.path.startsWith('/admin/exams'));
 const examViewport = window.matchMedia?.('(max-width: 700px)');
 const isSmallExamViewport = ref(examViewport?.matches ?? false);
 const examNavOpen = ref(false);
-const isExamMobile = computed(() => isExamManagementRoute.value && isSmallExamViewport.value);
+// 小屏管理端所有工作流共用导航抽屉，不只限于考试列表。
+const isExamMobile = computed(() => !isExaminee.value && isSmallExamViewport.value);
 function syncExamViewport(event: MediaQueryListEvent): void { isSmallExamViewport.value = event.matches; examNavOpen.value = false; }
 function closeExamNavOnEscape(event: KeyboardEvent): void { if (event.key === 'Escape') examNavOpen.value = false; }
 onMounted(() => { examViewport?.addEventListener('change', syncExamViewport); window.addEventListener('keydown', closeExamNavOnEscape); });
@@ -51,6 +47,7 @@ const isExaminee = computed(() => auth.currentUser?.role === 'examinee');
 const isFocusedExamineeRoute = computed(() =>
   isExaminee.value && (route.name === 'practice-session' || route.name === 'practice-reans'),
 );
+const isFocusedLearningRoute = computed(() => route.name === 'practice-session' || route.name === 'practice-reans');
 
 /** 侧边栏品牌名（系统简称）；设置加载失败时 store 保留默认值 */
 const brandName = computed(() => settingsStore.settings.systemShortName);
@@ -66,16 +63,18 @@ watch(
 
 /** 站内信未读数 */
 const unreadCount = ref(0);
+const canViewNotifications = computed(() => permissions.hasMenu('exam-messages', auth.currentUser?.role ?? 'examinee'));
+watch(canViewNotifications, (allowed) => { if (allowed) void refreshUnread(); else unreadCount.value = 0; }, { immediate: true });
 
 // 拉取全局设置（store 内部只加载一次，失败静默）
 onMounted(() => {
   void settingsStore.load();
   void permissions.load();
-  void refreshUnread();
 });
 
 /** 刷新未读数（静默失败） */
 async function refreshUnread(): Promise<void> {
+  if (!canViewNotifications.value) return;
   try {
     unreadCount.value = (await getUnreadCount()).unreadCount;
   } catch {
@@ -85,6 +84,7 @@ async function refreshUnread(): Promise<void> {
 
 /** 打开消息中心 */
 function openNotifications(): void {
+  if (!canViewNotifications.value) return;
   void router.push('/notifications');
 }
 
@@ -184,7 +184,7 @@ const menuGroups = computed(() =>
 
 /**
  * 菜单集合指纹：仅当「可见菜单发生变化」时变化（路由切换不影响）。
- * 绑到 el-menu 的 key 上，权限首次加载完成后重挂载一次，让 default-openeds 生效。
+ * 权限首次加载完成后重挂载菜单，所有入口继续取相同的权限过滤结果。
  */
 const menusKey = computed(() =>
   menuGroups.value.map((g) => `${g.key}:${g.items.map((i) => i.key).join(',')}`).join('|'),
@@ -203,35 +203,8 @@ const activeMenu = computed(() => {
   return menuItems.value.find((m) => m.key === key)?.path ?? route.path;
 });
 
-/** 当前页所属分组 key（用于默认展开 + 跨组导航时同步展开） */
-const activeGroupKey = computed(() => {
-  const hit = menuItems.value.find((m) => m.path === activeMenu.value);
-  return hit?.group ?? '';
-});
-
 /** 考生端侧栏扁平化（设计稿 examinee 导航无折叠子菜单，全部一级项平铺） */
 const flatMenu = computed(() => auth.currentUser?.role === 'examinee');
-
-/** 初始展开：当前页所在分组（只有 1 项的组不渲染子菜单，无需展开） */
-const openedGroups = computed(() =>
-  flatMenu.value
-    ? []
-    : menuGroups.value
-      .filter((g) => (g.items.length > 1 || g.key === 'learning') && g.key === activeGroupKey.value)
-      .map((g) => g.key),
-);
-
-/** 仅在二级菜单组之间跳转时联动展开（避免同组内点击反复开关） */
-const menuRef = ref<MenuExposed>();
-watch([activeGroupKey, flatMenu], async ([key, isFlat]) => {
-  // 考生端菜单全部平铺，不存在 el-sub-menu；调用 open 会触发 Element Plus 空索引异常。
-  if (isFlat || !key) return;
-  const group = menuGroups.value.find((g) => g.key === key);
-  if (!group || (group.items.length <= 1 && group.key !== 'learning')) return;
-  await nextTick();
-  if (flatMenu.value || activeGroupKey.value !== key) return;
-  menuRef.value?.open(key);
-});
 const userName = computed(() => auth.currentUser?.name ?? '');
 /** 侧栏角色行（设计稿考生显示「考生 · 科室」，其余角色仅职称） */
 const roleLabel = computed(() => {
@@ -241,10 +214,19 @@ const roleLabel = computed(() => {
   if (u.role === 'examinee' && u.departmentName) return `${base} · ${u.departmentName}`;
   return base;
 });
-const breadcrumbs = computed(() =>
-  route.matched.filter((r) => r.meta && r.meta.title).map((r) => String(r.meta.title)),
-);
+const breadcrumbs = computed(() => {
+  const titles = route.matched.filter((r) => r.meta && r.meta.title).map((r) => String(r.meta.title));
+  const group = groupOf(activeMenu.value);
+  return group && titles[0] !== group ? [group, ...titles] : titles;
+});
 const mobileTitle = computed(() => breadcrumbs.value.at(-1) || brandName.value);
+const desktopTitle = computed(() => breadcrumbs.value.at(-1) || menuItems.value.find(item => item.path === activeMenu.value)?.text || brandName.value);
+provide('exam-layout-page-title', desktopTitle);
+const currentDate = ref(new Date());
+const dateLabel = computed(() => currentDate.value.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }));
+let dateTimer: ReturnType<typeof setInterval> | undefined;
+onMounted(() => { dateTimer = setInterval(() => { currentDate.value = new Date(); }, 60_000); });
+onUnmounted(() => { if (dateTimer) clearInterval(dateTimer); });
 
 /** 用户下拉命令 */
 async function handleCommand(command: unknown): Promise<void> {
@@ -274,9 +256,11 @@ const pwdVisible = ref(false);
     :class="{
       'is-practice-route': isPracticeRoute,
       'is-exam-management': isExamManagementRoute,
+      'is-management-layout': !isExaminee,
       'is-exam-nav-open': isExamMobile && examNavOpen,
       'is-examinee-layout': isExaminee,
       'is-focused-examinee-route': isFocusedExamineeRoute,
+      'is-focused-learning-route': isFocusedLearningRoute,
     }"
     :data-module-tone="moduleTone"
   >
@@ -290,43 +274,20 @@ const pwdVisible = ref(false);
         </span>
       </div>
       <el-menu
-        ref="menuRef"
         :key="menusKey"
         :default-active="activeMenu"
-        :default-openeds="openedGroups"
         :collapse="!isExamMobile && app.sidebarCollapsed"
         :collapse-transition="false"
-        :unique-opened="true"
         router
         class="layout__menu"
+        @select="examNavOpen = false"
       >
         <template v-for="group in menuGroups" :key="group.key">
-          <!-- 考生端：全部一级平铺，不套折叠 -->
-          <template v-if="flatMenu">
-            <el-menu-item v-for="item in group.items" :key="item.path" :index="item.path">
-              <el-icon><component :is="item.icon" /></el-icon>
-              <template #title>{{ item.text }}</template>
-            </el-menu-item>
-          </template>
-
-          <template v-else>
-            <!-- 普通单项组直接平铺；学习中心保留二级结构，让“考试 / 练题”产品边界清晰可见。 -->
-            <el-menu-item v-if="group.items.length === 1 && group.key !== 'learning'" :index="group.items[0].path">
-              <el-icon><component :is="group.items[0].icon" /></el-icon>
-              <template #title>{{ group.items[0].text }}</template>
-            </el-menu-item>
-
-            <el-sub-menu v-else :index="group.key" popper-class="layout__menu-popper">
-              <template #title>
-                <el-icon><component :is="group.icon" /></el-icon>
-                <span>{{ group.text }}</span>
-              </template>
-              <el-menu-item v-for="item in group.items" :key="item.path" :index="item.path">
-                <el-icon><component :is="item.icon" /></el-icon>
-                <template #title>{{ item.text }}</template>
-              </el-menu-item>
-            </el-sub-menu>
-          </template>
+          <li v-if="!flatMenu && (isExamMobile || !app.sidebarCollapsed)" class="layout__nav-label" role="presentation">{{ group.text }}</li>
+          <el-menu-item v-for="item in group.items" :key="item.path" :index="item.path">
+            <el-icon><component :is="item.icon" /></el-icon>
+            <template #title>{{ item.text }}</template>
+          </el-menu-item>
         </template>
       </el-menu>
 
@@ -371,7 +332,7 @@ const pwdVisible = ref(false);
           </div>
         </div>
         <div class="layout__mobile-actions">
-          <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99">
+          <el-badge v-if="canViewNotifications" :value="unreadCount" :hidden="unreadCount === 0" :max="99">
             <button type="button" class="layout__mobile-icon" aria-label="消息中心" @click="openNotifications">
               <el-icon><Bell /></el-icon>
             </button>
@@ -399,19 +360,20 @@ const pwdVisible = ref(false);
         >
           <el-icon :size="18"><component :is="isExamMobile || app.sidebarCollapsed ? Expand : Fold" /></el-icon>
         </el-button>
-        <el-breadcrumb separator="/">
+        <div class="layout__page-context"><el-breadcrumb separator="/">
           <el-breadcrumb-item v-for="(title, index) in breadcrumbs" :key="index">
             {{ title }}
           </el-breadcrumb-item>
-        </el-breadcrumb>
+        </el-breadcrumb><h1 class="layout__page-title">{{ desktopTitle }}</h1></div>
         <div class="layout__spacer" />
+        <time class="layout__date" :datetime="currentDate.toISOString()">{{ dateLabel }}</time>
         <!-- 全局搜索（设计稿 .search + ⌘K 提示） -->
         <button type="button" aria-label="搜索菜单与功能" class="layout__search" @click="openSearch">
           <el-icon class="layout__search-ic"><Search /></el-icon>
           <span class="layout__search-ph">搜索菜单与功能</span>
           <kbd class="layout__kbd">{{ searchShortcut }}</kbd>
         </button>
-        <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99" class="layout__bell">
+        <el-badge v-if="canViewNotifications" :value="unreadCount" :hidden="unreadCount === 0" :max="99" class="layout__bell">
           <el-button text class="layout__bell-btn" aria-label="消息中心" @click="openNotifications">
             <el-icon :size="18"><Bell /></el-icon>
           </el-button>
@@ -420,10 +382,12 @@ const pwdVisible = ref(false);
         <button type="button" class="layout__iconbtn" title="帮助" aria-label="帮助" @click="helpVisible = true">
           <el-icon :size="18"><QuestionFilled /></el-icon>
         </button>
+        <el-dropdown trigger="click" @command="handleCommand" class="layout__account-menu"><button type="button" class="layout__account" aria-label="账号菜单"><span class="layout__account-avatar">{{ userName.slice(0, 1) }}</span><span class="layout__account-info"><strong>{{ userName }}</strong><small>{{ roleLabel }}</small></span><el-icon><ArrowDown /></el-icon></button><template #dropdown><el-dropdown-menu><el-dropdown-item command="profile"><el-icon><User /></el-icon>个人中心</el-dropdown-item><el-dropdown-item command="password"><el-icon><Key /></el-icon>修改密码</el-dropdown-item><el-dropdown-item command="security"><el-icon><Lock /></el-icon>账号安全</el-dropdown-item><el-dropdown-item command="logout" divided><el-icon><SwitchButton /></el-icon>退出登录</el-dropdown-item></el-dropdown-menu></template></el-dropdown>
       </header>
 
       <main class="layout__content">
-        <RouterView />
+        <!-- 同类详情切换实体时重新初始化表单与监控连接；查询筛选变化仍保留页面。 -->
+        <RouterView :key="route.path" />
       </main>
     </div>
 
@@ -500,7 +464,7 @@ const pwdVisible = ref(false);
   min-width: 0;
   overflow: hidden;
 
-  // ---------- 深色侧栏（v2.1：实色无渐变，尺寸与选中态统一） ----------
+  // ---------- 白色侧栏：菜单权限与分组结构沿用现有实现 ----------
   &__aside {
     width: $sidebar-width;
     flex-shrink: 0;
@@ -572,7 +536,7 @@ const pwdVisible = ref(false);
     font-weight: 600;
     line-height: 1.2;
     letter-spacing: -0.01em;
-    color: $sidebar-text-active;
+    color: $text-primary;
     white-space: nowrap;
     text-overflow: clip;
     transition: opacity $transition-fast, transform $transition-fast;
@@ -617,7 +581,7 @@ const pwdVisible = ref(false);
     }
 
     &::-webkit-scrollbar-thumb:hover {
-      background: rgba(255, 255, 255, 0.28);
+      background: $text-secondary;
     }
 
     &::-webkit-scrollbar-track {
@@ -953,7 +917,7 @@ const pwdVisible = ref(false);
   }
 
   @media (max-width: 700px) {
-    &.is-exam-management {
+    &.is-management-layout {
       .layout__aside { position: fixed; inset: 0 auto 0 0; z-index: 90; width: $sidebar-width; transform: translateX(-100%); transition: transform $transition-base; }
       &.is-exam-nav-open .layout__aside { transform: translateX(0); }
       .layout__exam-nav-backdrop { position: fixed; inset: 0; z-index: 80; border: 0; background: rgba($text-primary, 0.32); }

@@ -24,6 +24,7 @@ const props = withDefaults(
     clearText?: string;
     /** 主操作文案；为空则不显示主按钮 */
     actionText?: string;
+    actionIcon?: Component;
     /** 空态图形尺寸（v3.1 方向 C：默认 42px 圆形图标，见 DESIGN-C §2.3） */
     imageSize?: number;
     icon?: Component;
@@ -35,6 +36,7 @@ const props = withDefaults(
     showClear: undefined,
     clearText: '清空筛选',
     actionText: '',
+    actionIcon: Plus,
     imageSize: 42,
     icon: Files,
   },
@@ -59,7 +61,7 @@ const showClearButton = computed(() => props.showClear ?? props.filtered);
         {{ clearText }}
       </el-button>
       <slot>
-        <el-button v-if="actionText" type="primary" :icon="Plus" @click="emit('action')">
+        <el-button v-if="actionText" type="primary" :icon="actionIcon" @click="emit('action')">
           {{ actionText }}
         </el-button>
       </slot>

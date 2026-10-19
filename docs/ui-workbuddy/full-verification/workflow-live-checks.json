@@ -1,0 +1,72 @@
+[
+  {
+    "view": "账号导入模板步骤",
+    "bodyHeight": 398,
+    "bodyScroll": 278,
+    "bodyWidth": 278,
+    "dialog": 288,
+    "footer": 555.1999969482422,
+    "h": 568,
+    "tabs": [
+      44,
+      44
+    ],
+    "w": 320
+  },
+  {
+    "view": "账号导入模板步骤",
+    "bodyHeight": 415,
+    "bodyScroll": 357,
+    "bodyWidth": 357,
+    "dialog": 358.3999938964844,
+    "footer": 572.4499969482422,
+    "h": 844,
+    "tabs": [
+      44,
+      44
+    ],
+    "w": 390
+  },
+  {
+    "view": "账号导入模板步骤",
+    "bodyHeight": 150,
+    "bodyScroll": 526,
+    "bodyWidth": 526,
+    "dialog": 536,
+    "footer": 307.20001220703125,
+    "h": 320,
+    "tabs": [
+      44,
+      44
+    ],
+    "w": 568
+  },
+  {
+    "view": "账号导入模板步骤",
+    "bodyHeight": 345,
+    "bodyScroll": 734,
+    "bodyWidth": 734,
+    "dialog": 736,
+    "footer": 532.2500152587891,
+    "h": 844,
+    "tabs": [
+      44,
+      44
+    ],
+    "w": 768
+  },
+  {
+    "view": "账号导入模板步骤",
+    "bodyHeight": 356,
+    "bodyScroll": 758,
+    "bodyWidth": 758,
+    "dialog": 760,
+    "footer": 541.8000030517578,
+    "h": 960,
+    "tabs": [
+      39,
+      39
+    ],
+    "w": 1440
+  }
+]

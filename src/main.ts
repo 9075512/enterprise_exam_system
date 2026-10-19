@@ -30,3 +30,5 @@ setUnauthorizedHandler(() => {
 app.mount('#app');
 
 import './styles/ui-refinement.scss';
+import './styles/learner.scss';
+import './styles/design-fidelity.scss';

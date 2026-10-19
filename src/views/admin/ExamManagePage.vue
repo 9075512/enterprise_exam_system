@@ -22,6 +22,7 @@ import { formatDateTime } from '@/utils/datetime';
 import { getExamStatus } from '@/utils/examStatus';
 import PageHeader from '@/components/common/PageHeader.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import StatusTag from '@/components/common/StatusTag.vue';
@@ -33,7 +34,7 @@ const router = useRouter();
 const auth = useAuthStore();
 const isAdmin = computed(() => auth.hasRole('admin'));
 
-const { data: exams, loading, refresh } = useRequest(() => examsApi.list());
+const { data: exams, loading, error, refresh } = useRequest(() => examsApi.list());
 const { data: departments } = useRequest(() => isAdmin.value ? departmentsApi.list() : Promise.resolve([] as Department[]));
 
 /* ------------------------------ 筛选（客户端） ------------------------------ */
@@ -114,12 +115,15 @@ function openExamQueue(exam: Exam, command: unknown): void {
 
 const deleting = ref(false);
 const rosterVisible = ref(false);
-const roster = ref<ExamParticipant[]>([]);
 const rosterExam = ref<Exam | null>(null);
+const { data: roster, loading: rosterLoading, error: rosterError, refresh: refreshRoster } = useRequest(
+  () => rosterVisible.value && rosterExam.value ? participantsApi.list(rosterExam.value.id) : Promise.resolve([] as ExamParticipant[]),
+  [rosterVisible, rosterExam], { immediate: false, keepPreviousData: false },
+);
+const participantSources: Record<ExamParticipant['source'], string> = { department: '科室范围', template: '人员模板', include: '指定人员', legacy: '原有名单' };
 
-async function openRoster(exam: Exam): Promise<void> {
+function openRoster(exam: Exam): void {
   rosterExam.value = exam;
-  roster.value = await participantsApi.list(exam.id);
   rosterVisible.value = true;
 }
 
@@ -151,7 +155,7 @@ async function handleDelete(exam: Exam): Promise<void> {
 </script>
 
 <template>
-  <div class="exam-page">
+  <div data-ui-layout="list" data-ui-page="ExamManagePage" class="exam-page">
     <PageHeader title="考试管理" :description="isAdmin ? '统一配置考试、题目、参与人员和出题人' : '维护分配给你的考试题目'">
       <template #actions>
         <el-button v-if="isAdmin" type="primary" :icon="Plus" @click="openCreate">新建考试</el-button>
@@ -167,6 +171,10 @@ async function handleDelete(exam: Exam): Promise<void> {
     </div>
 
     <LoadingSkeleton v-if="loading && !exams" :rows="5" />
+
+    <el-alert v-else-if="error" type="error" :closable="false" show-icon title="考试列表加载失败，当前不能确认考试数量">
+      <el-button type="primary" link @click="refresh">重试</el-button>
+    </el-alert>
 
     <EmptyState
       v-else-if="!exams || exams.length === 0"
@@ -243,7 +251,18 @@ async function handleDelete(exam: Exam): Promise<void> {
     </el-card>
 
     <ExamExceptionDialog v-model="exceptionVisible" :exam="exceptionExam" />
-    <el-dialog v-model="rosterVisible" :title="`${rosterExam?.name || ''}－生效名单`" width="760px"><el-table :data="roster" max-height="520"><el-table-column prop="admissionNo" label="准考证号" width="150"/><el-table-column prop="userName" label="姓名" width="120"/><el-table-column prop="username" label="账号" width="140"/><el-table-column prop="departmentName" label="科室"/><el-table-column prop="source" label="来源" width="100"/></el-table></el-dialog>
+    <el-dialog v-model="rosterVisible" title="考试生效名单" width="800px" destroy-on-close>
+      <div class="admin-detail-block"><strong>{{ rosterExam?.name }}</strong><p class="admin-scope">当前考试生效人员 · {{ rosterLoading ? '加载中…' : rosterError ? '人数未知' : `${roster?.length ?? 0} 人` }}</p></div>
+      <RequestError v-if="rosterError" text="生效名单加载失败" @retry="refreshRoster" />
+      <el-table v-else v-loading="rosterLoading" :data="roster ?? []" row-key="userId" max-height="480">
+        <el-table-column label="考生" min-width="180"><template #default="{ row }"><strong>{{ row.userName }}</strong><div class="admin-hint">{{ row.username }}</div></template></el-table-column>
+        <el-table-column prop="admissionNo" label="准考证号" min-width="160" show-overflow-tooltip />
+        <el-table-column label="科室" min-width="140" show-overflow-tooltip><template #default="{ row }">{{ row.departmentName || '—' }}</template></el-table-column>
+        <el-table-column label="来源" width="110"><template #default="{ row }">{{ participantSources[row.source as ExamParticipant['source']] ?? row.source }}</template></el-table-column>
+        <template #empty><EmptyState text="该考试暂无生效人员" /></template>
+      </el-table>
+      <template #footer><el-button @click="rosterVisible = false">关闭</el-button></template>
+    </el-dialog>
   </div>
 </template>
 
@@ -270,7 +289,7 @@ async function handleDelete(exam: Exam): Promise<void> {
     gap: 12px 16px;
     padding: 20px;
     border: 1px solid $border-color;
-    border-radius: $radius-base;
+    border-radius: $radius-lg;
     background: $bg-paper;
     text-align: left;
     font: inherit;
@@ -280,7 +299,7 @@ async function handleDelete(exam: Exam): Promise<void> {
     &:hover { border-color: $color-primary-border; background: $color-table-hover; }
     &:focus-visible { outline: 2px solid $color-primary; outline-offset: 3px; }
     &.is-active { border-color: $color-primary-border; background: $color-primary-soft; }
-    &.is-active::after { content: ''; position: absolute; top: 20px; bottom: 20px; left: -1px; width: 3px; border-radius: 0 3px 3px 0; background: $color-primary; }
+    box-shadow: $shadow-card;
     strong { display: block; margin-top: 6px; color: $text-primary; font-size: 28px; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; }
     small { margin-left: 7px; color: $text-secondary; font-size: 12px; font-weight: 400; }
   }
@@ -311,12 +330,12 @@ async function handleDelete(exam: Exam): Promise<void> {
   &__exam-heading { display: flex; align-items: center; gap: 8px; min-width: 0; }
   &__exam-icon { display: grid; place-items: center; flex-shrink: 0; width: 28px; height: 28px; border-radius: $radius-sm; background: $bg-page; color: $color-primary-dark; font-size: 15px; }
   &__exam-name { min-width: 0; overflow: hidden; color: $text-primary; font-size: 13px; font-weight: 600; line-height: 1.6; text-overflow: ellipsis; white-space: nowrap; }
-  &__question-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 8px; color: $text-secondary; font-size: 11px; line-height: 1.6; b { color: $text-body; font-weight: 500; font-variant-numeric: tabular-nums; } }
-  &__row-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 7px; color: $text-secondary; font-size: 11px; line-height: 1.6; }
-  &__time { display: grid; gap: 4px; color: $text-body; font-size: 12px; font-variant-numeric: tabular-nums; span { display: flex; align-items: center; gap: 8px; white-space: nowrap; } small { color: $text-secondary; font-size: 11px; } }
+  &__question-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 8px; color: $text-secondary; font-size: 12px; line-height: 1.6; b { color: $text-body; font-weight: 500; font-variant-numeric: tabular-nums; } }
+  &__row-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 7px; color: $text-secondary; font-size: 12px; line-height: 1.6; }
+  &__time { display: grid; gap: 4px; color: $text-body; font-size: 12px; font-variant-numeric: tabular-nums; span { display: flex; align-items: center; gap: 8px; white-space: nowrap; } small { color: $text-secondary; font-size: 12px; } }
   &__departments { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; color: $text-secondary; font-size: 12px; :deep(.el-tag) { --el-tag-text-color: #{$text-body}; --el-tag-border-color: #{$border-color}; --el-tag-bg-color: #{$color-table-head}; max-width: 100%; } }
   &__authors { display: flex; align-items: center; gap: 6px; color: $text-body; font-size: 12px; .el-icon { flex-shrink: 0; color: $text-secondary; } > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } &.is-empty { color: $text-secondary; } }
-  &__lock-note { margin-top: 5px; color: $text-secondary; font-size: 11px; line-height: 1.5; }
+  &__lock-note { margin-top: 5px; color: $text-secondary; font-size: 12px; line-height: 1.5; }
   &__list-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 48px; padding: 10px 20px; background: $color-table-head; color: $text-secondary; font-size: 12px; }
 }
 
@@ -336,7 +355,7 @@ async function handleDelete(exam: Exam): Promise<void> {
   .exam-page__filter-actions { width: 100%; }
   .exam-page__filter-keyword { flex: 1 1 180px; width: auto; }
   .exam-page__toolbar-divider { display: none; }
-  .exam-page__scroll-hint { display: block; margin: 0; padding: 0 16px 12px; color: $text-secondary; font-size: 11px; }
+  .exam-page__scroll-hint { display: block; margin: 0; padding: 0 16px 12px; color: $text-secondary; font-size: 12px; }
   // Element Plus 以 !important 固定操作列；手机端取消固定，留出完整的名称阅读空间。
   .exam-page__table :deep(.el-table-fixed-column--right) { position: static !important; }
   .exam-page__table :deep(.el-table-fixed-column--right::before) { display: none; }

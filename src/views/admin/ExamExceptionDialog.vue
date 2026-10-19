@@ -8,8 +8,10 @@ import { ElMessage } from 'element-plus';
 import * as examsApi from '@/api/exams';
 import * as usersApi from '@/api/users';
 import { useConfirm } from '@/composables/useConfirm';
+import { useRequest } from '@/composables/useRequest';
+import RequestError from '@/components/common/RequestError.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
-import type { Exam, ExamException, User } from '@/types';
+import type { Exam, ExamException } from '@/types';
 
 const props = defineProps<{ modelValue: boolean; exam: Exam | null }>();
 const emit = defineEmits<{ (e: 'update:modelValue', v: boolean): void }>();
@@ -18,13 +20,20 @@ const { confirm } = useConfirm();
 
 const visible = computed({
   get: () => props.modelValue,
-  set: (v: boolean) => emit('update:modelValue', v),
+  set: (v: boolean) => { if (!saving.value) emit('update:modelValue', v); },
 });
 
-const loading = ref(false);
 const saving = ref(false);
-const list = ref<ExamException[]>([]);
-const examinees = ref<User[]>([]);
+const examId = computed(() => props.exam?.id);
+const { data, loading, error: loadError, refresh: load } = useRequest(async () => {
+  if (!visible.value || !examId.value) return null;
+  const [exceptions, users] = await Promise.all([
+    examsApi.listExceptions(examId.value), usersApi.list({ role: 'examinee' }),
+  ]);
+  return { exceptions, users };
+}, [visible, examId], { immediate: props.modelValue, keepPreviousData: false });
+const list = computed(() => data.value?.exceptions ?? []);
+const examinees = computed(() => data.value?.users ?? []);
 
 /** 编辑目标考生（空 = 新增） */
 const targetUserId = ref('');
@@ -39,30 +48,9 @@ const configurableUsers = computed(() => {
   return examinees.value.filter((u) => !configured.has(u.id) || u.id === targetUserId.value);
 });
 
-async function load(): Promise<void> {
-  if (!props.exam) return;
-  loading.value = true;
-  try {
-    const [exceptions, users] = await Promise.all([
-      examsApi.listExceptions(props.exam.id),
-      usersApi.list({ role: 'examinee' }),
-    ]);
-    list.value = exceptions;
-    examinees.value = users;
-  } catch {
-    list.value = [];
-  } finally {
-    loading.value = false;
-  }
-}
-
 watch(
-  () => props.modelValue,
-  (open) => {
-    if (!open) return;
-    resetForm();
-    void load();
-  },
+  [visible, examId],
+  () => { if (visible.value) resetForm(); },
 );
 
 function resetForm(): void {
@@ -82,7 +70,7 @@ function startEdit(row: ExamException): void {
 }
 
 async function handleSave(): Promise<void> {
-  if (!props.exam) return;
+  if (!props.exam || loading.value || loadError.value || saving.value || !data.value) return;
   if (!targetUserId.value) {
     ElMessage.warning('请选择考生');
     return;
@@ -106,26 +94,28 @@ async function handleSave(): Promise<void> {
 }
 
 async function handleRemove(row: ExamException): Promise<void> {
-  if (!props.exam) return;
-  const ok = await confirm(`确定删除「${row.userName}」在这场的特殊安排吗？`, {
-    title: '删除特殊安排',
-    confirmButtonText: '确认删除',
-    type: 'warning',
-  });
-  if (!ok) return;
+  if (!props.exam || saving.value || loading.value || loadError.value) return;
+  const targetExamId = props.exam.id;
+  saving.value = true;
   try {
-    await examsApi.removeException(props.exam.id, row.userId);
+    const ok = await confirm(`确定删除「${row.userName}」在这场的特殊安排吗？`, {
+      title: '删除特殊安排',
+      confirmButtonText: '确认删除',
+      type: 'warning',
+    });
+    if (!ok) return;
+    await examsApi.removeException(targetExamId, row.userId);
     ElMessage.success('已删除');
     if (targetUserId.value === row.userId) resetForm();
     void load();
   } catch {
     // 错误已由拦截器提示
-  }
+  } finally { saving.value = false; }
 }
 </script>
 
 <template>
-  <el-dialog v-model="visible" title="特殊考试安排" width="720px" append-to-body destroy-on-close>
+  <el-dialog v-model="visible" title="特殊考试安排" width="800px" append-to-body destroy-on-close :close-on-click-modal="!saving" :close-on-press-escape="!saving" :show-close="!saving">
     <el-alert
       class="exam-exception__alert"
       type="info"
@@ -135,7 +125,7 @@ async function handleRemove(row: ExamException): Promise<void> {
       description="加时仅影响该考生本人的答题倒计时；额外次数叠加在考试答题次数上限之上；免考考生不可进入答题。"
     />
 
-    <el-form class="exam-exception__form" inline label-width="72px">
+    <el-form class="exam-exception__form" label-position="top" :disabled="loading || Boolean(loadError) || saving || !data">
       <el-form-item label="考生">
         <el-select v-model="targetUserId" class="exam-exception__select" placeholder="选择考生" filterable>
           <el-option
@@ -165,7 +155,8 @@ async function handleRemove(row: ExamException): Promise<void> {
       </el-form-item>
     </el-form>
 
-    <el-table v-loading="loading" :data="list" row-key="id" stripe>
+    <RequestError v-if="loadError" text="特殊考试安排加载失败" @retry="load" />
+    <el-table v-else v-loading="loading" :data="list" row-key="id" stripe>
       <el-table-column prop="userName" label="考生" width="110" show-overflow-tooltip />
       <el-table-column prop="username" label="登录账号" width="130" show-overflow-tooltip />
       <el-table-column prop="departmentName" label="科室" width="110" show-overflow-tooltip>
@@ -198,7 +189,7 @@ async function handleRemove(row: ExamException): Promise<void> {
     </el-table>
 
     <template #footer>
-      <el-button @click="visible = false">关闭</el-button>
+      <el-button :disabled="saving" @click="visible = false">关闭</el-button>
     </template>
   </el-dialog>
 </template>
@@ -211,16 +202,14 @@ async function handleRemove(row: ExamException): Promise<void> {
     margin-bottom: 16px;
   }
 
-  &__form {
-    margin-bottom: 8px;
-  }
+  &__form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 20px; margin-bottom: 20px; :deep(.el-form-item) { min-width: 0; } }
 
   &__select {
-    width: 200px;
+    width: 100%;
   }
 
   &__note {
-    width: 180px;
+    width: 100%;
   }
 
   &__unit {
@@ -231,6 +220,7 @@ async function handleRemove(row: ExamException): Promise<void> {
 }
 
 @media (max-width: 600px) {
+  .exam-exception__form { grid-template-columns: minmax(0, 1fr); }
   .exam-exception__form :deep(.el-form-item) {
     display: flex;
     margin-right: 0;

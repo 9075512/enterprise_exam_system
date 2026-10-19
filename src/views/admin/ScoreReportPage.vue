@@ -30,6 +30,7 @@ import {
 import { formatDateTime } from '@/utils/datetime';
 import { formatPercent, formatScore } from '@/utils/format';
 import PageHeader from '@/components/common/PageHeader.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import DataTablePagination from '@/components/common/DataTablePagination.vue';
@@ -53,7 +54,7 @@ onMounted(() => {
 });
 
 /* ------------------------------ 基础数据 ------------------------------ */
-const { data: exams } = useRequest(() => examsApi.list());
+const { data: exams, error: examsError, refresh: refreshExams } = useRequest(() => examsApi.list());
 const { data: users } = useRequest(() => usersApi.list());
 const { data: departments } = useRequest(() => departmentsApi.list());
 
@@ -65,7 +66,7 @@ const departmentNameMap = computed<Record<string, string>>(() =>
 );
 
 const selectedExamId = ref('');
-const { data: report, loading: reportLoading } = useRequest<Report | null>(
+const { data: report, loading: reportLoading, error: reportError, refresh: refreshReport } = useRequest<Report | null>(
   () => selectedExamId.value ? reportsApi.examReport(selectedExamId.value) : Promise.resolve(null),
   [selectedExamId],
   { immediate: false, keepPreviousData: false },
@@ -96,7 +97,7 @@ const passScore = computed<number>(() => selectedExam.value?.passScore ?? 60);
 /** 页头描述（设计稿 .ph 副标题写法：考试名 · 参考人数） */
 const headerDesc = computed<string>(() => {
   if (!selectedExam.value) return '选择一场考试，查看成绩、分数段、科室对比与错题排行';
-  return `${selectedExam.value.name} · ${report.value?.summary.total ?? 0} 人参考`;
+  return `${selectedExam.value.name} · ${report.value?.summary.total ?? '—'} 人参考`;
 });
 
 /* ------------------------------ 导出成绩弹窗 ------------------------------ */
@@ -111,6 +112,8 @@ const {
   pageSize,
   total,
   loading: recordsLoading,
+  error: recordsError,
+  load: loadRecords,
   onPageChange,
   onSizeChange,
   reset: resetRecords,
@@ -121,7 +124,7 @@ const {
 );
 
 /* ------------------------------ 切屏审查 ------------------------------ */
-const { data: cheatRecords, loading: cheatLoading } = useRequest(
+const { data: cheatRecords, loading: cheatLoading, error: cheatError, refresh: refreshCheats } = useRequest(
   () => selectedExamId.value ? recordsApi.listCheatByExam(selectedExamId.value) : Promise.resolve([]),
   [selectedExamId],
   { immediate: false, keepPreviousData: false },
@@ -143,7 +146,7 @@ const bandOption = computed(() => {
     grid: { left: 44, right: 24, top: 34, bottom: 44 },
     xAxis: {
       type: 'category',
-      data: (report.value?.bands ?? []).map((b) => b.label),
+      data: (report.value?.bands ?? []).map((b) => b.label.replace('不及格（<60）', '60 分以下')),
       axisLabel: { interval: 0, ...CHART_AXIS_LABEL },
       axisLine: CHART_AXIS_LINE,
       axisTick: { show: false },
@@ -212,7 +215,7 @@ function cheatSummary(record: ExamRecord): string {
 }
 
 /** 切屏异常人数（与「切屏审查」卡同口径） */
-const cheatCount = computed<number>(() => cheatList.value.filter(isCheat).length);
+const cheatCount = computed<number>(() => new Set(cheatList.value.filter(isCheat).map(record => record.userId)).size);
 
 /** 顶部统计卡（设计稿 scores.html 的 .grid.g5 五卡）——仅「切屏异常」上状态色 */
 const statItems = computed(() => {
@@ -241,13 +244,13 @@ const statItems = computed(() => {
       icon: Star,
       tone: 'primary' as const,
     },
-    { key: 'cheat', label: '切屏异常', value: cheatCount.value, unit: '人', icon: Warning, tone: 'warning' as const },
+    { key: 'cheat', label: '切屏异常考生（审查范围）', value: cheatError.value || cheatLoading.value ? '—' : cheatCount.value, unit: '人', icon: Warning, tone: 'warning' as const },
   ];
 });
 </script>
 
 <template>
-  <div class="report-page">
+  <div data-ui-layout="analytics" data-ui-page="ScoreReportPage" class="report-page">
     <PageHeader title="成绩报表" :description="headerDesc">
       <template #actions>
         <el-select v-model="selectedExamId" class="report-page__select-input" placeholder="请选择一场考试" clearable>
@@ -267,11 +270,14 @@ const statItems = computed(() => {
       </template>
     </PageHeader>
 
-    <EmptyState v-if="!selectedExamId" text="请选择一场考试查看报表" />
+    <RequestError v-if="examsError" text="考试列表加载失败" @retry="refreshExams" />
+    <EmptyState v-else-if="!selectedExamId" text="请选择一场考试查看报表" />
 
     <LoadingSkeleton v-else-if="reportLoading && !report" :rows="6" />
 
+    <RequestError v-else-if="reportError" text="成绩统计加载失败" @retry="refreshReport" />
     <template v-else>
+      <p class="admin-scope">统计范围：当前考试 · 每位考生{{ settingsStore.settings.retakeScorePolicy === 'highest' ? '最高分' : '最近一次' }}已交卷答卷；科室对比、错题排行各显示前 5 项。成绩列表包含各次作答、按开始时间倒序；切屏审查仅含已交卷且有切屏事件的记录，按切屏次数倒序，最多 500 条。</p>
       <!-- 顶部统计卡（设计稿 .grid.g5） -->
       <div class="report-page__stats">
         <StatCard
@@ -290,11 +296,12 @@ const statItems = computed(() => {
         <template #header>
           <div class="report-page__hd">
             <h3 class="report-page__hd-title">成绩列表</h3>
-            <span class="report-page__hd-sub">共 {{ total }} 条</span>
+            <span class="report-page__hd-sub">{{ recordsError ? '数量未知' : '共 ' + total + ' 条' }}</span>
           </div>
         </template>
-        <el-table v-loading="recordsLoading" :data="records" row-key="id" stripe>
-          <el-table-column label="排名" width="70" align="center">
+        <RequestError v-if="recordsError" text="成绩列表加载失败" @retry="loadRecords" />
+        <el-table v-else v-loading="recordsLoading" :data="records" row-key="id" stripe>
+          <el-table-column label="序号" width="70" align="center">
             <template #default="{ $index }">
               <span class="report-page__rank num">{{ (page - 1) * pageSize + $index + 1 }}</span>
             </template>
@@ -307,14 +314,14 @@ const statItems = computed(() => {
           </el-table-column>
           <el-table-column label="得分" width="90" align="center">
             <template #default="{ row }">
-              <span class="num report-page__score">{{ formatScore(row.score) }}</span>
+              <span class="num report-page__score">{{ row.status === 'submitted' ? formatScore(row.score) : '—' }}</span>
             </template>
           </el-table-column>
           <el-table-column label="是否及格" width="110" align="center">
             <template #default="{ row }">
-              <el-tag size="small" :type="row.score >= passScore ? 'success' : 'danger'" effect="plain">
+              <el-tag v-if="row.status === 'submitted'" size="small" :type="row.score >= passScore ? 'success' : 'danger'" effect="plain">
                 {{ row.score >= passScore ? '及格' : '不及格' }}
-              </el-tag>
+              </el-tag><el-tag v-else type="info">{{ row.status === 'pending_review' ? '待阅卷' : '待交卷' }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column label="作答次数" width="100" align="center">
@@ -335,7 +342,7 @@ const statItems = computed(() => {
             <EmptyState text="暂无成绩记录" />
           </template>
         </el-table>
-        <DataTablePagination
+        <DataTablePagination v-if="!recordsError"
           :page="page"
           :page-size="pageSize"
           :total="total"
@@ -344,8 +351,9 @@ const statItems = computed(() => {
         />
       </el-card>
 
+      <p class="admin-scope">分数段按固定分值区间展示，本场及格线为 {{ passScore }} 分。</p>
       <!-- 三联分析卡（设计稿 .grid.g3） -->
-      <div class="report-page__grid3">
+      <div v-if="report && report.summary.total > 0" class="report-page__grid3">
         <!-- 1. 分数段分布 -->
         <el-card shadow="never">
           <template #header>
@@ -359,7 +367,7 @@ const statItems = computed(() => {
             <div v-if="bandPeak" class="report-page__tip report-page__tip--ok">
               <el-icon class="report-page__tip-ic"><CircleCheck /></el-icon>
               <div>
-                {{ bandPeak?.label }} 人数最多（<b>{{ bandPeak?.count }} 人</b>），整体呈右偏分布。
+                {{ bandPeak?.label.replace('不及格（<60）', '60 分以下') }} 人数最多（<b>{{ bandPeak?.count }} 人</b>），该分数段共有 {{ bandPeak?.count }} 人。
               </div>
             </div>
           </template>
@@ -449,6 +457,7 @@ const statItems = computed(() => {
         </el-card>
       </div>
 
+      <el-card v-if="report && report.summary.total === 0" shadow="never"><EmptyState text="当前考试暂无已出分答卷，交卷并完成阅卷后可查看成绩分析" /></el-card>
       <!-- 切屏审查（工程合理新增，改为页面下方全宽卡保留） -->
       <el-card class="report-page__section" shadow="never">
         <template #header>
@@ -457,7 +466,8 @@ const statItems = computed(() => {
             <span class="report-page__hd-sub">{{ cheatCount }} 人异常</span>
           </div>
         </template>
-        <el-table v-loading="cheatLoading" :data="cheatList" row-key="id" stripe>
+        <RequestError v-if="cheatError" text="切屏记录加载失败" @retry="refreshCheats" />
+        <el-table v-else v-loading="cheatLoading" :data="cheatList" row-key="id" stripe>
           <el-table-column type="expand">
             <template #default="{ row }">
               <div class="report-page__cheat-timeline">
@@ -513,6 +523,7 @@ const statItems = computed(() => {
 @use '@/styles/variables.scss' as *;
 
 .report-page {
+  container: score-report / inline-size;
   &__select-input {
     width: 260px;
   }
@@ -555,7 +566,7 @@ const statItems = computed(() => {
   }
 
   &__hd-sub {
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 400;
     color: $text-secondary;
   }
@@ -576,7 +587,7 @@ const statItems = computed(() => {
     border-radius: $radius-sm;
     background: $color-neutral-bg;
     color: $text-body;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
   }
 
@@ -625,7 +636,7 @@ const statItems = computed(() => {
       padding: 0 0 8px;
       border-bottom: 1px solid $border-color;
       color: $text-secondary;
-      font-size: 11.5px;
+      font-size: 12px;
       font-weight: 500;
       text-align: left;
     }
@@ -709,7 +720,7 @@ const statItems = computed(() => {
 
   &__wrong-meta-text {
     flex: 0 0 auto;
-    font-size: 11px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -748,7 +759,7 @@ const statItems = computed(() => {
   }
 }
 
-@media (max-width: 1280px) {
+@container score-report (max-width: 1000px) {
   // 三联卡窄屏折成单列
   .report-page__grid3 {
     grid-template-columns: minmax(0, 1fr);

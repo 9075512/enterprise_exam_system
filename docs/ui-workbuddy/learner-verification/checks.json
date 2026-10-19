@@ -1,0 +1,715 @@
+{
+  "date": "2026-10-19",
+  "pages": [
+    {
+      "name": "考生首页",
+      "path": "/exam/home",
+      "width": 390,
+      "body": 382,
+      "client": 382,
+      "requestErrors": 0,
+      "scroll": 382,
+      "loadFailed": false
+    },
+    {
+      "name": "我的考试",
+      "path": "/exam/my",
+      "width": 390,
+      "body": 382,
+      "client": 382,
+      "requestErrors": 0,
+      "scroll": 382,
+      "loadFailed": false
+    },
+    {
+      "name": "我的成绩",
+      "path": "/exam/scores",
+      "width": 390,
+      "body": 382,
+      "client": 382,
+      "requestErrors": 0,
+      "scroll": 382,
+      "loadFailed": false
+    },
+    {
+      "name": "我的补考",
+      "path": "/exam/retakes",
+      "width": 390,
+      "body": 382,
+      "client": 382,
+      "requestErrors": 0,
+      "scroll": 382,
+      "loadFailed": false
+    },
+    {
+      "name": "消息中心",
+      "path": "/notifications",
+      "width": 390,
+      "body": 382,
+      "client": 382,
+      "requestErrors": 0,
+      "scroll": 382,
+      "loadFailed": false
+    },
+    {
+      "name": "个人中心",
+      "path": "/profile",
+      "width": 390,
+      "body": 382,
+      "client": 382,
+      "requestErrors": 0,
+      "scroll": 382,
+      "loadFailed": false
+    },
+    {
+      "name": "练题首页",
+      "path": "/exam/practice",
+      "width": 390,
+      "body": 382,
+      "client": 382,
+      "requestErrors": 0,
+      "scroll": 382,
+      "loadFailed": false
+    },
+    {
+      "name": "错题本",
+      "path": "/exam/practice/wrong-book",
+      "width": 390,
+      "body": 382,
+      "client": 382,
+      "requestErrors": 0,
+      "scroll": 382,
+      "loadFailed": false
+    },
+    {
+      "name": "我的收藏",
+      "path": "/exam/practice/favorites",
+      "width": 390,
+      "body": 382,
+      "client": 382,
+      "requestErrors": 0,
+      "scroll": 382,
+      "loadFailed": false
+    },
+    {
+      "name": "学习报告",
+      "path": "/exam/practice/report",
+      "width": 390,
+      "body": 382,
+      "client": 382,
+      "requestErrors": 0,
+      "scroll": 382,
+      "loadFailed": false
+    },
+    {
+      "name": "练题个人页",
+      "path": "/exam/practice/profile",
+      "width": 390,
+      "body": 382,
+      "client": 382,
+      "requestErrors": 0,
+      "scroll": 382,
+      "loadFailed": false
+    },
+    {
+      "name": "考生首页",
+      "path": "/exam/home",
+      "width": 768,
+      "body": 760,
+      "client": 760,
+      "requestErrors": 0,
+      "scroll": 760,
+      "loadFailed": false
+    },
+    {
+      "name": "我的考试",
+      "path": "/exam/my",
+      "width": 768,
+      "body": 760,
+      "client": 760,
+      "requestErrors": 0,
+      "scroll": 760,
+      "loadFailed": false
+    },
+    {
+      "name": "我的成绩",
+      "path": "/exam/scores",
+      "width": 768,
+      "body": 760,
+      "client": 760,
+      "requestErrors": 0,
+      "scroll": 760,
+      "loadFailed": false
+    },
+    {
+      "name": "我的补考",
+      "path": "/exam/retakes",
+      "width": 768,
+      "body": 760,
+      "client": 760,
+      "requestErrors": 0,
+      "scroll": 760,
+      "loadFailed": false
+    },
+    {
+      "name": "消息中心",
+      "path": "/notifications",
+      "width": 768,
+      "body": 760,
+      "client": 760,
+      "requestErrors": 0,
+      "scroll": 760,
+      "loadFailed": false
+    },
+    {
+      "name": "个人中心",
+      "path": "/profile",
+      "width": 768,
+      "body": 760,
+      "client": 760,
+      "requestErrors": 0,
+      "scroll": 760,
+      "loadFailed": false
+    },
+    {
+      "name": "练题首页",
+      "path": "/exam/practice",
+      "width": 768,
+      "body": 760,
+      "client": 760,
+      "requestErrors": 0,
+      "scroll": 760,
+      "loadFailed": false
+    },
+    {
+      "name": "错题本",
+      "path": "/exam/practice/wrong-book",
+      "width": 768,
+      "body": 760,
+      "client": 760,
+      "requestErrors": 0,
+      "scroll": 760,
+      "loadFailed": false
+    },
+    {
+      "name": "我的收藏",
+      "path": "/exam/practice/favorites",
+      "width": 768,
+      "body": 760,
+      "client": 760,
+      "requestErrors": 0,
+      "scroll": 760,
+      "loadFailed": false
+    },
+    {
+      "name": "学习报告",
+      "path": "/exam/practice/report",
+      "width": 768,
+      "body": 760,
+      "client": 760,
+      "requestErrors": 0,
+      "scroll": 760,
+      "loadFailed": false
+    },
+    {
+      "name": "练题个人页",
+      "path": "/exam/practice/profile",
+      "width": 768,
+      "body": 760,
+      "client": 760,
+      "requestErrors": 0,
+      "scroll": 760,
+      "loadFailed": false
+    },
+    {
+      "name": "考生首页",
+      "path": "/exam/home",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "requestErrors": 0,
+      "scroll": 1200,
+      "loadFailed": false
+    },
+    {
+      "name": "我的考试",
+      "path": "/exam/my",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "requestErrors": 0,
+      "scroll": 1200,
+      "loadFailed": false
+    },
+    {
+      "name": "我的成绩",
+      "path": "/exam/scores",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "requestErrors": 0,
+      "scroll": 1200,
+      "loadFailed": false
+    },
+    {
+      "name": "我的补考",
+      "path": "/exam/retakes",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "requestErrors": 0,
+      "scroll": 1200,
+      "loadFailed": false
+    },
+    {
+      "name": "消息中心",
+      "path": "/notifications",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "requestErrors": 0,
+      "scroll": 1200,
+      "loadFailed": false
+    },
+    {
+      "name": "个人中心",
+      "path": "/profile",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "requestErrors": 0,
+      "scroll": 1200,
+      "loadFailed": false
+    },
+    {
+      "name": "练题首页",
+      "path": "/exam/practice",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "requestErrors": 0,
+      "scroll": 1200,
+      "loadFailed": false
+    },
+    {
+      "name": "错题本",
+      "path": "/exam/practice/wrong-book",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "requestErrors": 0,
+      "scroll": 1200,
+      "loadFailed": false
+    },
+    {
+      "name": "我的收藏",
+      "path": "/exam/practice/favorites",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "requestErrors": 0,
+      "scroll": 1200,
+      "loadFailed": false
+    },
+    {
+      "name": "学习报告",
+      "path": "/exam/practice/report",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "requestErrors": 0,
+      "scroll": 1200,
+      "loadFailed": false
+    },
+    {
+      "name": "练题个人页",
+      "path": "/exam/practice/profile",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "requestErrors": 0,
+      "scroll": 1200,
+      "loadFailed": false
+    },
+    {
+      "name": "考生首页",
+      "path": "/exam/home",
+      "width": 320,
+      "body": 312,
+      "client": 312,
+      "requestErrors": 0,
+      "scroll": 312,
+      "loadFailed": false
+    },
+    {
+      "name": "我的考试",
+      "path": "/exam/my",
+      "width": 320,
+      "body": 312,
+      "client": 312,
+      "requestErrors": 0,
+      "scroll": 312,
+      "loadFailed": false
+    },
+    {
+      "name": "我的成绩",
+      "path": "/exam/scores",
+      "width": 320,
+      "body": 312,
+      "client": 312,
+      "requestErrors": 0,
+      "scroll": 312,
+      "loadFailed": false
+    },
+    {
+      "name": "我的补考",
+      "path": "/exam/retakes",
+      "width": 320,
+      "body": 312,
+      "client": 312,
+      "requestErrors": 0,
+      "scroll": 312,
+      "loadFailed": false
+    },
+    {
+      "name": "消息中心",
+      "path": "/notifications",
+      "width": 320,
+      "body": 312,
+      "client": 312,
+      "requestErrors": 0,
+      "scroll": 312,
+      "loadFailed": false
+    },
+    {
+      "name": "个人中心",
+      "path": "/profile",
+      "width": 320,
+      "body": 312,
+      "client": 312,
+      "requestErrors": 0,
+      "scroll": 312,
+      "loadFailed": false
+    },
+    {
+      "name": "练题首页",
+      "path": "/exam/practice",
+      "width": 320,
+      "body": 312,
+      "client": 312,
+      "requestErrors": 0,
+      "scroll": 312,
+      "loadFailed": false
+    },
+    {
+      "name": "错题本",
+      "path": "/exam/practice/wrong-book",
+      "width": 320,
+      "body": 312,
+      "client": 312,
+      "requestErrors": 0,
+      "scroll": 312,
+      "loadFailed": false
+    },
+    {
+      "name": "我的收藏",
+      "path": "/exam/practice/favorites",
+      "width": 320,
+      "body": 312,
+      "client": 312,
+      "requestErrors": 0,
+      "scroll": 312,
+      "loadFailed": false
+    },
+    {
+      "name": "学习报告",
+      "path": "/exam/practice/report",
+      "width": 320,
+      "body": 312,
+      "client": 312,
+      "requestErrors": 0,
+      "scroll": 312,
+      "loadFailed": false
+    },
+    {
+      "name": "练题个人页",
+      "path": "/exam/practice/profile",
+      "width": 320,
+      "body": 312,
+      "client": 312,
+      "requestErrors": 0,
+      "scroll": 312,
+      "loadFailed": false
+    }
+  ],
+  "modals": [
+    {
+      "name": "结果弹窗（组件样例）",
+      "width": 320,
+      "height": 844,
+      "bodyClient": 414,
+      "bodyScroll": 414,
+      "bottom": 728.1499862670898,
+      "footerButtons": [
+        {
+          "height": 44,
+          "text": "返回我的考试"
+        },
+        {
+          "height": 44,
+          "text": "查看成绩明细"
+        }
+      ],
+      "left": 16,
+      "right": 304,
+      "top": 115.8499984741211
+    },
+    {
+      "name": "结果弹窗（组件样例）",
+      "width": 844,
+      "height": 390,
+      "bodyClient": 196,
+      "bodyScroll": 380,
+      "bottom": 366.3999938964844,
+      "footerButtons": [
+        {
+          "height": 44,
+          "text": "返回我的考试"
+        },
+        {
+          "height": 44,
+          "text": "查看成绩明细"
+        }
+      ],
+      "left": 182,
+      "right": 662,
+      "top": 24
+    },
+    {
+      "name": "结果弹窗（组件样例）",
+      "width": 1440,
+      "height": 960,
+      "bodyClient": 380,
+      "bodyScroll": 380,
+      "bottom": 739.1000213623047,
+      "footerButtons": [
+        {
+          "height": 36,
+          "text": "返回我的考试"
+        },
+        {
+          "height": 36,
+          "text": "查看成绩明细"
+        }
+      ],
+      "left": 480,
+      "right": 960,
+      "top": 220.90000915527344
+    },
+    {
+      "name": "练题设置",
+      "width": 320,
+      "height": 844,
+      "bodyClient": 399,
+      "bodyScroll": 399,
+      "bottom": 694.5,
+      "footerButtons": [
+        {
+          "height": 44,
+          "text": "取消"
+        },
+        {
+          "height": 44,
+          "text": "开始"
+        }
+      ],
+      "left": 16,
+      "right": 304,
+      "top": 149.5
+    },
+    {
+      "name": "练题设置",
+      "width": 390,
+      "height": 844,
+      "bodyClient": 329,
+      "bodyScroll": 329,
+      "bottom": 659.5,
+      "footerButtons": [
+        {
+          "height": 44,
+          "text": "取消"
+        },
+        {
+          "height": 44,
+          "text": "开始"
+        }
+      ],
+      "left": 16,
+      "right": 374.3999938964844,
+      "top": 184.5
+    },
+    {
+      "name": "练题设置",
+      "width": 844,
+      "height": 390,
+      "bodyClient": 196,
+      "bodyScroll": 341,
+      "bottom": 366.3999938964844,
+      "footerButtons": [
+        {
+          "height": 44,
+          "text": "取消"
+        },
+        {
+          "height": 44,
+          "text": "开始"
+        }
+      ],
+      "left": 142,
+      "right": 702,
+      "top": 24
+    },
+    {
+      "name": "练题设置",
+      "width": 1440,
+      "height": 960,
+      "bodyClient": 341,
+      "bodyScroll": 341,
+      "bottom": 719.5,
+      "footerButtons": [
+        {
+          "height": 36,
+          "text": "取消"
+        },
+        {
+          "height": 36,
+          "text": "开始"
+        }
+      ],
+      "left": 440,
+      "right": 1000,
+      "top": 240.5
+    },
+    {
+      "name": "修改密码（仅查看）",
+      "width": 390,
+      "height": 844,
+      "bottom": 466.3000183105469,
+      "footerButtons": [
+        {
+          "height": 44,
+          "text": "取消"
+        },
+        {
+          "height": 44,
+          "text": "确定"
+        }
+      ],
+      "left": 16,
+      "right": 374.3999938964844,
+      "top": 12
+    },
+    {
+      "name": "账号安全（仅查看）",
+      "width": 390,
+      "height": 844,
+      "bottom": 832,
+      "footerButtons": [
+        {
+          "height": 44,
+          "text": "关闭"
+        }
+      ],
+      "left": 16,
+      "right": 374.3999938964844,
+      "top": 12
+    }
+  ],
+  "components": [
+    {
+      "type": "单选",
+      "body": 312,
+      "card": {
+        "bottom": 871.6000137329102,
+        "height": 753.2000122070312,
+        "left": 16,
+        "right": 296,
+        "top": 118.4000015258789,
+        "width": 280,
+        "x": 16,
+        "y": 118.4000015258789
+      },
+      "overflow": [],
+      "width": 320
+    },
+    {
+      "type": "多选",
+      "body": 312,
+      "card": {
+        "bottom": 675.6000137329102,
+        "height": 753.2000122070312,
+        "left": 16,
+        "right": 296,
+        "top": -77.5999984741211,
+        "width": 280,
+        "x": 16,
+        "y": -77.5999984741211
+      },
+      "overflow": [],
+      "width": 320
+    },
+    {
+      "type": "判断",
+      "body": 320,
+      "card": {
+        "bottom": 550.7999954223633,
+        "height": 432.3999938964844,
+        "left": 16,
+        "right": 304,
+        "top": 118.4000015258789,
+        "width": 288,
+        "x": 16,
+        "y": 118.4000015258789
+      },
+      "overflow": [],
+      "width": 320
+    },
+    {
+      "type": "填空",
+      "body": 320,
+      "card": {
+        "bottom": 351.2000045776367,
+        "height": 232.8000030517578,
+        "left": 16,
+        "right": 304,
+        "top": 118.4000015258789,
+        "width": 288,
+        "x": 16,
+        "y": 118.4000015258789
+      },
+      "overflow": [],
+      "width": 320
+    },
+    {
+      "type": "简答",
+      "body": 320,
+      "card": {
+        "bottom": 637.1999893188477,
+        "height": 518.7999877929688,
+        "left": 16,
+        "right": 304,
+        "top": 118.4000015258789,
+        "width": 288,
+        "x": 16,
+        "y": 118.4000015258789
+      },
+      "overflow": [],
+      "width": 320
+    }
+  ],
+  "notes": [
+    "实际考生账号查看列表及统计；未开始或交卷真实考试。",
+    "结果弹窗与五种题型使用本地组件样例。",
+    "320 px 退出确认框两个按钮均为 44 px，点击取消关闭。"
+  ]
+}

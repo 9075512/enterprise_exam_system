@@ -16,7 +16,7 @@
  * 主体 2:1 独立分栏（左「即将开始 / 成绩趋势」、右「快捷入口 / 公告 / 推荐练题 / 最近成绩」）；
  * 图表遵循 DESIGN-C §2.5：单主色 + 线型区分，及格线用主色浅档虚线。
  */
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import dayjs from 'dayjs';
 import {
@@ -35,6 +35,10 @@ import { getSummary } from '@/api/home';
 import * as examsApi from '@/api/exams';
 import { listNotifications } from '@/api/notifications';
 import { useAuthStore } from '@/stores/auth';
+import { usePermissionsStore } from '@/stores/permissions';
+import { getMenuItems } from '@/layouts/menuConfig';
+import { getExamStatus } from '@/utils/examStatus';
+import RequestError from '@/components/common/RequestError.vue';
 import { formatDateTime } from '@/utils/datetime';
 import ContentBoard from '@/components/common/ContentBoard.vue';
 import PagedOverview from '@/components/common/PagedOverview.vue';
@@ -45,6 +49,8 @@ import type { ExamMy, HomeShortcut, HomeSummary, Notification } from '@/types';
 
 const router = useRouter();
 const auth = useAuthStore();
+const permissions = usePermissionsStore();
+function canAccess(path: string): boolean { return getMenuItems(auth.currentUser?.role ?? 'examinee', permissions.myMenus ?? []).some(item => item.path === path); }
 
 /** 后端下发的是图标名，前端映射为组件（未知回退 Bell）。 */
 const ICONS: Record<string, unknown> = {
@@ -56,6 +62,10 @@ const ICONS: Record<string, unknown> = {
   Warning,
 };
 const loading = ref(true);
+const summaryError = ref(false);
+const examsError = ref(false);
+let loadGeneration = 0;
+onBeforeUnmount(() => { loadGeneration += 1; });
 const summary = ref<HomeSummary | null>(null);
 /** 本人考试（用于「即将开始」卡：进行中 + 待考） */
 const myExams = ref<ExamMy[]>([]);
@@ -81,14 +91,14 @@ const stats = computed<
 >(() => {
   const s = summary.value?.stats;
   return [
-    { key: 'pending', label: '待考考试', value: s?.pending ?? 0, unit: '场', tone: 'blue', icon: AlarmClock },
-    { key: 'ongoing', label: '进行中', value: s?.ongoing ?? 0, unit: '场', tone: 'warning', icon: Warning },
-    { key: 'submitted', label: '已交卷', value: s?.submitted ?? 0, unit: '场', tone: 'teal', icon: Document },
-    { key: 'avg', label: '平均分', value: s?.avgScore ?? 0, unit: '分', tone: 'violet', icon: TrendCharts },
+    { key: 'pending', label: '待考考试', value: s?.pending ?? '—', unit: '场', tone: 'blue', icon: AlarmClock },
+    { key: 'ongoing', label: '进行中', value: s?.ongoing ?? '—', unit: '场', tone: 'warning', icon: Warning },
+    { key: 'submitted', label: '已交卷记录', value: s?.submitted ?? '—', unit: '份', tone: 'teal', icon: Document },
+    { key: 'avg', label: '平均分', value: s?.submitted ? s.avgScore : '—', unit: '分', tone: 'violet', icon: TrendCharts },
     {
       key: 'passRate',
       label: '及格率',
-      value: s?.passRate ?? 0,
+      value: s?.submitted ? s.passRate : '—',
       unit: '%',
       tone: 'primary',
       icon: TrendCharts,
@@ -96,19 +106,16 @@ const stats = computed<
   ];
 });
 
-const todos = computed(() => summary.value?.todos ?? []);
+const todos = computed(() => (summary.value?.todos ?? []).filter(item => canAccess(item.path)));
 const trend = computed(() => summary.value?.trend ?? []);
-const recommendedBanks = computed(() => summary.value?.recommendedBanks ?? []);
-const shortcuts = computed<HomeShortcut[]>(() => (summary.value?.shortcuts ?? []).filter((s) => s.enabled));
+const recommendedBanks = computed(() => canAccess('/exam/practice') ? summary.value?.recommendedBanks ?? [] : []);
+const shortcuts = computed<HomeShortcut[]>(() => (summary.value?.shortcuts ?? []).filter((s) => s.enabled && canAccess(s.path)));
 
 /** 最近成绩（倒序取前 5 条用于列表卡） */
 const recentScores = computed(() => [...trend.value].reverse().slice(0, 5));
 const hasSidebar = computed(() =>
   shortcuts.value.length > 0 || notices.value.length > 0 || recommendedBanks.value.length > 0 || recentScores.value.length > 0,
 );
-
-/** 及格线（服务端下发，缺省 60） */
-const passLine = computed<number>(() => summary.value?.stats.passLine ?? 60);
 
 /* ------------------------------ 成绩趋势（手绘 SVG，无图表库依赖） ------------------------------ */
 const CHART = { w: 560, h: 160, x0: 46, x1: 540, yTop: 24, yBottom: 126 };
@@ -122,24 +129,28 @@ interface ChartDot {
 }
 
 /** 折线点位与及格线（取最近 6 次；均为 0–100 归一，与服务端口径一致） */
-const chart = computed<{ dots: ChartDot[]; line: string; passY: number } | null>(() => {
+const chart = computed(() => {
   const items = trend.value.slice(-6);
   if (items.length === 0) return null;
   const { x0, x1, yTop, yBottom } = CHART;
   const step = items.length > 1 ? (x1 - x0) / (items.length - 1) : 0;
+  const maximum = Math.ceil(Math.max(100, ...items.map(item => item.score), ...items.map(item => item.passScore)) / 10) * 10;
   const yOf = (score: number): number =>
-    yBottom - (Math.max(0, Math.min(100, score)) / 100) * (yBottom - yTop);
+    yBottom - (Math.max(0, score) / maximum) * (yBottom - yTop);
   const dots: ChartDot[] = items.map((item, i) => ({
     x: Math.round(x0 + step * i),
     y: Math.round(yOf(item.score) * 10) / 10,
     score: item.score,
     passed: item.passed,
-    label: dayjs(item.submittedAt).format('MM月'),
+    label: dayjs(item.submittedAt).format('MM-DD'),
   }));
   return {
     dots,
     line: dots.map((d) => `${d.x},${d.y}`).join(' '),
-    passY: Math.round(yOf(passLine.value) * 10) / 10,
+    maximum,
+    passPoints: dots.map((dot, i) => `${dot.x},${yOf(items[i]!.passScore)}`).join(' '),
+    passY: yOf(items[items.length - 1]!.passScore),
+    passLabel: items.every(item => item.passScore === items[0]!.passScore) ? `及格线 ${items[0]!.passScore}` : '各场考试及格线',
   };
 });
 
@@ -157,23 +168,27 @@ const trendSummary = computed(() => {
 });
 
 async function load(): Promise<void> {
+  const generation = ++loadGeneration;
   loading.value = true;
   // 三个请求互不依赖：任一失败不影响其余区块（首页为展示性页面，失败静默降级）
   const [sum, exams, notes] = await Promise.allSettled([
     getSummary(),
     examsApi.my(),
-    listNotifications(1, 4),
+    canAccess('/notifications') ? listNotifications(1, 4) : Promise.resolve({ list: [] as Notification[] }),
   ]);
-  if (sum.status === 'fulfilled') summary.value = sum.value;
-  if (exams.status === 'fulfilled') myExams.value = exams.value;
-  if (notes.status === 'fulfilled') notices.value = (notes.value.list ?? []).slice(0, 4);
+  if (generation !== loadGeneration) return;
+  summaryError.value = sum.status === 'rejected';
+  examsError.value = exams.status === 'rejected';
+  summary.value = sum.status === 'fulfilled' ? sum.value : null;
+  myExams.value = exams.status === 'fulfilled' ? exams.value : [];
+  notices.value = notes.status === 'fulfilled' ? (notes.value.list ?? []).slice(0, 4) : [];
   loading.value = false;
 }
 
 /* ------------------------------ 即将开始（设计稿 .card 即将开始） ------------------------------ */
 /** 进行中优先，其余待考按开始时间升序，取前 3 条 */
 const upcomingExams = computed<ExamMy[]>(() => {
-  const list = myExams.value.filter((e) => !e.exempt);
+  const list = myExams.value.filter((e) => !e.exempt && getExamStatus(e) !== 'ended');
   const ongoing = list.filter((e) => e.recordStatus === 'in_progress');
   const pending = list
     .filter((e) => !e.recordStatus)
@@ -194,8 +209,9 @@ function attemptChances(exam: ExamMy): number {
 /** 徽标：进行中=ok / ≤2 天=warn / 其它=gray（设计稿 .bdg--ok / --warn） */
 function examBadge(exam: ExamMy): { text: string; tone: 'ok' | 'warn' | 'gray' } {
   if (exam.recordStatus === 'in_progress') return { text: '进行中', tone: 'ok' };
+  if (getExamStatus(exam) === 'ongoing') return { text: '可作答', tone: 'ok' };
   const days = daysUntil(exam);
-  if (days <= 0) return { text: '即将开始', tone: 'warn' };
+  if (days <= 0) return { text: '今天开考', tone: 'warn' };
   return { text: `${days} 天后`, tone: days <= 2 ? 'warn' : 'gray' };
 }
 
@@ -249,30 +265,31 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="exam-home">
+  <div data-ui-layout="candidate" data-ui-page="ExamHomePage" class="exam-home">
     <!-- 欢迎条（hero：主色渐变 + 待办摘要 + 主操作） -->
     <div class="exam-home__hero">
       <h2 class="exam-home__hero-title">{{ userName || '同学' }}，{{ greeting }}</h2>
       <p class="exam-home__hero-text">
-        <template v-if="todos.length > 0">
+        <template v-if="loading">正在加载待办与学习进度…</template>
+        <template v-else-if="summaryError">待办暂不可用，可前往我的考试查看。</template>
+        <template v-else-if="todos.length > 0">
           {{ todos[0].text }}<template v-if="todos.length > 1">，另有 {{ todos.length - 1 }} 项待办</template>。
         </template>
         <template v-else>当前没有待办事项，保持状态，随时可以开始练习。</template>
       </p>
       <div class="exam-home__hero-act">
         <el-button size="small" @click="go('/exam/my')">查看我的考试</el-button>
-        <el-button size="small" class="exam-home__hero-msg" @click="go('/notifications')">
+        <el-button v-if="canAccess('/notifications')" size="small" class="exam-home__hero-msg" @click="go('/notifications')">
           消息中心<template v-if="summary?.unreadCount"> · {{ summary?.unreadCount }}</template>
         </el-button>
       </div>
     </div>
 
-    <!-- 公告与轮播 -->
-    <ContentBoard class="exam-home__content-board" scope="exam" />
-
     <LoadingSkeleton v-if="loading" class="exam-home__loading" :rows="4" />
 
     <template v-else>
+      <RequestError v-if="summaryError" text="首页统计加载失败" @retry="load" />
+      <p class="learner-scope exam-home__scope">考试：当前参与范围；成绩：本人全部已出成绩答卷</p>
       <!-- 统计 -->
       <div class="exam-home__stats">
         <StatCard
@@ -292,13 +309,14 @@ onMounted(load);
         <div class="exam-home__stack">
           <el-card class="exam-home__card exam-home__card--upcoming" shadow="never">
             <template #header>
-              <h3 class="exam-home__card-title">即将开始</h3>
+              <h3 class="exam-home__card-title">待参加考试</h3>
               <el-button class="exam-home__card-link" link type="primary" @click="go('/exam/my')">
                 全部考试
               </el-button>
             </template>
 
-            <div v-if="upcomingExams.length > 0" class="exam-home__exams">
+            <RequestError v-if="examsError" text="我的考试加载失败" @retry="load" />
+            <div v-else-if="upcomingExams.length > 0" class="exam-home__exams">
               <div
                 v-for="exam in upcomingExams"
                 :key="exam.id"
@@ -345,7 +363,7 @@ onMounted(load);
           <el-card v-if="trend.length > 0" class="exam-home__card exam-home__card--trend" shadow="never">
             <template #header>
               <h3 class="exam-home__card-title">成绩趋势</h3>
-              <span class="exam-home__card-sub">近 {{ chart?.dots.length ?? 0 }} 场</span>
+              <span class="exam-home__card-sub">折线最近 {{ chart?.dots.length ?? 0 }} 份 · 摘要最近 {{ trend.length }} 份</span>
             </template>
 
             <template v-if="chart && trendSummary">
@@ -359,21 +377,18 @@ onMounted(load);
                 </g>
                 <!-- 轴标签 -->
                 <g class="exam-home__chart-axis exam-home__chart-axis--y" text-anchor="end">
-                  <text :x="CHART.x0 - 8" y="27.5">100</text>
-                  <text :x="CHART.x0 - 8" y="61.5">75</text>
-                  <text :x="CHART.x0 - 8" y="95.5">50</text>
+                  <text :x="CHART.x0 - 8" y="27.5">{{ chart.maximum }}</text>
+                  <text :x="CHART.x0 - 8" y="61.5">{{ Math.round(chart.maximum * 2 / 3) }}</text>
+                  <text :x="CHART.x0 - 8" y="95.5">{{ Math.round(chart.maximum / 3) }}</text>
                   <text :x="CHART.x0 - 8" y="129.5">0</text>
                 </g>
                 <!-- 及格线（主色浅档虚线，DESIGN-C §2.5） -->
-                <line
+                <polyline
                   class="exam-home__chart-pass"
-                  :x1="CHART.x0"
-                  :y1="chart.passY"
-                  :x2="CHART.x1"
-                  :y2="chart.passY"
+                  :points="chart.passPoints"
                 />
                 <text class="exam-home__chart-pass-label" :x="CHART.x1" :y="chart.passY - 4" text-anchor="end">
-                  及格线 {{ passLine }}
+                  {{ chart.passLabel }}
                 </text>
                 <!-- 折线 -->
                 <polyline class="exam-home__chart-line" :points="chart.line" />
@@ -509,6 +524,7 @@ onMounted(load);
         </div>
       </div>
     </template>
+    <ContentBoard class="exam-home__content-board" scope="exam" />
   </div>
 </template>
 
@@ -606,7 +622,7 @@ onMounted(load);
   }
 
   &__card-sub {
-    font-size: 11.5px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -690,7 +706,7 @@ onMounted(load);
     height: 20px;
     padding: 0 7px;
     border-radius: 5px;
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 600;
     white-space: nowrap;
 
@@ -775,7 +791,7 @@ onMounted(load);
   &__notice-meta {
     display: block;
     margin-top: 4px;
-    font-size: 11px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -839,7 +855,7 @@ onMounted(load);
   }
 
   &__bank-meta {
-    font-size: 11.5px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -860,10 +876,11 @@ onMounted(load);
 
   &__chart-axis {
     fill: $text-secondary;
-    font-size: 10.5px;
+    font-size: 12px;
   }
 
   &__chart-pass {
+    fill: none;
     stroke: $color-primary-light;
     stroke-width: 1;
     stroke-dasharray: 4 4;
@@ -871,7 +888,7 @@ onMounted(load);
 
   &__chart-pass-label {
     fill: $color-primary-light;
-    font-size: 10px;
+    font-size: 12px;
   }
 
   &__chart-line {
@@ -901,7 +918,7 @@ onMounted(load);
 
   &__kicker {
     display: block;
-    font-size: 10.5px;
+    font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.11em;
     text-transform: uppercase;
@@ -927,7 +944,7 @@ onMounted(load);
       padding: 0 10px;
       height: 30px;
       border-bottom: 1px solid $line-strong;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 600;
       letter-spacing: 0.06em;
       text-transform: uppercase;
@@ -968,7 +985,7 @@ onMounted(load);
   &__tbl-meta {
     display: block;
     margin-top: 1px;
-    font-size: 11px;
+    font-size: 12px;
     color: $text-secondary;
   }
 
@@ -986,7 +1003,7 @@ onMounted(load);
   &__tbl-pass {
     display: block;
     margin-top: 1px;
-    font-size: 11px;
+    font-size: 12px;
 
     &.is-ok {
       color: $color-success-text;
@@ -1181,7 +1198,7 @@ onMounted(load);
     &__shortcut-text {
       max-width: 100%;
       overflow: hidden;
-      font-size: 11.5px;
+      font-size: 12px;
       white-space: nowrap;
       text-overflow: ellipsis;
     }

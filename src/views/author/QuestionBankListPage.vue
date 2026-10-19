@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, toRaw, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Collection, Folder, Refresh, Search, Setting } from '@element-plus/icons-vue';
 import * as banksApi from '@/api/banks';
 import { useAuthStore } from '@/stores/auth';
+import { useRequest } from '@/composables/useRequest';
 import PageHeader from '@/components/common/PageHeader.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import QuestionBankDetailPage from './QuestionBankDetailPage.vue';
@@ -14,8 +16,8 @@ const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const isAdmin = computed(() => authStore.hasRole('admin'));
-const loading = ref(false);
-const tree = ref<BankTreeNode[]>([]);
+const { data: treeData, loading, error: treeError, refresh: refreshTree } = useRequest(() => banksApi.tree(), [], { immediate: false, keepPreviousData: false });
+const tree = computed(() => treeData.value ?? []);
 const treeRef = ref<{ filter: (value: string) => void; setCurrentKey: (key: string) => void }>();
 const keyword = ref('');
 const selectedId = ref('');
@@ -38,16 +40,12 @@ function filterNode(value: string, data: { name?: string }): boolean {
 watch(keyword, (value) => treeRef.value?.filter(value));
 
 async function loadTree(preferredId = ''): Promise<void> {
-  loading.value = true;
-  try {
-    tree.value = await banksApi.tree();
-    const requested = preferredId || String(route.query.bankId ?? '') || selectedId.value;
-    selectedId.value = flatMap.value.has(requested) ? requested : (tree.value[0]?.id ?? '');
-    await nextTick();
-    if (selectedId.value) treeRef.value?.setCurrentKey(selectedId.value);
-  } finally {
-    loading.value = false;
-  }
+  const response = await refreshTree();
+  if (!response || response !== toRaw(treeData.value)) return;
+  const requested = preferredId || String(route.query.bankId ?? '') || selectedId.value;
+  selectedId.value = flatMap.value.has(requested) ? requested : (tree.value[0]?.id ?? '');
+  await nextTick();
+  if (selectedId.value) treeRef.value?.setCurrentKey(selectedId.value);
 }
 
 function selectNode(node: BankTreeNode): void {
@@ -74,7 +72,7 @@ onMounted(() => void loadTree());
 </script>
 
 <template>
-  <div class="bank-workspace subject-workspace page">
+  <div data-ui-layout="tree" data-ui-page="QuestionBankListPage" class="bank-workspace subject-workspace page">
     <PageHeader title="题库管理" description="选择科目并维护叶子科目中的试题">
       <template #actions>
         <el-button :icon="Refresh" :loading="loading" @click="loadTree()">刷新</el-button>
@@ -82,7 +80,8 @@ onMounted(() => void loadTree());
       </template>
     </PageHeader>
 
-    <div class="bank-workspace__card subject-workspace__layout">
+    <RequestError v-if="treeError" text="题库目录加载失败" @retry="loadTree()" />
+    <div v-else class="bank-workspace__card subject-workspace__layout">
       <aside class="bank-workspace__tree-panel subject-workspace__sidebar" aria-label="科目目录">
         <div class="subject-workspace__nav-heading"><h3>科目目录</h3><span>共 {{ flatMap.size }} 个</span></div>
         <el-input v-model="keyword" clearable placeholder="搜索科目" aria-label="搜索科目" :prefix-icon="Search" />

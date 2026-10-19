@@ -109,7 +109,7 @@ function handleSizeChange(value: number): void {
 
     &__button {
       min-width: 58px;
-      height: 32px;
+      height: 44px;
       padding: 0 10px;
       border: 1px solid $line-strong;
       border-radius: $radius-xs;

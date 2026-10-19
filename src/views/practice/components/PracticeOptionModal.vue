@@ -4,7 +4,7 @@
  * 打开时按题库重置为默认值（顺序 + 全部题 + 全选题型）。
  * 视觉：冷静蓝 · 商务风（小圆角、细边框、实色主按钮、无渐变）。
  */
-import { computed, ref, watch } from 'vue';
+import { computed, ref, useId, watch } from 'vue';
 import type { PracticeBank, PracticeConfig, PracticeMode, PracticeSessionInput, QuestionType } from '@/types';
 
 const props = defineProps<{
@@ -28,18 +28,21 @@ const innerVisible = computed<boolean>({
 const mode = ref<PracticeMode>('sequence');
 /** 题量：'all' 或具体数字 */
 const countMode = ref<'all' | number>('all');
+const starting = ref(false);
+const choicesId = useId();
 /** 题型（默认全选） */
 const types = ref<QuestionType[]>(['single', 'multiple', 'judge']);
 
 /** 每次打开重置默认值（练题方式取后台默认，题量取「全部」） */
 watch(
-  () => props.visible,
-  (visible) => {
-    if (!visible) return;
+  () => [props.visible, props.bank.id],
+  () => {
+    if (!props.visible) return;
+    starting.value = false;
     mode.value = props.config.defaultPracticeMode;
     countMode.value = 'all';
     types.value = ['single', 'multiple', 'judge'];
-  },
+  }, { immediate: true },
 );
 
 /** 该题库是否有题可练 */
@@ -59,7 +62,8 @@ const countOptions = computed<number[]>(() =>
 
 /** 开始练习：组装入参并通知父组件 */
 function confirm(): void {
-  if (!hasQuestions.value || types.value.length === 0) return;
+  if (!hasQuestions.value || types.value.length === 0 || starting.value) return;
+  starting.value = true;
   emit('start', {
     bankId: props.bank.id,
     mode: mode.value,
@@ -73,35 +77,36 @@ function confirm(): void {
 <template>
   <el-dialog
     v-model="innerVisible"
-    :title="`${bank.name} · 开始练习`"
+    title="练习设置"
     width="560px"
     align-center
     append-to-body
     class="opt-dialog"
   >
     <div class="opt">
+      <div class="opt__context"><span>当前题库</span><strong>{{ bank.name }}</strong></div>
       <div class="opt__group">
-        <div class="opt__label">练题方式</div>
-        <el-radio-group v-model="mode" class="opt__choices">
+        <div :id="`${choicesId}-mode`" class="opt__label">练题方式</div>
+        <el-radio-group v-model="mode" :aria-labelledby="`${choicesId}-mode`" class="opt__choices">
           <el-radio value="sequence">顺序</el-radio>
           <el-radio value="random">随机</el-radio>
         </el-radio-group>
       </div>
 
       <div class="opt__group">
-        <div class="opt__label">题量</div>
-        <el-radio-group v-model="countMode" class="opt__choices">
-          <el-radio value="all">全部（{{ allCount }} 题）</el-radio>
+        <div :id="`${choicesId}-count`" class="opt__label">题量</div>
+        <el-radio-group v-model="countMode" :aria-labelledby="`${choicesId}-count`" class="opt__choices">
+          <el-radio value="all">按可用题量（最多 {{ allCount }} 题）</el-radio>
           <el-radio v-for="n in countOptions" :key="n" :value="n">{{ n }} 题</el-radio>
         </el-radio-group>
         <p v-if="countOptions.length === 0" class="opt__tip">
-          该题库题量未超过单次上限，默认一次练完（上限 {{ config.sessionMaxCount }} 题）
+          题量按所选题型的实际可用题目生成，单次上限 {{ config.sessionMaxCount }} 题。
         </p>
       </div>
 
       <div class="opt__group">
-        <div class="opt__label">题型</div>
-        <el-checkbox-group v-model="types" class="opt__choices">
+        <div :id="`${choicesId}-types`" class="opt__label">题型</div>
+        <el-checkbox-group v-model="types" :aria-labelledby="`${choicesId}-types`" class="opt__choices">
           <el-checkbox value="single">单选</el-checkbox>
           <el-checkbox value="multiple">多选</el-checkbox>
           <el-checkbox value="judge">判断</el-checkbox>
@@ -113,7 +118,7 @@ function confirm(): void {
 
     <template #footer>
       <el-button @click="innerVisible = false">取消</el-button>
-      <el-button type="primary" :disabled="!hasQuestions || types.length === 0" @click="confirm">开始</el-button>
+      <el-button type="primary" :loading="starting" :disabled="!hasQuestions || types.length === 0 || starting" @click="confirm">开始练习</el-button>
     </template>
   </el-dialog>
 </template>
@@ -166,6 +171,17 @@ function confirm(): void {
 }
 
 .opt {
+  &__context {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 20px;
+    padding: 14px 16px;
+    border: 1px solid $border-color;
+    border-radius: $radius-lg;
+    background: $bg-page;
+    span { color: $text-secondary; font-size: 12px; }
+    strong { min-width: 0; color: $text-primary; font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
+  }
   &__group {
     margin-bottom: 20px;
 
@@ -201,13 +217,14 @@ function confirm(): void {
     color: $text-secondary;
   }
 
-  /* 选项做成可点选卡片（移动端触控区 ≥42px） */
+  /* 桌面与手机共用44px选项，长题量说明允许自然换行。 */
   :deep(.el-radio),
   :deep(.el-checkbox) {
     display: inline-flex;
     align-items: center;
     height: auto;
-    min-height: 42px;
+    min-height: 44px;
+    max-width: 100%;
     margin: 0;
     padding: 0 14px;
     border: 1px solid $line-strong;
@@ -227,6 +244,9 @@ function confirm(): void {
     padding-left: 7px;
     font-size: 14px;
     color: $text-primary;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 </style>

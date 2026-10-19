@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>考生端与练题端 · UI 验收</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#f4f6fb;color:#182230;font:14px/1.75 system-ui,"Microsoft YaHei",sans-serif}main{max-width:1200px;margin:auto;padding:40px 24px 80px}h1{font-size:28px;margin:0 0 12px}h2{font-size:19px;margin:0 0 16px}p{margin:8px 0;color:#475467}a{color:#2563eb}section{margin-top:24px;background:white;border:1px solid #eaecf0;border-radius:16px;padding:24px}.badge{display:inline-block;padding:5px 12px;color:#027a48;background:#ecfdf3;border-radius:8px;margin:8px 8px 0 0}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:580px}th,td{text-align:left;padding:12px;border-bottom:1px solid #eaecf0;vertical-align:top}th{color:#475467;background:#f9fafb}figure{margin:0}figcaption{padding:12px 0;color:#475467;font-size:13px}img{display:block;width:100%;height:auto;border:1px solid #eaecf0;border-radius:12px}.mobile-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}.sample-grid{display:grid;grid-template-columns:repeat(2,minmax(0,320px));gap:24px}li{margin:8px 0}.muted{font-size:13px;color:#667085}@media(max-width:700px){main{padding:24px 16px 60px}section{padding:18px}.mobile-grid,.sample-grid{grid-template-columns:1fr}figure{max-width:390px;margin:auto}h1{font-size:23px}}
+  </style>
+</head>
+<body><main>
+  <h1>考生端与练题端 · 上一轮样式与流程记录</h1>
+  <p>此记录验证样式一致性、布局和功能，不代表已按设计稿还原。侧栏与练题首页的后续结构修正见 <a href="../fidelity-verification/index.html">最新设计对照与实际截图</a>。</p>
+  <p>2026-10-19 · 延续白侧栏、浅灰蓝背景、蓝色操作和 16 px 卡片规范。实际应用源码已更新。</p>
+  <span class="badge">11 个实际页面 × 4 种宽度</span><span class="badge">57 个测试文件 · 436 项测试</span><span class="badge">类型检查与生产构建通过</span>
+  <section><h2>本次落地</h2><ul>
+    <li>考生首页、我的考试、我的成绩、我的补考、个人中心与消息中心；练题首页、错题本、收藏、学习报告与练题个人页使用同一套色彩、圆角、间距和状态规范。</li>
+    <li>手机考试采用单题阅读、上一题／下一题、底部常驻操作和抽屉答题卡。五种考试题型、简答富文本与图片能力、个人加时、复核、补考、免考、次数限制及账号权限保留。</li>
+    <li>交卷前等待最新答案保存；串行保存防止旧请求覆盖；失败保留本页答案并支持重试。填空逐空输入正确回传，空填空与空富文本不计为完成。</li>
+    <li>练题支持答题卡往返、遗漏题补答和首次判分小结；顺序／随机、原有三种练题题型、每日一练、错题复习、收藏重练、答案及解析开关保留。</li>
+    <li>手机弹窗与确认框按钮至少 44 px；简答工具触控区至少 44 × 44 px；横屏弹窗正文内部滚动，底部操作保持可达。</li>
+    <li>统计写明当前参与范围、本人记录、已加载数量及趋势期间；无样本正确率显示“—”，请求失败可重试。成绩趋势保留实际分数和各场及格线，不强行压成百分制。</li>
+  </ul></section>
+  <section><h2>响应式检查</h2><p>分别检查 320、390、768、1440 px 宽度，44 个页面尺寸组合均无页面横向溢出。弹窗另外核对 844 × 390 横屏，内容滚动与底部按钮可达。</p>
+    <div class="table-wrap"><table><thead><tr><th>页面</th><th>范围</th><th>320／390／768／1440</th></tr></thead><tbody>
+      <tr><td>考生首页</td><td>问候、统计、待参加考试、公告、快捷入口</td><td>通过</td></tr>
+      <tr><td>我的考试</td><td>筛选、考试卡片、待阅卷、免考、操作按钮</td><td>通过</td></tr>
+      <tr><td>我的成绩</td><td>统计范围、桌面列表、手机卡片、复核入口</td><td>通过</td></tr>
+      <tr><td>我的补考</td><td>申请表单、申请记录、空状态</td><td>通过</td></tr>
+      <tr><td>消息中心／个人中心</td><td>列表、资料、安全与密码弹窗</td><td>通过</td></tr>
+      <tr><td>练题首页</td><td>每日一练、学习成就、题库树、设置弹窗</td><td>通过</td></tr>
+      <tr><td>错题本／收藏</td><td>分组、长题干、分页、空态与加载重试</td><td>通过</td></tr>
+      <tr><td>学习报告／练题个人页</td><td>趋势期间、累计范围、无样本统计</td><td>通过</td></tr>
+    </tbody></table></div><p class="muted"><a href="checks.json">页面与弹窗尺寸检查记录</a></p>
+  </section>
+  <section><h2>手机端实际页面</h2><div class="mobile-grid">
+    <figure><a href="exam-mobile.png"><img src="exam-mobile.png" alt="考生首页手机端"></a><figcaption>考生首页：任务、统计和考试在前；公告与运营内容后置。</figcaption></figure>
+    <figure><a href="practice-mobile.png"><img src="practice-mobile.png" alt="练题首页手机端"></a><figcaption>练题首页：分区卡片、题库树、固定导航及便于点击的操作。</figcaption></figure>
+    <figure><a href="practice-options-mobile.png"><img src="practice-options-mobile.png" alt="练题设置弹窗手机端"></a><figcaption>练题设置：方式、实际可用题量及题型保持完整。</figcaption></figure>
+  </div></section>
+  <section><h2>桌面端实际页面</h2><figure><a href="exam-desktop.png"><img src="exam-desktop.png" alt="考生首页桌面端"></a><figcaption>与管理端共用白侧栏和浅灰蓝底；核心任务优先展示。</figcaption></figure></section>
+  <section><h2>作答组件与结果弹窗</h2><p>下图使用实际组件及本地样例数据检查。五种题型、长题干与长选项均核对 320 px；填空往返保留答案，富文本连续字符在编辑区内换行。</p><div class="sample-grid">
+    <figure><a href="answer-sheet-mobile-sample.png"><img src="answer-sheet-mobile-sample.png" alt="答题卡组件本地样例"></a><figcaption>按题型分组的答题卡；正文独立滚动、继续作答固定可达。</figcaption></figure>
+    <figure><a href="result-mobile-sample.png"><img src="result-mobile-sample.png" alt="待阅卷结果弹窗本地样例"></a><figcaption>含主观题时显示待阅卷，明确当前分数不是最终成绩。</figcaption></figure>
+  </div></section>
+  <section><h2>验证方式与范围</h2><p>列表、统计、题库、账号页和练题设置弹窗使用现有演示考生账号查看；作答组件使用独立本地样例。保存、交卷、复核与补考等写入流程使用模拟 API 测试，未通过 UI 开始或提交真实考试，也未修改账号权限。</p><p>57 个前端测试文件、436 项测试通过；Vue／TypeScript 类型检查通过，Vite 生产构建通过。已有 Sass 旧 API 弃用提示不影响构建。</p><p class="muted">截图中的数据为验收时接口返回的当前值；后续数据变化以应用为准。测试明细在工作区 .build-verify/learner-full-tests.log，类型与构建日志分别为 learner-types-final.log、learner-build.log。</p></section>
+</main></body></html>

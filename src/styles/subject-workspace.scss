@@ -4,14 +4,19 @@
 @mixin layout {
   .subject-workspace {
     container: subject-workspace / inline-size;
-    gap: 0;
+    gap: 16px;
   }
 
   .subject-workspace__layout {
     display: grid;
-    grid-template-columns: 248px minmax(0, 1fr);
+    grid-template-columns: 232px minmax(0, 1fr);
     align-items: start;
-    gap: 20px;
+    gap: 0;
+    border: 1px solid $border-color;
+    border-radius: $radius-lg;
+    background: $bg-paper;
+    box-shadow: $shadow-card;
+    overflow: clip;
   }
 
   .subject-workspace__sidebar {
@@ -22,8 +27,7 @@
     min-width: 0;
     max-height: max(360px, calc(100dvh - 180px));
     padding: 16px 12px 12px;
-    border: 1px solid $border-color;
-    border-radius: $radius-lg;
+    border-right: 1px solid $border-color;
     background: $bg-paper;
   }
 
@@ -107,19 +111,17 @@
     min-width: 0;
     min-height: 600px;
     padding: 24px;
-    border: 1px solid $border-color;
-    border-radius: $radius-lg;
     background: $bg-paper;
   }
 
   @container subject-workspace (max-width: 1000px) {
-    .subject-workspace__layout { grid-template-columns: 216px minmax(0, 1fr); gap: 16px; }
+    .subject-workspace__layout { grid-template-columns: 204px minmax(0, 1fr); }
     .subject-workspace__content { padding: 20px; }
   }
 
   @container subject-workspace (max-width: 760px) {
     .subject-workspace__layout { grid-template-columns: minmax(0, 1fr); }
-    .subject-workspace__sidebar { position: static; max-height: 280px; }
+    .subject-workspace__sidebar { position: static; max-height: 280px; border-right: 0; border-bottom: 1px solid $border-color; }
     .subject-workspace__tree { min-height: 72px; }
     .subject-workspace__nav-footer { margin-top: 8px; padding-top: 8px; }
     .subject-workspace__content { min-height: 400px; padding: 16px; }

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import ElementPlus, { ElUpload, type UploadFile } from 'element-plus';
 import UserImportDialog from './UserImportDialog.vue';
@@ -15,6 +15,7 @@ vi.mock('@/api/userImport', () => ({
 }));
 
 let wrapper: ReturnType<typeof mount>;
+beforeEach(() => vi.clearAllMocks());
 afterEach(() => {
   wrapper?.unmount();
   document.body.innerHTML = '';
@@ -38,6 +39,17 @@ function footerButton(text: string) {
 }
 
 describe('账号导入弹窗', () => {
+  it('完整文件名可移除，移除后不能继续解析', async () => {
+    await openDialog(); footerButton('下一步：上传').click(); await flushPromises();
+    const raw = Object.assign(new File(['sample'], '账号导入长文件名称ABCDEFGHIJKLMNOPQRSTUVWXYZ.xlsx'), { uid: 1 });
+    wrapper.getComponent(ElUpload).vm.handleStart(raw); await flushPromises();
+    expect(document.querySelector('.selected-import-file')?.textContent).toContain(raw.name);
+    expect(footerButton('解析预览').disabled).toBe(false);
+    document.querySelector<HTMLButtonElement>('button[aria-label="移除已选文件"]')!.click(); await flushPromises();
+    expect(document.querySelector('.selected-import-file')).toBeNull();
+    expect(footerButton('解析预览').disabled).toBe(true);
+    expect(userImportApi.previewUsers).not.toHaveBeenCalled();
+  });
   it('底部按钮可以进入上传、返回模板并取消，未选文件时禁止解析', async () => {
     await openDialog();
     footerButton('下一步：上传').click();
@@ -74,14 +86,20 @@ describe('账号导入弹窗', () => {
     wrapper.findComponent(ElUpload).props('onChange')!({ raw: new File(['test'], 'users.xlsx') } as UploadFile, []);
     await flushPromises();
     footerButton('解析预览').click();
+    footerButton('解析预览').click();
     await flushPromises();
+    expect(userImportApi.previewUsers).toHaveBeenCalledTimes(1);
+    expect(wrapper.getComponent(ElUpload).props('disabled')).toBe(true);
     expect(footerButton('上一步').disabled).toBe(true);
     expect(footerButton('取消').disabled).toBe(true);
     expect(document.querySelector('.el-dialog__headerbtn')).toBeNull();
     finishPreview({ successCount: 1, failCount: 0, totalRows: 1, validRows: [], errors: [], warnings: [] });
     await flushPromises();
+    expect(document.querySelector('.user-import__stats')?.textContent).toContain('可导入 1 条');
+    footerButton('确认导入').click();
     footerButton('确认导入').click();
     await flushPromises();
+    expect(userImportApi.commitUsers).toHaveBeenCalledTimes(1);
     expect(footerButton('取消').disabled).toBe(true);
     document.querySelector<HTMLElement>('#tab-history')!.click();
     await flushPromises();

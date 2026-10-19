@@ -1,0 +1,845 @@
+{
+  "date": "2026-10-19",
+  "practice": [
+    {
+      "page": "练题首页",
+      "width": 320,
+      "body": 312,
+      "contentClient": 312,
+      "contentScroll": 312,
+      "hero": {
+        "bottom": 354.3000030517578,
+        "height": 204.1000061035156,
+        "left": 12,
+        "right": 300,
+        "top": 150.1999969482422,
+        "width": 288,
+        "x": 12,
+        "y": 150.1999969482422
+      },
+      "shortcuts": 4
+    },
+    {
+      "page": "练题首页",
+      "width": 390,
+      "body": 382,
+      "contentClient": 382,
+      "contentScroll": 382,
+      "hero": {
+        "bottom": 354.3000030517578,
+        "height": 204.1000061035156,
+        "left": 12,
+        "right": 370.3999938964844,
+        "top": 150.1999969482422,
+        "width": 358.3999938964844,
+        "x": 12,
+        "y": 150.1999969482422
+      },
+      "shortcuts": 4
+    },
+    {
+      "page": "练题首页",
+      "width": 768,
+      "body": 760,
+      "contentClient": 760,
+      "contentScroll": 760,
+      "hero": {
+        "bottom": 354.3000030517578,
+        "height": 204.1000061035156,
+        "left": 92,
+        "right": 668,
+        "top": 150.1999969482422,
+        "width": 576,
+        "x": 92,
+        "y": 150.1999969482422
+      },
+      "shortcuts": 4
+    },
+    {
+      "page": "练题首页",
+      "width": 1440,
+      "body": 1440,
+      "contentClient": 1200,
+      "contentScroll": 1200,
+      "hero": {
+        "bottom": 458,
+        "height": 213.1999969482422,
+        "left": 312,
+        "right": 1352,
+        "top": 244.8000030517578,
+        "width": 1040,
+        "x": 312,
+        "y": 244.8000030517578
+      },
+      "shortcuts": 4
+    }
+  ],
+  "management": [
+    {
+      "path": "/admin/dashboard",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/subjects",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/author/banks",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/templates",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/question-feedback",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/duplicate-questions",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/exams",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/exams/new",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/retakes",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/appeals",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/reviews",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/scores",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/content",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/home-config",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/practice-settings",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/practice-monitor",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/departments",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/users",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/roles",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/positions",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/permissions",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/settings",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/audit",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/login-logs",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/maintenance",
+      "width": 1440,
+      "body": 1440,
+      "client": 1200,
+      "headerClient": 1208,
+      "headerScroll": 1208,
+      "scroll": 1200,
+      "failed": false
+    },
+    {
+      "path": "/admin/dashboard",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/subjects",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/author/banks",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/templates",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/question-feedback",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/duplicate-questions",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/exams",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/exams/new",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/retakes",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/appeals",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/reviews",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/scores",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/content",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/home-config",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/practice-settings",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/practice-monitor",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/departments",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/users",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/roles",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/positions",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/permissions",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/settings",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/audit",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/login-logs",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/maintenance",
+      "width": 320,
+      "body": 320,
+      "client": 312,
+      "headerClient": 320,
+      "headerScroll": 320,
+      "scroll": 312,
+      "failed": false
+    },
+    {
+      "path": "/admin/dashboard",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/subjects",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/author/banks",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/templates",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/question-feedback",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/duplicate-questions",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/exams",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/exams/new",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/retakes",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/appeals",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/reviews",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/scores",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/content",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/home-config",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/practice-settings",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/practice-monitor",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/departments",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/users",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/roles",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/positions",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/permissions",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/settings",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/audit",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/login-logs",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    },
+    {
+      "path": "/admin/maintenance",
+      "width": 768,
+      "body": 768,
+      "client": 528,
+      "headerClient": 536,
+      "headerScroll": 536,
+      "scroll": 528,
+      "failed": false
+    }
+  ],
+  "features": [
+    "四个学习入口继续按功能开关过滤",
+    "科目卡仅展示服务端目录中的叶子题库",
+    "原有选题模式、题量及题型参数不变",
+    "进度来自练题报表接口，失败时不编造进度",
+    "九枚现有成就仍在成就弹窗内完整展示",
+    "侧栏继续使用原有 getMenuGroups 权限过滤结果",
+    "桌面侧栏可折叠到 64 px",
+    "手机点击当前菜单也会关闭导航抽屉"
+  ],
+  "regression": {
+    "files": 58,
+    "tests": 440,
+    "typecheck": "passed",
+    "build": "passed"
+  }
+}

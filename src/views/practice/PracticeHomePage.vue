@@ -1,18 +1,19 @@
 <script setup lang="ts">
 /**
- * 练题首页：对外开放练题的题库列表 + 错题本入口。
- * 仅移动端布局；从题库卡进入「顺序/随机」练题。
- * 视觉：冷静蓝 · 商务风（无 emoji 装饰、无渐变、细边框卡片）。
+ * 练题首页：按确认稿排列问候、每日一练、学习快捷入口与科目卡片。
+ * 题库、学习进度和功能入口使用服务端权限与配置；选题参数沿用现有流程。
  */
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { ArrowRight, Collection, Medal, Notebook, Star, TrendCharts } from '@element-plus/icons-vue';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
+import RequestError from '@/components/common/RequestError.vue';
 import PracticeLoading from '@/components/common/PracticeLoading.vue';
 import PracticeOptionModal from './components/PracticeOptionModal.vue';
 import { usePracticeAuthStore } from '@/stores/practiceAuth';
 import { usePracticeConfigStore } from '@/stores/practiceConfig';
 import * as practiceApi from '@/api/practice';
-import type { PracticeAchievements, PracticeBank, PracticeBankTreeNode, PracticeDailyTask, PracticeSessionInput } from '@/types';
+import type { PracticeAchievements, PracticeBank, PracticeBankStat, PracticeBankTreeNode, PracticeDailyTask, PracticeSessionInput } from '@/types';
 
 const router = useRouter();
 const practiceAuth = usePracticeAuthStore();
@@ -21,13 +22,45 @@ const configStore = usePracticeConfigStore();
 const config = computed(() => configStore.config);
 
 const loading = ref(true);
+const loadError = ref(false);
 const banks = ref<PracticeBank[]>([]);
 const bankTree = ref<PracticeBankTreeNode[]>([]);
-const wrongTotal = ref(0);
-const favoriteTotal = ref(0);
+const wrongTotal = ref<number | null>(null);
+const favoriteTotal = ref<number | null>(null);
 const daily = ref<PracticeDailyTask | null>(null);
 /** 打卡与成就（v2.0⑤；模块关闭时后端 1017，静默不显示） */
 const achievements = ref<PracticeAchievements | null>(null);
+const bankStats = ref<PracticeBankStat[] | null>(null);
+const achievementsVisible = ref(false);
+const achievementsLoading = ref(false);
+const achievementAvailable = computed(() => config.value.achievementEnabled && achievements.value?.enabled !== false);
+const shortcutCount = computed(() => Number(config.value.wrongBookEnabled) + Number(config.value.favoriteEnabled) + Number(config.value.reportEnabled) + Number(achievementAvailable.value));
+const bankStatsMap = computed(() => new Map((bankStats.value ?? []).map(item => [item.bankId, item])));
+const bankCards = computed(() => {
+  const rows: Array<{ bank: PracticeBank; subject: string }> = [];
+  const visibleBanks = new Map(banks.value.map(bank => [bank.id, bank]));
+  function visit(nodes: PracticeBankTreeNode[], ancestors: string[]): void {
+    for (const node of nodes) {
+      if (node.isLeaf) {
+        const bank = visibleBanks.get(node.id);
+        if (bank) rows.push({ bank, subject: ancestors.join(' / ') });
+      } else visit(node.children ?? [], [...ancestors, node.name]);
+    }
+  }
+  visit(bankTree.value, []);
+  return rows;
+});
+function progressPercent(bankId: string): number {
+  const stat = bankStatsMap.value.get(bankId);
+  return stat && stat.totalCount > 0 ? Math.min(100, Math.round(stat.doneCount / stat.totalCount * 100)) : 0;
+}
+async function loadAchievements(): Promise<void> {
+  if (!achievementAvailable.value || achievementsLoading.value) return;
+  achievementsLoading.value = true;
+  try { achievements.value = await practiceApi.achievements(); }
+  catch { achievements.value = null; }
+  finally { achievementsLoading.value = false; }
+}
 
 const userName = computed<string>(() => practiceAuth.currentUser?.name ?? '');
 
@@ -50,10 +83,11 @@ const practiceQuestionTotal = computed<number>(() =>
 /** 加载题库列表、错题本数量、收藏数量、今日任务与打卡成就 */
 async function load(): Promise<void> {
   loading.value = true;
+  loadError.value = false;
   try {
     // 先取练题端配置：决定是否请求错题本 / 收藏数量 / 打卡成就（功能关闭时接口会 404）
     await configStore.load();
-    const [bankList, treeList, wrongPage, favPage, dailyTask, ach] = await Promise.all([
+    const [bankList, treeList, wrongPage, favPage, dailyTask, ach, progress] = await Promise.all([
       practiceApi.listBanks(),
       practiceApi.bankTree(),
       configStore.config.wrongBookEnabled
@@ -66,15 +100,17 @@ async function load(): Promise<void> {
       practiceApi.daily().catch(() => null),
       // 打卡与成就（模块关闭时 404）
       configStore.config.achievementEnabled ? practiceApi.achievements().catch(() => null) : Promise.resolve(null),
+      configStore.config.reportEnabled ? practiceApi.reportBanks().catch(() => null) : Promise.resolve(null),
     ]);
     banks.value = bankList;
     bankTree.value = treeList;
-    wrongTotal.value = wrongPage?.total ?? 0;
-    favoriteTotal.value = favPage?.total ?? 0;
+    wrongTotal.value = wrongPage?.total ?? null;
+    favoriteTotal.value = favPage?.total ?? null;
     daily.value = dailyTask;
     achievements.value = ach;
+    bankStats.value = progress;
   } catch {
-    // 错误提示已由 http 拦截器统一弹出
+    loadError.value = true;
   } finally {
     loading.value = false;
   }
@@ -87,12 +123,6 @@ const selectedBank = ref<PracticeBank | null>(null);
 function openBank(bank: PracticeBank): void {
   selectedBank.value = bank;
   modalVisible.value = true;
-}
-
-function openTreeNode(node: PracticeBankTreeNode): void {
-  if (!node.isLeaf || node.questionCount <= 0) return;
-  const bank = banks.value.find((item) => item.id === node.id);
-  if (bank) openBank(bank);
 }
 
 /** 开始练习：携带 mode/count/types 跳到作答页（作答页据此生成会话） */
@@ -132,719 +162,90 @@ onMounted(load);
 </script>
 
 <template>
-  <PracticeLayout tabbar>
-    <template #actions>
-      <span class="home__user">{{ userName }}</span>
-    </template>
-
+  <PracticeLayout data-ui-layout="practice-home" data-ui-page="PracticeHomePage" tabbar class="practice-home">
     <div class="home">
       <PracticeLoading v-if="loading" :loading="loading" :rows="5" caption="正在加载题库…" />
-
+      <RequestError v-else-if="loadError" text="可练题库加载失败" @retry="load" />
       <template v-else>
-        <section
-          class="home__overview"
-          :class="{ 'has-daily': dailyAvailable, 'has-achievements': Boolean(achievements) }"
-          aria-label="练题概览"
-        >
-        <!-- 每日一练任务卡（后台关闭或暂无题目时整体不显示） -->
-        <div v-if="dailyAvailable" class="home__daily" :class="{ 'is-done': daily?.completed }" @click="goDaily">
-          <span class="home__daily-mark" aria-hidden="true">每日</span>
-          <div class="home__daily-body">
-            <span class="home__daily-title">
-              {{ daily?.completed ? '今日已完成' : '每日一练' }}
-            </span>
-            <span class="home__daily-sub">
-              {{ dailyProgressText }}
-              <template v-if="(daily?.streakDays ?? 0) > 0"> · 连续 {{ daily?.streakDays }} 天</template>
-            </span>
-          </div>
-          <el-button class="home__daily-btn" type="primary" size="small" :disabled="daily?.completed">
-            {{ daily?.completed ? '已完成' : '开始' }}
-          </el-button>
-        </div>
+        <header class="home__welcome">
+          <div><p>每天进步一点点</p><h1>你好，{{ userName || '同学' }}</h1></div>
+          <button type="button" class="home__avatar" aria-label="个人中心" @click="router.push('/profile')">{{ (userName || '学').slice(0, 1) }}</button>
+        </header>
 
-        <!-- 打卡与成就（v2.0⑤；模块关闭或接口失败时整体不显示） -->
-        <div v-if="achievements" class="home__ach">
-          <div class="home__ach-head">
-            <div class="home__ach-streak">
-              <span class="home__ach-num">{{ achievements.streakDays }}</span>
-              <span class="home__ach-unit">天</span>
-            </div>
-            <div class="home__ach-text">
-              <span class="home__ach-title">连续打卡</span>
-              <span class="home__ach-sub">
-                最长 {{ achievements.bestStreak }} 天 · 累计 {{ achievements.answeredTotal }} 题 · 正确率
-                {{ achievements.accuracy }}%
-              </span>
-            </div>
-            <span class="home__ach-count">{{ achievements.unlockedCount }}/{{ achievements.badges.length }}</span>
-          </div>
-          <div class="home__badges">
-            <span
-              v-for="badge in achievements.badges"
-              :key="badge.key"
-              class="home__badge"
-              :class="{ 'is-locked': !badge.unlocked }"
-              :title="badge.unlocked ? badge.desc : `未解锁：${badge.desc}`"
-            >
-              {{ badge.name }}
-            </span>
-          </div>
-        </div>
-
-        <div class="home__shortcut-grid">
-        <!-- 错题本入口（后台可关闭） -->
-        <div
-          v-if="config.wrongBookEnabled"
-          class="home__wrong"
-          :class="{ 'is-empty': wrongTotal === 0 }"
-          @click="goWrongBook"
-        >
-          <span class="home__wrong-icon" aria-hidden="true">错</span>
-          <div class="home__wrong-body">
-            <span class="home__wrong-title">我的错题本</span>
-            <span class="home__wrong-count">已收集 {{ wrongTotal }} 道题</span>
-          </div>
-          <el-button class="home__wrong-btn" size="small" :disabled="wrongTotal === 0">查看错题</el-button>
-        </div>
-
-        <!-- 我的收藏入口（后台可关闭） -->
-        <div
-          v-if="config.favoriteEnabled"
-          class="home__wrong home__wrong--fav"
-          :class="{ 'is-empty': favoriteTotal === 0 }"
-          @click="goFavorites"
-        >
-          <span class="home__wrong-icon home__wrong-icon--fav" aria-hidden="true">藏</span>
-          <div class="home__wrong-body">
-            <span class="home__wrong-title">我的收藏</span>
-            <span class="home__wrong-count">已收藏 {{ favoriteTotal }} 道题</span>
-          </div>
-          <el-button class="home__wrong-btn" size="small" :disabled="favoriteTotal === 0">查看收藏</el-button>
-        </div>
-        </div>
+        <section v-if="dailyAvailable" class="home__daily" aria-label="每日一练">
+          <span class="home__daily-kicker">DAILY PRACTICE</span>
+          <h2>{{ daily?.completed ? '今日练习，已经完成' : '今天，也学有所得' }}</h2>
+          <p>{{ dailyProgressText }}<template v-if="(daily?.streakDays ?? 0) > 0"> · 连续 {{ daily?.streakDays }} 天</template></p>
+          <button type="button" class="home__daily-start" :disabled="daily?.completed" @click="goDaily">{{ daily?.completed ? '今日已完成' : '开始练习' }}<el-icon v-if="!daily?.completed"><ArrowRight /></el-icon></button>
         </section>
 
+        <nav v-if="shortcutCount" class="home__shortcuts" aria-label="学习快捷入口" :style="{ '--shortcut-count': shortcutCount }">
+          <button v-if="config.wrongBookEnabled" type="button" @click="goWrongBook"><span class="home__shortcut-icon"><el-icon><Notebook /></el-icon></span><strong>错题本</strong><small>{{ wrongTotal === null ? '错题数量暂不可用' : `${wrongTotal} 道待巩固` }}</small></button>
+          <button v-if="config.favoriteEnabled" type="button" @click="goFavorites"><span class="home__shortcut-icon"><el-icon><Star /></el-icon></span><strong>收藏夹</strong><small>{{ favoriteTotal === null ? '收藏数量暂不可用' : `${favoriteTotal} 道收藏` }}</small></button>
+          <button v-if="config.reportEnabled" type="button" @click="router.push({ name: 'practice-report' })"><span class="home__shortcut-icon"><el-icon><TrendCharts /></el-icon></span><strong>学习报告</strong><small>查看学习进度</small></button>
+          <button v-if="achievementAvailable" type="button" @click="achievementsVisible = true"><span class="home__shortcut-icon"><el-icon><Medal /></el-icon></span><strong>成就徽章</strong><small>{{ achievements ? `${achievements.unlockedCount} 枚已解锁` : '查看学习成就' }}</small></button>
+        </nav>
+
         <section class="home__banks-panel" aria-labelledby="practice-bank-heading">
-          <header class="home__section-head">
-            <div>
-              <h2 id="practice-bank-heading" class="home__hint">可练习题库</h2>
-              <p class="home__section-sub">按科目选择题库，开始顺序练习或随机练习</p>
-            </div>
-            <span class="home__section-meta">{{ banks.length }} 个题库 · {{ practiceQuestionTotal }} 道题</span>
-          </header>
-
-        <!-- 题库列表 -->
-        <div v-if="bankTree.length === 0" class="home__empty">
-          <p class="home__empty-title">暂无可练习的题库</p>
-          <p class="home__empty-sub">当前没有对外开放练题的题库，请联系管理员在「练题端设置」中开放题库。</p>
-        </div>
-
-        <el-tree
-          v-else
-          class="home__tree"
-          :data="bankTree"
-          node-key="id"
-          default-expand-all
-          :expand-on-click-node="false"
-          :props="{ label: 'name', children: 'children' }"
-          @node-click="openTreeNode"
-        >
-          <template #default="{ data }">
-            <div class="home__tree-node" :class="{ 'is-leaf': data.isLeaf }">
-              <span class="home__tree-kind">{{ data.isLeaf ? '题库' : '科目' }}</span>
-              <span class="home__tree-name">{{ data.name }}</span>
-              <span v-if="data.isLeaf" class="home__tree-count">{{ data.questionCount }} 题</span>
-              <el-button v-if="data.isLeaf" type="primary" size="small" :disabled="data.questionCount === 0">开始</el-button>
-            </div>
-          </template>
-        </el-tree>
+          <header class="home__section-head"><h2 id="practice-bank-heading">选择科目，开始练题</h2><span>按权限展示</span></header>
+          <p class="home__scope">{{ banks.length }} 个可练题库 · {{ practiceQuestionTotal }} 道题<template v-if="bankStats"> · 进度采用本人首次作答记录</template></p>
+          <div v-if="bankCards.length === 0" class="home__empty"><p>暂无可练习的题库</p><span>当前账号暂无可练习题库，请联系管理员确认题库开放状态与浏览权限。</span></div>
+          <div v-else class="home__subjects">
+            <button v-for="item in bankCards" :key="item.bank.id" type="button" class="home__subject" :disabled="item.bank.questionCount <= 0" :aria-label="`${item.subject || item.bank.name}，${item.bank.name}，${item.bank.questionCount} 道题，选择练题方式`" @click="openBank(item.bank)">
+              <span class="home__subject-icon"><el-icon><Collection /></el-icon></span>
+              <span class="home__subject-body"><strong>{{ item.subject || item.bank.name }}</strong><span v-if="item.subject" class="home__bank-name">{{ item.bank.name }}</span><small>{{ item.bank.questionCount }} 道题<template v-if="bankStatsMap.has(item.bank.id)"> · 已练 {{ bankStatsMap.get(item.bank.id)!.doneCount }} 题</template></small><span v-if="bankStatsMap.has(item.bank.id)" class="home__progress" role="progressbar" :aria-label="`${item.bank.name}练习进度`" :aria-valuenow="progressPercent(item.bank.id)" aria-valuemin="0" aria-valuemax="100"><i :style="{ width: `${progressPercent(item.bank.id)}%` }" /></span></span>
+              <el-icon class="home__subject-arrow"><ArrowRight /></el-icon>
+            </button>
+          </div>
         </section>
       </template>
     </div>
-
-    <PracticeOptionModal
-      v-if="selectedBank"
-      v-model:visible="modalVisible"
-      :bank="selectedBank"
-      :config="config"
-      @start="handleStart"
-    />
+    <PracticeOptionModal v-if="selectedBank" v-model:visible="modalVisible" :bank="selectedBank" :config="config" @start="handleStart" />
+    <el-dialog v-model="achievementsVisible" title="学习成就" width="560px" align-center append-to-body>
+      <PracticeLoading v-if="achievementsLoading" :loading="true" :rows="2" caption="正在加载学习成就…" />
+      <RequestError v-else-if="!achievements" text="成就数据加载失败" @retry="loadAchievements" />
+      <div v-else class="home__achievements"><div class="home__ach-summary"><strong>{{ achievements.streakDays }}<small>天连续打卡</small></strong><span>最长 {{ achievements.bestStreak }} 天<br>累计 {{ achievements.answeredTotal }} 题 · 正确率 {{ achievements.answeredTotal ? `${achievements.accuracy}%` : '—' }}<br>已解锁 {{ achievements.unlockedCount }} / {{ achievements.badges.length }} 枚徽章</span></div><div class="home__badges"><div v-for="badge in achievements.badges" :key="badge.key" class="home__badge" :class="{ 'is-locked': !badge.unlocked }"><el-icon><Medal /></el-icon><div><strong>{{ badge.name }}</strong><p>{{ badge.desc }}</p><small>{{ badge.unlocked ? '已解锁' : `进度 ${badge.current} / ${badge.target}` }}</small></div></div></div></div>
+      <template #footer><el-button @click="achievementsVisible = false">关闭</el-button></template>
+    </el-dialog>
   </PracticeLayout>
 </template>
 
 <style scoped lang="scss">
 @use '@/styles/variables.scss' as *;
-
 .home {
-  &__shortcut-grid {
-    display: contents;
-  }
-
-  &__section-head {
-    min-width: 0;
-  }
-
-  &__section-sub,
-  &__section-meta {
-    display: none;
-  }
-
-  &__user {
-    max-width: 120px;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-
-  &__skeleton {
-    :deep(.el-skeleton) {
-      margin-bottom: 12px;
-      padding: 14px;
-      background: $bg-paper;
-      border: 1px solid $border-color;
-      border-radius: $practice-radius;
-    }
-  }
-
-  /* 错题本入口：图标块 + 卡片（v3.1 去左缘强调条） */
-  &__wrong {
-    display: flex;
-    align-items: center;
-    gap: 11px;
-    margin-bottom: 10px;
-    padding: 13px 14px;
-    background: $bg-paper;
-    border: 1px solid $border-color;
-    border-radius: $practice-radius;
-    cursor: pointer;
-    transition: border-color $transition-fast, background-color $transition-fast;
-
-    &:active {
-      background: $practice-surface-2;
-    }
-
-    &.is-empty {
-      opacity: 0.72;
-    }
-  }
-
-  &__wrong-icon {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: $radius-xs;
-    background: $color-error-bg;
-    font-size: 13px;
-    font-weight: 680;
-    color: $color-error-text;
-    line-height: 1;
-  }
-
-  &__wrong-body {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-    flex: 1;
-  }
-
-  &__wrong-title {
-    font-size: 13.5px;
-    font-weight: 620;
-    color: $text-primary;
-  }
-
-  &__wrong-count {
-    font-size: 11.5px;
-    color: $text-secondary;
-  }
-
-  &__wrong-btn {
-    flex: 0 0 auto;
-    border-radius: $radius-xs;
-  }
-
-  /* 收藏卡：图标块用主色软底（区别于错题本的语义红） */
-  &__wrong--fav {
-    border-color: $border-color;
-  }
-
-  &__wrong-icon--fav {
-    background: $practice-soft;
-    color: $practice-primary;
-  }
-
-  /* 每日一练任务卡 */
-  &__daily {
-    display: flex;
-    align-items: center;
-    gap: 11px;
-    margin-bottom: 10px;
-    padding: 13px 14px;
-    background: $bg-paper;
-    border: 1px solid $border-color;
-    border-radius: $practice-radius;
-    cursor: pointer;
-    transition: border-color $transition-fast, background-color $transition-fast;
-
-    &:active {
-      background: $practice-surface-2;
-    }
-
-    &.is-done .home__daily-mark {
-      background: $color-success-bg;
-      color: $color-success-text;
-    }
-  }
-
-  &__daily-mark {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: $radius-xs;
-    background: $practice-soft;
-    font-size: 11.5px;
-    font-weight: 680;
-    color: $practice-primary;
-    line-height: 1;
-  }
-
-  &__daily-body {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-    flex: 1;
-  }
-
-  &__daily-title {
-    font-size: 13.5px;
-    font-weight: 620;
-    color: $text-primary;
-  }
-
-  &__daily-sub {
-    font-size: 11.5px;
-    color: $text-secondary;
-  }
-
-  &__daily-btn {
-    flex: 0 0 auto;
-    min-height: 31px;
-    padding: 0 13px;
-    border: none;
-    border-radius: $radius-xs;
-    font-size: 12.5px;
-    background: $practice-primary;
-
-    &:hover,
-    &:active {
-      background: $practice-primary-dark;
-    }
-  }
-
-  /* 打卡与成就卡 */
-  &__ach {
-    margin-bottom: 10px;
-    padding: 14px;
-    background: $bg-paper;
-    border: 1px solid $border-color;
-    border-radius: $practice-radius;
-  }
-
-  &__ach-head {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  &__ach-streak {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: baseline;
-    gap: 2px;
-    min-width: 52px;
-  }
-
-  &__ach-num {
-    font-size: 26px;
-    font-weight: 700;
-    color: $practice-primary;
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
-  }
-
-  &__ach-unit {
-    font-size: 12px;
-    color: $text-secondary;
-  }
-
-  &__ach-text {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-    flex: 1;
-  }
-
-  &__ach-title {
-    font-size: 13.5px;
-    font-weight: 620;
-    color: $text-primary;
-  }
-
-  &__ach-sub {
-    font-size: 11.5px;
-    color: $text-secondary;
-  }
-
-  &__ach-count {
-    flex: 0 0 auto;
-    font-size: 11.5px;
-    font-weight: 600;
-    color: $practice-primary;
-    font-variant-numeric: tabular-nums;
-  }
-
-  &__badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px dashed $border-color;
-  }
-
-  &__badge {
-    display: inline-flex;
-    align-items: center;
-    height: 22px;
-    padding: 0 9px;
-    border-radius: 99px; // radius-exception: status badge pill
-    background: $practice-soft;
-    font-size: 10.5px;
-    font-weight: 600;
-    color: $practice-primary;
-
-    &.is-locked {
-      background: $practice-surface-3;
-      color: $text-disabled;
-      font-weight: 500;
-    }
-  }
-
-  /* 区块标题：v3.1 去掉左缘竖条 */
-  &__hint {
-    margin: 18px 2px 9px;
-    font-size: 14px;
-    font-weight: 640;
-    color: $text-primary;
-  }
-
-  &__empty {
-    padding: 24px 12px;
-    text-align: center;
-    background: $bg-paper;
-    border: 1px solid $border-color;
-    border-radius: $practice-radius;
-  }
-
-  &__empty-title {
-    margin: 0;
-    font-size: 13.5px;
-    font-weight: 600;
-    color: $text-primary;
-  }
-
-  &__empty-sub {
-    margin: 8px 0 0;
-    font-size: 12px;
-    line-height: 1.6;
-    color: $text-secondary;
-  }
-
-  &__tree {
-    padding: 8px;
-    background: $bg-paper;
-    border: 1px solid $border-color;
-    border-radius: $practice-radius;
-
-    :deep(.el-tree-node__content) { height: auto; min-height: 48px; border-radius: $radius-xs; }
-    :deep(.el-tree-node__content:hover) { background: $practice-surface-2; }
-  }
-
-  &__tree-node { display:flex; align-items:center; gap:8px; width:100%; min-width:0; padding:6px 8px 6px 2px; }
-  &__tree-kind { flex:0 0 auto; padding:2px 6px; border-radius:$radius-xs; background:$practice-surface-3; color:$text-secondary; font-size:10px; }
-  &__tree-node.is-leaf &__tree-kind { background:$practice-soft; color:$practice-primary; }
-  &__tree-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:600; color:$text-primary; }
-  &__tree-count { flex:0 0 auto; color:$text-secondary; font-size:11.5px; }
-
-  /* 题库卡：图标块 + 细边框 */
-  &__bank {
-    display: flex;
-    align-items: center;
-    gap: 11px;
-    margin-bottom: 9px;
-    padding: 13px 14px;
-    background: $bg-paper;
-    border: 1px solid $border-color;
-    border-radius: $practice-radius;
-    transition: border-color $transition-fast, background-color $transition-fast;
-
-    &:active {
-      border-color: rgba($practice-primary, 0.45);
-      background: $practice-surface-2;
-    }
-  }
-
-  &__bank-no {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    border-radius: $radius-xs;
-    background: $practice-surface-3;
-    font-size: 12px;
-    font-weight: 680;
-    color: $text-secondary;
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
-  }
-
-  &__bank-main {
-    min-width: 0;
-    flex: 1;
-  }
-
-  // 首页仅展示摘要，查看更多弹窗仍保留完整文本。
-  :deep(.paged-overview__preview) {
-    .home__bank-name,
-    .home__bank-desc {
-      display: -webkit-box;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 2;
-      overflow: hidden;
-    }
-
-    .home__bank-cat {
-      max-width: 100%;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-    }
-  }
-
-  &__bank-name {
-    font-size: 13.5px;
-    font-weight: 620;
-    color: $text-primary;
-    word-break: break-word;
-  }
-
-  &__bank-meta {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 3px;
-    font-size: 11.5px;
-    color: $text-secondary;
-  }
-
-  &__bank-cat {
-    padding: 1px 6px;
-    border-radius: $radius-xs;
-    background: $practice-soft;
-    color: $practice-primary;
-    font-size: 10.5px;
-    font-weight: 600;
-  }
-
-  &__bank-count {
-    font-size: 11.5px;
-    color: $text-secondary;
-  }
-
-  &__bank-desc {
-    margin-top: 5px;
-    font-size: 11.5px;
-    line-height: 1.6;
-    color: $text-disabled;
-    word-break: break-word;
-  }
-
-  &__bank-btn {
-    flex: 0 0 auto;
-    min-height: 31px;
-    padding: 0 13px;
-    font-size: 12.5px;
-    font-weight: 580;
-    border: none;
-    border-radius: $radius-xs;
-    background: $practice-primary;
-
-    &:hover,
-    &:active {
-      background: $practice-primary-dark;
-    }
-  }
-
-  @media (min-width: 901px) {
-    &__overview {
-      display: grid;
-      grid-template-columns: minmax(380px, 0.9fr) minmax(0, 1.1fr);
-      grid-template-areas:
-        'daily achievement'
-        'shortcuts achievement';
-      gap: 14px 16px;
-      align-items: stretch;
-      margin-bottom: 20px;
-
-      &:not(.has-achievements) {
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-areas:
-          'daily'
-          'shortcuts';
-      }
-
-      &.has-achievements:not(.has-daily) {
-        grid-template-areas: 'shortcuts achievement';
-      }
-    }
-
-    &__daily {
-      grid-area: daily;
-      min-height: 92px;
-      margin: 0;
-      padding: 18px;
-
-      &:hover {
-        border-color: $practice-border-soft;
-        background: $practice-surface-2;
-      }
-    }
-
-    &__daily-mark,
-    &__wrong-icon {
-      width: 40px;
-      height: 40px;
-    }
-
-    &__daily-title,
-    &__wrong-title,
-    &__ach-title {
-      font-size: 14px;
-    }
-
-    &__ach {
-      grid-area: achievement;
-      min-height: 180px;
-      margin: 0;
-      padding: 18px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-
-    &__ach-num {
-      font-size: 32px;
-    }
-
-    &__badges {
-      margin-top: 16px;
-      padding-top: 16px;
-    }
-
-    &__shortcut-grid {
-      grid-area: shortcuts;
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    &__wrong {
-      min-width: 0;
-      min-height: 74px;
-      margin: 0;
-      padding: 12px;
-
-      &:hover:not(.is-empty) {
-        border-color: $practice-border-soft;
-        background: $practice-surface-2;
-      }
-    }
-
-    &__wrong-btn {
-      padding-inline: 10px;
-    }
-
-    &__banks-panel {
-      overflow: hidden;
-      background: $bg-paper;
-      border: 1px solid $border-color;
-      border-radius: $practice-radius;
-    }
-
-    &__section-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 24px;
-      padding: 16px 18px;
-    }
-
-    &__hint {
-      margin: 0;
-      font-size: 15px;
-    }
-
-    &__section-sub {
-      display: block;
-      margin: 4px 0 0;
-      font-size: 11.5px;
-      color: $text-secondary;
-    }
-
-    &__section-meta {
-      display: inline-flex;
-      flex: 0 0 auto;
-      align-items: center;
-      height: 26px;
-      padding: 0 10px;
-      border-radius: 99px; // radius-exception: section counter pill
-      background: $practice-soft;
-      color: $practice-primary;
-      font-size: 11.5px;
-      font-weight: 600;
-      font-variant-numeric: tabular-nums;
-    }
-
-    &__tree {
-      padding: 8px 12px 12px;
-      border: 0;
-      border-top: 1px solid $border-color;
-      border-radius: 0;
-
-      :deep(.el-tree-node__content) {
-        min-height: 52px;
-      }
-    }
-
-    &__empty {
-      padding: 42px 16px;
-      border: 0;
-      border-top: 1px solid $border-color;
-      border-radius: 0;
-    }
+  max-width: 1040px; margin: 0 auto;
+  &__welcome { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 4px 0 20px; p { margin: 0 0 4px; font-size: 12px; color: $text-secondary; } h1 { margin: 0; font-size: 24px; font-weight: 700; line-height: 1.5; } }
+  &__avatar { flex: 0 0 42px; width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid $color-primary-border; border-radius: 50%; background: $color-primary-soft; color: $color-primary; font: inherit; font-weight: 600; cursor: pointer; }
+  &__daily { position: relative; overflow: hidden; padding: 26px; border-radius: $radius-lg; background: linear-gradient(120deg, #2f6ff0, #2054d4); color: #fff; &::after { content: ''; position: absolute; width: 190px; height: 190px; right: -55px; top: -70px; border: 30px solid rgba(255,255,255,.07); border-radius: 50%; pointer-events: none; } h2 { position: relative; margin: 10px 0 8px; font-size: 24px; font-weight: 650; line-height: 1.5; } p { position: relative; margin: 0 0 20px; font-size: 13px; color: #e1eaff; line-height: 1.6; } }
+  &__daily-kicker { font-size: 12px; letter-spacing: 1.8px; color: #d4e2ff; }
+  &__daily-start { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 16px; min-height: 44px; padding: 0 18px; border: 0; border-radius: 8px; background: #fff; color: #2459c8; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; &:disabled { color: #475467; cursor: default; } }
+  &__shortcuts { display: grid; grid-template-columns: repeat(var(--shortcut-count), minmax(0,1fr)); gap: 12px; padding: 24px 0; button { display: flex; flex-direction: column; align-items: center; gap: 7px; min-width: 0; padding: 0; border: 0; background: transparent; color: $text-body; font: inherit; cursor: pointer; } strong { font-size: 13px; font-weight: 500; } small { font-size: 12px; line-height: 1.5; color: $text-secondary; text-align: center; overflow-wrap: anywhere; } }
+  &__shortcut-icon { display: grid; place-items: center; width: 46px; height: 46px; border: 1px solid $border-color; border-radius: 13px; background: $bg-paper; color: $color-primary; font-size: 21px; }
+  &__section-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin: 6px 0 0; h2 { margin: 0; font-size: 16px; font-weight: 650; } > span { font-size: 12px; color: $text-secondary; } }
+  &__scope { margin: 6px 0 14px; font-size: 12px; line-height: 1.7; color: $text-secondary; }
+  &__subjects { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+  &__subject { display: flex; align-items: center; gap: 14px; min-width: 0; width: 100%; padding: 20px; border: 1px solid $border-color; border-radius: $radius-lg; background: $bg-paper; text-align: left; font: inherit; color: $text-primary; cursor: pointer; transition: border-color .15s; &:hover { border-color: $color-primary-border; } &:disabled { cursor: not-allowed; opacity: .65; } }
+  &__subject-icon { flex: 0 0 42px; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: $color-primary-soft; color: $color-primary; font-size: 21px; }
+  &__subject-body { flex: 1; min-width: 0; strong { display: block; font-size: 14px; font-weight: 600; line-height: 1.6; overflow-wrap: anywhere; } small { display: block; margin-top: 4px; font-size: 12px; color: $text-secondary; } }
+  &__bank-name { display: block; margin-top: 2px; font-size: 12px; line-height: 1.6; color: $text-body; overflow-wrap: anywhere; }
+  &__subject-arrow { flex: 0 0 auto; color: $text-secondary; font-size: 16px; }
+  &__progress { display: block; height: 4px; margin-top: 9px; border-radius: 4px; background: #eaf0fa; overflow: hidden; i { display: block; height: 100%; background: $color-primary; border-radius: inherit; } }
+  &__empty { padding: 32px 20px; border: 1px solid $border-color; border-radius: $radius-lg; background: $bg-paper; text-align: center; p { margin: 0 0 8px; font-weight: 600; } span { font-size: 12px; line-height: 1.7; color: $text-secondary; } }
+  &__ach-loading { min-height: 180px; }
+  &__ach-summary { display: flex; gap: 24px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; padding: 16px; border-radius: 12px; background: $bg-page; > strong { color: $color-primary; font-size: 30px; small { display: block; font-size: 12px; font-weight: 500; } } > span { color: $text-secondary; font-size: 12px; line-height: 1.9; } }
+  &__badges { display: grid; gap: 12px; }
+  &__badge { display: flex; gap: 12px; padding: 14px; border: 1px solid $border-color; border-radius: 12px; .el-icon { font-size: 24px; color: $color-primary; } strong { font-size: 14px; } p { margin: 4px 0; font-size: 12px; color: $text-secondary; } small { font-size: 12px; color: $color-primary; } &.is-locked { background: $bg-page; .el-icon, small { color: $text-secondary; } } }
+  button:focus-visible { outline: 3px solid $color-primary-border; outline-offset: 3px; }
+}
+@media (max-width: 900px) {
+  .home {
+    &__welcome { margin: 4px 2px 18px; h1 { font-size: 22px; } }
+    &__daily { padding: 23px 22px; h2 { font-size: 23px; } p { font-size: 12px; } }
+    &__shortcuts { gap: 8px; padding: 23px 0; strong { font-size: 12px; } small { font-size: 12px; } }
+    &__subjects { grid-template-columns: minmax(0,1fr); gap: 12px; }
+    &__subject { gap: 12px; padding: 16px; }
+    &__section-head h2 { font-size: 15px; }
+    &__scope { font-size: 12px; }
   }
 }
 </style>

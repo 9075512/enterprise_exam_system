@@ -36,7 +36,8 @@ async function refresh(): Promise<void> {
   try {
     await auth.fetchMe();
     ElMessage.success('个人资料已更新');
-  } finally {
+  } catch { /* The API layer reports errors; retain current account details. */ }
+  finally {
     refreshing.value = false;
   }
 }
@@ -49,7 +50,7 @@ async function logout(): Promise<void> {
 </script>
 
 <template>
-  <div class="profile-page">
+  <div data-ui-layout="profile" data-ui-page="ProfilePage" class="profile-page">
     <PageHeader class="profile-page__header" title="个人中心" description="查看账号资料与安全状态" />
 
     <section v-if="user" class="profile-page__hero">
@@ -197,7 +198,7 @@ async function logout(): Promise<void> {
     border-radius: $radius-xs;
     background: $color-success-bg;
     color: $color-success-text;
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 600;
 
     &.is-disabled { background: $color-error-bg; color: $color-error-text; }
@@ -314,7 +315,7 @@ async function logout(): Promise<void> {
     &__identity h2 { font-size: 20px; }
     &__identity-heading { gap: 6px 10px; }
     &__identity p { font-size: 12px; }
-    &__status { padding: 3px 7px; font-size: 11px; }
+    &__status { padding: 3px 7px; font-size: 12px; }
     &__grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
     &__card :deep(.el-card__header) { min-height: 48px; padding: 12px 16px; }
     &__card :deep(.el-card__body) { padding: 2px 16px; }

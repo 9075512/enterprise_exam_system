@@ -50,7 +50,7 @@ withDefaults(
 .stat-card {
   position: relative;
   overflow: hidden;
-  border-radius: $radius-base;
+  border-radius: $radius-lg;
 
   &__rule {
     position: absolute;
@@ -158,6 +158,6 @@ withDefaults(
   .stat-card__icon { flex-basis: 32px; width: 32px; height: 32px; font-size: 18px; }
   .stat-card__value { margin-top: 5px; font-size: 26px; line-height: 1.2; }
   .stat-card__label { font-size: 12.5px; }
-  .stat-card__foot { margin-top: 4px; font-size: 11px; line-height: 1.4; }
+  .stat-card__foot { margin-top: 4px; font-size: 12px; line-height: 1.4; }
 }
 </style>
