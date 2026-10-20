@@ -3,6 +3,7 @@ import { flushPromises, shallowMount } from '@vue/test-utils';
 import PracticeSessionPage from './PracticeSessionPage.vue';
 import QuestionCard from '@/views/exam/components/QuestionCard.vue';
 import PracticeLoading from '@/components/common/PracticeLoading.vue';
+import QuestionFeedbackDialog from './components/QuestionFeedbackDialog.vue';
 
 const mocks = vi.hoisted(() => ({
   route: { name: 'practice-session', meta: {} as Record<string, unknown>, params: { bankId: 'bank-1' }, query: {} as Record<string, string> },
@@ -20,6 +21,7 @@ function mountPage() {
   wrapper = shallowMount(PracticeSessionPage, { global: { stubs: {
     PracticeLayout: { template: '<div><slot /></div>' },
     ElButton: { props: ['disabled', 'loading'], template: '<button :disabled="disabled"><slot /></button>' },
+    ElAlert: { props: ['title'], template: '<p>{{ title }}</p>' },
     ElDrawer: { props: ['modelValue'], template: '<div v-if="modelValue"><slot /></div>' },
   } } });
   return wrapper;
@@ -111,6 +113,27 @@ describe('练题来源与异步反馈', () => {
     expect(wrapper.getComponent(QuestionCard).props('modelValue')).toEqual([0]);
     resolve({ correct: true, correctAnswer: [0] }); await flushPromises();
     expect(wrapper.find('.session__next').exists()).toBe(true);
+  });
+  it('判分失败在本题保留选择并提示，重试成功清除失败状态', async () => {
+    mocks.api.check.mockRejectedValueOnce(new Error('offline'));
+    mountPage(); await flushPromises(); await answer();
+    expect(wrapper.text()).toContain('本题判分未成功，已保留你的选择');
+    expect(wrapper.getComponent(QuestionCard).props('modelValue')).toEqual([0]);
+    expect(wrapper.find('.summary').exists()).toBe(false);
+    await wrapper.get('.session__submit').trigger('click'); await flushPromises();
+    expect(mocks.api.check).toHaveBeenCalledTimes(2);
+    expect(wrapper.text()).not.toContain('本题判分未成功');
+    expect(wrapper.find('.session__next').exists()).toBe(true);
+  });
+  it('纠错打开时冻结原题上下文，关闭前不能重做或完成练习', async () => {
+    mocks.api.createSession.mockResolvedValue({ id: 's1', sessionToken: 'session', questionIds: ['q1'], total: 1 });
+    mountPage(); await flushPromises(); await answer();
+    await wrapper.findAll('button').find(b => b.text() === '题目纠错')!.trigger('click');
+    expect(wrapper.getComponent(QuestionFeedbackDialog).props()).toMatchObject({ visible: true, questionId: 'q1', sessionId: 's1', questionNumber: 1, stem: '题目' });
+    expect(wrapper.get('.session__redo').attributes('disabled')).toBeDefined();
+    expect(wrapper.get('.session__next').attributes('disabled')).toBeDefined();
+    wrapper.getComponent(QuestionFeedbackDialog).vm.$emit('update:visible', false); await flushPromises();
+    expect(wrapper.get('.session__next').attributes('disabled')).toBeUndefined();
   });
   it('取题失败后退出占位并允许重新加载', async () => {
     mocks.api.questionsByIds.mockRejectedValueOnce(new Error('取题失败'));

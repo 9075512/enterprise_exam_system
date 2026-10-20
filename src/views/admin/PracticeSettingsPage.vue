@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** 题库开放即时生效，其余练题配置统一保存。 */
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { getPracticeSettings, updatePracticeSettings } from '@/api/settings';
 import { list as listBanks, setPracticeFlag } from '@/api/banks';
@@ -24,6 +24,7 @@ import {
 import EmptyState from '@/components/common/EmptyState.vue';
 import RequestError from '@/components/common/RequestError.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
+import { vInputNumberAria } from '@/directives/inputNumberAria';
 import type { PracticeSettings, QuestionBank, QuestionType } from '@/types';
 
 /** 题型多选项（每日一练题型范围） */
@@ -37,9 +38,12 @@ const practiceForm = reactive<PracticeSettings>({ ...PRACTICE_SETTINGS_DEFAULTS 
 const practiceLoading = ref(true);
 const practiceSaving = ref(false);
 const activeTab = ref('banks');
+const pageRef = ref<HTMLElement>();
 const savedSettings = ref('');
 const practiceLoadError = ref(false);
 const banksLoadError = ref(false);
+const practiceSaveError = ref('');
+const bankOperationError = ref('');
 const hasChanges = computed(() => savedSettings.value !== '' && JSON.stringify(practiceForm) !== savedSettings.value);
 const bankSearch = ref('');
 const bankFilter = ref('all');
@@ -55,6 +59,10 @@ const banksLoading = ref(true);
 /** 正在提交的题库 id（行级 switch 的 loading） */
 const bankSavingId = ref('');
 const bankBatchSaving = ref(false);
+const banksBusy = computed(() => Boolean(bankSavingId.value) || bankBatchSaving.value);
+const busy = computed(() => practiceSaving.value || banksBusy.value);
+const practiceLocked = computed(() => practiceLoading.value || practiceLoadError.value || busy.value);
+function canLeaveTab(): boolean { return !busy.value; }
 
 /** 已开放练题的题库数 */
 const openBankCount = computed<number>(() => banks.value.filter((b) => b.allowPractice).length);
@@ -89,11 +97,13 @@ onMounted(() => {
 });
 
 async function loadPractice(): Promise<void> {
+  if (busy.value) return;
   practiceLoading.value = true;
   practiceLoadError.value = false;
   try {
     Object.assign(practiceForm, await getPracticeSettings());
     savedSettings.value = JSON.stringify(practiceForm);
+    practiceSaveError.value = '';
   } catch {
     practiceLoadError.value = true;
   } finally {
@@ -102,21 +112,42 @@ async function loadPractice(): Promise<void> {
 }
 
 async function handleSavePractice(): Promise<void> {
-  if (!hasChanges.value || practiceLoading.value || practiceLoadError.value) return;
+  if (!hasChanges.value || practiceLocked.value) return;
+  const numericFields = [
+    ['dailyQuestionCount', '每日题量', DAILY_COUNT_MIN, DAILY_COUNT_MAX, 'daily'],
+    ['dailyResetHour', '每日重置时点', DAILY_RESET_HOUR_MIN, DAILY_RESET_HOUR_MAX, 'daily'],
+    ['dailyMinQuestionCount', '最少抽题数', DAILY_MIN_COUNT_MIN, DAILY_MIN_COUNT_MAX, 'daily'],
+    ['sessionMinCount', '单次练习题量下限', SESSION_COUNT_MIN, SESSION_COUNT_MAX, 'rules'],
+    ['sessionMaxCount', '单次练习题量上限', SESSION_COUNT_MIN, SESSION_COUNT_MAX, 'rules'],
+    ['wrongAutoRemoveStreak', '错题本自动移除阈值', WRONG_AUTO_REMOVE_MIN, WRONG_AUTO_REMOVE_MAX, 'rules'],
+    ['favoriteLimit', '收藏夹上限', FAVORITE_LIMIT_MIN, FAVORITE_LIMIT_MAX, 'features'],
+  ] as const;
+  const invalid = numericFields.find(([key, , min, max]) => !Number.isInteger(practiceForm[key]) || practiceForm[key] < min || practiceForm[key] > max);
+  const inverted = practiceForm.sessionMaxCount < practiceForm.sessionMinCount;
+  if (invalid || inverted) {
+    const label = invalid?.[1] ?? '单次练习题量上限';
+    activeTab.value = invalid?.[4] ?? 'rules';
+    practiceSaveError.value = invalid ? `${label}需填写 ${invalid[2]}–${invalid[3]} 范围内的整数。` : '单次题量上限不能小于下限。';
+    await nextTick();
+    pageRef.value?.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)?.focus();
+    return;
+  }
   practiceSaving.value = true;
+  practiceSaveError.value = '';
   try {
-    const saved = await updatePracticeSettings({ ...practiceForm });
+    const saved = await updatePracticeSettings({ ...practiceForm, dailyTypes: [...practiceForm.dailyTypes] });
     Object.assign(practiceForm, saved);
     savedSettings.value = JSON.stringify(practiceForm);
     ElMessage.success('练题端配置已保存，练题端即时生效');
   } catch {
-    // 错误提示已由 http.ts 响应拦截器统一弹出
+    practiceSaveError.value = '保存失败，全部配置修改已保留，请重试。';
   } finally {
     practiceSaving.value = false;
   }
 }
 
 async function loadBanks(): Promise<void> {
+  if (banksBusy.value || practiceSaving.value) return;
   banksLoading.value = true;
   banksLoadError.value = false;
   try {
@@ -130,14 +161,16 @@ async function loadBanks(): Promise<void> {
 
 /** 行级开关：只提交该题库 */
 async function toggleBank(row: QuestionBank, value: boolean): Promise<void> {
+  if (busy.value || banksLoading.value || banksLoadError.value || (value && row.questionCount === 0)) return;
   bankSavingId.value = row.id;
+  bankOperationError.value = '';
   try {
     const updated = await setPracticeFlag([row.id], value);
     const hit = updated.find((b) => b.id === row.id);
     row.allowPractice = hit ? hit.allowPractice : value;
     ElMessage.success(value ? `已开放「${row.name}」到练题端` : `已关闭「${row.name}」的练题开放`);
   } catch {
-    // 受控开关在请求失败时保留原状态。
+    bankOperationError.value = `「${row.name}」${value ? '开放' : '关闭'}失败，原状态已保留，可重试。`;
   } finally {
     bankSavingId.value = '';
   }
@@ -145,31 +178,31 @@ async function toggleBank(row: QuestionBank, value: boolean): Promise<void> {
 
 /** 批量：全部开放 / 全部关闭 */
 async function setAllBanks(allowPractice: boolean): Promise<void> {
+  if (busy.value || banksLoading.value || banksLoadError.value) return;
   const targets = banks.value.filter((b) => b.allowPractice !== allowPractice && (!allowPractice || b.questionCount > 0));
   if (targets.length === 0) {
     ElMessage.info(allowPractice ? '没有可开放的题库（空题库无法开放）' : '全部题库均已关闭');
     return;
   }
   const actionText = allowPractice ? '开放' : '关闭';
+  bankBatchSaving.value = true;
+  bankOperationError.value = '';
   try {
-    await ElMessageBox.confirm(
+    const confirmed = await ElMessageBox.confirm(
       `将${actionText} ${targets.length} 个题库的对外练题（共 ${banks.value.length} 个题库）？`,
       `批量${actionText}`,
       { type: 'warning', confirmButtonText: `确认${actionText}`, cancelButtonText: '取消' },
-    );
-  } catch {
-    return; // 用户取消
-  }
-  bankBatchSaving.value = true;
-  try {
-    await setPracticeFlag(
+    ).then(() => true).catch(() => false);
+    if (!confirmed) return;
+    const updated = await setPracticeFlag(
       targets.map((b) => b.id),
       allowPractice,
     );
-    await loadBanks();
+    const result = new Map(updated.map(bank => [bank.id, bank]));
+    for (const bank of banks.value) { const next = result.get(bank.id); if (next) bank.allowPractice = next.allowPractice; }
     ElMessage.success(`已${actionText} ${targets.length} 个题库`);
   } catch {
-    // 错误提示已由 http.ts 响应拦截器统一弹出
+    bankOperationError.value = `批量${actionText}失败，原题库状态与筛选已保留，请重试。`;
   } finally {
     bankBatchSaving.value = false;
   }
@@ -177,7 +210,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
 </script>
 
 <template>
-  <div data-ui-layout="settings" data-ui-page="PracticeSettingsPage" class="practice-settings-page">
+  <div ref="pageRef" data-ui-layout="settings" data-ui-page="PracticeSettingsPage" class="practice-settings-page">
     <PageHeader title="练题端设置" description="管理题库开放与学员练题体验">
 
     </PageHeader>
@@ -195,7 +228,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
         <span class="practice-settings-page__metric-value">{{ banksLoading || banksLoadError ? '—' : openBankCount }}<small>/ {{ banksLoading || banksLoadError ? '—' : banks.length }} 个</small></span>
       </div>
       <div class="practice-settings-page__metric">
-        <span class="practice-settings-page__eyebrow">可练题目</span>
+        <span class="practice-settings-page__eyebrow">开放题库题目总数</span>
         <span class="practice-settings-page__metric-value">{{ banksLoading || banksLoadError ? '—' : openQuestionCount.toLocaleString() }}<small>道</small></span>
       </div>
       <div class="practice-settings-page__entry">
@@ -212,29 +245,32 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
       <el-button link type="primary" @click="loadPractice">重新加载</el-button>
     </div>
 
-    <el-tabs v-model="activeTab" class="practice-settings-page__tabs">
+    <p class="admin-scope">开放概况按当前返回的全部叶子题库统计，不受下方筛选影响；题目数为题库总数合计，实际可练题型与访问范围以练题端为准。题库开放即时生效，其余分类需保存配置。</p>
+    <p v-if="practiceSaveError" class="practice-settings-page__error" role="status">{{ practiceSaveError }}</p>
+    <el-tabs v-model="activeTab" :before-leave="canLeaveTab" class="practice-settings-page__tabs">
       <el-tab-pane label="题库开放" name="banks">
         <section v-loading="banksLoading" class="practice-settings-page__section" aria-label="题库开放设置">
           <div class="practice-settings-page__section-head">
             <div><h3>题库开放</h3><p>开启后学员即可练习，修改即时生效。</p></div>
             <div class="practice-settings-page__bulk">
-              <el-button :disabled="banksLoading || banksLoadError || Boolean(bankSavingId) || bankBatchSaving" @click="setAllBanks(true)">全部开放</el-button>
-              <el-button :disabled="banksLoading || banksLoadError || Boolean(bankSavingId) || bankBatchSaving" @click="setAllBanks(false)">全部关闭</el-button>
+              <el-button :disabled="banksLoading || banksLoadError || busy" @click="setAllBanks(true)">全部开放</el-button>
+              <el-button :disabled="banksLoading || banksLoadError || busy" @click="setAllBanks(false)">全部关闭</el-button>
             </div>
           </div>
           <el-alert v-if="noOpenBank && !banksLoadError" class="practice-settings-page__alert" type="warning" show-icon :closable="false" title="尚未开放题库，学员暂时无法练题。请至少开放一个有题目的题库。" />
           <div class="practice-settings-page__toolbar">
-            <el-input v-model="bankSearch" placeholder="搜索题库名称" clearable aria-label="搜索题库名称" />
-            <el-select v-model="bankFilter" aria-label="筛选开放状态">
+            <el-input v-model="bankSearch" :disabled="busy" placeholder="搜索题库名称" clearable aria-label="搜索题库名称" />
+            <el-select v-model="bankFilter" :disabled="busy" aria-label="筛选开放状态">
               <el-option label="全部状态" value="all" />
               <el-option label="已开放" value="open" />
               <el-option label="未开放" value="closed" />
             </el-select>
-            <el-button text :disabled="banksLoading || bankBatchSaving || Boolean(bankSavingId)" @click="loadBanks">刷新列表</el-button>
+            <el-button text :disabled="banksLoading || busy" @click="loadBanks">刷新列表</el-button>
           </div>
+          <p v-if="bankOperationError" class="practice-settings-page__error" role="status">{{ bankOperationError }}</p>
           <RequestError v-if="banksLoadError" text="练题题库加载失败" @retry="loadBanks" />
           <template v-else>
-<el-table :data="filteredBanks" row-key="id" :empty-text="banks.length ? '没有匹配的题库' : '暂无题库，请先在题库管理中创建'">
+<el-table class="practice-settings-page__bank-table" :data="filteredBanks" row-key="id" :empty-text="banksLoading ? '题库加载中…' : banks.length ? '没有匹配的题库' : '暂无题库，请先在题库管理中创建'">
             <el-table-column prop="name" label="题库名称" min-width="180" show-overflow-tooltip />
             <el-table-column prop="questionCount" label="题数" width="90" align="center" />
             <el-table-column label="开放练题" width="150" align="center">
@@ -242,7 +278,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
                 <el-switch
                   :model-value="row.allowPractice"
                   :loading="bankSavingId === row.id"
-                  :disabled="Boolean(bankSavingId) || bankBatchSaving || (row.questionCount === 0 && !row.allowPractice)"
+                  :disabled="banksLoading || banksLoadError || busy || (row.questionCount === 0 && !row.allowPractice)"
                   :aria-label="`${row.name}开放练题`"
                   @update:model-value="(v: string | number | boolean) => toggleBank(row as QuestionBank, Boolean(v))"
                 />
@@ -257,16 +293,17 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
                 <el-tag v-else type="info" size="small" effect="plain">未开放</el-tag>
               </template>
             </el-table-column>
-            <template #empty><EmptyState :text="banks.length ? '没有匹配的题库' : '暂无题库，请先在题库管理中创建'" :filtered="Boolean(bankSearch || bankFilter !== 'all')" @clear="bankSearch = ''; bankFilter = 'all'" /></template>
+            <template #empty><EmptyState v-if="!banksLoading" :text="banks.length ? '没有匹配的题库' : '暂无题库，请先在题库管理中创建'" :filtered="Boolean(bankSearch || bankFilter !== 'all')" @clear="bankSearch = ''; bankFilter = 'all'" /></template>
           </el-table>
-            <p class="practice-settings-page__table-note">共 {{ filteredBanks.length }} 个题库<span v-if="bankSearch || bankFilter !== 'all'">（总计 {{ banks.length }} 个）</span> · 空题库无法开放</p>
+            <div class="practice-settings-page__bank-cards"><article v-for="bank in filteredBanks" :key="bank.id" class="practice-settings-page__bank"><h4>{{ bank.name }}</h4><div class="practice-settings-page__bank-meta"><span>{{ bank.questionCount }} 道题</span><el-tag :type="bank.allowPractice && bank.questionCount > 0 ? 'success' : 'info'" effect="plain">{{ bank.questionCount === 0 ? '暂无题目' : bank.allowPractice ? '练题端可见' : '未开放' }}</el-tag></div><div class="practice-settings-page__bank-toggle"><span>开放练题</span><el-switch :model-value="bank.allowPractice" :loading="bankSavingId === bank.id" :disabled="banksLoading || banksLoadError || busy || (bank.questionCount === 0 && !bank.allowPractice)" :aria-label="bank.name + '开放练题'" @update:model-value="v => toggleBank(bank, Boolean(v))" /></div></article><EmptyState v-if="!banksLoading && !filteredBanks.length" :text="banks.length ? '没有匹配的题库' : '暂无题库，请先在题库管理中创建'" :filtered="Boolean(bankSearch || bankFilter !== 'all')" @clear="bankSearch = ''; bankFilter = 'all'" /></div>
+            <p v-if="banksLoading" class="practice-settings-page__table-note" role="status">题库加载中，数量暂未知</p><p v-else class="practice-settings-page__table-note">共 {{ filteredBanks.length }} 个题库<span v-if="bankSearch || bankFilter !== 'all'">（总计 {{ banks.length }} 个）</span> · 空题库无法开放</p>
           </template>
         </section>
       </el-tab-pane>
       <el-tab-pane label="每日一练" name="daily">
         <section v-loading="practiceLoading" class="practice-settings-page__section">
           <div class="practice-settings-page__section-head"><div><h3>每日一练</h3><p>设置每日任务的题量、题型与生成规则，保存后生效。</p></div></div>
-          <fieldset :disabled="practiceLoadError || practiceSaving" class="practice-settings-page__fields">
+          <el-form :disabled="practiceLocked"><fieldset :disabled="practiceLocked" class="practice-settings-page__fields">
 <el-row :gutter="24">
             <el-col :xs="24" :sm="24" :md="12">
               <div class="practice-settings-page__item">
@@ -284,12 +321,12 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
               <div class="practice-settings-page__item">
                 <label class="practice-settings-page__label">每日题量（题）</label>
                 <div class="practice-settings-page__control">
-                  <el-input-number
+                  <el-input-number v-input-number-aria
                     v-model="practiceForm.dailyQuestionCount" aria-label="每日题量"
                     :min="DAILY_COUNT_MIN"
                     :max="DAILY_COUNT_MAX"
                     :step="1"
-                    :disabled="!practiceForm.dailyEnabled"
+                    :disabled="practiceLocked || !practiceForm.dailyEnabled"
                     class="practice-settings-page__num"
                   />
                   <p class="practice-settings-page__hint">
@@ -308,7 +345,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
                     multiple
                     collapse-tags
                     placeholder="全部题型"
-                    :disabled="!practiceForm.dailyEnabled"
+                    :disabled="practiceLocked || !practiceForm.dailyEnabled"
                     class="practice-settings-page__select"
                   >
                     <el-option v-for="opt in TYPE_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
@@ -322,7 +359,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
               <div class="practice-settings-page__item">
                 <label class="practice-settings-page__label">抽题范围</label>
                 <div class="practice-settings-page__control">
-                  <el-radio-group v-model="practiceForm.dailyBankScope" aria-label="抽题范围" :disabled="!practiceForm.dailyEnabled">
+                  <el-radio-group v-model="practiceForm.dailyBankScope" aria-label="抽题范围" :disabled="practiceLocked || !practiceForm.dailyEnabled">
                     <el-radio v-for="opt in DAILY_BANK_SCOPE_OPTIONS" :key="opt.value" :value="opt.value">
                       {{ opt.label }}
                     </el-radio>
@@ -336,12 +373,12 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
               <div class="practice-settings-page__item">
                 <label class="practice-settings-page__label">重置时点（时）</label>
                 <div class="practice-settings-page__control">
-                  <el-input-number
+                  <el-input-number v-input-number-aria
                     v-model="practiceForm.dailyResetHour" aria-label="每日重置时点"
                     :min="DAILY_RESET_HOUR_MIN"
                     :max="DAILY_RESET_HOUR_MAX"
                     :step="1"
-                    :disabled="!practiceForm.dailyEnabled"
+                    :disabled="practiceLocked || !practiceForm.dailyEnabled"
                     class="practice-settings-page__num"
                   />
                   <p class="practice-settings-page__hint">
@@ -355,12 +392,12 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
               <div class="practice-settings-page__item">
                 <label class="practice-settings-page__label">最少抽题数（题）</label>
                 <div class="practice-settings-page__control">
-                  <el-input-number
+                  <el-input-number v-input-number-aria
                     v-model="practiceForm.dailyMinQuestionCount" aria-label="最少抽题数"
                     :min="DAILY_MIN_COUNT_MIN"
                     :max="DAILY_MIN_COUNT_MAX"
                     :step="1"
-                    :disabled="!practiceForm.dailyEnabled"
+                    :disabled="practiceLocked || !practiceForm.dailyEnabled"
                     class="practice-settings-page__num"
                   />
                   <p class="practice-settings-page__hint">
@@ -372,13 +409,13 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
 
 
           </el-row>
-          </fieldset>
+          </fieldset></el-form>
         </section>
       </el-tab-pane>
       <el-tab-pane label="练题规则" name="rules">
         <section v-loading="practiceLoading" class="practice-settings-page__section">
           <div class="practice-settings-page__section-head"><div><h3>练题规则</h3><p>设置练习方式、题量与作答反馈，保存后生效。</p></div></div>
-          <fieldset :disabled="practiceLoadError || practiceSaving" class="practice-settings-page__fields">
+          <el-form :disabled="practiceLocked"><fieldset :disabled="practiceLocked" class="practice-settings-page__fields">
 <el-row :gutter="24">
             <el-col :xs="24" :sm="24" :md="12">
               <div class="practice-settings-page__item">
@@ -401,7 +438,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
                 <label class="practice-settings-page__label">单次练习题量范围</label>
                 <div class="practice-settings-page__control">
                   <div class="practice-settings-page__inline">
-                    <el-input-number
+                    <el-input-number v-input-number-aria
                       v-model="practiceForm.sessionMinCount" aria-label="单次练习题量下限"
                       :min="SESSION_COUNT_MIN"
                       :max="SESSION_COUNT_MAX"
@@ -409,7 +446,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
                       class="practice-settings-page__num-sm"
                     />
                     <span class="practice-settings-page__sep">~</span>
-                    <el-input-number
+                    <el-input-number v-input-number-aria
                       v-model="practiceForm.sessionMaxCount" aria-label="单次练习题量上限"
                       :min="SESSION_COUNT_MIN"
                       :max="SESSION_COUNT_MAX"
@@ -451,7 +488,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
               <div class="practice-settings-page__item">
                 <label class="practice-settings-page__label">错题本自动移除阈值</label>
                 <div class="practice-settings-page__control">
-                  <el-input-number
+                  <el-input-number v-input-number-aria
                     v-model="practiceForm.wrongAutoRemoveStreak" aria-label="错题本自动移除阈值"
                     :min="WRONG_AUTO_REMOVE_MIN"
                     :max="WRONG_AUTO_REMOVE_MAX"
@@ -465,13 +502,13 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
               </div>
             </el-col>
           </el-row>
-          </fieldset>
+          </fieldset></el-form>
         </section>
       </el-tab-pane>
       <el-tab-pane label="功能入口" name="features">
         <section v-loading="practiceLoading" class="practice-settings-page__section">
           <div class="practice-settings-page__section-head"><div><h3>功能入口</h3><p>选择学员可使用的功能，保存后生效。</p></div></div>
-          <fieldset :disabled="practiceLoadError || practiceSaving" class="practice-settings-page__fields">
+          <el-form :disabled="practiceLocked"><fieldset :disabled="practiceLocked" class="practice-settings-page__fields">
 <el-row :gutter="24">
             <el-col :xs="24" :sm="24" :md="12">
               <div class="practice-settings-page__item">
@@ -516,7 +553,7 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
               <div class="practice-settings-page__item">
                 <label class="practice-settings-page__label">收藏夹上限（题）</label>
                 <div class="practice-settings-page__control">
-                  <el-input-number
+                  <el-input-number v-input-number-aria
                     v-model="practiceForm.favoriteLimit" aria-label="收藏夹上限"
                     :min="FAVORITE_LIMIT_MIN"
                     :max="FAVORITE_LIMIT_MAX"
@@ -528,13 +565,13 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
               </div>
             </el-col>
           </el-row>
-          </fieldset>
+          </fieldset></el-form>
         </section>
       </el-tab-pane>
     </el-tabs>
     <p class="practice-settings-page__page-note">设置仅作用于练题模块，不影响考试。练题数据可在「练题监控」中查看。</p>
 
-    <footer class="design-savebar" aria-label="配置保存操作"><span v-if="hasChanges" class="practice-settings-page__unsaved" role="status">有未保存的修改</span><el-button type="primary" :loading="practiceSaving" :disabled="!hasChanges || practiceLoading || practiceLoadError" @click="handleSavePractice">保存配置</el-button></footer>
+    <footer class="design-savebar" aria-label="配置保存操作"><span v-if="hasChanges" class="practice-settings-page__unsaved" role="status">有未保存的修改</span><el-button type="primary" :loading="practiceSaving" :disabled="!hasChanges || practiceLocked" @click="handleSavePractice">保存配置</el-button></footer>
 </div>
 </template>
 
@@ -543,6 +580,10 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
 
 .practice-settings-page {
   container-type: inline-size;
+  &__bank-cards { display: none; }
+  &__bank { min-width: 0; padding: 16px; border: 1px solid $border-color; border-radius: $radius-lg; background: $bg-page; h4 { margin: 0 0 12px; font-size: 14px; overflow-wrap: anywhere; } }
+  &__bank-meta, &__bank-toggle { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
+  &__bank-toggle { margin-top: 12px; padding-top: 12px; border-top: 1px solid $border-color; }
   &__overview {
     display: grid;
     grid-template-columns: auto auto auto minmax(260px, 1fr);
@@ -633,6 +674,8 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
   &__alert { margin-bottom: 20px; }
   &__error {
     display: flex;
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
     gap: 12px;
     align-items: center;
     padding: 12px 16px;
@@ -703,5 +746,12 @@ async function setAllBanks(allowPractice: boolean): Promise<void> {
     &__url { flex-wrap: wrap; }
     &__url :deep(.el-input) { flex-basis: 100%; }
   }
+}
+@media(max-width:900px) {
+  .practice-settings-page__bank-table { display: none; }
+  .practice-settings-page__bank-cards { display: grid; gap: 16px; }
+  .practice-settings-page__bank-toggle :deep(.el-switch) { min-height: 44px; }
+  .practice-settings-page__bulk { flex-wrap: wrap; }
+  .practice-settings-page__control :deep(.el-radio) { min-height: 44px; }
 }
 </style>

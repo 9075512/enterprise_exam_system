@@ -78,11 +78,8 @@ function openCreate(): void { void router.push('/admin/exams/new'); }
 function openEdit(exam: Exam): void { void router.push('/admin/exams/' + exam.id + '/edit'); }
 function openPreview(exam: Exam): void { void router.push('/admin/exams/' + exam.id + '/preview'); }
 async function exportQuestions(exam: Exam, withAnswer: boolean): Promise<void> {
-  const blob = await examsApi.exportPdf(exam.id, withAnswer);
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url;
-  a.download = exam.name.replace(/[\\/:*?"<>|]/g, '_') + (withAnswer ? '-答案版.pdf' : '-考生版.pdf');
-  a.click(); URL.revokeObjectURL(url);
+  if (!exam.canReadQuestions) return;
+  await downloadPdf(exam, withAnswer ? '答案版' : '考生版', () => examsApi.exportPdf(exam.id, withAnswer));
 }
 
 /* ------------------------------ 特殊安排弹窗 ------------------------------ */
@@ -114,6 +111,26 @@ function openExamQueue(exam: Exam, command: unknown): void {
 }
 
 const deleting = ref(false);
+const exporting = ref(false);
+const operationError = ref('');
+const exportLabel = ref('');
+const detailVisible = ref(false);
+const detailExam = ref<Exam | null>(null);
+function openDetails(exam: Exam): void { detailExam.value = exam; detailVisible.value = true; }
+async function downloadPdf(exam: Exam, kind: string, request: () => Promise<Blob>): Promise<void> {
+  if (exporting.value || deleting.value) return;
+  exporting.value = true;
+  operationError.value = '';
+  exportLabel.value = `正在生成「${exam.name}」${kind} PDF…`;
+  let url = '';
+  try {
+    const blob = await request();
+    url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url;
+    a.download = exam.name.replace(/[\\/:*?"<>|]/g, '_') + `-${kind}.pdf`; a.click();
+  } catch { operationError.value = `「${exam.name}」${kind}导出失败，可从原入口重试。`; }
+  finally { if (url) URL.revokeObjectURL(url); exporting.value = false; exportLabel.value = ''; }
+}
 const rosterVisible = ref(false);
 const rosterExam = ref<Exam | null>(null);
 const { data: roster, loading: rosterLoading, error: rosterError, refresh: refreshRoster } = useRequest(
@@ -123,31 +140,34 @@ const { data: roster, loading: rosterLoading, error: rosterError, refresh: refre
 const participantSources: Record<ExamParticipant['source'], string> = { department: '科室范围', template: '人员模板', include: '指定人员', legacy: '原有名单' };
 
 function openRoster(exam: Exam): void {
+  if (!isAdmin.value) return;
+  detailVisible.value = false;
   rosterExam.value = exam;
   rosterVisible.value = true;
 }
 
 async function exportTickets(exam: Exam): Promise<void> {
-  const blob = await participantsApi.ticketsPdf(exam.id);
-  const url = URL.createObjectURL(blob); const a = document.createElement('a');
-  a.href = url; a.download = `${exam.name}-准考证.pdf`; a.click(); URL.revokeObjectURL(url);
+  if (!isAdmin.value) return;
+  await downloadPdf(exam, '准考证', () => participantsApi.ticketsPdf(exam.id));
 }
 
 async function handleDelete(exam: Exam): Promise<void> {
-  const ok = await confirm(`确定删除考试「${exam.name}」吗？已产生成绩记录的考试无法删除`, {
-    title: '删除考试',
-    confirmButtonText: '确认删除',
-    type: 'warning',
-  });
-  if (!ok) return;
-
+  if (!isAdmin.value || deleting.value || exporting.value) return;
   deleting.value = true;
+  operationError.value = '';
   try {
+    const ok = await confirm(`确定删除考试「${exam.name}」吗？已产生成绩记录的考试无法删除`, {
+      title: '删除考试',
+      confirmButtonText: '确认删除',
+      type: 'warning',
+    });
+    if (!ok) return;
+
     await examsApi.remove(exam.id);
     ElMessage.success('考试已删除');
     void refresh();
   } catch {
-    // 1005 等错误已由拦截器提示；不刷新
+    operationError.value = '删除失败，当前考试列表已保留，请核对后重试。';
   } finally {
     deleting.value = false;
   }
@@ -158,12 +178,14 @@ async function handleDelete(exam: Exam): Promise<void> {
   <div data-ui-layout="list" data-ui-page="ExamManagePage" class="exam-page">
     <PageHeader title="考试管理" :description="isAdmin ? '统一配置考试、题目、参与人员和出题人' : '维护分配给你的考试题目'">
       <template #actions>
-        <el-button v-if="isAdmin" type="primary" :icon="Plus" @click="openCreate">新建考试</el-button>
+        <el-button v-if="isAdmin" type="primary" :disabled="deleting" :icon="Plus" @click="openCreate">新建考试</el-button>
       </template>
     </PageHeader>
 
-    <div v-if="exams" class="exam-page__overview" role="group" aria-label="按考试状态筛选">
-      <button v-for="card in statusCards" :key="card.value" type="button" class="exam-page__stat" :class="{ 'is-active': filterStatus === card.value }" :aria-pressed="filterStatus === card.value" @click="filterStatus = card.value">
+    <p v-if="exams && !error" class="admin-scope">当前账号可管理考试范围 · {{ loading ? '正在刷新，以下为上次成功数据' : '已返回 ' + exams.length + ' 场' }} · 状态统计不受下方名称筛选影响</p>
+    <p v-if="exportLabel || operationError" class="exam-page__operation" :class="{ 'is-error': operationError }" role="status">{{ operationError || exportLabel }}</p>
+    <div v-if="exams && !error" class="exam-page__overview" role="group" aria-label="按考试状态筛选">
+      <button v-for="card in statusCards" :key="card.value" :disabled="deleting" type="button" class="exam-page__stat" :class="{ 'is-active': filterStatus === card.value }" :aria-pressed="filterStatus === card.value" @click="filterStatus = card.value">
         <span class="exam-page__stat-icon" :class="card.value"><el-icon><component :is="card.icon" /></el-icon></span>
         <span class="exam-page__stat-content"><span class="exam-page__stat-label">{{ card.label }}</span><strong>{{ card.count }}<small>场</small></strong></span>
         <span class="exam-page__stat-hint">{{ card.hint }}</span>
@@ -187,19 +209,19 @@ async function handleDelete(exam: Exam): Promise<void> {
       <div class="exam-page__toolbar">
         <div class="exam-page__list-heading"><h3>{{ filterStatus ? EXAM_STATUS_LABELS[filterStatus] : '考试列表' }}</h3><span class="exam-page__result-count">{{ filteredExams.length }} 场</span></div>
         <div class="exam-page__filter-actions">
-          <el-input v-model="filterKeyword" class="exam-page__filter-keyword" placeholder="搜索考试名称" aria-label="搜索考试名称" clearable :prefix-icon="Search" />
-          <el-button :disabled="!hasFilter" @click="resetFilter">重置</el-button>
+          <el-input v-model="filterKeyword" :disabled="deleting" class="exam-page__filter-keyword" placeholder="搜索考试名称" aria-label="搜索考试名称" clearable :prefix-icon="Search" />
+          <el-button :disabled="deleting || !hasFilter" @click="resetFilter">重置</el-button>
           <span class="exam-page__toolbar-divider" aria-hidden="true" />
           <TableDensityToggle />
-          <el-tooltip content="刷新列表" placement="top"><el-button :icon="Refresh" :loading="loading" aria-label="刷新考试列表" @click="refresh()" /></el-tooltip>
+          <el-tooltip content="刷新列表" placement="top"><el-button :icon="Refresh" :disabled="deleting" :loading="loading" aria-label="刷新考试列表" @click="refresh()" /></el-tooltip>
         </div>
       </div>
 
-      <p class="exam-page__scroll-hint">左右滑动查看完整考试信息与操作</p>
+      <p class="exam-page__scroll-hint">点击考试名称查看详情；左右滑动查看其他操作</p>
       <el-table v-loading="loading" :data="filteredExams" row-key="id" class="exam-page__table">
         <el-table-column label="考试信息" min-width="230">
           <template #default="{ row }">
-            <div class="exam-page__exam-heading"><span class="exam-page__exam-icon" aria-hidden="true"><el-icon><Document /></el-icon></span><div class="exam-page__exam-name" :title="row.name">{{ row.name }}</div></div>
+            <div class="exam-page__exam-heading"><span class="exam-page__exam-icon" aria-hidden="true"><el-icon><Document /></el-icon></span><el-button link type="primary" class="exam-page__exam-name" :title="row.name" @click="openDetails(row as Exam)">{{ row.name }}</el-button></div>
             <div class="exam-page__question-summary"><span><b>{{ row.questionCount ?? 0 }}</b> 题</span><span><b>{{ row.totalScore ?? 0 }}</b> 分</span><span>{{ row.passScore }} 分及格</span></div>
           </template>
         </el-table-column>
@@ -218,9 +240,9 @@ async function handleDelete(exam: Exam): Promise<void> {
         </el-table-column>
         <el-table-column class-name="table-actions-cell" label="操作" :width="isAdmin ? 184 : 164" fixed="right">
           <template #default="{ row }">
-            <TableActions :loading="deleting">
-              <el-button type="primary" link :disabled="!isAdmin && !row.canEditQuestions" :title="row.questionEditReason" @click="openEdit(row as Exam)">{{ isAdmin ? '编辑' : '维护题目' }}</el-button>
-              <el-button v-if="isAdmin" link :icon="Monitor" @click="openMonitor(row as Exam)">监控</el-button>
+            <TableActions :loading="deleting || exporting">
+              <el-button type="primary" link :disabled="deleting || (!isAdmin && !row.canEditQuestions)" :title="row.questionEditReason" @click="openEdit(row as Exam)">{{ isAdmin ? '编辑' : '维护题目' }}</el-button>
+              <el-button v-if="isAdmin" :disabled="deleting" link :icon="Monitor" @click="openMonitor(row as Exam)">监控</el-button>
               <template #more>
                 <el-dropdown-item :disabled="!row.canReadQuestions" @click="openPreview(row as Exam)">题目预览</el-dropdown-item>
                 <el-dropdown-item :disabled="!row.canReadQuestions" @click="exportQuestions(row as Exam, false)">导出考生版 PDF</el-dropdown-item>
@@ -251,16 +273,18 @@ async function handleDelete(exam: Exam): Promise<void> {
     </el-card>
 
     <ExamExceptionDialog v-model="exceptionVisible" :exam="exceptionExam" />
-    <el-dialog v-model="rosterVisible" title="考试生效名单" width="800px" destroy-on-close>
-      <div class="admin-detail-block"><strong>{{ rosterExam?.name }}</strong><p class="admin-scope">当前考试生效人员 · {{ rosterLoading ? '加载中…' : rosterError ? '人数未知' : `${roster?.length ?? 0} 人` }}</p></div>
+    <el-drawer v-model="detailVisible" title="考试详情" size="720px" append-to-body destroy-on-close data-ui-role="detail">
+      <template v-if="detailExam">
+        <section class="exam-detail__context"><h3>{{ detailExam.name }}</h3><StatusTag :status="getExamStatus(detailExam)" /><p v-if="detailExam.questionsLocked">题目已锁定</p></section>
+        <dl class="exam-detail__meta"><div><dt>开始时间</dt><dd>{{ formatDateTime(detailExam.startTime) }}</dd></div><div><dt>结束时间</dt><dd>{{ formatDateTime(detailExam.endTime) }}</dd></div><div><dt>时长 / 方式</dt><dd>{{ detailExam.durationMinutes }} 分钟 · {{ detailExam.examMode === 'open' ? '开卷' : '闭卷' }}</dd></div><div><dt>答题次数上限</dt><dd>{{ detailExam.maxAttempts }} 次</dd></div><div><dt>题量 / 总分</dt><dd>{{ detailExam.questionCount ?? '—' }} 题 / {{ detailExam.totalScore ?? '—' }} 分</dd></div><div><dt>及格线</dt><dd>{{ detailExam.passScore }} 分</dd></div><div><dt>出题人</dt><dd>{{ authorNames(detailExam) }}</dd></div><div v-if="isAdmin"><dt>参与科室</dt><dd>{{ detailExam.departmentIds.map(id => departmentNameMap[id] || id).join('、') || '指定人员 / 模板' }}</dd></div><div v-if="isAdmin"><dt>另指定人员</dt><dd>{{ detailExam.includeUserIds?.length ?? '—' }} 人</dd></div></dl>
+        <p v-if="detailExam.questionEditReason" class="admin-scope">{{ detailExam.questionEditReason }}</p>
+      </template>
+      <template #footer><div class="exam-detail__actions"><el-button @click="detailVisible = false">关闭</el-button><el-button v-if="detailExam?.canReadQuestions" @click="openPreview(detailExam)">题目预览</el-button><el-button v-if="isAdmin && detailExam" @click="openRoster(detailExam)">生效名单</el-button><el-button v-if="detailExam" type="primary" :disabled="deleting || (!isAdmin && !detailExam.canEditQuestions)" @click="openEdit(detailExam)">{{ isAdmin ? '编辑考试' : '维护题目' }}</el-button></div></template>
+    </el-drawer>
+    <el-dialog v-model="rosterVisible" title="考试生效名单" class="exam-roster-dialog" width="800px" destroy-on-close append-to-body>
+      <div class="admin-detail-block exam-roster__context"><strong>{{ rosterExam?.name }}</strong><p class="admin-scope">当前考试生效人员 · {{ rosterLoading ? '加载中…' : rosterError ? '人数未知' : `${roster?.length ?? 0} 人` }}</p></div>
       <RequestError v-if="rosterError" text="生效名单加载失败" @retry="refreshRoster" />
-      <el-table v-else v-loading="rosterLoading" :data="roster ?? []" row-key="userId" max-height="480">
-        <el-table-column label="考生" min-width="180"><template #default="{ row }"><strong>{{ row.userName }}</strong><div class="admin-hint">{{ row.username }}</div></template></el-table-column>
-        <el-table-column prop="admissionNo" label="准考证号" min-width="160" show-overflow-tooltip />
-        <el-table-column label="科室" min-width="140" show-overflow-tooltip><template #default="{ row }">{{ row.departmentName || '—' }}</template></el-table-column>
-        <el-table-column label="来源" width="110"><template #default="{ row }">{{ participantSources[row.source as ExamParticipant['source']] ?? row.source }}</template></el-table-column>
-        <template #empty><EmptyState text="该考试暂无生效人员" /></template>
-      </el-table>
+      <div v-else v-loading="rosterLoading" class="exam-roster"><article v-for="person in roster ?? []" :key="person.userId" class="exam-roster__person"><h3>{{ person.userName }}</h3><dl><div><dt>登录账号</dt><dd>{{ person.username }}</dd></div><div><dt>准考证号</dt><dd>{{ person.admissionNo || '—' }}</dd></div><div><dt>科室</dt><dd>{{ person.departmentName || '—' }}</dd></div><div><dt>来源</dt><dd>{{ participantSources[person.source] ?? person.source }}</dd></div></dl></article><EmptyState v-if="!rosterLoading && !roster?.length" text="该考试暂无生效人员" /></div>
       <template #footer><el-button @click="rosterVisible = false">关闭</el-button></template>
     </el-dialog>
   </div>
@@ -270,6 +294,7 @@ async function handleDelete(exam: Exam): Promise<void> {
 @use '@/styles/variables.scss' as *;
 
 .exam-page {
+  &__operation { padding: 12px 16px; border-radius: $radius-base; background: $color-primary-soft; color: $color-primary; overflow-wrap: anywhere; &.is-error { background: $color-error-bg; color: $color-error-text; } }
   max-width: 1520px;
   min-width: 0;
   margin: 0 auto;
@@ -361,4 +386,12 @@ async function handleDelete(exam: Exam): Promise<void> {
   .exam-page__table :deep(.el-table-fixed-column--right::before) { display: none; }
   .exam-page__list-footer { padding-right: 16px; padding-left: 16px; }
 }
+.exam-detail__context { padding: 16px; background: $bg-page; border: 1px solid $border-color; border-radius: $radius-lg; margin-bottom: 20px; h3 { margin: 0 0 12px; overflow-wrap: anywhere; } }
+.exam-detail__meta { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; margin: 0; dt { color: $text-secondary; font-size: 12px; } dd { margin: 4px 0 0; overflow-wrap: anywhere; } }
+.exam-detail__actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.exam-roster__context { overflow-wrap: anywhere; }
+.exam-roster { min-height: 100px; max-height: 480px; overflow-y: auto; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.exam-roster__person { min-width: 0; padding: 16px; border: 1px solid $border-color; border-radius: $radius-lg; background: $bg-page; h3 { margin: 0 0 12px; font-size: 14px; overflow-wrap: anywhere; } dl { margin: 0; display: grid; gap: 10px; } dt { color: $text-secondary; font-size: 12px; } dd { margin: 4px 0 0; overflow-wrap: anywhere; } }
+@media(max-width: 900px) { .exam-roster { max-height: none; grid-template-columns: minmax(0,1fr); } .exam-detail__actions { width: 100%; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); } .exam-detail__actions :deep(.el-button.el-button) { margin: 0; } }
+@media(max-width: 480px) { .exam-detail__meta { grid-template-columns: minmax(0,1fr); } }
 </style>

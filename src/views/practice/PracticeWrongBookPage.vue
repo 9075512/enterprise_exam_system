@@ -4,16 +4,17 @@
  *
  * - 数据：`GET /api/practice/wrong-book`（分页，题目内容不含答案/解析）+ `GET /api/practice/banks`（仅用于显示题库名）；
  * - 按题库分组展示；「全部复习」与「按题库复习」均调用错题复习会话（`/practice/wrong-book/reans`）；
- * - 仅移动端；视觉与其余练题页一致（冷静蓝 · 商务风）。
+ * - 桌面与手机沿用 Workbuddy 白卡、蓝色操作与16 px圆角。
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import RequestError from '@/components/common/RequestError.vue';
+import EmptyState from '@/components/common/EmptyState.vue';
 import { useRouter } from 'vue-router';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
 import PracticeLoading from '@/components/common/PracticeLoading.vue';
 import * as practiceApi from '@/api/practice';
 import { usePracticeAuthStore } from '@/stores/practiceAuth';
-import type { PracticeBank, PracticeWrongQuestion, QuestionType } from '@/types';
+import type { PracticeBank, PracticeWrongQuestion } from '@/types';
 
 const router = useRouter();
 const practiceAuth = usePracticeAuthStore();
@@ -24,6 +25,9 @@ const loading = ref(true);
 const loadingMore = ref(false);
 const loadError = ref(false);
 const moreError = ref(false);
+const banksLoading = ref(false);
+const banksError = ref(false);
+let listPending = false;
 let generation = 0;
 let disposed = false;
 onBeforeUnmount(() => { disposed = true; generation += 1; });
@@ -54,7 +58,7 @@ const groups = computed<Group[]>(() => {
     if (!group) {
       group = {
         bankId: item.bankId,
-        name: banks.value.find((b) => b.id === item.bankId)?.name ?? '其他题库',
+        name: banks.value.find((b) => b.id === item.bankId)?.name ?? (banksLoading.value ? '正在读取题库名称…' : banksError.value ? '题库名称暂不可用' : '题库名称未返回'),
         items: [],
       };
       map.set(item.bankId, group);
@@ -66,11 +70,13 @@ const groups = computed<Group[]>(() => {
 
 /** 拉取题库名映射（失败不影响错题展示） */
 async function loadBanks(): Promise<void> {
+  if (banksLoading.value) return;
+  banksLoading.value = true; banksError.value = false;
   try {
-    banks.value = await practiceApi.listBanks();
-  } catch {
-    /* 仅用于展示题库名，失败静默 */
-  }
+    const result = await practiceApi.listBanks();
+    if (!disposed) banks.value = result;
+  } catch { if (!disposed) banksError.value = true; }
+  finally { if (!disposed) banksLoading.value = false; }
 }
 
 /** 加载指定页（1 = 覆盖，其余 = 追加） */
@@ -85,6 +91,8 @@ async function loadPage(target: number): Promise<void> {
 
 /** 首次加载 */
 async function load(): Promise<void> {
+  if (listPending || loadingMore.value) return;
+  listPending = true;
   loading.value = true;
   loadError.value = false;
   moreError.value = false;
@@ -95,6 +103,7 @@ async function load(): Promise<void> {
     loadError.value = true;
   } finally {
     loading.value = false;
+    listPending = false;
   }
 }
 
@@ -132,17 +141,15 @@ onMounted(load);
           <p class="wb__title">我的错题本</p>
           <p class="wb__sub">{{ loading ? '正在加载错题…' : loadError ? '错题数量未知' : `共 ${total} 道错题 · 已加载 ${items.length} 道` }}</p>
         </div>
-        <el-button type="primary" :disabled="loading || loadError || total === 0" @click="startReans()">全部复习</el-button>
+        <div class="wb__head-actions"><el-button :loading="loading" :disabled="loadingMore" @click="load">刷新错题</el-button><el-button type="primary" :disabled="loading || loadError || total === 0" @click="startReans()">全部复习</el-button></div>
       </div>
+
+      <div v-if="banksError" class="wb__name-error" role="status"><p>题库名称加载失败，错题与原复习范围仍保留。</p><el-button :loading="banksLoading" @click="loadBanks">重试题库名称</el-button></div>
 
       <PracticeLoading v-if="loading" :loading="loading" :rows="5" caption="正在加载错题…" />
 
       <RequestError v-else-if="loadError" text="错题本加载失败" @retry="load" />
-      <div v-else-if="total === 0" class="wb__empty">
-        <div class="wb__empty-mark" aria-hidden="true">—</div>
-        <p class="wb__empty-text">错题本还是空的，去「练题」做几道题吧</p>
-        <el-button type="primary" class="wb__empty-action" @click="router.push({ name: 'practice-home' })">去练题</el-button>
-      </div>
+      <EmptyState v-else-if="total === 0" class="wb__empty" text="错题本还是空的，去「练题」做几道题吧" action-text="去练题" @action="router.push({ name: 'practice-home' })" />
 
       <template v-else>
         <section v-for="group in groups" :key="group.bankId" class="wb__group">
@@ -174,12 +181,12 @@ onMounted(load);
 
 .wb {
   &__user {
-    max-width: 120px;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    max-width: 160px;
+    overflow-wrap: anywhere;
   }
 
+  &__head-actions { display: flex; flex-wrap: wrap; gap: 8px; .el-button { margin-left: 0; min-height: 44px; } }
+  &__name-error { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px; margin-bottom: 16px; background: $bg-paper; border: 1px solid $border-color; border-radius: $radius-lg; p { flex: 1; min-width: 0; margin: 0; font-size: 13px; color: $text-secondary; overflow-wrap: anywhere; } .el-button { min-height: 44px; } }
   &__head {
     display: flex;
     align-items: center;
@@ -191,17 +198,7 @@ onMounted(load);
     border: 1px solid $border-color;
     border-radius: $practice-radius;
 
-    :deep(.el-button) {
-      flex: 0 0 auto;
-      border: none;
-      border-radius: $radius-xs;
-      background: $practice-primary;
-
-      &:hover,
-      &:active {
-        background: $practice-primary-dark;
-      }
-    }
+    :deep(.el-button) { flex: 0 0 auto; min-height: 44px; }
   }
 
   &__title {
@@ -265,10 +262,12 @@ onMounted(load);
     :deep(.el-button) {
       margin-left: auto;
       border-radius: $radius-xs;
+      min-height: 44px;
     }
   }
 
   &__group-name {
+    min-width: 0; overflow-wrap: anywhere;
     font-size: 13.5px;
     font-weight: 640;
     color: $text-primary;
@@ -313,7 +312,8 @@ onMounted(load);
     font-size: 13.5px;
     line-height: 1.7;
     color: $text-primary;
-    word-break: break-word;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
   }
 
   &__more {
@@ -322,10 +322,13 @@ onMounted(load);
 
     :deep(.el-button) {
       border-radius: $radius-xs;
+      min-height: 44px;
     }
   }
 
   @media (max-width: 900px) {
+    &__head { flex-wrap: wrap; }
+    &__head-actions { width: 100%; }
     &__head-text { min-width: 0; overflow-wrap: anywhere; }
     &__group-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; }
     &__group-name { grid-column: 1 / -1; }

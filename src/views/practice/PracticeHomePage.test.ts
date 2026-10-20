@@ -26,7 +26,7 @@ describe('按设计稿重排后的练题首页', () => {
   it('科目卡片保留服务端目录范围、真实进度与原有选题参数', async () => {
     render(); await flushPromises();
     expect(wrapper.text()).toContain('安全知识'); expect(wrapper.findAll('.home__subject')).toHaveLength(1);
-    expect(wrapper.text()).not.toContain('树中不可见题库'); expect(wrapper.text()).toContain('已练 1 题');
+    expect(wrapper.text()).not.toContain('树中不可见题库'); expect(wrapper.find('.home__scope').text()).toContain('1 个可练题库 · 4 道题'); expect(wrapper.text()).toContain('已练 1 题');
     expect(wrapper.get('[role="progressbar"]').attributes('aria-valuenow')).toBe('25');
     await wrapper.get('.home__subject').trigger('click');
     const modal = wrapper.getComponent(PracticeOptionModal);
@@ -54,4 +54,32 @@ describe('按设计稿重排后的练题首页', () => {
     render(); await flushPromises(); expect(wrapper.get('.home__daily-start').attributes('disabled')).toBeDefined();
     expect(wrapper.findAll('.home__shortcuts button')).toHaveLength(4);
   });
+  it('题库目录失败仅影响题库区域，重试不重读已成功的每日任务', async () => {
+    mocks.api.bankTree.mockRejectedValueOnce(new Error('offline'));
+    render(); await flushPromises();
+    expect(wrapper.getComponent({ name: 'RequestError' }).props('text')).toBe('可练题库加载失败'); expect(wrapper.text()).toContain('已答 2 / 10 题');
+    expect(wrapper.text()).toContain('5 道待巩固'); expect(wrapper.text()).not.toContain('暂无可练习的题库');
+    wrapper.getComponent({ name: 'RequestError' }).vm.$emit('retry'); await flushPromises();
+    expect(wrapper.findAll('.home__subject')).toHaveLength(1); expect(mocks.api.daily).toHaveBeenCalledTimes(1);
+  });
+  it('数量和进度可分别重试，保留原题库与功能入口', async () => {
+    mocks.api.wrongBook.mockRejectedValueOnce(new Error('offline')); mocks.api.reportBanks.mockRejectedValueOnce(new Error('offline'));
+    render(); await flushPromises();
+    expect(wrapper.text()).toContain('0 道收藏'); expect(wrapper.findAll('.home__subject')).toHaveLength(1);
+    await wrapper.findAll('button').find(b => b.text() === '重试学习数量')!.trigger('click'); await flushPromises();
+    expect(wrapper.text()).toContain('5 道待巩固'); expect(mocks.api.listBanks).toHaveBeenCalledTimes(1);
+    await wrapper.findAll('button').find(b => b.text() === '重试练习进度')!.trigger('click'); await flushPromises();
+    expect(wrapper.get('[role="progressbar"]').attributes('aria-valuenow')).toBe('25'); expect(mocks.api.daily).toHaveBeenCalledTimes(1);
+  });
+  it('每日状态失败提供独立恢复；刷新等待期间不重复请求', async () => {
+    mocks.api.daily.mockRejectedValueOnce(new Error('offline'));
+    render(); await flushPromises(); expect(wrapper.getComponent({ name: 'RequestError' }).props('text')).toBe('每日一练状态加载失败');
+    wrapper.getComponent({ name: 'RequestError' }).vm.$emit('retry'); await flushPromises();
+    expect(wrapper.text()).toContain('已答 2 / 10 题');
+    let resolve!: (value: unknown[]) => void; mocks.api.listBanks.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+    const refresh = wrapper.findAll('button').find(b => b.text() === '刷新首页')!;
+    await refresh.trigger('click'); await refresh.trigger('click'); await flushPromises();
+    expect(mocks.api.listBanks).toHaveBeenCalledTimes(2); resolve([]); await flushPromises();
+  });
+
 });

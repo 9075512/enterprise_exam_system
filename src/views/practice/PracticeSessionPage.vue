@@ -15,6 +15,7 @@ import PracticeLayout from '@/layouts/PracticeLayout.vue';
 import PracticeLoading from '@/components/common/PracticeLoading.vue';
 import QuestionCard from '@/views/exam/components/QuestionCard.vue';
 import PracticeFeedback from './components/PracticeFeedback.vue';
+import QuestionFeedbackDialog from './components/QuestionFeedbackDialog.vue';
 import PracticeProgressDots from './components/PracticeProgressDots.vue';
 import { usePracticeConfigStore } from '@/stores/practiceConfig';
 import * as practiceApi from '@/api/practice';
@@ -64,9 +65,13 @@ const results = ref<Record<string, PracticeCheckResult>>({});
 const firstResults = ref<Record<string, PracticeCheckResult>>({});
 const sheetVisible = ref(false);
 const feedbackBusy = ref(false);
+const feedbackVisible = ref(false);
+const feedbackTarget = ref({ questionId: '', sessionId: '', questionNumber: 0, stem: '' });
+const checkError = ref('');
 let initGeneration = 0;
 let disposed = false;
 const submitting = ref(false);
+const interactionBusy = computed(() => submitting.value || feedbackBusy.value || feedbackVisible.value);
 const finished = ref(false);
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -209,6 +214,7 @@ async function init(): Promise<void> {
   stopHeartbeat();
   loading.value = true;
   errorMessage.value = '';
+  checkError.value = '';
   index.value = 0;
   answers.value = {};
   results.value = {};
@@ -277,7 +283,8 @@ async function init(): Promise<void> {
 
 /** 选择题目的作答更新（已判分后锁定，避免改动首次结果） */
 function onAnswer(value: number[] | string[]): void {
-  if (!currentId.value || currentResult.value || submitting.value) return;
+  if (!currentId.value || currentResult.value || interactionBusy.value) return;
+  checkError.value = '';
   answers.value = {
     ...answers.value,
     [currentId.value]: value.filter((item): item is number => typeof item === 'number'),
@@ -287,11 +294,12 @@ function onAnswer(value: number[] | string[]): void {
 /** 提交本题 → 即时判分 */
 async function submit(): Promise<void> {
   const q = currentQuestion.value;
-  if (!q || !session.value || submitting.value || currentResult.value) return;
+  if (!q || !session.value || interactionBusy.value || currentResult.value) return;
   if (currentAnswer.value.length === 0) {
     ElMessage.warning('请先作答');
     return;
   }
+  checkError.value = '';
   submitting.value = true;
   try {
     const res = await practiceApi.check({
@@ -310,7 +318,8 @@ async function submit(): Promise<void> {
     // 每日一练：刷新今日进度（服务端权威）
     if (isDaily.value) void refreshDaily();
   } catch {
-    // 错误提示已由 http 拦截器统一弹出
+    checkError.value = '本题判分未成功，已保留你的选择，请重新提交本题。';
+    void nextTick(() => document.querySelector<HTMLElement>('.session__check-error')?.scrollIntoView?.({ block: 'center', behavior: 'smooth' }));
   } finally {
     submitting.value = false;
   }
@@ -319,32 +328,24 @@ async function submit(): Promise<void> {
 /** 重做本题（本地清空作答与结果，不扣分、不限次；统计以首次为准） */
 function redo(): void {
   const qid = currentId.value;
-  if (!qid || submitting.value) return;
+  if (!qid || interactionBusy.value) return;
+  checkError.value = '';
   const next = { ...results.value };
   delete next[qid];
   results.value = next;
   answers.value = { ...answers.value, [qid]: [] };
 }
 
-async function reportQuestion(): Promise<void> {
-  if (!currentQuestion.value || !session.value?.id || feedbackBusy.value) return;
-  const questionId = currentQuestion.value.id;
-  const sessionId = session.value.id;
-  feedbackBusy.value = true;
-  try {
-    const { value } = await ElMessageBox.prompt('请说明题干、选项、答案或解析存在的问题', '题目纠错反馈', {
-      confirmButtonText: '提交反馈', cancelButtonText: '取消',
-      inputType: 'textarea', inputPlaceholder: '请输入问题描述', inputValidator: (v) => Boolean(v.trim()) || '请输入问题描述',
-    });
-    await practiceApi.submitQuestionFeedback({ questionId, sessionId, category: '题目纠错', content: value.trim() });
-    ElMessage.success('反馈已提交');
-  } catch { /* 用户取消或请求错误已统一提示 */ }
-  finally { feedbackBusy.value = false; }
+function reportQuestion(): void {
+  if (!currentQuestion.value || !session.value?.id || interactionBusy.value) return;
+  feedbackTarget.value = { questionId: currentQuestion.value.id, sessionId: session.value.id, questionNumber: index.value + 1, stem: currentQuestion.value.stem };
+  feedbackVisible.value = true;
 }
 
 /** 下一题 / 结束 */
 function next(): void {
-  if (submitting.value || !currentResult.value) return;
+  if (interactionBusy.value || !currentResult.value) return;
+  checkError.value = '';
   if (isLast.value) {
     const missing = questions.value.findIndex(q => !firstResults.value[q.id]);
     if (missing >= 0) { ElMessage.info('还有题目未提交，请完成后查看小结'); jumpTo(missing); return; }
@@ -358,16 +359,19 @@ function next(): void {
     // PC 由主布局内容区滚动，移动端由窗口滚动；小结也需要回到顶部。
     document.querySelector<HTMLElement>('.layout__content')?.scrollTo({ top: 0, behavior: 'smooth' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.querySelector<HTMLElement>('.session__card')?.focus({ preventScroll: true });
   });
 }
 
 function jumpTo(target: number): void {
-  if (submitting.value || target < 0 || target >= questions.value.length) return;
+  if (interactionBusy.value || target < 0 || target >= questions.value.length) return;
+  checkError.value = '';
   index.value = target;
   sheetVisible.value = false;
   void nextTick(() => {
     document.querySelector<HTMLElement>('.layout__content')?.scrollTo?.({ top: 0, behavior: 'auto' });
     window.scrollTo({ top: 0, behavior: 'auto' });
+    document.querySelector<HTMLElement>('.session__card')?.focus({ preventScroll: true });
   });
 }
 
@@ -396,6 +400,7 @@ function restart(): void {
 
 // 离开作答页二次确认（微信返回键 = 浏览器后退，保证状态一致）
 onBeforeRouteLeave(async () => {
+  if (submitting.value || feedbackBusy.value) { ElMessage.info('正在提交，请稍后再离开'); return false; }
   if (finished.value) return true;
   if (Object.values(answers.value).every(value => value.length === 0) && Object.keys(firstResults.value).length === 0) {
     finishExitedSession();
@@ -477,7 +482,7 @@ onBeforeUnmount(() => { disposed = true; initGeneration += 1; stopHeartbeat(); }
     <div v-if="!loading && !errorMessage && questions.length > 0 && !finished" class="session">
       <div class="session__top">
         <div class="session__row">
-          <button type="button" class="session__back" aria-label="返回" @click="goHome">‹</button>
+          <button type="button" class="session__back" aria-label="返回" :disabled="interactionBusy" @click="goHome">‹</button>
           <span class="session__counter">
             第 {{ index + 1 }} / {{ questions.length }} 题<template v-if="dailyProgress"> · {{ dailyProgress }}</template>
           </span>
@@ -488,7 +493,7 @@ onBeforeUnmount(() => { disposed = true; initGeneration += 1; stopHeartbeat(); }
               type="button"
               class="session__fav"
               :class="{ 'is-on': currentFavorited }"
-              :disabled="favoriteBusy || (!favoriteReady && !favoriteError)"
+              :disabled="interactionBusy || favoriteBusy || (!favoriteReady && !favoriteError)"
               :aria-pressed="favoriteReady ? currentFavorited : undefined"
               @click="favoriteError ? loadFavoriteIds() : toggleFavorite()"
             >
@@ -502,11 +507,11 @@ onBeforeUnmount(() => { disposed = true; initGeneration += 1; stopHeartbeat(); }
           :current="index"
           :marks="marks"
           variant="on-light"
-        /><el-button text :disabled="submitting" @click="sheetVisible = true">答题卡</el-button></div>
+        /><el-button text :disabled="interactionBusy" @click="sheetVisible = true">答题卡</el-button></div>
       </div>
 
       <div class="session__body">
-        <div v-if="currentQuestion" class="session__card" :class="{ 'is-locked': !!currentResult || submitting }" :aria-busy="submitting">
+        <div v-if="currentQuestion" class="session__card" tabindex="-1" :class="{ 'is-locked': !!currentResult || submitting }" :aria-busy="submitting">
           <QuestionCard
             :index="index"
             :question="toQuestion(currentQuestion)"
@@ -517,9 +522,10 @@ onBeforeUnmount(() => { disposed = true; initGeneration += 1; stopHeartbeat(); }
           />
         </div>
 
+        <el-alert v-if="checkError" :title="checkError" type="error" show-icon :closable="false" class="session__check-error" />
         <!-- 反馈区（提交后） -->
         <PracticeFeedback v-if="currentResult" :result="currentResult" :selected="currentAnswer" />
-        <el-button v-if="index > 0" class="session__previous" :disabled="submitting" @click="jumpTo(index - 1)">上一题</el-button>
+        <el-button v-if="index > 0" class="session__previous" :disabled="interactionBusy" @click="jumpTo(index - 1)">上一题</el-button>
       </div>
 
       <!-- 操作区：PC 跟随题目，移动端吸底 -->
@@ -537,15 +543,16 @@ onBeforeUnmount(() => { disposed = true; initGeneration += 1; stopHeartbeat(); }
           </el-button>
         </template>
         <template v-else>
-          <el-button size="large" :loading="feedbackBusy" @click="reportQuestion">题目纠错</el-button>
-          <el-button size="large" class="session__redo" @click="redo">重做本题</el-button>
-          <el-button type="primary" size="large" class="session__next" @click="next">
+          <el-button size="large" :loading="feedbackBusy" :disabled="interactionBusy || !session?.id" @click="reportQuestion">题目纠错</el-button>
+          <el-button size="large" class="session__redo" :disabled="interactionBusy" @click="redo">重做本题</el-button>
+          <el-button type="primary" size="large" class="session__next" :disabled="interactionBusy" @click="next">
             {{ isLast ? '完成' : '下一题 ›' }}
           </el-button>
         </template>
       </div>
     </div>
-    <el-drawer v-model="sheetVisible" title="练题答题卡" class="practice-sheet" direction="btt" size="70%" append-to-body><p class="session__sheet-note">已完成 {{ summary.answered }} / {{ questions.length }} 题 · 小结采用每题首次判分</p><div class="session__sheet-grid"><button v-for="(question, questionIndex) in questions" :key="question.id" type="button" :class="['session__sheet-cell', marks[questionIndex], { 'is-current': questionIndex === index }]" :aria-label="`第 ${questionIndex + 1} 题，${marks[questionIndex] === 'correct' ? '答对' : marks[questionIndex] === 'wrong' ? '答错' : '未提交'}`" :aria-current="questionIndex === index ? 'true' : undefined" @click="jumpTo(questionIndex)">{{ questionIndex + 1 }}</button></div></el-drawer>
+    <el-drawer v-model="sheetVisible" title="练题答题卡" class="practice-sheet" direction="btt" size="70%" append-to-body><p class="session__sheet-note">已完成 {{ summary.answered }} / {{ questions.length }} 题 · 小结采用每题首次判分</p><p class="session__sheet-note">答对 / 答错 / 未提交；当前题有蓝色边框，可跳转检查并保留未提交选择。</p><div class="session__sheet-grid"><button v-for="(question, questionIndex) in questions" :key="question.id" type="button" :class="['session__sheet-cell', marks[questionIndex], { 'is-current': questionIndex === index }]" :disabled="interactionBusy" :aria-label="`第 ${questionIndex + 1} 题，${marks[questionIndex] === 'correct' ? '答对' : marks[questionIndex] === 'wrong' ? '答错' : '未提交'}`" :aria-current="questionIndex === index ? 'true' : undefined" @click="jumpTo(questionIndex)">{{ questionIndex + 1 }}</button></div><template #footer><el-button type="primary" @click="sheetVisible = false">继续练习</el-button></template></el-drawer>
+    <QuestionFeedbackDialog v-model:visible="feedbackVisible" v-bind="feedbackTarget" @busy="feedbackBusy = $event" />
   </PracticeLayout>
 </template>
 
@@ -553,6 +560,8 @@ onBeforeUnmount(() => { disposed = true; initGeneration += 1; stopHeartbeat(); }
 @use '@/styles/variables.scss' as *;
 
 .session {
+  &__check-error { margin-top: 16px; overflow-wrap: anywhere; }
+  &__card:focus-visible { outline: 2px solid $color-primary; outline-offset: 4px; }
   &__progress-row { display: flex; align-items: center; gap: 12px; .session__dots { flex: 1; min-width: 0; } }
   &__previous { margin-top: 20px; min-height: 44px; }
   &__sheet-note { font-size: 13px; color: $text-secondary; line-height: 1.6; }
@@ -643,8 +652,8 @@ onBeforeUnmount(() => { disposed = true; initGeneration += 1; stopHeartbeat(); }
     flex: 0 1 auto;
     min-width: 0;
     overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow-wrap: anywhere;
     font-size: 13px;
     font-weight: 620;
     color: $text-primary;
@@ -773,11 +782,11 @@ onBeforeUnmount(() => { disposed = true; initGeneration += 1; stopHeartbeat(); }
     box-sizing: border-box;
     background: $bg-paper;
     border: 1px solid $border-color;
-    border-radius: $radius-base;
+    border-radius: $radius-lg;
 
     &__top {
       padding: 16px 24px;
-      border-radius: $radius-base $radius-base 0 0;
+      border-radius: $radius-lg $radius-lg 0 0;
     }
 
     &__body {
@@ -805,7 +814,7 @@ onBeforeUnmount(() => { disposed = true; initGeneration += 1; stopHeartbeat(); }
       gap: 12px;
       padding: 20px 24px 24px;
       border-top: 0;
-      border-radius: 0 0 $radius-base $radius-base;
+      border-radius: 0 0 $radius-lg $radius-lg;
 
       :deep(.el-button) {
         flex: 0 1 160px;

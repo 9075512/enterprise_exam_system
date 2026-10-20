@@ -21,11 +21,14 @@ function roleName(id: string): string { return definitions.value.find(r => r.id 
 const loading = ref(true);
 const loadError = ref(false);
 const usersError = ref(false);
+const usersLoading = ref(false);
 const overrideLoading = ref(false);
 const overrideError = ref(false);
 let overrideRequest = 0;
 onBeforeUnmount(() => { overrideRequest += 1; });
 const saving = ref(false);
+const saveError = ref('');
+const overrideSaveError = ref('');
 const catalog = ref<MenuPermission['catalog']>([]);
 const grants = reactive<MenuGrants>({ admin: [], author: [], examinee: [] });
 
@@ -35,6 +38,12 @@ const users = ref<User[]>([]);
 const overrideUserId = ref('');
 const overrideDraft = reactive<Record<string, '' | 'allow' | 'deny'>>({});
 const overrideSaving = ref(false);
+const savingAny = computed(() => saving.value || overrideSaving.value);
+const overrideUser = computed(() => users.value.find(u => u.id === overrideUserId.value));
+const overrideGroups = computed(() => [...new Set(overrideCatalog.value.map(item => item.groupKey))].map(key => ({
+  key, name: groupTextOf(key), items: overrideCatalog.value.filter(item => item.groupKey === key),
+})));
+function selectRole(id: string): void { if (!savingAny.value && !loading.value) selectedRole.value = id; }
 const overrideCatalog = computed(() => {
   const user = users.value.find(u => u.id === overrideUserId.value);
   return groupedCatalog.value.filter(item => user && (item.defaultRoles.includes(user.role) || item.key === 'exam-messages'));
@@ -58,19 +67,25 @@ onMounted(() => {
 });
 
 async function loadUsers(): Promise<void> {
+  if (usersLoading.value || savingAny.value) return;
+  usersLoading.value = true;
   usersError.value = false;
   try { users.value = await usersApi.list(); } catch { usersError.value = true; }
+  finally { usersLoading.value = false; }
 }
 async function loadOverrides(): Promise<void> {
+  if (savingAny.value) return;
   const request = ++overrideRequest;
   const userId = overrideUserId.value;
   for (const key of Object.keys(overrideDraft)) delete overrideDraft[key];
   overrideError.value = false;
+  overrideSaveError.value = '';
   overrideLoading.value = Boolean(userId);
   if (!userId) return;
   try {
     const rows = await menuOverridesApi.list(userId);
     if (request !== overrideRequest) return;
+    for (const item of overrideCatalog.value) overrideDraft[item.key] = '';
     for (const item of rows) overrideDraft[item.menuKey] = item.effect;
   } catch { if (request === overrideRequest) overrideError.value = true; }
   finally { if (request === overrideRequest) overrideLoading.value = false; }
@@ -78,27 +93,31 @@ async function loadOverrides(): Promise<void> {
 
 async function saveOverrides(): Promise<void> {
   if (!overrideUserId.value) { ElMessage.warning('请先选择用户'); return; }
-  if (overrideSaving.value || overrideLoading.value || overrideError.value || loadError.value) return;
+  if (savingAny.value || loading.value || usersLoading.value || usersError.value || overrideLoading.value || overrideError.value || loadError.value) return;
   overrideSaving.value = true;
+  overrideSaveError.value = '';
   try {
     await menuOverridesApi.replace(overrideUserId.value, overrideCatalog.value.flatMap((item) => {
       const effect = overrideDraft[item.key];
       return effect ? [{ menuKey: item.key, effect }] : [];
     }));
     ElMessage.success('个人菜单例外已保存');
-  } catch { /* Keep the draft on API failure. */ }
+  } catch { overrideSaveError.value = '保存失败，个人例外选择已保留，请重试。'; }
   finally { overrideSaving.value = false; }
 }
 
 async function load(): Promise<void> {
+  if (savingAny.value) return;
   loading.value = true;
   loadError.value = false;
+  saveError.value = '';
   try {
     const data = await getMenuPermissions();
     catalog.value = data.catalog;
     definitions.value = data.roles;
     for (const key of Object.keys(grants)) delete grants[key];
     Object.assign(grants, data.grants);
+    if (!data.roles.some(role => role.id === selectedRole.value)) selectedRole.value = data.roles[0]?.id ?? '';
   } catch {
     loadError.value = true;
   } finally {
@@ -107,8 +126,9 @@ async function load(): Promise<void> {
 }
 
 async function handleSave(): Promise<void> {
-  if (saving.value || loading.value || loadError.value) return;
+  if (savingAny.value || loading.value || loadError.value || !definitions.value.length) return;
   saving.value = true;
+  saveError.value = '';
   try {
     const data = await updateMenuPermissions(Object.fromEntries(Object.entries(grants).map(([id, keys]) => [id, [...keys]])));
     definitions.value = data.roles;
@@ -116,7 +136,7 @@ async function handleSave(): Promise<void> {
     Object.assign(grants, data.grants);
     ElMessage.success('菜单权限已保存，受影响成员需重新登录');
   } catch {
-    // 错误提示已由拦截器统一弹出
+    saveError.value = '保存失败，各角色的菜单选择已保留，请重试。';
   } finally {
     saving.value = false;
   }
@@ -127,12 +147,13 @@ async function handleSave(): Promise<void> {
   <div data-ui-layout="list" data-ui-page="MenuPermissionPage" class="menu-permission-page">
     <PageHeader title="菜单权限" description="配置各角色在侧边栏可见的菜单；管理员必授菜单不可关闭">
       <template #actions>
-        <el-button type="primary" :loading="saving" :disabled="loading || loadError || !definitions.length" @click="handleSave">保存权限</el-button>
+        <el-button type="primary" :loading="saving" :disabled="overrideSaving || loading || loadError || !definitions.length" @click="handleSave">保存权限</el-button>
       </template>
     </PageHeader>
 
     <RequestError v-if="loadError" text="菜单权限加载失败" @retry="load" />
-    <div v-else class="menu-permission-page__layout">
+    <p v-if="saveError" class="menu-permission-page__error" role="status">{{ saveError }}</p>
+    <div v-if="!loadError" class="menu-permission-page__layout">
       <!-- 左栏：选择角色 + 当前统计（对齐设计稿 permissions.html 的独立卡） -->
       <div class="menu-permission-page__aside">
         <el-card class="menu-permission-page__panel" shadow="never">
@@ -148,12 +169,13 @@ async function handleSave(): Promise<void> {
               :key="role"
               class="menu-permission-page__role"
               :class="{ 'is-active': role === selectedRole }"
+              :aria-disabled="savingAny || loading"
+              :tabindex="savingAny || loading ? -1 : 0"
               role="button"
-              tabindex="0"
               :aria-pressed="role === selectedRole"
-              @keydown.enter="selectedRole = role"
-              @keydown.space.prevent="selectedRole = role"
-              @click="selectedRole = role"
+              @keydown.enter="selectRole(role)"
+              @keydown.space.prevent="selectRole(role)"
+              @click="selectRole(role)"
             >
               <span class="menu-permission-page__role-name">{{ roleName(role) }}</span>
               <span class="menu-permission-page__role-meta">
@@ -161,6 +183,7 @@ async function handleSave(): Promise<void> {
               </span>
             </li>
           </ul>
+          <p v-if="loading" class="menu-permission-page__hint" role="status">角色与菜单目录加载中…</p>
         </el-card>
 
         <el-card class="menu-permission-page__panel" shadow="never">
@@ -171,7 +194,8 @@ async function handleSave(): Promise<void> {
             </div>
           </template>
 
-          <template v-if="catalog.length">
+          <p v-if="loading" class="menu-permission-page__hint" role="status">授权统计加载中…</p>
+          <template v-else-if="catalog.length">
             <div class="menu-permission-page__kv">
               <div class="menu-permission-page__kv-row">
                 <span class="menu-permission-page__kv-key">已授权菜单</span>
@@ -202,14 +226,25 @@ async function handleSave(): Promise<void> {
           title="按所选角色的基础身份配置可见菜单；权限修改后受影响成员需重新登录，管理员必授菜单不可关闭"
         />
 
-        <RoleMenuPicker v-if="activeRole" v-model="grants[selectedRole]" :base-role="activeRole.baseRole" :catalog="catalog" :disabled="saving || loading || loadError" />
+        <RoleMenuPicker v-if="activeRole" v-model="grants[selectedRole]" :base-role="activeRole.baseRole" :catalog="catalog" :disabled="savingAny || loading || loadError" />
       </el-card>
     </div>
 
     <el-card class="menu-permission-page__panel" shadow="never">
       <template #header><div class="menu-permission-page__head"><span class="menu-permission-page__head-title">个人菜单例外</span><span class="menu-permission-page__head-meta">在基础角色权限之上设置允许或拒绝；管理员必备菜单不可拒绝</span></div></template>
-      <RequestError v-if="usersError" text="用户选项加载失败" @retry="loadUsers" /><div class="admin-toolbar"><el-select v-model="overrideUserId" :disabled="overrideSaving || usersError || loadError" filterable clearable placeholder="选择用户" style="width:260px" @change="loadOverrides"><el-option v-for="user in users" :key="user.id" :label="`${user.name}（${user.username}）`" :value="user.id"/></el-select><el-button type="primary" :loading="overrideSaving" :disabled="!overrideUserId || overrideLoading || overrideError || loadError" @click="saveOverrides">保存个人例外</el-button></div>
-      <RequestError v-if="overrideError" text="个人菜单例外加载失败" @retry="loadOverrides" /><el-table v-else-if="overrideUserId" v-loading="overrideLoading || overrideSaving" :data="overrideCatalog" row-key="key"><el-table-column prop="name" label="菜单" min-width="180"/><el-table-column label="个人例外" min-width="330"><template #default="{ row }"><el-radio-group v-model="overrideDraft[row.key]"><el-radio-button value="">继承角色</el-radio-button><el-radio-button value="allow">允许</el-radio-button><el-radio-button value="deny" :disabled="users.find(u=>u.id===overrideUserId)?.role==='admin' && row.adminRequired">拒绝</el-radio-button></el-radio-group></template></el-table-column><template #empty><EmptyState text="该用户暂无可配置菜单" /></template></el-table>
+      <RequestError v-if="usersError" text="用户选项加载失败" @retry="loadUsers" />
+      <div class="admin-toolbar"><el-select v-model="overrideUserId" class="menu-permission-page__user" :loading="usersLoading" :disabled="savingAny || loading || usersLoading || usersError || loadError" filterable clearable placeholder="选择用户" popper-class="organization-choice-popper" @change="loadOverrides"><el-option v-for="user in users" :key="user.id" :label="`${user.name}（${user.username}）`" :value="user.id"/></el-select><el-button type="primary" :loading="overrideSaving" :disabled="saving || loading || usersLoading || usersError || !overrideUserId || overrideLoading || overrideError || loadError" @click="saveOverrides">保存个人例外</el-button></div>
+      <p v-if="overrideSaveError" class="menu-permission-page__error" role="status">{{ overrideSaveError }}</p>
+      <RequestError v-if="overrideError" text="个人菜单例外加载失败" @retry="loadOverrides" />
+      <template v-else-if="overrideUserId">
+        <p class="menu-permission-page__context">{{ overrideUser?.name }} · {{ overrideUser?.username }} · {{ overrideLoading ? '正在加载个人例外' : '未单独设置的菜单继承角色权限' }}</p>
+        <div v-loading="overrideLoading" class="menu-permission-page__overrides" :aria-busy="overrideLoading">
+          <section v-for="group in overrideLoading ? [] : overrideGroups" :key="group.key" class="menu-permission-page__override-group"><h3>{{ group.name }}</h3>
+            <div v-for="item in group.items" :key="item.key" class="menu-permission-page__override-item"><div class="menu-permission-page__override-name">{{ item.name }}<small v-if="overrideUser?.role === 'admin' && item.adminRequired">管理员必备菜单，不可拒绝</small></div><el-radio-group v-model="overrideDraft[item.key]" :disabled="savingAny || loading || loadError" :aria-label="item.name + '个人例外'"><el-radio-button value="">继承角色</el-radio-button><el-radio-button value="allow">允许</el-radio-button><el-radio-button value="deny" :disabled="savingAny || loading || loadError || overrideUser?.role==='admin' && item.adminRequired">拒绝</el-radio-button></el-radio-group></div>
+          </section>
+          <EmptyState v-if="!overrideLoading && !overrideCatalog.length" text="该用户暂无可配置菜单" />
+        </div>
+      </template>
       <p v-else class="menu-permission-page__hint">选择用户后配置个人菜单允许/拒绝例外。</p>
     </el-card>
   </div>
@@ -219,6 +254,13 @@ async function handleSave(): Promise<void> {
 @use '@/styles/variables.scss' as *;
 
 .menu-permission-page {
+  &__error { margin: 0; padding: 12px 16px; border-radius: $radius-base; background: $color-error-bg; color: $color-error-text; overflow-wrap: anywhere; }
+  &__user { width: 300px; max-width: 100%; }
+  &__context { font-size: 13px; color: $text-secondary; overflow-wrap: anywhere; }
+  &__overrides { min-height: 80px; display: grid; gap: 16px; }
+  &__override-group { min-width: 0; padding: 16px; border: 1px solid $border-color; border-radius: $radius-lg; background: $bg-page; h3 { margin: 0 0 12px; font-size: 13px; color: $text-secondary; } }
+  &__override-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding-block: 10px; border-bottom: 1px solid $border-color; &:last-child { border: 0; } }
+  &__override-name { min-width: 0; overflow-wrap: anywhere; small { display: block; color: $text-secondary; margin-top: 4px; } }
   display: flex; flex-direction: column; gap: 20px; min-width: 0;
   > :deep(.page-header) { margin-bottom: 0; }
   &__layout {
@@ -275,6 +317,8 @@ async function handleSave(): Promise<void> {
   }
 
   &__role {
+    min-height: 44px;
+    &[aria-disabled="true"] { cursor: wait; opacity: .7; }
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -298,9 +342,11 @@ async function handleSave(): Promise<void> {
 
   &__role-name {
     min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   &__role-meta {
+    flex-shrink: 0;
     font-size: 12px;
     color: $text-secondary;
   }
@@ -356,4 +402,5 @@ async function handleSave(): Promise<void> {
     color: $text-secondary;
   }
 }
+@media(max-width:900px) { .menu-permission-page__role { align-items: flex-start; flex-direction: column; gap: 4px; padding: 12px; } .menu-permission-page__head-meta { min-width: 0; overflow-wrap: anywhere; } .menu-permission-page__override-item { grid-template-columns: minmax(0, 1fr); } .menu-permission-page__override-item :deep(.el-radio-group) { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); width: 100%; } .menu-permission-page__override-item :deep(.el-radio-button__inner) { width: 100%; display: grid; place-items: center; min-height: 44px; padding-inline: 4px; } .menu-permission-page__user { flex: 1 1 100%; width: 100%; } }
 </style>

@@ -119,6 +119,46 @@ describe('角色管理页面交互', () => {
 
 
 describe('权限页的加载保护', () => {
+  it('个人例外默认继承，管理员必授项不可拒绝；失败保留选择并锁定保存期间的切换', async () => {
+    api.users.mockResolvedValue([{ id: 'u', name: '管理员甲', username: 'admin', role: 'admin' }]);
+    let reject!: (error: Error) => void;
+    api.overridesReplace.mockReturnValueOnce(new Promise((_, r) => { reject = r; }));
+    wrapper = mount(MenuPermissionPage, { attachTo: document.body, global }); await flushPromises();
+    const select = wrapper.findComponent({ name: 'ElSelect' });
+    select.vm.$emit('update:modelValue', 'u'); select.vm.$emit('change', 'u'); await flushPromises();
+    const radios = wrapper.findAllComponents({ name: 'ElRadioGroup' });
+    expect(radios.every(r => r.props('modelValue') === '')).toBe(true);
+    const required = wrapper.findAll('.menu-permission-page__override-item').find(r => r.text().includes('角色管理'))!;
+    expect(required.findAll('input').at(-1)!.attributes()).toHaveProperty('disabled');
+    const review = wrapper.findAll('.menu-permission-page__override-item').find(r => r.text().includes('人工阅卷'))!;
+    review.findComponent({ name: 'ElRadioGroup' }).vm.$emit('update:modelValue', 'allow'); await flushPromises();
+    await wrapper.findAll('button').find(b => b.text() === '保存个人例外')!.trigger('click'); await flushPromises();
+    expect(select.props('disabled')).toBe(true);
+    expect(wrapper.findAll('.menu-permission-page__override-item input').every(input => (input.element as HTMLInputElement).disabled)).toBe(true);
+    await wrapper.findAll('.menu-permission-page__role').find(r => r.text().includes('阅卷老师'))!.trigger('click');
+    expect(wrapper.find('.menu-permission-page__role.is-active').text()).toContain('管理员');
+    reject(new Error('offline')); await flushPromises();
+    expect(wrapper.text()).toContain('个人例外选择已保留');
+    expect(review.findComponent({ name: 'ElRadioGroup' }).props('modelValue')).toBe('allow');
+    await wrapper.findAll('button').find(b => b.text() === '保存个人例外')!.trigger('click'); await flushPromises();
+    expect(api.overridesReplace).toHaveBeenLastCalledWith('u', [{ menuKey: 'reviews', effect: 'allow' }]);
+  });
+
+  it('角色保存失败保留草稿，处理中禁止修改和切换角色', async () => {
+    let reject!: (error: Error) => void;
+    api.updatePermissions.mockReturnValueOnce(new Promise((_, r) => { reject = r; }));
+    wrapper = mount(MenuPermissionPage, { attachTo: document.body, global }); await flushPromises();
+    await wrapper.findAll('.menu-permission-page__role').find(r => r.text().includes('阅卷老师'))!.trigger('click');
+    await wrapper.find('.role-menu-picker input[type=checkbox]').setValue(true);
+    await wrapper.findAll('button').find(b => b.text() === '保存权限')!.trigger('click'); await flushPromises();
+    expect(wrapper.find('.role-menu-picker input').attributes()).toHaveProperty('disabled');
+    await wrapper.findAll('.menu-permission-page__role').find(r => r.text().includes('管理员'))!.trigger('click');
+    expect(wrapper.find('.menu-permission-page__role.is-active').text()).toContain('阅卷老师');
+    reject(new Error('offline')); await flushPromises();
+    expect(wrapper.text()).toContain('各角色的菜单选择已保留');
+    expect((wrapper.find('.role-menu-picker input').element as HTMLInputElement).checked).toBe(true);
+  });
+
   it('权限数据失败显示重试，阻止保存未知授权', async () => {
     api.load.mockRejectedValue(new Error('offline'));
     wrapper = mount(MenuPermissionPage, { attachTo: document.body, global });

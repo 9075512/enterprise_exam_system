@@ -20,6 +20,13 @@ beforeEach(() => {
 });
 
 describe('系统设置请求合并', () => {
+  it('强制刷新失败保留缓存并明确记录失败，成功重试后清除', async () => {
+    const store = useSettingsStore();
+    vi.mocked(getSettings).mockResolvedValueOnce({ ...SETTINGS_DEFAULTS, systemName: '已有配置' }).mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({ ...SETTINGS_DEFAULTS, systemName: '最新配置' });
+    await store.load(); await store.load(true);
+    expect(store.ready).toBe(true); expect(store.settings.systemName).toBe('已有配置'); expect(store.lastLoadFailed).toBe(true);
+    await store.load(true); expect(store.lastLoadFailed).toBe(false); expect(store.settings.systemName).toBe('最新配置');
+  });
   it('公开配置返回前直接使用正式品牌，刷新时不闪现占位名称', () => {
     const store = useSettingsStore();
     expect(store.publicSettings.systemName).toBe('卓达煤矿考试学习系统');

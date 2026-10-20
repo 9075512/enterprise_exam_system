@@ -15,6 +15,7 @@ const props = defineProps<{
   questions: { id: string; type: QuestionType; blanks?: number }[];
   answers: Record<string, number[] | string[]>;
   currentIndex: number;
+  disabled?: boolean;
 }>();
 
 const emit = defineEmits<{ (e: 'jump', index: number): void }>();
@@ -75,6 +76,7 @@ function cellTitle(no: number, id: string): string {
             'answer-sheet__cell--answered': answered(item.id),
             'answer-sheet__cell--current': item.index === currentIndex,
           }"
+          :disabled="disabled"
           :title="cellTitle(item.index + 1, item.id)"
           :aria-label="cellTitle(item.index + 1, item.id)"
           :aria-current="item.index === currentIndex ? 'true' : undefined"
@@ -189,6 +191,8 @@ function cellTitle(no: number, id: string): string {
     cursor: pointer;
     transition: background-color $transition-fast, border-color $transition-fast, color $transition-fast;
 
+    &:disabled { cursor: wait; opacity: .6; }
+    &:focus-visible { outline: 2px solid $color-primary; outline-offset: 2px; }
     &:hover {
       border-color: $color-primary;
       color: $color-primary;

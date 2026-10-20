@@ -1,0 +1,1653 @@
+{
+  "date": "2026-10-20",
+  "scope": "系统设置七类配置、练题设置四类配置、批量和恢复默认确认。sample为隔离组件与模拟接口，live为本地实际接口；真实环境仅查看。",
+  "checks": [
+    {
+      "label": "sample-bank-cards-390",
+      "controls": [
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 77.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        382,
+        382
+      ],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "sample-practice-daily-390",
+      "controls": [
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease is-disabled",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease is-disabled",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 77.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        382,
+        382
+      ],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "sample-practice-daily-320",
+      "controls": [
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease is-disabled",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease is-disabled",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button el-button--primary",
+          "h": 44,
+          "w": 77.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        312,
+        312
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "sample-practice-rules-320",
+      "controls": [
+        {
+          "class": "el-input-number__decrease is-disabled",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease is-disabled",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button el-button--primary",
+          "h": 44,
+          "w": 77.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        312,
+        312
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "sample-batch-confirm-320",
+      "controls": [
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 77.5999984741211
+        }
+      ],
+      "dialogs": [
+        {
+          "bottom": 448,
+          "sw": 288,
+          "top": 292,
+          "w": 288
+        }
+      ],
+      "page": [
+        320,
+        320
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "sample-batch-confirm-landscape",
+      "controls": [
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 77.5999984741211
+        }
+      ],
+      "dialogs": [
+        {
+          "bottom": 261.1999969482422,
+          "sw": 420,
+          "top": 129.1999969482422,
+          "w": 420
+        }
+      ],
+      "page": [
+        844,
+        844
+      ],
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "label": "sample-system-exam-landscape",
+      "controls": [
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        836,
+        836
+      ],
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "label": "sample-system-brand-failure-390",
+      "controls": [
+        {
+          "class": "el-button",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        382,
+        382
+      ],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "sample-system-reset-390",
+      "controls": [
+        {
+          "class": "el-button is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [
+        {
+          "bottom": 500,
+          "sw": 358,
+          "top": 344,
+          "w": 358
+        }
+      ],
+      "page": [
+        390,
+        390
+      ],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "sample-system-reset-landscape",
+      "controls": [
+        {
+          "class": "el-button is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [
+        {
+          "bottom": 273.2000045776367,
+          "sw": 420,
+          "top": 117.20000457763672,
+          "w": 420
+        }
+      ],
+      "page": [
+        844,
+        844
+      ],
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "label": "sample-system-load-error",
+      "controls": [
+        {
+          "class": "el-button is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        836,
+        836
+      ],
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "label": "sample-system-exam-320",
+      "controls": [
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        312,
+        312
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "sample-system-320-作答与防作弊",
+      "controls": [
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        312,
+        312
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "sample-system-320-阅卷与复核",
+      "controls": [
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease is-disabled",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        312,
+        312
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "sample-system-320-账号与安全",
+      "controls": [
+        {
+          "class": "el-input-number__decrease is-disabled",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease is-disabled",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        312,
+        312
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "sample-system-320-通知与模板",
+      "controls": [
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        312,
+        312
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "sample-system-320-数据与归档",
+      "controls": [
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease is-disabled",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        312,
+        312
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "sample-system-320-网站与品牌",
+      "controls": [
+        {
+          "class": "el-button",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        312,
+        312
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "sample-system-desktop",
+      "controls": [
+        {
+          "class": "el-input-number__decrease",
+          "h": 15,
+          "w": 32
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 15,
+          "w": 32
+        },
+        {
+          "class": "el-button",
+          "h": 36,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 36,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        1432,
+        1432
+      ],
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "label": "sample-practice-empty-desktop",
+      "controls": [
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 36,
+          "w": 77.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        1432,
+        1432
+      ],
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "label": "sample-practice-load-error",
+      "controls": [
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 36,
+          "w": 77.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        1432,
+        1432
+      ],
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "label": "live-practice-banks-desktop",
+      "controls": [
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 36,
+          "w": 77.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        1440,
+        1440
+      ],
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "label": "live-practice-banks-390",
+      "controls": [
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 77.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        390,
+        390
+      ],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "live-practice-daily-390",
+      "controls": [
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease is-disabled",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease is-disabled",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 77.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        390,
+        390
+      ],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "live-practice-rules-320",
+      "controls": [
+        {
+          "class": "el-input-number__decrease is-disabled",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease is-disabled",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 77.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        320,
+        320
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "live-practice-rules-landscape",
+      "controls": [
+        {
+          "class": "el-input-number__decrease is-disabled",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease is-disabled",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 77.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        844,
+        844
+      ],
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "label": "live-system-advanced-landscape-fixed",
+      "controls": [
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        844,
+        844
+      ],
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "label": "live-system-anti-390",
+      "controls": [
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        390,
+        390
+      ],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "live-system-320-阅卷与复核",
+      "controls": [
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease is-disabled",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        320,
+        320
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "live-system-320-通知与模板",
+      "controls": [
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        320,
+        320
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "live-system-320-数据与归档",
+      "controls": [
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease is-disabled",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        320,
+        320
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "live-system-320-网站与品牌",
+      "controls": [
+        {
+          "class": "el-button",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        320,
+        320
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "live-system-exam-desktop",
+      "controls": [
+        {
+          "class": "el-input-number__decrease",
+          "h": 15,
+          "w": 32
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 15,
+          "w": 32
+        },
+        {
+          "class": "el-button",
+          "h": 36,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 36,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        1440,
+        1440
+      ],
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "label": "live-system-final-390",
+      "controls": [
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        390,
+        390
+      ],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "live-system-final-landscape",
+      "controls": [
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        844,
+        844
+      ],
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "label": "live-system-final-320",
+      "controls": [
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__decrease",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-input-number__increase",
+          "h": 44,
+          "w": 44
+        },
+        {
+          "class": "el-button",
+          "h": 44,
+          "w": 96.5999984741211
+        },
+        {
+          "class": "el-button el-button--primary is-disabled",
+          "h": 44,
+          "w": 96.5999984741211
+        }
+      ],
+      "dialogs": [],
+      "page": [
+        320,
+        320
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    }
+  ]
+}

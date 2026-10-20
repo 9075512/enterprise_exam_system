@@ -7,9 +7,10 @@
  * - 管理员可重新指定新题库的授权出题人；出题人复制时默认继承源题库作者并自动含自己。
  */
 import { computed, ref, watch } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, type FormInstance } from 'element-plus';
 import * as banksApi from '@/api/banks';
 import * as usersApi from '@/api/users';
+import { focusFirstFormError } from '@/composables/useFormFocus';
 import { useRequest } from '@/composables/useRequest';
 import RequestError from '@/components/common/RequestError.vue';
 import type { QuestionBank } from '@/types';
@@ -27,6 +28,9 @@ const emit = defineEmits<{
 }>();
 
 const submitting = ref(false);
+const formRef = ref<FormInstance>();
+const submitError = ref('');
+const nameError = ref('');
 const { data: authorOptions, loading: authorsLoading, error: authorsError, refresh: loadAuthors } = useRequest(
   async () => (await usersApi.list({ role: 'author' })).map(user => ({ id: user.id, name: user.name })),
   [], { immediate: false, keepPreviousData: false },
@@ -38,6 +42,8 @@ const form = ref({
   authorIds: [] as string[],
 });
 
+const selectedAuthors = computed(() => form.value.authorIds.map(id => authorOptions.value?.find(a => a.id === id)?.name || id));
+
 const dialogVisible = computed({
   get: () => props.visible,
   set: (v: boolean) => { if (!v && submitting.value) return; emit('update:visible', v); },
@@ -47,6 +53,9 @@ watch(
   () => props.visible,
   (open) => {
     if (!open || !props.bank) return;
+    submitError.value = '';
+    nameError.value = '';
+    formRef.value?.clearValidate();
     form.value = {
       name: `${props.bank.name}（副本）`,
       copyQuestions: true,
@@ -54,15 +63,18 @@ watch(
     };
     if (props.isAdmin) void loadAuthors();
   },
+  { immediate: true },
 );
 
 async function handleSubmit(): Promise<void> {
   if (!props.bank || submitting.value || (props.isAdmin && (authorsLoading.value || authorsError.value))) return;
   const name = form.value.name.trim();
-  if (!name) {
-    ElMessage.warning('请填写新题库名称');
+  nameError.value = !name ? '请填写新题库名称' : name.length > 100 ? '名称不能超过 100 字' : '';
+  if (nameError.value) {
+    await focusFirstFormError(formRef.value?.$el);
     return;
   }
+  submitError.value = '';
   submitting.value = true;
   try {
     const result = await banksApi.clone(props.bank.id, {
@@ -79,7 +91,7 @@ async function handleSubmit(): Promise<void> {
     emit('saved', result.bank);
     emit('update:visible', false);
   } catch {
-    /* 已由拦截器提示 */
+    submitError.value = '复制失败，已保留名称、试题与授权设置，请重试。';
   } finally {
     submitting.value = false;
   }
@@ -87,12 +99,13 @@ async function handleSubmit(): Promise<void> {
 </script>
 
 <template>
-  <el-dialog v-model="dialogVisible" title="复制题库" width="560px" append-to-body destroy-on-close :close-on-click-modal="!submitting" :close-on-press-escape="!submitting" :show-close="!submitting">
-    <div class="admin-detail-block"><strong>源题库 · {{ bank?.name ?? '' }}</strong><p>新题库独立维护，复制结果会显示新建与内容复用的实际题数。</p></div>
+  <el-dialog class="bank-workflow-dialog" v-model="dialogVisible" title="复制题库" width="560px" append-to-body destroy-on-close :close-on-click-modal="!submitting" :close-on-press-escape="!submitting" :show-close="!submitting">
+    <div class="admin-detail-block bank-clone__source"><strong>源题库 · {{ bank?.name ?? '' }}</strong><p>新题库独立维护，复制结果会显示新建与内容复用的实际题数。</p></div>
     <RequestError v-if="isAdmin && authorsError" text="授权出题人加载失败，请重试后复制" @retry="loadAuthors" />
-    <el-form label-position="top" :disabled="submitting">
-      <el-form-item label="新题库名称" required>
-        <el-input v-model="form.name" maxlength="100" show-word-limit placeholder="请输入新题库名称" />
+    <el-alert v-if="submitError" :title="submitError" type="error" show-icon :closable="false" class="bank-clone__error" />
+    <el-form ref="formRef" :model="form" label-position="top" :disabled="submitting">
+      <el-form-item label="新题库名称" prop="name" required :error="nameError">
+        <el-input v-model="form.name" maxlength="100" show-word-limit placeholder="请输入新题库名称" @input="nameError = ''" />
       </el-form-item>
       <el-form-item label="复制试题">
         <el-switch v-model="form.copyQuestions" />
@@ -105,7 +118,8 @@ async function handleSubmit(): Promise<void> {
         <el-select
           v-model="form.authorIds"
           :loading="authorsLoading"
-          :disabled="Boolean(authorsError) || authorsLoading"
+          :disabled="submitting || Boolean(authorsError) || authorsLoading"
+          popper-class="organization-choice-popper"
           class="bank-clone__full"
           multiple
           filterable
@@ -115,6 +129,7 @@ async function handleSubmit(): Promise<void> {
         >
           <el-option v-for="a in authorOptions ?? []" :key="a.id" :label="a.name" :value="a.id" />
         </el-select>
+        <p class="bank-clone__hint">{{ selectedAuthors.length ? `已选出题人：${selectedAuthors.join('、')}` : '未选择时继承源题库授权出题人' }}</p>
       </el-form-item>
     </el-form>
     <template #footer>
@@ -127,9 +142,11 @@ async function handleSubmit(): Promise<void> {
 <style scoped lang="scss">
 @use '@/styles/variables.scss' as *;
 
+.bank-clone__error { margin: 12px 0; overflow-wrap: anywhere; }
 .bank-clone {
   &__source {
     color: $text-primary;
+    overflow-wrap: anywhere;
   }
 
   &__full {
@@ -141,7 +158,8 @@ async function handleSubmit(): Promise<void> {
     width: 100%;
     margin-top: 8px;
     font-size: 12px;
-    line-height: 1.5;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
     color: $text-secondary;
   }
 }

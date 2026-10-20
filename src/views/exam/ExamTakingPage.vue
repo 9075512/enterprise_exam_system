@@ -83,6 +83,7 @@ const progressPercent = computed<number>(() => {
 /** 答题卡上方考生信息 */
 const userName = computed<string>(() => auth.currentUser?.name ?? '考生');
 const userDepartment = computed<string>(() => auth.currentUser?.departmentName ?? '');
+const confirmationContext = computed(() => `考试：${exam.value?.name ?? ''}\n已完整作答 ${answeredCount.value} / ${questions.value.length} 题\n`);
 
 /** 防作弊：答题页浮水印 / 复制限制（读系统设置，响应式） */
 const watermarkEnabled = computed<boolean>(() => settingsStore.settings.cheatWatermarkEnabled);
@@ -236,8 +237,8 @@ async function handleSubmit(): Promise<void> {
   confirming.value = true;
   try {
     const unanswered = questions.value.length - answeredCount.value;
-    await ElMessageBox.confirm(unanswered > 0 ? `还有 ${unanswered} 道题未完整作答，确认交卷？交卷后不可修改答案。` : '全部题目已作答，确认交卷？交卷后不可修改答案。', '交卷确认', {
-      type: 'warning',
+    await ElMessageBox.confirm(confirmationContext.value + (unanswered > 0 ? `还有 ${unanswered} 道题未完整作答，确认交卷？交卷后不可修改答案。` : '全部题目已作答，确认交卷？交卷后不可修改答案。'), '交卷确认', {
+      type: 'warning', customClass: 'answering-confirm',
       confirmButtonText: '确认交卷',
       cancelButtonText: '取消',
     });
@@ -253,11 +254,11 @@ async function handleSaveExit(): Promise<void> {
   confirming.value = true;
   try {
     await ElMessageBox.confirm(
-      settingsStore.settings.abnormalExitResumePolicy === 'admin_required'
+      confirmationContext.value + (settingsStore.settings.abnormalExitResumePolicy === 'admin_required'
         ? '暂存并退出？已作答内容会保留，但再次进入需要管理员恢复（倒计时不会暂停）。'
-        : '暂存并退出？已作答内容会保留，再次进入可从当前进度继续（倒计时不会暂停）。',
+        : '暂存并退出？已作答内容会保留，再次进入可从当前进度继续（倒计时不会暂停）。'),
       '暂存退出',
-      { type: 'info', confirmButtonText: '暂存并退出', cancelButtonText: '继续作答' },
+      { type: 'info', customClass: 'answering-confirm', confirmButtonText: '暂存并退出', cancelButtonText: '继续作答' },
     );
   } catch {
     return;
@@ -288,6 +289,7 @@ async function doSubmit(auto: boolean): Promise<void> {
     submittingError.value = true;
   } finally {
     submitting.value = false;
+    if (submittingError.value) void nextTick(() => document.querySelector<HTMLElement>('.taking__submit-error')?.scrollIntoView?.({ block: 'center', behavior: 'smooth' }));
   }
 }
 
@@ -310,7 +312,11 @@ function jump(index: number): void {
   if (index < 0 || index >= questions.value.length || busy.value) return;
   currentIndex.value = index;
   sheetVisible.value = false;
-  void nextTick(() => document.getElementById(`question-${index}`)?.scrollIntoView?.({ behavior: 'auto', block: 'start' }));
+  void nextTick(() => {
+    const target = document.getElementById(`question-${index}`);
+    target?.scrollIntoView?.({ behavior: 'auto', block: 'start' });
+    target?.focus({ preventScroll: true });
+  });
 }
 
 function beforeUnloadHandler(event: BeforeUnloadEvent): void {
@@ -384,8 +390,9 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
       <!-- 主体：左答题区 + 右吸顶答题卡（设计稿 .ans-wrap） -->
       <div class="taking__wrap">
         <div class="taking__main">
-          <div class="taking__save-state" :class="{ 'is-error': saveError }" role="status"><span>{{ saveStatus }}</span><el-button v-if="saveError" link type="primary" :loading="saving" @click="silenceSave">重新暂存</el-button></div>
-          <el-alert v-if="submittingError" type="error" :closable="false" show-icon title="交卷尚未成功，答案仍保留在本页。请重新交卷。" />
+          <div v-if="isMobile" class="taking__context"><strong>{{ exam.name }}</strong><p>{{ exam.examMode === 'open' ? '开卷' : '闭卷' }} · 共 {{ questions.length }} 题 · 满分 {{ formatScore(record.paperSnapshot.totalScore) }} 分 · 第 {{ attemptNo }} 次作答</p><p v-if="record.extraMinutes">本次含加时 {{ record.extraMinutes }} 分钟，倒计时不因退出暂停。</p></div>
+          <div class="taking__save-state" :class="{ 'is-error': saveError }" role="status"><span>{{ saveStatus }}</span><el-button v-if="saveError" link type="primary" :loading="saving" :disabled="busy || submitted" @click="silenceSave">重新暂存</el-button></div>
+          <el-alert v-if="submittingError" class="taking__submit-error" type="error" :closable="false" show-icon title="交卷尚未成功，答案仍保留在本页。请重新交卷。" />
           <div v-if="cheatCount > 0" class="taking__tip">
             <el-icon class="taking__tip-icon"><Warning /></el-icon>
             <div>
@@ -401,6 +408,7 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
               :id="`question-${index}`"
               :key="item.questionId"
               class="taking__question"
+              tabindex="-1"
               v-show="!isMobile || index === currentIndex"
               @focusin="currentIndex = index"
             >
@@ -434,6 +442,7 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
               :questions="sheetQuestions"
               :answers="answers"
               :current-index="currentIndex"
+              :disabled="busy || submitted"
               @jump="jump"
             />
           </el-card>
@@ -452,7 +461,7 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
       <VisibilityGuard :disabled="submitted" @away="onAway" />
     </template>
 
-    <el-drawer v-model="sheetVisible" title="答题卡" class="taking-sheet" direction="btt" size="75%" append-to-body><AnswerSheet :questions="sheetQuestions" :answers="answers" :current-index="currentIndex" @jump="jump" /><template #footer><el-button type="primary" @click="sheetVisible = false">继续作答</el-button></template></el-drawer>
+    <el-drawer v-model="sheetVisible" title="答题卡" class="taking-sheet" direction="btt" size="75%" append-to-body><AnswerSheet :questions="sheetQuestions" :answers="answers" :current-index="currentIndex" :disabled="busy || submitted" @jump="jump" /><template #footer><el-button type="primary" @click="sheetVisible = false">继续作答</el-button></template></el-drawer>
 
     <ExamResultDialog
       v-model="resultVisible"
@@ -471,6 +480,8 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
 .taking {
   min-height: 100vh;
   background: $bg-page;
+  &__context { padding: 16px; border: 1px solid $border-color; border-radius: $radius-lg; background: $bg-paper; overflow-wrap: anywhere; strong { font-size: 15px; line-height: 1.7; color: $text-primary; } p { margin: 8px 0 0; color: $text-secondary; font-size: 12px; line-height: 1.7; } }
+  &__question:focus-visible { outline: 2px solid $color-primary; outline-offset: 4px; }
   &__load-error { max-width: 620px; margin: 80px auto; padding: 24px; text-align: center; }
   &__save-state { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; color: $text-secondary; font-size: 13px; &.is-error { color: $color-error-text; } }
   &__pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0; color: $text-secondary; font-size: 14px; .el-button { min-height: 44px; min-width: 92px; } }

@@ -13,6 +13,7 @@ declare module 'vue' {
     CaptchaImage: typeof import('./components/common/CaptchaImage.vue')['default']
     CardGrid: typeof import('./components/common/CardGrid.vue')['default']
     ChangePasswordDialog: typeof import('./components/account/ChangePasswordDialog.vue')['default']
+    CheatEventList: typeof import('./components/exams/CheatEventList.vue')['default']
     ContentBoard: typeof import('./components/common/ContentBoard.vue')['default']
     DataTablePagination: typeof import('./components/common/DataTablePagination.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']

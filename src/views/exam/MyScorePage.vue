@@ -31,15 +31,20 @@ import PageHeader from '@/components/common/PageHeader.vue';
 import DataTablePagination from '@/components/common/DataTablePagination.vue';
 import StatCard from '@/components/common/StatCard.vue';
 import RequestError from '@/components/common/RequestError.vue';
-import type { AppealStatus, ExamMy, ExamRecord } from '@/types';
+import type { AppealStatus, ExamMy, ExamRecord, ScoreAppeal } from '@/types';
 
 const router = useRouter();
 const settingsStore = useSettingsStore();
-const { data: myExams, error: examsError } = useRequest(() => examsApi.my());
-/** 全量记录（仅用于统计卡口径；失败静默，统计区退化为 0） */
-const { data: allRecords, error: statsError, refresh: refreshStats } = useRequest(() => recordsApi.my({ page: 1, pageSize: 100 }), [], { keepPreviousData: false });
-/** 本人复核申请（用于「复核状态」列；失败静默为空） */
-const { data: myAppeals, error: appealsError, refresh: refreshAppeals } = useRequest(async () => {
+const { data: myExams, error: examsError, refresh: refreshExams } = useRequest(() => examsApi.my());
+const rulesError = ref(false);
+async function loadRules(): Promise<void> {
+  try { await settingsStore.load(); rulesError.value = !settingsStore.ready; }
+  catch { rulesError.value = true; }
+}
+/** 全量记录（统计与导出最多覆盖接口前100份；失败显示未知） */
+const { data: allRecords, loading: statsLoading, error: statsError, refresh: refreshStats } = useRequest(() => recordsApi.my({ page: 1, pageSize: 100 }), [], { keepPreviousData: false });
+/** 本人复核申请（用于复核状态和本人时间线；失败显示未知） */
+const { data: myAppeals, loading: appealsLoading, error: appealsError, refresh: refreshAppeals } = useRequest(async () => {
   const first = await appealsApi.my({ page: 1, pageSize: 100 });
   const list = [...first.list];
   for (let page = 2; page <= Math.ceil(first.total / 100); page += 1) {
@@ -94,7 +99,7 @@ function onReset(): void {
 }
 
 onMounted(() => {
-  void settingsStore.load();
+  void loadRules();
   void load();
 });
 
@@ -143,11 +148,14 @@ function goRetakes(): void {
 /* ------------------------------ 页头摘要 / 导出 ------------------------------ */
 /** 页头描述：已参加 N 场 · 平均 X 分 · 及格率 Y%（与统计卡同源） */
 const headerDesc = computed<string>(() => {
-  return allRecords.value ? `统计与导出覆盖已加载的 ${allRecords.value.list.length} / ${allRecords.value.total} 份已出成绩答卷，不受列表搜索影响` : '查看已出成绩答卷与明细，统计数据暂不可用';
+  return statsLoading.value ? '成绩统计加载中，数量暂未知' : allRecords.value ? `统计与导出覆盖已加载的 ${allRecords.value.list.length} / ${allRecords.value.total} 份已出成绩答卷，不受列表搜索影响` : '查看已出成绩答卷与明细，统计数据暂不可用';
 });
 
 /** 导出我的成绩（客户端 CSV，与统计同源的全量记录） */
+const exportError = ref('');
 function exportCsv(): void {
+  if (statsLoading.value || statsError.value) return;
+  exportError.value = '';
   const list = allRecords.value?.list ?? [];
   if (list.length === 0) {
     ElMessage.info('暂无可导出的成绩');
@@ -166,12 +174,15 @@ function exportCsv(): void {
     .join('\r\n');
   // BOM 前缀保证 Excel 正确识别 UTF-8
   const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `我的成绩-${dayjs().format('YYYYMMDD')}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  let url = '';
+  try {
+    url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `我的成绩-${dayjs().format('YYYYMMDD')}.csv`;
+    a.click();
+  } catch { exportError.value = '成绩导出失败，当前数据已保留，请重试。'; }
+  finally { if (url) URL.revokeObjectURL(url); }
 }
 
 function canViewDetail(record: ExamRecord): boolean {
@@ -191,6 +202,11 @@ const appealVisible = ref(false);
 const appealing = ref(false);
 const appealRecord = ref<ExamRecord | null>(null);
 const appealReason = ref('');
+const appealError = ref('');
+const appealDialogVisible = computed({ get: () => appealVisible.value, set: (value: boolean) => { if (!appealing.value) appealVisible.value = value; } });
+const historyVisible = ref(false);
+const historyAppeal = ref<ScoreAppeal | null>(null);
+function openHistory(appeal: ScoreAppeal): void { historyAppeal.value = appeal; historyVisible.value = true; }
 
 /** 该考试是否开放成绩复核（考试级三态覆盖全局默认） */
 function appealEnabledOf(examId: string): boolean {
@@ -199,8 +215,10 @@ function appealEnabledOf(examId: string): boolean {
 }
 
 function openAppeal(record: ExamRecord): void {
+  if (appealing.value || !canAppeal(record)) return;
   appealRecord.value = record;
   appealReason.value = '';
+  appealError.value = '';
   appealVisible.value = true;
 }
 
@@ -224,7 +242,7 @@ function appealMeta(record: ExamRecord): { text: string; tone: 'gray' | 'warn' |
 }
 
 /** 复核记录时间线（设计稿 exam-scores.html「复核记录」卡） */
-const appealTimeline = computed(() => buildAppealTimeline(myAppeals.value?.list ?? []));
+const appealTimeline = computed(() => (myAppeals.value?.list ?? []).flatMap(appeal => buildAppealTimeline([appeal]).map(item => ({ ...item, appeal }))).sort((a,b) => new Date(b.at).getTime() - new Date(a.at).getTime()));
 
 /** 复核申请时限（天；0 = 不限时限）——与服务端 `appealWindowDays` 同口径，自交卷起算 */
 function withinAppealWindow(record: ExamRecord): boolean {
@@ -237,17 +255,18 @@ function withinAppealWindow(record: ExamRecord): boolean {
 
 /** 可申请复核：考试开放复核 且 尚未申请过 且 仍在申请时限内 */
 function canAppeal(record: ExamRecord): boolean {
-  return record.status === 'submitted' && Boolean(myAppeals.value) && Boolean(myExams.value) && !appealsError.value && !examsError.value && appealEnabledOf(record.examId) && !appealStatusMap.value[record.id] && withinAppealWindow(record);
+  return settingsStore.ready && record.status === 'submitted' && Boolean(myAppeals.value) && !appealsLoading.value && Boolean(myExams.value) && !appealsError.value && !examsError.value && appealEnabledOf(record.examId) && !appealStatusMap.value[record.id] && withinAppealWindow(record);
 }
 
 /** 已开放复核但超出申请时限（列表给出「已超时限」说明，避免按钮凭空消失） */
 function appealExpired(record: ExamRecord): boolean {
-  return appealEnabledOf(record.examId) && !appealStatusMap.value[record.id] && !withinAppealWindow(record);
+  return settingsStore.ready && Boolean(myAppeals.value) && !appealsError.value && Boolean(myExams.value) && !examsError.value && record.status === 'submitted' && appealEnabledOf(record.examId) && !appealStatusMap.value[record.id] && !withinAppealWindow(record);
 }
 
 async function submitAppeal(): Promise<void> {
   if (!appealRecord.value || appealing.value || !canAppeal(appealRecord.value)) return;
   appealing.value = true;
+  appealError.value = '';
   try {
     await appealsApi.apply(appealRecord.value.id, appealReason.value.trim());
     ElMessage.success('复核申请已提交，请等待管理员处理');
@@ -255,7 +274,7 @@ async function submitAppeal(): Promise<void> {
     await refreshAppeals();
     void load();
   } catch {
-    // 错误已由拦截器提示（如重复申请 1005）
+    appealError.value = '提交失败，申请说明已保留，请核对当前状态后重试。';
   } finally {
     appealing.value = false;
   }
@@ -266,7 +285,7 @@ async function submitAppeal(): Promise<void> {
   <div data-ui-layout="score-cards" data-ui-page="MyScorePage" class="my-score">
     <PageHeader title="我的成绩" :description="headerDesc">
       <template #actions>
-        <el-button :icon="Download" :disabled="(allRecords?.list.length ?? 0) === 0" @click="exportCsv">
+        <el-button :icon="Download" :disabled="statsLoading || Boolean(statsError) || (allRecords?.list.length ?? 0) === 0" @click="exportCsv">
           导出我的成绩
         </el-button>
       </template>
@@ -277,7 +296,7 @@ async function submitAppeal(): Promise<void> {
       <StatCard label="已出成绩答卷" :value="stats.taken" unit="份" :icon="Document" />
       <StatCard label="平均分" :value="stats.avg" unit="分" :icon="TrendCharts" />
       <StatCard label="最高分" :value="stats.max" unit="分" :icon="Star" />
-      <StatCard label="未及格" :value="stats.failed" unit="场" tone="error" :icon="CircleClose">
+      <StatCard label="未及格" :value="stats.failed" unit="份" tone="error" :icon="CircleClose">
         <template #foot>
           <a v-if="typeof stats.failed === 'number' && stats.failed > 0" href="/exam/retakes" @click.prevent="goRetakes">去申请补考</a>
           <span v-else>{{ stats.failed === '—' ? '及格情况未知' : '当前统计范围无未及格记录' }}</span>
@@ -285,6 +304,9 @@ async function submitAppeal(): Promise<void> {
       </StatCard>
     </div>
 
+    <p v-if="exportError" class="my-score__error" role="alert">{{ exportError }}</p>
+    <RequestError v-if="examsError" text="考试资料加载失败，保留成绩及可用标识" @retry="refreshExams" />
+    <RequestError v-if="rulesError" text="复核规则读取失败，暂不能确认申请资格" @retry="loadRules" />
     <RequestError v-if="statsError" text="成绩统计加载失败" @retry="refreshStats" />
 
     <LoadingSkeleton v-if="loading && records.length === 0" :rows="5" />
@@ -407,7 +429,7 @@ async function submitAppeal(): Promise<void> {
         </article>
       </div>
 
-      <div v-if="!listError" class="my-score__pagination">
+      <div v-if="!listError && !loading" class="my-score__pagination">
         <DataTablePagination
           :page="page"
           :page-size="pageSize"
@@ -423,8 +445,10 @@ async function submitAppeal(): Promise<void> {
       <el-card class="my-score__panel my-score__appeal-log" shadow="never">
         <template #header>
           <h3 class="my-score__panel-title">复核记录</h3>
+          <el-button link type="primary" :loading="appealsLoading" :disabled="appealing" @click="refreshAppeals">刷新复核记录</el-button>
         </template>
-        <RequestError v-if="appealsError" text="复核记录加载失败" @retry="refreshAppeals" />
+        <LoadingSkeleton v-if="appealsLoading" :rows="3" />
+        <RequestError v-else-if="appealsError" text="复核记录加载失败" @retry="refreshAppeals" />
         <div v-else-if="appealTimeline.length > 0" class="my-score__timeline">
           <div
             v-for="item in appealTimeline"
@@ -432,7 +456,7 @@ async function submitAppeal(): Promise<void> {
             class="my-score__tl"
             :class="item.tone"
           >
-            <div class="my-score__tl-title">{{ item.title }}</div>
+            <el-button type="primary" link class="my-score__tl-title" @click="openHistory(item.appeal)">{{ item.title }} · 查看详情</el-button>
             <div class="my-score__tl-desc">{{ item.detail }}</div>
           </div>
         </div>
@@ -448,16 +472,9 @@ async function submitAppeal(): Promise<void> {
       />
     </template>
 
-    <el-dialog v-model="appealVisible" title="申请成绩复核" width="560px" :close-on-click-modal="!appealing" :close-on-press-escape="!appealing" :show-close="!appealing">
-      <el-alert
-        v-if="appealRecord"
-        class="my-score__appeal-alert"
-        type="info"
-        :closable="false"
-        show-icon
-        :title="examName(appealRecord.examId)"
-        :description="`当前成绩：${formatScore(appealRecord.score)} 分 · 每条成绩仅可申请一次`"
-      />
+    <el-dialog v-model="appealDialogVisible" class="learner-appeal-dialog" append-to-body destroy-on-close title="申请成绩复核" width="560px" :close-on-click-modal="!appealing" :close-on-press-escape="!appealing" :show-close="!appealing">
+      <section v-if="appealRecord" class="learner-appeal__context"><h3>{{ examName(appealRecord.examId) }}</h3><p>当前成绩：{{ formatScore(appealRecord.score) }} 分 · 第 {{ appealRecord.attemptNo }} 次作答</p><p>交卷时间：{{ formatDateTime(appealRecord.submittedAt) }}</p><p>{{ settingsStore.settings.appealWindowDays > 0 ? '自交卷起 ' + settingsStore.settings.appealWindowDays + ' 天内可申请' : '不限制申请时限' }} · 每条成绩仅可申请一次</p></section>
+      <p v-if="appealError" class="my-score__error" role="alert">{{ appealError }}</p>
       <el-form label-position="top" :disabled="appealing">
         <el-form-item label="申请说明">
           <el-input
@@ -475,6 +492,13 @@ async function submitAppeal(): Promise<void> {
         <el-button type="primary" :loading="appealing" @click="submitAppeal">提交申请</el-button>
       </template>
     </el-dialog>
+    <el-drawer v-model="historyVisible" title="复核申请详情" size="640px" append-to-body destroy-on-close data-ui-role="detail">
+      <template v-if="historyAppeal">
+        <section class="learner-appeal__context"><h3>{{ historyAppeal.examName }}</h3><span>{{ APPEAL_META[historyAppeal.status].text }}</span><p>打开时的申请记录 · 返回列表可刷新查看最新状态</p></section>
+        <dl class="learner-appeal__meta"><div><dt>提交时间</dt><dd>{{ formatDateTime(historyAppeal.appliedAt) }}</dd></div><div><dt>处理时间</dt><dd>{{ historyAppeal.reviewedAt ? formatDateTime(historyAppeal.reviewedAt) : '待处理' }}</dd></div><div><dt>原始成绩</dt><dd>{{ formatScore(historyAppeal.originalScore) }} 分</dd></div><div v-if="historyAppeal.status === 'approved'"><dt>复核成绩</dt><dd>{{ formatScore(historyAppeal.newScore ?? historyAppeal.originalScore) }} 分</dd></div></dl>
+        <section class="learner-appeal__text"><h3>申请说明</h3><p>{{ historyAppeal.reason || '未填写申请说明' }}</p></section><section class="learner-appeal__text"><h3>审核意见</h3><p>{{ historyAppeal.reviewComment || (historyAppeal.status === 'pending' ? '等待管理员处理' : '未填写审核意见') }}</p></section>
+      </template><template #footer><el-button @click="historyVisible = false">关闭</el-button></template>
+    </el-drawer>
   </div>
 </template>
 
@@ -482,6 +506,7 @@ async function submitAppeal(): Promise<void> {
 @use '@/styles/variables.scss' as *;
 
 .my-score {
+  &__error { padding: 12px 16px; border-radius: $radius-base; color: $color-error-text; background: $color-error-bg; overflow-wrap: anywhere; }
   &__mobile-list { display: none; }
 
   &__stats {
@@ -641,12 +666,18 @@ async function submitAppeal(): Promise<void> {
   }
 
   &__tl-title {
+    height: auto;
+    text-align: left;
+    white-space: normal;
+    :deep(span) { white-space: normal; overflow-wrap: anywhere; }
     font-size: 12.5px;
     font-weight: 600;
     color: $text-primary;
   }
 
   &__tl-desc {
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
     margin-top: 2px;
     font-size: 12px;
     color: $text-secondary;
@@ -663,6 +694,7 @@ async function submitAppeal(): Promise<void> {
   }
 
   @media (max-width: 900px) {
+    &__tl-title { min-height: 44px; }
     &__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     &__panel :deep(.el-card__header) { flex-wrap: wrap; gap: 10px; }
     &__panel-title { flex: 1 0 100%; white-space: nowrap; }
@@ -673,7 +705,7 @@ async function submitAppeal(): Promise<void> {
     &__mobile-card {
       padding: 14px;
       border: 1px solid $border-color;
-      border-radius: $radius-base;
+      border-radius: $radius-lg;
       background: $bg-paper;
     }
     &__mobile-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
@@ -683,4 +715,8 @@ async function submitAppeal(): Promise<void> {
     &__pagination { justify-content: center; }
   }
 }
+.learner-appeal__context { margin-bottom: 20px; padding: 16px; border: 1px solid $border-color; border-radius: $radius-lg; background: $bg-page; overflow-wrap: anywhere; h3 { margin: 0 0 12px; font-size: 15px; } p { margin: 8px 0 0; color: $text-secondary; font-size: 13px; } }
+.learner-appeal__meta { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap:16px; margin:0 0 20px; dt { color:$text-secondary; font-size:12px; } dd { margin:4px 0 0; overflow-wrap:anywhere; } }
+.learner-appeal__text { margin-bottom:20px; h3 { margin:0 0 12px; font-size:14px; } p { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; } }
+@media(max-width:480px) { .learner-appeal__meta { grid-template-columns:minmax(0,1fr); } }
 </style>

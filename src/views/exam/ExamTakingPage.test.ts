@@ -44,6 +44,7 @@ describe('考试答题与安全交卷', () => {
     expect(api.submit).toHaveBeenCalledWith('r1', false);
     expect(wrapper.getComponent(ExamResultDialog).props('modelValue')).toBe(true);
     expect(api.confirm).toHaveBeenCalledWith(expect.stringContaining('4 道题未完整作答'), '交卷确认', expect.anything());
+    expect(api.confirm.mock.calls[0]![0]).toContain('考试：安全考试\n已完整作答 1 / 5 题');
   });
   it('暂存失败保留答案，阻止交卷和退出，允许重试', async () => {
     api.save.mockRejectedValueOnce(new Error('offline'));
@@ -81,4 +82,15 @@ describe('考试答题与安全交卷', () => {
     wrapper.findComponent({ name: 'RequestError' }).vm.$emit('retry'); await flushPromises();
     expect(api.replace).toHaveBeenCalledWith('/score-detail/r1'); expect(api.submit).not.toHaveBeenCalled();
   });
+});
+
+it('交卷确认未关闭时到时仍按原规则自动交卷', async () => {
+  api.detail.mockResolvedValue({ ...record(), startedAt: '2026-10-18T23:00:02Z' });
+  api.confirm.mockReturnValue(new Promise(() => {}));
+  render(); await flushPromises(); await answer(); await click('交卷');
+  expect(api.submit).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(2000); await flushPromises();
+  expect(api.close).toHaveBeenCalled();
+  expect(api.submit).toHaveBeenCalledWith('r1', true);
+  expect(wrapper.getComponent(ExamResultDialog).props('modelValue')).toBe(true);
 });

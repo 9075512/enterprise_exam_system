@@ -30,6 +30,7 @@
   .layout.layout .layout__mobile-avatar,
   .layout.layout .layout__account.layout__account,
   .layout.layout .layout__mobile-backtop { flex-shrink: 0; min-width: 44px; width: 44px; min-height: 44px; height: 44px; }
+  .layout.layout .layout__search { padding: 0; justify-content: center; .layout__search-ph, .layout__kbd { display: none; } }
   .layout.layout .layout__menu > .el-menu-item { min-height: 44px; }
   .layout.layout .layout__side-user { min-height: 44px; }
   .layout.layout .layout__page-context .el-breadcrumb { display: flex; overflow: hidden; white-space: nowrap; }
@@ -133,7 +134,11 @@
   .el-drawer.el-drawer .el-drawer__header { padding: 18px 16px; }
   .el-drawer.el-drawer .el-drawer__body { padding: 20px 16px; }
   .el-drawer.el-drawer .el-drawer__footer { padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: flex-end; }
-  .el-drawer.el-drawer .el-drawer__footer .el-button { min-height: 44px; margin: 0; }
+  .el-drawer.el-drawer .el-drawer__footer .el-button.el-button { min-height: 44px; margin: 0; }
+  .el-dialog.el-dialog .el-dialog__footer .el-button.el-button { min-height: 44px; }
+  // 反馈的单个处理入口在窄屏保持可见，覆盖通用表格的取消固定列规则。
+  .layout.is-management-layout [data-ui-page="QuestionFeedbackPage"] .el-table .el-table-fixed-column--right { position: sticky !important; }
+  .layout.is-management-layout [data-ui-page="QuestionFeedbackPage"] .el-table .el-table-fixed-column--right::before { display: block; }
   .el-drawer.el-drawer .el-input__wrapper, .el-drawer.el-drawer .el-select__wrapper { min-height: 44px; }
   .design-savebar { padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
   .layout.layout.is-focused-learning-route { height: auto; min-height: 100dvh; overflow: visible; }
@@ -147,10 +152,10 @@
 
 // 手机横屏或键盘压缩可用高度时，设置正文跟随页面滚动，避免被固定框架挤到 0 高度。
 @media (max-width: 900px) {
-  :is(.review-page, .appeal-detail__form, .question-form-drawer, .exam-editor) .el-input-number.el-input-number { width: min(180px, 100%); height: 44px; line-height: 44px; }
-  :is(.review-page, .appeal-detail__form, .question-form-drawer, .exam-editor) .el-input-number .el-input-number__decrease,
-  :is(.review-page, .appeal-detail__form, .question-form-drawer, .exam-editor) .el-input-number .el-input-number__increase { top: 0; bottom: 0; width: 44px; height: 44px; line-height: 44px; }
-  :is(.review-page, .appeal-detail__form, .question-form-drawer, .exam-editor) .el-input-number .el-input__wrapper { padding-inline: 44px; min-height: 44px; }
+  :is(.review-page, .appeal-detail__form, .question-form-drawer, .exam-editor, .content-editor__form) .el-input-number.el-input-number { width: min(180px, 100%); height: 44px; line-height: 44px; }
+  :is(.review-page, .appeal-detail__form, .question-form-drawer, .exam-editor, .content-editor__form) .el-input-number .el-input-number__decrease,
+  :is(.review-page, .appeal-detail__form, .question-form-drawer, .exam-editor, .content-editor__form) .el-input-number .el-input-number__increase { top: 0; bottom: 0; width: 44px; height: 44px; line-height: 44px; }
+  :is(.review-page, .appeal-detail__form, .question-form-drawer, .exam-editor, .content-editor__form) .el-input-number .el-input__wrapper { padding-inline: 44px; min-height: 44px; }
 }
 
 @media (max-width: 900px) {
@@ -186,6 +191,15 @@
   .exam-schedule-picker .el-picker-panel__footer .el-button { min-height: 44px; margin: 0; }
 }
 // 组织人员候选项完整展示；仅作用于此轮明确标记的选择器。
+@media (max-width: 900px) {
+  :is(.settings-page, .practice-settings-page) .el-input-number.el-input-number { height: 44px; line-height: 44px; max-width: 100%; }
+  :is(.settings-page, .practice-settings-page) .el-input-number.el-input-number .el-input-number__decrease,
+  :is(.settings-page, .practice-settings-page) .el-input-number.el-input-number .el-input-number__increase { top: 0; bottom: 0; width: 44px; height: 44px; line-height: 44px; }
+  :is(.settings-page, .practice-settings-page) .el-input-number.el-input-number .el-input-number__decrease { left: 0; right: auto; border-left: 0; border-right: 1px solid var(--el-border-color); border-radius: var(--el-border-radius-base) 0 0 var(--el-border-radius-base); }
+  :is(.settings-page, .practice-settings-page) .el-input-number.el-input-number .el-input-number__increase { right: 0; border-radius: 0 var(--el-border-radius-base) var(--el-border-radius-base) 0; }
+  :is(.settings-page, .practice-settings-page) .el-input-number.el-input-number:not(.is-without-controls) .el-input__wrapper { padding-inline: 44px; min-height: 44px; }
+  .settings-page .el-tabs__item { min-height: 44px; }
+}
 .el-popper.organization-choice-popper { max-width: calc(100vw - 24px); }
 .organization-choice-popper .el-select-dropdown__item { height: auto; min-height: 36px; white-space: normal; overflow-wrap: anywhere; padding-block: 8px; line-height: 22px; }
 .organization-choice-popper .el-select-dropdown__item > span { white-space: normal; overflow-wrap: anywhere; }
@@ -193,4 +207,47 @@
   .organization-choice-popper .el-select-dropdown__item { min-height: 44px; padding-block: 11px; }
   .bank-author-batch-dialog .el-dialog__footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
   .bank-author-batch-dialog.el-dialog .el-dialog__footer .el-button.el-button { margin: 0; min-height: 44px; }
+}
+
+// 日志时间范围保留双日历与时分秒，手机改为纵向阅读、底部固定确认。
+.el-popper.department-parent-popper { max-width: calc(100vw - 24px); }
+.department-parent-popper .el-tree-node__content { height: auto; min-height: 36px; padding-block: 6px; }
+.department-parent-popper .el-tree-node__label { min-width: 0; white-space: normal; overflow-wrap: anywhere; line-height: 22px; }
+@media (max-width: 900px) {
+  .department-parent-popper .el-tree-node__content { min-height: 44px; }
+  .el-popper.log-date-range-picker { position: fixed !important; inset: 12px auto auto 50% !important; transform: translateX(-50%) !important; width: min(400px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain; }
+  .log-date-range-picker .el-popper__arrow { display: none; }
+  .log-date-range-picker .el-date-range-picker { width: 100%; }
+  .log-date-range-picker .el-date-range-picker.has-time .el-picker-panel__body { min-width: 0; width: 100%; }
+  .log-date-range-picker .el-date-range-picker__time-header { display: grid; gap: 8px; padding: 12px; }
+  .log-date-range-picker .el-date-range-picker__time-header > span:not(.el-date-range-picker__editors-wrap) { display: none; }
+  .log-date-range-picker .el-date-range-picker__editors-wrap { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; }
+  .log-date-range-picker .el-date-range-picker__time-picker-wrap { min-width: 0; padding: 0; }
+  .log-date-range-picker .el-input__wrapper { min-height: 44px; }
+  .log-date-range-picker .el-date-range-picker__content { display: block; float: none; width: 100%; margin: 0; padding: 12px; border-inline: 0; }
+  .log-date-range-picker .el-date-range-picker__content.is-left { border-bottom: 1px solid $border-color; }
+  .log-date-range-picker .el-date-range-picker__header { display: flex; align-items: center; height: auto; min-height: 44px; margin-bottom: 8px; }
+  .log-date-range-picker .el-date-range-picker__header button { flex: 0 0 44px; width: 44px; min-height: 44px; margin: 0; }
+  .log-date-range-picker .el-date-range-picker__header > div { flex: 1; min-width: 0; }
+  .log-date-range-picker .is-right .el-date-range-picker__header > div { order: -1; }
+  .log-date-range-picker .el-date-range-picker__header-label { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 2px; font-size: 13px; }
+  .log-date-range-picker .el-date-table td { height: 44px; padding: 0; }
+  .log-date-range-picker .el-date-table-cell { height: 44px; padding-block: 10px; }
+  .log-date-range-picker .el-picker-panel__footer { position: sticky; bottom: 0; z-index: 5; display: flex; justify-content: flex-end; gap: 8px; background: $bg-paper; }
+  .log-date-range-picker .el-picker-panel__footer .el-button { min-height: 44px; margin: 0; }
+  .log-date-range-picker .el-time-panel { left: auto !important; right: 0 !important; }
+  .log-date-range-picker .el-time-panel__btn { min-height: 44px; }
+}
+@media (max-width: 360px) {
+  .el-popper.log-date-range-picker { width: calc(100vw - 8px); scrollbar-width: none; }
+  .log-date-range-picker::-webkit-scrollbar { display: none; }
+  .log-date-range-picker .el-date-range-picker__content { padding-inline: 0; }
+  .log-date-range-picker .el-date-range-picker__header { padding-inline: 4px; }
+}
+
+// 题库的编辑工作流在窄屏保留独立滚动正文与固定操作区。
+@media (max-width: 600px) {
+  .bank-workflow-dialog.el-dialog.el-dialog { width: 100%; max-width: 100%; height: 100dvh; max-height: 100dvh; margin: 0 !important; border-radius: 0; }
+  .bank-workflow-dialog.el-dialog .el-dialog__body { flex: 1; }
+  .bank-workflow-dialog.el-dialog .el-dialog__footer { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
 }

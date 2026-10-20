@@ -78,6 +78,24 @@ function windowText(input: unknown): string {
 }
 
 const activeTab = ref<'announcement' | 'banner'>('announcement');
+const annActing = ref(false), bnActing = ref(false);
+const operationError = ref('');
+const contentBusy = computed(() => annActing.value || bnActing.value || annSubmitting.value || bnSubmitting.value || bnUploading.value);
+function canSelectContent(): boolean { return !contentBusy.value; }
+function canChangeTab(): boolean { return !contentBusy.value; }
+async function runMutation(kind: 'announcement' | 'banner', message: string, title: string, verb: string, execute: () => Promise<string>): Promise<void> {
+  if (contentBusy.value) return;
+  const acting = kind === 'announcement' ? annActing : bnActing;
+  acting.value = true;
+  operationError.value = '';
+  try {
+    try { await ElMessageBox.confirm(message, title, { type: verb === '删除' ? 'warning' : 'info', confirmButtonText: verb, cancelButtonText: '取消' }); }
+    catch { return; }
+    ElMessage.success(await execute());
+    await (kind === 'announcement' ? loadAnnouncements() : loadBanners());
+  } catch { operationError.value = '本次操作失败，当前列表与选择已保留，请核对后重试。'; }
+  finally { acting.value = false; }
+}
 
 /* ------------------------------ 触达看板（v2.0③） ------------------------------ */
 
@@ -85,9 +103,10 @@ const touchVisible = ref(false);
 const touchLoading = ref(false);
 const touchError = ref(false);
 const touchStats = ref<ContentTouchStats | null>(null);
-const touchTab = ref<'announcement' | 'banner'>('announcement');
+const touchTab = ref<'touch-announcement' | 'touch-banner'>('touch-announcement');
 
 async function openTouchStats(): Promise<void> {
+  if (touchLoading.value) return;
   touchVisible.value = true;
   touchLoading.value = true;
   touchError.value = false;
@@ -142,6 +161,11 @@ async function loadAnnouncements(): Promise<void> {
       pageSize: annPageSize.value,
     });
     if (request !== annRequest) return;
+    if (data.list.length === 0 && annPage.value > 1) {
+      annPage.value = Math.max(1, Math.min(annPage.value - 1, Math.ceil(data.total / annPageSize.value)));
+      await loadAnnouncements();
+      return;
+    }
     annList.value = data.list;
     annTotal.value = data.total;
   } catch {
@@ -154,6 +178,7 @@ async function loadAnnouncements(): Promise<void> {
 }
 
 function searchAnnouncements(): void {
+  if (contentBusy.value) return;
   annPage.value = 1;
   void loadAnnouncements();
 }
@@ -183,36 +208,26 @@ function resetAnnFilter(): void {
 }
 
 async function runAnnBatch(action: ContentBatchAction): Promise<void> {
-  const rows = annSelection.value;
+  if (contentBusy.value) return;
+  const rows = [...annSelection.value];
   if (rows.length === 0) {
     ElMessage.warning('请先勾选公告');
     return;
   }
   const verb = action === 'enable' ? '上线' : action === 'disable' ? '下线' : '删除';
-  try {
-    await ElMessageBox.confirm(`确定${verb}选中的 ${rows.length} 条公告吗？`, `批量${verb}`, {
-      type: action === 'delete' ? 'warning' : 'info',
-      confirmButtonText: verb,
-      cancelButtonText: '取消',
-    });
-  } catch {
-    return;
-  }
-  try {
+  await runMutation('announcement', `确定${verb}选中的 ${rows.length} 条公告吗？`, `批量${verb}`, verb, async () => {
     const res = await batchAnnouncements(
       rows.map((r) => r.id),
       action,
     );
-    ElMessage.success(`已${verb} ${res.affected} 条公告`);
-    await loadAnnouncements();
-  } catch {
-    /* 错误已由请求拦截器统一提示 */
-  }
+    return `已${verb} ${res.affected} 条公告`;
+  });
 }
 
 const annDialogVisible = ref(false);
 const annEditingId = ref('');
 const annSubmitting = ref(false);
+const annSaveError = ref('');
 const annForm = reactive<{
   title: string;
   content: string;
@@ -247,12 +262,16 @@ function resetAnnForm(): void {
 }
 
 function openAnnCreate(): void {
+  if (contentBusy.value) return;
+  annSaveError.value = '';
   annEditingId.value = '';
   resetAnnForm();
   annDialogVisible.value = true;
 }
 
 function openAnnEdit(row: Announcement): void {
+  if (contentBusy.value) return;
+  annSaveError.value = '';
   annEditingId.value = row.id;
   annForm.title = row.title;
   annForm.content = row.content;
@@ -266,6 +285,7 @@ function openAnnEdit(row: Announcement): void {
 }
 
 async function submitAnnouncement(): Promise<void> {
+  if (contentBusy.value) return;
   if (!annForm.title.trim()) {
     ElMessage.warning('请填写公告标题');
     return;
@@ -279,6 +299,7 @@ async function submitAnnouncement(): Promise<void> {
     return;
   }
   annSubmitting.value = true;
+  annSaveError.value = '';
   try {
     const payload = {
       title: annForm.title.trim(),
@@ -299,30 +320,16 @@ async function submitAnnouncement(): Promise<void> {
     }
     annDialogVisible.value = false;
     await loadAnnouncements();
-  } catch {
-    /* 错误已由请求拦截器统一提示 */
-  } finally {
+  } catch { annSaveError.value = '保存失败，公告内容与发布设置已保留，请重试。'; } finally {
     annSubmitting.value = false;
   }
 }
 
 async function removeAnnouncement(row: Announcement): Promise<void> {
-  try {
-    await ElMessageBox.confirm(`确定删除公告「${row.title}」吗？删除后两端将立即不再展示。`, '删除确认', {
-      type: 'warning',
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
-    });
-  } catch {
-    return;
-  }
-  try {
+  await runMutation('announcement', `确定删除公告「${row.title}」吗？删除后两端将立即不再展示。`, '删除确认', '删除', async () => {
     await deleteAnnouncement(row.id);
-    ElMessage.success('公告已删除');
-    await loadAnnouncements();
-  } catch {
-    /* 错误已由请求拦截器统一提示 */
-  }
+    return '公告已删除';
+  });
 }
 
 /* ============================ 轮播图 ============================ */
@@ -356,6 +363,11 @@ async function loadBanners(): Promise<void> {
       pageSize: bnPageSize.value,
     });
     if (request !== bnRequest) return;
+    if (data.list.length === 0 && bnPage.value > 1) {
+      bnPage.value = Math.max(1, Math.min(bnPage.value - 1, Math.ceil(data.total / bnPageSize.value)));
+      await loadBanners();
+      return;
+    }
     bnList.value = data.list;
     bnTotal.value = data.total;
   } catch {
@@ -368,6 +380,7 @@ async function loadBanners(): Promise<void> {
 }
 
 function searchBanners(): void {
+  if (contentBusy.value) return;
   bnPage.value = 1;
   void loadBanners();
 }
@@ -396,37 +409,27 @@ function resetBnFilter(): void {
 }
 
 async function runBnBatch(action: ContentBatchAction): Promise<void> {
-  const rows = bnSelection.value;
+  if (contentBusy.value) return;
+  const rows = [...bnSelection.value];
   if (rows.length === 0) {
     ElMessage.warning('请先勾选轮播图');
     return;
   }
   const verb = action === 'enable' ? '上线' : action === 'disable' ? '下线' : '删除';
-  try {
-    await ElMessageBox.confirm(`确定${verb}选中的 ${rows.length} 张轮播图吗？`, `批量${verb}`, {
-      type: action === 'delete' ? 'warning' : 'info',
-      confirmButtonText: verb,
-      cancelButtonText: '取消',
-    });
-  } catch {
-    return;
-  }
-  try {
+  await runMutation('banner', `确定${verb}选中的 ${rows.length} 张轮播图吗？`, `批量${verb}`, verb, async () => {
     const res = await batchBanners(
       rows.map((r) => r.id),
       action,
     );
-    ElMessage.success(`已${verb} ${res.affected} 张轮播图`);
-    await loadBanners();
-  } catch {
-    /* 错误已由请求拦截器统一提示 */
-  }
+    return `已${verb} ${res.affected} 张轮播图`;
+  });
 }
 
 const bnDialogVisible = ref(false);
 const bnEditingId = ref('');
 const bnSubmitting = ref(false);
 const bnUploading = ref(false);
+const bnSaveError = ref('');
 const bnFileInput = ref<HTMLInputElement | null>(null);
 const bnForm = reactive<{
   title: string;
@@ -462,12 +465,16 @@ function resetBnForm(): void {
 }
 
 function openBnCreate(): void {
+  if (contentBusy.value) return;
+  bnSaveError.value = '';
   bnEditingId.value = '';
   resetBnForm();
   bnDialogVisible.value = true;
 }
 
 function openBnEdit(row: Banner): void {
+  if (contentBusy.value) return;
+  bnSaveError.value = '';
   bnEditingId.value = row.id;
   bnForm.title = row.title;
   bnForm.imageUrl = row.imageUrl;
@@ -485,20 +492,20 @@ async function onBnFileChange(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
   input.value = '';
-  if (!file) return;
+  if (!file || contentBusy.value) return;
   bnUploading.value = true;
+  bnSaveError.value = '';
   try {
     const attachment = await uploadImage(file);
     bnForm.imageUrl = attachment.url;
     ElMessage.success('图片已上传');
-  } catch {
-    /* 错误已由请求拦截器统一提示 */
-  } finally {
+  } catch { bnSaveError.value = '图片上传失败，已填写的地址与发布设置已保留，可重新上传。'; } finally {
     bnUploading.value = false;
   }
 }
 
 async function submitBanner(): Promise<void> {
+  if (contentBusy.value) return;
   if (!bnForm.title.trim()) {
     ElMessage.warning('请填写轮播图标题');
     return;
@@ -512,6 +519,7 @@ async function submitBanner(): Promise<void> {
     return;
   }
   bnSubmitting.value = true;
+  bnSaveError.value = '';
   try {
     const payload = {
       title: bnForm.title.trim(),
@@ -532,30 +540,16 @@ async function submitBanner(): Promise<void> {
     }
     bnDialogVisible.value = false;
     await loadBanners();
-  } catch {
-    /* 错误已由请求拦截器统一提示 */
-  } finally {
+  } catch { bnSaveError.value = '保存失败，图片地址与发布设置已保留，请重试。'; } finally {
     bnSubmitting.value = false;
   }
 }
 
 async function removeBanner(row: Banner): Promise<void> {
-  try {
-    await ElMessageBox.confirm(`确定删除轮播图「${row.title}」吗？`, '删除确认', {
-      type: 'warning',
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
-    });
-  } catch {
-    return;
-  }
-  try {
+  await runMutation('banner', `确定删除轮播图「${row.title}」吗？`, '删除确认', '删除', async () => {
     await deleteBanner(row.id);
-    ElMessage.success('轮播图已删除');
-    await loadBanners();
-  } catch {
-    /* 错误已由请求拦截器统一提示 */
-  }
+    return '轮播图已删除';
+  });
 }
 
 /* ============================ 生命周期 ============================ */
@@ -573,45 +567,47 @@ onMounted(() => {
       description="面向考生发布公告与轮播图；可选择同步两端，或只发布到考试端 / 练题端"
     >
       <template #actions>
-        <el-button @click="openTouchStats">触达概览</el-button>
+        <el-button :loading="touchLoading" :disabled="contentBusy" @click="openTouchStats">触达概览</el-button>
       </template>
     </PageHeader>
 
     <el-card class="content-page__panel" data-ui-role="table" shadow="never">
-      <el-tabs v-model="activeTab">
+      <p v-if="operationError" class="content-page__error" role="status">{{ operationError }}</p>
+      <el-tabs v-model="activeTab" :before-leave="canChangeTab">
         <!-- ------------------------------ 公告管理 ------------------------------ -->
         <el-tab-pane label="公告管理" name="announcement">
           <div class="content-page__toolbar">
-            <el-select placeholder="全部范围" aria-label="发布范围" v-model="annFilter.target" class="content-page__select" @change="searchAnnouncements">
+            <el-select :disabled="contentBusy" placeholder="全部范围" aria-label="发布范围" v-model="annFilter.target" class="content-page__select" @change="searchAnnouncements">
               <el-option label="全部范围" value="" />
               <el-option v-for="opt in TARGET_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
             </el-select>
-            <el-select placeholder="全部状态" aria-label="发布状态" v-model="annFilter.enabled" class="content-page__select" @change="searchAnnouncements">
+            <el-select :disabled="contentBusy" placeholder="全部状态" aria-label="发布状态" v-model="annFilter.enabled" class="content-page__select" @change="searchAnnouncements">
               <el-option label="全部状态" value="" />
               <el-option label="已启用" value="on" />
               <el-option label="已停用" value="off" />
             </el-select>
             <el-input
               v-model="annFilter.keyword"
+              :disabled="contentBusy"
               class="content-page__search"
               placeholder="搜索标题 / 内容"
               clearable
               @keyup.enter="searchAnnouncements"
               @clear="searchAnnouncements"
             />
-            <el-button @click="searchAnnouncements">查询</el-button>
+            <el-button :disabled="contentBusy" @click="searchAnnouncements">查询</el-button>
             <div class="content-page__spacer" />
             <TableDensityToggle />
-            <el-button type="primary" @click="openAnnCreate">新建公告</el-button>
+            <el-button type="primary" :disabled="contentBusy" @click="openAnnCreate">新建公告</el-button>
           </div>
 
-          <BatchActionBar :count="annSelection.length" noun="条公告" @clear="clearAnnSelection">
-            <el-button @click="runAnnBatch('enable')">批量上线</el-button>
-            <el-button @click="runAnnBatch('disable')">批量下线</el-button>
-            <el-button type="danger" plain @click="runAnnBatch('delete')">批量删除</el-button>
+          <BatchActionBar :count="annSelection.length" :disabled="contentBusy" noun="条公告" @clear="clearAnnSelection">
+            <el-button :disabled="contentBusy" @click="runAnnBatch('enable')">批量上线</el-button>
+            <el-button :disabled="contentBusy" @click="runAnnBatch('disable')">批量下线</el-button>
+            <el-button type="danger" plain :disabled="contentBusy" @click="runAnnBatch('delete')">批量删除</el-button>
           </BatchActionBar>
 
-          <p class="admin-scope">当前筛选范围 · {{ annError ? '数量未知' : annTotal + ' 条公告' }}</p>
+          <p class="admin-scope">当前筛选范围 · {{ annLoading ? '正在加载' : annError ? '数量未知' : annTotal + ' 条公告' }} · 点击标题编辑</p>
           <RequestError v-if="annError" text="公告加载失败" @retry="loadAnnouncements" />
           <el-table v-else
             ref="annTableRef"
@@ -621,11 +617,11 @@ onMounted(() => {
             stripe
             @selection-change="onAnnSelectionChange"
           >
-            <el-table-column type="selection" width="44" />
+            <el-table-column type="selection" width="44" :selectable="canSelectContent" />
             <el-table-column label="标题" min-width="220" show-overflow-tooltip>
               <template #default="{ row }">
                 <el-tag v-if="row.pinned" size="small" type="danger" effect="plain" class="content-page__pin">置顶</el-tag>
-                <span>{{ row.title }}</span>
+                <el-button link type="primary" class="content-page__title-entry" :disabled="contentBusy" @click="openAnnEdit(row as Announcement)">{{ row.title }}</el-button>
               </template>
             </el-table-column>
             <el-table-column label="发布范围" width="110">
@@ -656,8 +652,8 @@ onMounted(() => {
             <el-table-column prop="createdByName" label="创建人" width="110" show-overflow-tooltip />
             <el-table-column class-name="table-actions-cell" label="操作" width="140" fixed="right">
               <template #default="{ row }">
-                <el-button type="primary" link @click="openAnnEdit(row as Announcement)">编辑</el-button>
-                <el-button type="danger" link @click="removeAnnouncement(row as Announcement)">删除</el-button>
+                <el-button type="primary" link :disabled="contentBusy" @click="openAnnEdit(row as Announcement)">编辑</el-button>
+                <el-button type="danger" link :disabled="contentBusy" @click="removeAnnouncement(row as Announcement)">删除</el-button>
               </template>
             </el-table-column>
             <template #empty>
@@ -671,7 +667,7 @@ onMounted(() => {
             </template>
           </el-table>
 
-          <div v-if="!annError" class="content-page__pager">
+          <div v-if="!annError && !annLoading" class="content-page__pager">
             <ResponsivePagination
               v-model:current-page="annPage"
               v-model:page-size="annPageSize"
@@ -688,28 +684,28 @@ onMounted(() => {
         <!-- ------------------------------ 轮播图管理 ------------------------------ -->
         <el-tab-pane label="轮播图管理" name="banner">
           <div class="content-page__toolbar">
-            <el-select placeholder="全部范围" aria-label="发布范围" v-model="bnFilter.target" class="content-page__select" @change="searchBanners">
+            <el-select :disabled="contentBusy" placeholder="全部范围" aria-label="发布范围" v-model="bnFilter.target" class="content-page__select" @change="searchBanners">
               <el-option label="全部范围" value="" />
               <el-option v-for="opt in TARGET_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
             </el-select>
-            <el-select placeholder="全部状态" aria-label="发布状态" v-model="bnFilter.enabled" class="content-page__select" @change="searchBanners">
+            <el-select :disabled="contentBusy" placeholder="全部状态" aria-label="发布状态" v-model="bnFilter.enabled" class="content-page__select" @change="searchBanners">
               <el-option label="全部状态" value="" />
               <el-option label="已启用" value="on" />
               <el-option label="已停用" value="off" />
             </el-select>
-            <el-button @click="searchBanners">查询</el-button>
+            <el-button :disabled="contentBusy" @click="searchBanners">查询</el-button>
             <div class="content-page__spacer" />
             <TableDensityToggle />
-            <el-button type="primary" @click="openBnCreate">新建轮播图</el-button>
+            <el-button type="primary" :disabled="contentBusy" @click="openBnCreate">新建轮播图</el-button>
           </div>
 
-          <BatchActionBar :count="bnSelection.length" noun="张轮播图" @clear="clearBnSelection">
-            <el-button @click="runBnBatch('enable')">批量上线</el-button>
-            <el-button @click="runBnBatch('disable')">批量下线</el-button>
-            <el-button type="danger" plain @click="runBnBatch('delete')">批量删除</el-button>
+          <BatchActionBar :count="bnSelection.length" :disabled="contentBusy" noun="张轮播图" @clear="clearBnSelection">
+            <el-button :disabled="contentBusy" @click="runBnBatch('enable')">批量上线</el-button>
+            <el-button :disabled="contentBusy" @click="runBnBatch('disable')">批量下线</el-button>
+            <el-button type="danger" plain :disabled="contentBusy" @click="runBnBatch('delete')">批量删除</el-button>
           </BatchActionBar>
 
-          <p class="admin-scope">当前筛选范围 · {{ bnError ? '数量未知' : bnTotal + ' 张轮播图' }}</p>
+          <p class="admin-scope">当前筛选范围 · {{ bnLoading ? '正在加载' : bnError ? '数量未知' : bnTotal + ' 张轮播图' }} · 点击标题编辑</p>
           <RequestError v-if="bnError" text="轮播图加载失败" @retry="loadBanners" />
           <el-table v-else
             ref="bnTableRef"
@@ -719,7 +715,7 @@ onMounted(() => {
             stripe
             @selection-change="onBnSelectionChange"
           >
-            <el-table-column type="selection" width="44" />
+            <el-table-column type="selection" width="44" :selectable="canSelectContent" />
             <el-table-column label="预览" width="120">
               <template #default="{ row }">
                 <el-image
@@ -733,7 +729,7 @@ onMounted(() => {
                 <span v-else class="content-page__muted">—</span>
               </template>
             </el-table-column>
-            <el-table-column prop="title" label="标题" min-width="160" show-overflow-tooltip />
+            <el-table-column label="标题" min-width="160" show-overflow-tooltip><template #default="{ row }"><el-button link type="primary" class="content-page__title-entry" :disabled="contentBusy" @click="openBnEdit(row as Banner)">{{ row.title }}</el-button></template></el-table-column>
             <el-table-column label="跳转地址" min-width="180" show-overflow-tooltip>
               <template #default="{ row }">
                 <a v-if="row.linkUrl" :href="row.linkUrl" target="_blank" rel="noopener noreferrer">{{ row.linkUrl }}</a>
@@ -761,8 +757,8 @@ onMounted(() => {
             </el-table-column>
             <el-table-column class-name="table-actions-cell" label="操作" width="140" fixed="right">
               <template #default="{ row }">
-                <el-button type="primary" link @click="openBnEdit(row as Banner)">编辑</el-button>
-                <el-button type="danger" link @click="removeBanner(row as Banner)">删除</el-button>
+                <el-button type="primary" link :disabled="contentBusy" @click="openBnEdit(row as Banner)">编辑</el-button>
+                <el-button type="danger" link :disabled="contentBusy" @click="removeBanner(row as Banner)">删除</el-button>
               </template>
             </el-table-column>
             <template #empty>
@@ -776,7 +772,7 @@ onMounted(() => {
             </template>
           </el-table>
 
-          <div v-if="!bnError" class="content-page__pager">
+          <div v-if="!bnError && !bnLoading" class="content-page__pager">
             <ResponsivePagination
               v-model:current-page="bnPage"
               v-model:page-size="bnPageSize"
@@ -793,14 +789,15 @@ onMounted(() => {
     </el-card>
 
     <!-- ------------------------------ 公告弹窗 ------------------------------ -->
-    <el-drawer v-model="annDialogVisible" :title="annDialogTitle" size="720px" destroy-on-close append-to-body :close-on-click-modal="!annSubmitting" :close-on-press-escape="!annSubmitting" :show-close="!annSubmitting" data-ui-role="editor">
-      <el-form label-position="top" :disabled="annSubmitting">
+    <el-drawer v-model="annDialogVisible" :title="annDialogTitle" class="content-editor" size="720px" destroy-on-close append-to-body :close-on-click-modal="!annSubmitting" :close-on-press-escape="!annSubmitting" :show-close="!annSubmitting" data-ui-role="editor">
+      <el-form class="content-editor__form" label-position="top" :disabled="annSubmitting">
         <el-form-item label="公告标题" required>
           <el-input v-model="annForm.title" maxlength="120" show-word-limit placeholder="请输入公告标题" />
         </el-form-item>
         <el-form-item label="公告内容" required>
           <RichTextEditor
             v-model="annForm.content"
+            :disabled="annSubmitting"
             :max-images="5"
             :max-image-bytes="1024 * 1024"
             :min-height="180"
@@ -815,7 +812,7 @@ onMounted(() => {
           </el-radio-group>
         </el-form-item>
         <el-form-item label="公告级别">
-          <el-radio-group v-model="annForm.level">
+          <el-radio-group class="content-editor__levels" v-model="annForm.level">
             <el-radio-button value="normal">普通</el-radio-button>
             <el-radio-button value="important">重要</el-radio-button>
           </el-radio-group>
@@ -825,6 +822,7 @@ onMounted(() => {
             <el-date-picker
               v-model="annForm.startAt"
               type="datetime"
+              popper-class="exam-schedule-picker"
               placeholder="开始时间（留空立即生效）"
               :clearable="true"
             />
@@ -832,6 +830,7 @@ onMounted(() => {
             <el-date-picker
               v-model="annForm.endAt"
               type="datetime"
+              popper-class="exam-schedule-picker"
               placeholder="结束时间（留空长期有效）"
               :clearable="true"
             />
@@ -847,6 +846,7 @@ onMounted(() => {
           <span class="content-page__tip">关闭后两端立即不可见（不受时间窗影响）</span>
         </el-form-item>
       </el-form>
+      <p v-if="annSaveError" class="content-page__error" role="status">{{ annSaveError }}</p>
       <template #footer>
         <el-button :disabled="annSubmitting" @click="annDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="annSubmitting" @click="submitAnnouncement">保存</el-button>
@@ -854,8 +854,8 @@ onMounted(() => {
     </el-drawer>
 
     <!-- ------------------------------ 轮播图弹窗 ------------------------------ -->
-    <el-drawer v-model="bnDialogVisible" :title="bnDialogTitle" size="720px" destroy-on-close append-to-body :close-on-click-modal="!bnSubmitting" :close-on-press-escape="!bnSubmitting" :show-close="!bnSubmitting" data-ui-role="editor">
-      <el-form label-position="top" :disabled="bnSubmitting">
+    <el-drawer v-model="bnDialogVisible" :title="bnDialogTitle" class="content-editor" size="720px" destroy-on-close append-to-body :close-on-click-modal="!bnSubmitting && !bnUploading" :close-on-press-escape="!bnSubmitting && !bnUploading" :show-close="!bnSubmitting && !bnUploading" data-ui-role="editor">
+      <el-form class="content-editor__form" label-position="top" :disabled="bnSubmitting || bnUploading">
         <el-form-item label="标题" required>
           <el-input v-model="bnForm.title" maxlength="120" show-word-limit placeholder="请输入轮播图标题" />
         </el-form-item>
@@ -893,6 +893,7 @@ onMounted(() => {
             <el-date-picker
               v-model="bnForm.startAt"
               type="datetime"
+              popper-class="exam-schedule-picker"
               placeholder="开始时间（留空立即生效）"
               :clearable="true"
             />
@@ -900,6 +901,7 @@ onMounted(() => {
             <el-date-picker
               v-model="bnForm.endAt"
               type="datetime"
+              popper-class="exam-schedule-picker"
               placeholder="结束时间（留空长期有效）"
               :clearable="true"
             />
@@ -911,21 +913,22 @@ onMounted(() => {
           <span class="content-page__tip">关闭后两端立即不可见</span>
         </el-form-item>
       </el-form>
+      <p v-if="bnSaveError" class="content-page__error" role="status">{{ bnSaveError }}</p>
       <template #footer>
-        <el-button :disabled="bnSubmitting" @click="bnDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="bnSubmitting" @click="submitBanner">保存</el-button>
+        <el-button :disabled="bnSubmitting || bnUploading" @click="bnDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="bnSubmitting" :disabled="bnUploading" @click="submitBanner">保存</el-button>
       </template>
     </el-drawer>
 
     <!-- ------------------------------ 触达概览（v2.0③） ------------------------------ -->
-    <el-dialog v-model="touchVisible" title="内容触达概览" width="760px" destroy-on-close append-to-body>
+    <el-dialog v-model="touchVisible" title="内容触达概览" class="content-touch-dialog" width="760px" destroy-on-close append-to-body>
       <RequestError v-if="touchError" text="内容触达统计加载失败" @retry="openTouchStats" /><div v-else v-loading="touchLoading" class="content-page__touch">
         <div class="content-page__touch-audience">
           <span>受众规模：考试端 <b>{{ touchStats?.audience.exam ?? '—' }}</b> 人</span>
           <span>练题端 <b>{{ touchStats?.audience.practice ?? '—' }}</b> 人</span>
         </div>
         <el-tabs v-model="touchTab">
-          <el-tab-pane label="公告阅读" name="announcement">
+          <el-tab-pane label="公告阅读" name="touch-announcement">
             <el-table :data="touchStats?.announcements ?? []" size="small">
               <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
               <el-table-column label="范围" width="90">
@@ -940,7 +943,7 @@ onMounted(() => {
               </template>
             </el-table>
           </el-tab-pane>
-          <el-tab-pane label="轮播点击" name="banner">
+          <el-tab-pane label="轮播点击" name="touch-banner">
             <el-table :data="touchStats?.banners ?? []" size="small">
               <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
               <el-table-column label="范围" width="90">
@@ -960,6 +963,7 @@ onMounted(() => {
           阅读 / 点击均为去重人数（同一用户同一端只计一次）；触达率分母按发布范围取对应端受众。
         </p>
       </div>
+      <template #footer><el-button @click="touchVisible = false">关闭</el-button></template>
     </el-dialog>
   </div>
 </template>
@@ -968,6 +972,8 @@ onMounted(() => {
 @use '@/styles/variables.scss' as *;
 
 .content-page {
+  &__title-entry { max-width: 100%; height: auto; :deep(span) { display: block; overflow: hidden; text-overflow: ellipsis; } }
+  &__error { margin: 12px 0; padding: 12px 16px; border-radius: $radius-base; background: $color-error-bg; color: $color-error-text; overflow-wrap: anywhere; font-size: 13px; }
   &__panel {
     :deep(.el-card__body) {
       padding-top: 8px;
@@ -1092,5 +1098,16 @@ onMounted(() => {
     font-size: 12px;
     color: $text-disabled;
   }
+}
+.content-editor__form { :deep(.el-radio-group) { display: flex; flex-wrap: wrap; } }
+@media(max-width: 900px) {
+  .content-editor__form { :deep(.el-radio-group) { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; } :deep(.content-editor__levels) { grid-template-columns: repeat(2, minmax(0, 1fr)); } :deep(.el-radio-button__inner) { display: grid; place-items: center; min-height: 44px; width: 100%; padding-inline: 4px; } :deep(.el-switch) { min-height: 44px; } :deep(.rich-editor__btn) { min-width: 44px; min-height: 44px; } }
+  .content-page__range { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; :deep(.el-date-editor) { width: 100%; } }
+  .content-page__range .content-page__tip { margin: 0; }
+  .content-page__upload { flex-direction: column; }
+  .content-page__upload-preview { width: min(320px, 100%); height: auto; aspect-ratio: 16 / 9; }
+  .content-page__upload-actions { width: 100%; flex: none; }
+  .content-page__tip { margin-left: 0; overflow-wrap: anywhere; }
+  .content-page__touch-audience { gap: 12px; border-radius: $radius-lg; }
 }
 </style>

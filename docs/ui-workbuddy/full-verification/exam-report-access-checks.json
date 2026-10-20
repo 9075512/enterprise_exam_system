@@ -1,0 +1,404 @@
+{
+  "date": "2026-10-20",
+  "scope": "考试管理、成绩报表、菜单权限及相关详情。sample为隔离模拟组件，live为本地实际接口；业务写操作仅在模拟接口中验证。",
+  "checks": [
+    {
+      "label": "sample-exam-detail-390",
+      "page": [
+        390,
+        390
+      ],
+      "panels": [
+        {
+          "bottom": 844,
+          "buttons": [
+            {
+              "h": 44,
+              "text": "关闭"
+            },
+            {
+              "h": 44,
+              "text": "题目预览"
+            },
+            {
+              "h": 44,
+              "text": "生效名单"
+            },
+            {
+              "h": 44,
+              "text": "编辑考试"
+            }
+          ],
+          "class": "el-drawer rtl open",
+          "sw": 390,
+          "top": 0,
+          "w": 390
+        }
+      ],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "sample-roster-390",
+      "page": [
+        382,
+        382
+      ],
+      "panels": [
+        {
+          "bottom": 832,
+          "buttons": [
+            {
+              "h": 44,
+              "text": "关闭"
+            }
+          ],
+          "class": "el-dialog exam-roster-dialog",
+          "sw": 357,
+          "top": 12,
+          "w": 357
+        }
+      ],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "sample-roster-320",
+      "page": [
+        312,
+        312
+      ],
+      "panels": [
+        {
+          "bottom": 728,
+          "buttons": [
+            {
+              "h": 44,
+              "text": "关闭"
+            }
+          ],
+          "class": "el-dialog exam-roster-dialog",
+          "sw": 286,
+          "top": 12,
+          "w": 286
+        }
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "sample-permissions-320",
+      "page": [
+        312,
+        312
+      ],
+      "panels": [],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "sample-report-320",
+      "page": [
+        312,
+        312
+      ],
+      "panels": [],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "sample-wrong-detail-320",
+      "page": [
+        320,
+        320
+      ],
+      "panels": [
+        {
+          "bottom": 740,
+          "buttons": [
+            {
+              "h": 44,
+              "text": "关闭"
+            }
+          ],
+          "class": "el-drawer rtl open",
+          "sw": 320,
+          "top": 0,
+          "w": 320
+        }
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "sample-cheat-detail-320",
+      "page": [
+        320,
+        320
+      ],
+      "panels": [
+        {
+          "bottom": 740,
+          "buttons": [
+            {
+              "h": 44,
+              "text": "关闭"
+            }
+          ],
+          "class": "el-drawer rtl open",
+          "sw": 320,
+          "top": 0,
+          "w": 320
+        }
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "sample-cheat-detail-landscape",
+      "page": [
+        844,
+        844
+      ],
+      "panels": [
+        {
+          "bottom": 390.3999938964844,
+          "buttons": [
+            {
+              "h": 44,
+              "text": "关闭"
+            }
+          ],
+          "class": "el-drawer rtl open",
+          "sw": 844,
+          "top": 0,
+          "w": 844
+        }
+      ],
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "label": "sample-cheat-detail-390",
+      "page": [
+        390,
+        390
+      ],
+      "panels": [
+        {
+          "bottom": 844,
+          "buttons": [
+            {
+              "h": 44,
+              "text": "关闭"
+            }
+          ],
+          "class": "el-drawer rtl open",
+          "sw": 390,
+          "top": 0,
+          "w": 390
+        }
+      ],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "sample-report-desktop",
+      "page": [
+        1432,
+        1432
+      ],
+      "panels": [],
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "label": "sample-report-empty-exams",
+      "page": [
+        1432,
+        1432
+      ],
+      "panels": [],
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "label": "sample-report-error",
+      "page": [
+        1432,
+        1432
+      ],
+      "panels": [],
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "label": "live-permissions-390",
+      "page": [
+        390,
+        390
+      ],
+      "panels": [],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "live-permissions-320",
+      "page": [
+        320,
+        320
+      ],
+      "panels": [],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "live-permissions-desktop",
+      "page": [
+        1440,
+        1440
+      ],
+      "panels": [],
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "label": "live-exams-320",
+      "page": [
+        320,
+        320
+      ],
+      "panels": [],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "live-exam-detail-320",
+      "page": [
+        320,
+        320
+      ],
+      "panels": [
+        {
+          "bottom": 740,
+          "class": "el-drawer rtl open",
+          "sw": 320,
+          "top": 0,
+          "w": 320
+        }
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "live-roster-320",
+      "page": [
+        320,
+        320
+      ],
+      "panels": [
+        {
+          "bottom": 728,
+          "class": "el-dialog exam-roster-dialog",
+          "sw": 286,
+          "top": 12,
+          "w": 286
+        }
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "live-roster-landscape",
+      "page": [
+        844,
+        844
+      ],
+      "panels": [
+        {
+          "bottom": 361.9124946594238,
+          "class": "el-dialog exam-roster-dialog",
+          "sw": 798,
+          "top": 19.512500762939453,
+          "w": 798
+        }
+      ],
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "label": "live-report-landscape",
+      "page": [
+        844,
+        844
+      ],
+      "panels": [],
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "label": "live-report-320",
+      "page": [
+        320,
+        320
+      ],
+      "panels": [],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "live-report-desktop",
+      "page": [
+        1440,
+        1440
+      ],
+      "panels": [],
+      "viewport": [
+        1440,
+        900
+      ]
+    }
+  ]
+}

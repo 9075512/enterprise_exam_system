@@ -1,0 +1,608 @@
+{
+  "date": "2026-10-19",
+  "scope": [
+    "QuestionFeedbackPage",
+    "DuplicateQuestionsPage",
+    "RetakeManagePage"
+  ],
+  "checks": [
+    {
+      "page": "duplicates-expanded-sample",
+      "detail": [
+        {
+          "right": 295.18751335144043,
+          "scroll": 278,
+          "width": 278
+        }
+      ],
+      "documentWidth": 312,
+      "drawer": [],
+      "scope": "启用题目范围 · 已返回 1 组重复、2 道题 · 处理历史引用前请核查",
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "page": "duplicates-expanded-sample",
+      "detail": [
+        {
+          "right": 365.5875072479248,
+          "scroll": 349,
+          "width": 349
+        }
+      ],
+      "documentWidth": 382,
+      "drawer": [],
+      "scope": "启用题目范围 · 已返回 1 组重复、2 道题 · 处理历史引用前请核查",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "page": "duplicates-expanded-sample",
+      "detail": [
+        {
+          "right": 818.8000011444092,
+          "scroll": 802,
+          "width": 802
+        }
+      ],
+      "documentWidth": 836,
+      "drawer": [],
+      "scope": "启用题目范围 · 已返回 1 组重复、2 道题 · 处理历史引用前请核查",
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "page": "duplicates-expanded-sample",
+      "detail": [
+        {
+          "right": 1320.8000030517578,
+          "scroll": 1210,
+          "width": 1210
+        }
+      ],
+      "documentWidth": 1432,
+      "drawer": [],
+      "scope": "启用题目范围 · 已返回 1 组重复、2 道题 · 处理历史引用前请核查",
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "page": "feedback-failed-save-sample",
+      "detail": [],
+      "documentWidth": 320,
+      "drawer": [
+        {
+          "body": 590,
+          "footer": [
+            {
+              "bottom": 728,
+              "height": 44,
+              "text": "取消",
+              "top": 684
+            },
+            {
+              "bottom": 728,
+              "height": 44,
+              "text": "保存处理结果",
+              "top": 684
+            }
+          ],
+          "scroll": 320,
+          "width": 320
+        }
+      ],
+      "scope": "当前状态范围 · 已返回 1 条反馈",
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "page": "feedback-failed-save-sample",
+      "detail": [],
+      "documentWidth": 390,
+      "drawer": [
+        {
+          "body": 694,
+          "footer": [
+            {
+              "bottom": 832,
+              "height": 44,
+              "text": "取消",
+              "top": 788
+            },
+            {
+              "bottom": 832,
+              "height": 44,
+              "text": "保存处理结果",
+              "top": 788
+            }
+          ],
+          "scroll": 390,
+          "width": 390
+        }
+      ],
+      "scope": "当前状态范围 · 已返回 1 条反馈",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "page": "feedback-failed-save-sample",
+      "detail": [],
+      "documentWidth": 844,
+      "drawer": [
+        {
+          "body": 241,
+          "footer": [
+            {
+              "bottom": 378.3999938964844,
+              "height": 44,
+              "text": "取消",
+              "top": 334.3999938964844
+            },
+            {
+              "bottom": 378.3999938964844,
+              "height": 44,
+              "text": "保存处理结果",
+              "top": 334.3999938964844
+            }
+          ],
+          "scroll": 844,
+          "width": 844
+        }
+      ],
+      "scope": "当前状态范围 · 已返回 1 条反馈",
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "page": "feedback-failed-save-sample",
+      "detail": [],
+      "documentWidth": 1440,
+      "drawer": [
+        {
+          "body": 756,
+          "footer": [
+            {
+              "bottom": 884,
+              "height": 36,
+              "text": "取消",
+              "top": 848
+            },
+            {
+              "bottom": 884,
+              "height": 36,
+              "text": "保存处理结果",
+              "top": 848
+            }
+          ],
+          "scroll": 720,
+          "width": 720
+        }
+      ],
+      "scope": "当前状态范围 · 已返回 1 条反馈",
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "page": "retake-required-reason-sample",
+      "error": true
+    },
+    {
+      "page": "retake-failed-reject-sample",
+      "detail": [],
+      "documentWidth": 320,
+      "drawer": [
+        {
+          "body": 590,
+          "footer": [
+            {
+              "bottom": 728,
+              "height": 44,
+              "text": "取消",
+              "top": 684
+            },
+            {
+              "bottom": 728,
+              "height": 44,
+              "text": "确认驳回",
+              "top": 684
+            }
+          ],
+          "scroll": 320,
+          "width": 320
+        }
+      ],
+      "scope": "当前考试与审批状态范围 · 1 条申请 · 点击考试名称查看完整申请",
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "page": "retake-failed-reject-sample",
+      "detail": [],
+      "documentWidth": 390,
+      "drawer": [
+        {
+          "body": 694,
+          "footer": [
+            {
+              "bottom": 832,
+              "height": 44,
+              "text": "取消",
+              "top": 788
+            },
+            {
+              "bottom": 832,
+              "height": 44,
+              "text": "确认驳回",
+              "top": 788
+            }
+          ],
+          "scroll": 390,
+          "width": 390
+        }
+      ],
+      "scope": "当前考试与审批状态范围 · 1 条申请 · 点击考试名称查看完整申请",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "page": "retake-failed-reject-sample",
+      "detail": [],
+      "documentWidth": 844,
+      "drawer": [
+        {
+          "body": 241,
+          "footer": [
+            {
+              "bottom": 378.3999938964844,
+              "height": 44,
+              "text": "取消",
+              "top": 334.3999938964844
+            },
+            {
+              "bottom": 378.3999938964844,
+              "height": 44,
+              "text": "确认驳回",
+              "top": 334.3999938964844
+            }
+          ],
+          "scroll": 844,
+          "width": 844
+        }
+      ],
+      "scope": "当前考试与审批状态范围 · 1 条申请 · 点击考试名称查看完整申请",
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "page": "retake-failed-reject-sample",
+      "detail": [],
+      "documentWidth": 1440,
+      "drawer": [
+        {
+          "body": 756,
+          "footer": [
+            {
+              "bottom": 884,
+              "height": 36,
+              "text": "取消",
+              "top": 848
+            },
+            {
+              "bottom": 884,
+              "height": 36,
+              "text": "确认驳回",
+              "top": 848
+            }
+          ],
+          "scroll": 720,
+          "width": 720
+        }
+      ],
+      "scope": "当前考试与审批状态范围 · 1 条申请 · 点击考试名称查看完整申请",
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "page": "retake-empty-sample",
+      "detail": [],
+      "documentWidth": 382,
+      "drawer": [],
+      "scope": "当前考试与审批状态范围 · 正在加载 · 点击考试名称查看完整申请",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "page": "retake-load-error-sample",
+      "detail": [],
+      "documentWidth": 382,
+      "drawer": [],
+      "scope": "当前考试与审批状态范围 · 数量未知 · 点击考试名称查看完整申请",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "page": "feedback-empty-sample",
+      "detail": [],
+      "documentWidth": 382,
+      "drawer": [],
+      "scope": "当前状态范围 · 正在加载",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "page": "feedback-load-error-sample",
+      "detail": [],
+      "documentWidth": 382,
+      "drawer": [],
+      "scope": "当前状态范围 · 数量未知",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "page": "duplicates-empty-sample",
+      "detail": [],
+      "documentWidth": 382,
+      "drawer": [],
+      "scope": "启用题目范围 · 正在加载 · 处理历史引用前请核查",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "page": "duplicates-load-error-sample",
+      "detail": [],
+      "documentWidth": 382,
+      "drawer": [],
+      "scope": "启用题目范围 · 数量未知 · 处理历史引用前请核查",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "page": "retake-live",
+      "detail": [],
+      "documentWidth": 320,
+      "drawer": [],
+      "scope": "当前考试与审批状态范围 · 0 条申请 · 点击考试名称查看完整申请",
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "page": "retake-live",
+      "detail": [],
+      "documentWidth": 390,
+      "drawer": [],
+      "scope": "当前考试与审批状态范围 · 0 条申请 · 点击考试名称查看完整申请",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "page": "retake-live",
+      "detail": [],
+      "documentWidth": 844,
+      "drawer": [],
+      "scope": "当前考试与审批状态范围 · 0 条申请 · 点击考试名称查看完整申请",
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "page": "retake-live",
+      "detail": [],
+      "documentWidth": 1440,
+      "drawer": [],
+      "scope": "当前考试与审批状态范围 · 0 条申请 · 点击考试名称查看完整申请",
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "page": "feedback-live",
+      "detail": [],
+      "documentWidth": 320,
+      "drawer": [],
+      "scope": "当前状态范围 · 已返回 1 条反馈",
+      "viewport": [
+        320,
+        740
+      ],
+      "actions": [
+        {
+          "height": 44,
+          "left": 197.1999969482422,
+          "right": 261.2874984741211,
+          "text": "查看并处理"
+        }
+      ]
+    },
+    {
+      "page": "feedback-live",
+      "detail": [],
+      "documentWidth": 390,
+      "drawer": [],
+      "scope": "当前状态范围 · 已返回 1 条反馈",
+      "viewport": [
+        390,
+        844
+      ],
+      "actions": [
+        {
+          "height": 44,
+          "left": 267.6000061035156,
+          "right": 331.68750762939453,
+          "text": "查看并处理"
+        }
+      ]
+    },
+    {
+      "page": "feedback-live",
+      "detail": [],
+      "documentWidth": 844,
+      "drawer": [],
+      "scope": "当前状态范围 · 已返回 1 条反馈",
+      "viewport": [
+        844,
+        390
+      ],
+      "actions": [
+        {
+          "height": 44,
+          "left": 717.2000122070312,
+          "right": 781.2875137329102,
+          "text": "查看并处理"
+        }
+      ]
+    },
+    {
+      "page": "feedback-live",
+      "detail": [],
+      "documentWidth": 1440,
+      "drawer": [],
+      "scope": "当前状态范围 · 已返回 1 条反馈",
+      "viewport": [
+        1440,
+        900
+      ],
+      "actions": [
+        {
+          "height": 18.100000381469727,
+          "left": 1302.800048828125,
+          "right": 1366.887550354004,
+          "text": "查看并处理"
+        }
+      ]
+    },
+    {
+      "page": "duplicates-live",
+      "detail": [],
+      "documentWidth": 320,
+      "drawer": [],
+      "scope": "启用题目范围 · 已返回 6 组重复、12 道题 · 处理历史引用前请核查",
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "page": "duplicates-live",
+      "detail": [],
+      "documentWidth": 390,
+      "drawer": [],
+      "scope": "启用题目范围 · 已返回 6 组重复、12 道题 · 处理历史引用前请核查",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "page": "duplicates-live",
+      "detail": [],
+      "documentWidth": 844,
+      "drawer": [],
+      "scope": "启用题目范围 · 已返回 6 组重复、12 道题 · 处理历史引用前请核查",
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "page": "duplicates-live",
+      "detail": [],
+      "documentWidth": 1440,
+      "drawer": [],
+      "scope": "启用题目范围 · 已返回 6 组重复、12 道题 · 处理历史引用前请核查",
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "page": "feedback-detail-live",
+      "detail": [],
+      "documentWidth": 390,
+      "drawer": [
+        {
+          "body": 694,
+          "footer": [
+            {
+              "bottom": 832,
+              "height": 44,
+              "text": "取消",
+              "top": 788
+            },
+            {
+              "bottom": 832,
+              "height": 44,
+              "text": "保存处理结果",
+              "top": 788
+            }
+          ],
+          "scroll": 390,
+          "width": 390
+        }
+      ],
+      "scope": "当前状态范围 · 已返回 1 条反馈",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "page": "duplicates-expanded-live",
+      "detail": [
+        {
+          "right": 365.5875072479248,
+          "scroll": 349,
+          "width": 349
+        }
+      ],
+      "documentWidth": 390,
+      "drawer": [],
+      "scope": "启用题目范围 · 已返回 6 组重复、12 道题 · 处理历史引用前请核查",
+      "viewport": [
+        390,
+        844
+      ]
+    }
+  ]
+}

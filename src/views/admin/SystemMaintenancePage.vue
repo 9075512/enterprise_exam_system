@@ -7,7 +7,7 @@
  *   存档记录仍参与成绩报表 / 导出 / 看板与考生历史成绩查询（读路径已 union 归档表）；
  * - 自动归档定时任务（v1.8③）：默认关闭；开启后服务端每日到达指定时点自动执行一次。
  */
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Refresh, Files, Timer } from '@element-plus/icons-vue';
 import * as maintenanceApi from '@/api/maintenance';
@@ -23,9 +23,23 @@ import type { ArchiveAutoRun, ArchiveResult, MaintenanceStats } from '@/types';
 const settingsStore = useSettingsStore();
 
 const { data: stats, loading, error, refresh } = useRequest<MaintenanceStats>(() => maintenanceApi.stats());
+const settingsLoading = ref(true);
+const settingsError = ref(false);
+async function loadSettings(): Promise<void> {
+  settingsLoading.value = true;
+  try {
+    await settingsStore.load();
+    settingsError.value = !settingsStore.ready;
+  } catch {
+    settingsError.value = true;
+  } finally {
+    settingsLoading.value = false;
+  }
+}
+onMounted(() => { void loadSettings(); });
 
 /** 归档表单：保留天数（默认取设置/365）、单次上限 */
-const archiveDays = ref<number>(0);
+const archiveDays = ref<number>(365);
 const archiveLimit = ref<number>(2000);
 const archiving = ref(false);
 const lastResult = ref<ArchiveResult | null>(null);
@@ -35,13 +49,36 @@ const autoEnabled = ref(false);
 const autoHour = ref(3);
 const savingAuto = ref(false);
 const autoRunning = ref(false);
+const archiveError = ref('');
+const autoSaveError = ref('');
+const autoRunError = ref('');
+const lastAutoRun = ref<ArchiveAutoRun | null>(null);
+const autoResult = computed(() => {
+  const saved = stats.value?.lastAutoArchive;
+  const local = lastAutoRun.value;
+  return !local || (saved && Date.parse(saved.at) >= Date.parse(local.at)) ? saved : local;
+});
+const taskBusy = computed(() => archiving.value || savingAuto.value || autoRunning.value);
+const controlsDisabled = computed(() => taskBusy.value || loading.value || !!error.value || !stats.value);
+const autoDirty = computed(() => !!stats.value && (autoEnabled.value !== stats.value.autoEnabled || autoHour.value !== stats.value.autoHour));
+
+function restoreAutoSettings(): void {
+  if (!stats.value || controlsDisabled.value) return;
+  autoEnabled.value = stats.value.autoEnabled;
+  autoHour.value = stats.value.autoHour;
+  autoSaveError.value = '';
+}
 
 watch(
   stats,
-  (v) => {
+  (v, previous) => {
     if (!v) return;
-    autoEnabled.value = v.autoEnabled;
-    autoHour.value = v.autoHour;
+    // 刷新快照时保留未保存的设置；首次进入再初始化手动参数。
+    if (!previous) archiveDays.value = v.retentionDays > 0 ? v.retentionDays : 365;
+    if (!previous || (autoEnabled.value === previous.autoEnabled && autoHour.value === previous.autoHour)) {
+      autoEnabled.value = v.autoEnabled;
+      autoHour.value = v.autoHour;
+    }
   },
   { immediate: true },
 );
@@ -56,11 +93,13 @@ const AUTO_REASON_LABEL: Record<ArchiveAutoRun['reason'], string> = {
 };
 
 async function handleSaveAuto(): Promise<void> {
+  if (controlsDisabled.value || settingsLoading.value || settingsError.value) return;
   if (autoEnabled.value && settingsStore.settings.archiveRetentionDays <= 0) {
     ElMessage.warning('请先设置「归档保留天数」（大于 0），否则自动归档不会执行');
     return;
   }
   savingAuto.value = true;
+  autoSaveError.value = '';
   try {
     await settingsStore.save({
       ...settingsStore.settings,
@@ -70,7 +109,7 @@ async function handleSaveAuto(): Promise<void> {
     ElMessage.success('自动归档设置已保存');
     void refresh();
   } catch {
-    /* 已由拦截器提示 */
+    autoSaveError.value = '保存失败，已保留本次修改，请重试。';
   } finally {
     savingAuto.value = false;
   }
@@ -78,9 +117,12 @@ async function handleSaveAuto(): Promise<void> {
 
 /** 立即执行一次自动归档策略（忽略开关与时点，便于验证）。 */
 async function handleAutoRun(): Promise<void> {
+  if (controlsDisabled.value) return;
   autoRunning.value = true;
+  autoRunError.value = '';
   try {
     const res = await maintenanceApi.autoRun();
+    lastAutoRun.value = res;
     if (!res.triggered) {
       ElMessage.warning(
         res.reason === 'retention-disabled'
@@ -94,27 +136,20 @@ async function handleAutoRun(): Promise<void> {
     }
     void refresh();
   } catch {
-    /* 已由拦截器提示 */
+    autoRunError.value = '本次执行失败，请重新执行；未保存的设置不会应用到任务。';
   } finally {
     autoRunning.value = false;
   }
 }
 
 const retentionHint = computed(() =>
-  settingsStore.settings.archiveRetentionDays > 0
-    ? `系统设置：保留 ${settingsStore.settings.archiveRetentionDays} 天`
-    : '系统设置未启用自动归档（0 天），此处可手动指定保留期',
+  stats.value && stats.value.retentionDays > 0
+    ? `已保存策略：保留 ${stats.value.retentionDays} 天`
+    : '已保存保留天数为 0，本次可单独指定保留期',
 );
 
-/** 初始化保留天数输入（优先取系统设置，未配置则 365）。 */
-function initDays(): void {
-  if (archiveDays.value > 0) return;
-  archiveDays.value =
-    settingsStore.settings.archiveRetentionDays > 0 ? settingsStore.settings.archiveRetentionDays : 365;
-}
-void initDays();
-
 async function handleArchive(): Promise<void> {
+  if (controlsDisabled.value) return;
   const days = Number(archiveDays.value);
   const limit = Number(archiveLimit.value);
   if (!Number.isInteger(days) || days < 1 || days > 3650) {
@@ -126,24 +161,26 @@ async function handleArchive(): Promise<void> {
     return;
   }
 
+  archiving.value = true;
+  archiveError.value = '';
   try {
     await ElMessageBox.confirm(
-      `将把「考试结束时间早于 ${days} 天前」的已出成绩记录迁入归档表（单次最多 ${limit} 条）。` +
+      `将归档「考试结束时间早于 ${days} 天前」的已出成绩记录（本次最多 ${limit} 条）。` +
         '归档后成绩报表、导出与考生历史成绩查询结果不变；已有成绩复核申请的记录会自动跳过。',
       '确认执行归档',
       { type: 'warning', confirmButtonText: '确认归档' },
     );
   } catch {
+    archiving.value = false;
     return;
   }
 
-  archiving.value = true;
   try {
     lastResult.value = await maintenanceApi.archive({ days, limit });
     ElMessage.success(`已归档 ${lastResult.value.archived} 条记录`);
     void refresh();
   } catch {
-    /* 已由拦截器提示 */
+    archiveError.value = '本次归档失败，参数已保留，请重试。';
   } finally {
     archiving.value = false;
   }
@@ -157,17 +194,13 @@ const tableRows = computed(() => stats.value?.tables ?? []);
  * ================================================================== */
 
 /**
- * 「数据归档策略」卡：复用页面既有表单状态（archiveDays / archiveLimit /
- * autoHour / autoEnabled），只读展示当前全局策略。
- * 注：设计稿是「按数据对象逐行配置保留天数 / 单次上限 / 时点」，
- * 本工程接口没有逐对象策略字段，故以全局策略呈现，逐对象行数见下方
- * 「核心表行数统计」卡（不重复列表格）。
+ * 当前生效策略只读展示服务端快照；不把本次参数或未保存设置当作已生效值。
+ * 接口没有逐对象策略字段，逐对象行数见下方「核心表行数统计」。
  */
 const policyItems = computed<Array<{ key: string; value: string }>>(() => [
-  { key: '归档保留天数', value: archiveDays.value > 0 ? `${archiveDays.value} 天` : '未设置' },
-  { key: '单次处理上限', value: `${archiveLimit.value} 条` },
-  { key: '每日执行时点', value: `${String(autoHour.value).padStart(2, '0')}:00` },
-  { key: '自动归档', value: autoEnabled.value ? '已启用' : '未启用' },
+  { key: '归档保留天数', value: stats.value ? (stats.value.retentionDays > 0 ? `${stats.value.retentionDays} 天` : '未启用（0 天）') : '—' },
+  { key: '每日执行时点', value: stats.value ? `${String(stats.value.autoHour).padStart(2, '0')}:00` : '—' },
+  { key: '自动归档', value: stats.value ? (stats.value.autoEnabled ? '已启用' : '未启用') : '—' },
 ]);
 
 /** 执行记录条目（数据全部来自真实归档结果） */
@@ -175,7 +208,7 @@ interface ArchiveRunRecord {
   key: string;
   title: string;
   desc: string;
-  tone: 'done' | 'err';
+  tone: 'done' | 'err' | 'idle';
 }
 
 /**
@@ -195,7 +228,7 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
     });
   }
 
-  const auto = stats.value?.lastAutoArchive;
+  const auto = autoResult.value;
   if (auto) {
     records.push({
       key: 'auto',
@@ -203,7 +236,7 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
       desc:
         `${formatDateTime(auto.at)} · 跳过 ${auto.skipped} 条` +
         (auto.ok ? '' : ` · ${auto.error || '执行失败'}`),
-      tone: auto.ok ? 'done' : 'err',
+      tone: !auto.triggered ? 'idle' : auto.ok ? 'done' : 'err',
     });
   }
 
@@ -215,34 +248,36 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
   <div data-ui-layout="operations" data-ui-page="SystemMaintenancePage" class="maintenance">
     <PageHeader title="系统维护" description="全系统业务表体量与历史成绩归档；统计时间以下方服务端快照为准">
       <template #actions>
-        <el-button :icon="Refresh" :loading="loading" @click="refresh">刷新统计</el-button>
+        <el-button :icon="Refresh" :loading="loading" :disabled="taskBusy" @click="refresh">刷新统计</el-button>
       </template>
     </PageHeader>
 
     <LoadingSkeleton v-if="loading && !stats" :rows="4" />
 
-    <el-card v-else-if="error" shadow="never"><RequestError text="维护统计加载失败" @retry="refresh" /></el-card>
+    <el-card v-else-if="error && !stats" shadow="never"><RequestError text="维护统计加载失败" @retry="refresh" /></el-card>
     <template v-else>
+      <RequestError v-if="error" text="统计刷新失败，当前展示上次成功快照；任务参数已保留" @retry="refresh" />
+      <p v-else-if="loading" class="maintenance__snapshot-note" role="status">正在刷新，当前展示上次成功快照。</p>
       <div class="maintenance__cards">
         <div class="maintenance__card">
           <div class="maintenance__card-label">业务表考试记录</div>
           <div class="maintenance__card-value">
-            {{ tableRows.find((t) => t.name === 'exam_records')?.rows ?? 0 }}
+            {{ tableRows.find((t) => t.name === 'exam_records')?.rows ?? '—' }}
           </div>
         </div>
         <div class="maintenance__card">
           <div class="maintenance__card-label">历史成绩归档</div>
           <div class="maintenance__card-value maintenance__card-value--primary">
-            {{ stats?.archiveTotal ?? 0 }}
+            {{ stats?.archiveTotal ?? '—' }}
           </div>
         </div>
         <div class="maintenance__card">
           <div class="maintenance__card-label">归档保留天数设置</div>
           <div class="maintenance__card-value">
-            {{ stats?.retentionDays === 0 ? '未启用' : `${stats?.retentionDays} 天` }}
+            {{ stats ? (stats.retentionDays === 0 ? '未启用' : `${stats.retentionDays} 天`) : '—' }}
           </div>
         </div>
-        <div class="maintenance__card">
+        <div class="maintenance__card maintenance__card--time">
           <div class="maintenance__card-label">统计时间</div>
           <div class="maintenance__card-value maintenance__card-value--small">
             {{ stats ? formatDateTime(stats.generatedAt) : '—' }}
@@ -256,9 +291,9 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
           <div class="maintenance__panel-header">
             <span class="maintenance__panel-title">
               <el-icon><Timer /></el-icon>
-              数据归档策略
+              当前生效策略
             </span>
-            <span class="maintenance__hint">归档仅搬移超期记录，不触碰考试、成绩等业务主数据</span>
+            <span class="maintenance__hint">全系统已保存策略 · 以服务端统计快照为准</span>
           </div>
         </template>
 
@@ -275,11 +310,12 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
           各数据对象与行数见下方「核心表行数统计」卡，避免重复列表。
         -->
         <p class="maintenance__policy-tip">
-          以上为全局策略，修改请使用下方「自动归档」与「历史成绩归档」表单；逐对象配置待后端接口支持。
+          下方未保存的修改及手动归档参数不会改变此处。全局保留天数在系统设置中配置。
         </p>
       </el-card>
 
-      <el-card class="table-card maintenance__panel" shadow="never">
+      <div class="maintenance__tasks">
+      <el-card class="maintenance__panel maintenance__task" shadow="never">
         <template #header>
           <div class="maintenance__panel-header">
             <span class="maintenance__panel-title">
@@ -292,40 +328,48 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
           </div>
         </template>
 
-        <el-form inline class="maintenance__form">
+        <RequestError v-if="settingsError" text="归档设置加载失败，暂不能保存；可重新加载" @retry="loadSettings" />
+        <p v-else-if="settingsLoading" class="maintenance__snapshot-note" role="status">归档设置加载中，暂不能保存。</p>
+        <p v-if="autoDirty" class="maintenance__draft-note" role="status">有未保存修改，立即执行仍使用已保存策略。</p>
+        <el-form :disabled="controlsDisabled" label-position="top" class="maintenance__form">
           <el-form-item label="启用自动归档">
-            <el-switch v-model="autoEnabled" />
+            <el-switch v-model="autoEnabled" aria-label="启用自动归档" />
           </el-form-item>
           <el-form-item label="每日执行时点">
             <el-select v-model="autoHour" class="maintenance__hour">
               <el-option v-for="h in 24" :key="h - 1" :label="`${String(h - 1).padStart(2, '0')}:00`" :value="h - 1" />
             </el-select>
           </el-form-item>
-          <el-form-item>
-            <el-button type="primary" :loading="savingAuto" @click="handleSaveAuto">保存设置</el-button>
+          <el-form-item class="maintenance__form-actions">
+            <el-button type="primary" :loading="savingAuto" :disabled="controlsDisabled || settingsLoading || settingsError" @click="handleSaveAuto">保存设置</el-button>
+            <el-button :disabled="controlsDisabled || !autoDirty" @click="restoreAutoSettings">恢复已保存设置</el-button>
+          </el-form-item>
+          <el-form-item class="maintenance__form-actions">
             <el-button :loading="autoRunning" @click="handleAutoRun">立即执行一次</el-button>
           </el-form-item>
         </el-form>
+        <p v-if="autoSaveError" class="maintenance__error" role="status">{{ autoSaveError }}</p>
+        <p v-if="autoRunError" class="maintenance__error" role="status">{{ autoRunError }}</p>
 
         <el-alert type="info" :closable="false" show-icon class="maintenance__alert">
-          <p>· 自动归档按「保留天数」策略执行，默认<strong>关闭</strong>；开启后由服务端每日到点自动执行一次。</p>
-          <p>· 若「保留天数」为 0，自动任务不会执行（可在此页或系统设置中配置）。</p>
-          <p>· 「立即执行一次」忽略开关与时点，用于验证策略；执行记录会写入操作审计日志（操作者为「系统自动」）。</p>
+          <span class="maintenance__note-line">· 自动归档按「保留天数」策略执行，默认<strong>关闭</strong>；开启后由服务端每日到点自动执行一次。</span>
+          <span class="maintenance__note-line">· 若全局保留天数为 0，自动任务不会执行；请在系统设置中配置。</span>
+          <span class="maintenance__note-line">· 「立即执行一次」忽略开关与时点，用于验证策略；执行记录会写入操作审计日志（操作者为「系统自动」）。</span>
         </el-alert>
 
-        <div v-if="stats?.lastAutoArchive" class="maintenance__result">
-          上次自动归档：{{ AUTO_REASON_LABEL[stats.lastAutoArchive.reason] }} ·
-          {{ formatDateTime(stats.lastAutoArchive.at) }} · 归档 <b>{{ stats.lastAutoArchive.archived }}</b> 条，
-          跳过 <b>{{ stats.lastAutoArchive.skipped }}</b> 条，归档表现有
-          <b>{{ stats.lastAutoArchive.archiveTotal }}</b> 条。
-          <span v-if="!stats.lastAutoArchive.ok" class="maintenance__error">
-            （失败：{{ stats.lastAutoArchive.error }}）
+        <div v-if="autoResult" class="maintenance__result">
+          最近一次策略执行：{{ AUTO_REASON_LABEL[autoResult.reason] }} ·
+          {{ formatDateTime(autoResult.at) }} · 归档 <b>{{ autoResult.archived }}</b> 条，
+          跳过 <b>{{ autoResult.skipped }}</b> 条，归档表现有
+          <b>{{ autoResult.archiveTotal }}</b> 条。
+          <span v-if="!autoResult.ok" class="maintenance__error">
+            （失败：{{ autoResult.error }}）
           </span>
         </div>
         <div v-else class="maintenance__result">尚未执行过自动归档（服务端重启后该记录会重置）。</div>
       </el-card>
 
-      <el-card class="table-card maintenance__panel" shadow="never">
+      <el-card class="maintenance__panel maintenance__task" shadow="never">
         <template #header>
           <div class="maintenance__panel-header">
             <span class="maintenance__panel-title">
@@ -336,22 +380,24 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
           </div>
         </template>
 
-        <el-form inline class="maintenance__form">
+        <p class="maintenance__snapshot-note">以下参数仅用于本次手动归档。</p>
+        <el-form :disabled="controlsDisabled" label-position="top" class="maintenance__form">
           <el-form-item label="保留天数">
             <el-input-number v-model="archiveDays" :min="1" :max="3650" :step="30" />
           </el-form-item>
           <el-form-item label="单次上限">
             <el-input-number v-model="archiveLimit" :min="1" :max="5000" :step="500" />
           </el-form-item>
-          <el-form-item>
+          <el-form-item class="maintenance__form-actions">
             <el-button type="primary" :loading="archiving" @click="handleArchive">执行归档</el-button>
           </el-form-item>
         </el-form>
+        <p v-if="archiveError" class="maintenance__error" role="status">{{ archiveError }}</p>
 
         <el-alert type="info" :closable="false" show-icon class="maintenance__alert">
-          <p>· 仅归档「已出成绩」且考试结束早于保留期的记录；待阅卷记录不参与归档。</p>
-          <p>· 存在成绩复核申请的记录会自动跳过，保证复核链路与外键完整性。</p>
-          <p>· 归档采用搬移语义（写入归档表后自业务表删除），读路径已合并两表，查询结果不变。</p>
+          <span class="maintenance__note-line">· 仅归档「已出成绩」且考试结束早于保留期的记录；待阅卷记录不参与归档。</span>
+          <span class="maintenance__note-line">· 存在成绩复核申请的记录会自动跳过，保留完整复核记录。</span>
+          <span class="maintenance__note-line">· 归档后仍可查询历史成绩，成绩报表和导出继续包含这些记录。</span>
         </el-alert>
 
         <div v-if="lastResult" class="maintenance__result">
@@ -361,6 +407,7 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
           <b>{{ lastResult.archiveTotal }}</b> 条。
         </div>
       </el-card>
+      </div>
 
       <el-card class="table-card" shadow="never">
         <template #header>
@@ -422,7 +469,7 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
           <div class="maintenance__danger">
             <div>
               <div class="maintenance__danger-title">重建统计缓存</div>
-              <div class="maintenance__danger-desc">重算成绩报表与错题排行，预计耗时约 1 分钟</div>
+              <div class="maintenance__danger-desc">重算成绩报表与错题排行，当前暂未开放</div>
             </div>
             <span class="maintenance__danger-badge">未开放</span>
           </div>
@@ -444,6 +491,10 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
 @use '@/styles/variables.scss' as *;
 
 .maintenance {
+  &__snapshot-note { margin: 0 0 14px; color: $text-secondary; font-size: 12px; }
+  &__draft-note { margin: 0 0 14px; padding: 10px 12px; border-radius: $radius-sm; color: $color-warning-text; background: $color-warning-bg; font-size: 12px; }
+  &__tasks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; margin-bottom: 16px; }
+  &__tasks > &__panel { min-width: 0; margin-bottom: 0; }
   &__cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -489,6 +540,8 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
   }
 
   &__panel-title {
@@ -505,8 +558,15 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
   }
 
   &__form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
     margin-bottom: 6px;
+    :deep(.el-form-item) { min-width: 0; margin: 0; }
+    :deep(.el-form-item__content) { min-width: 0; }
+    :deep(.el-input-number), :deep(.el-select) { width: 100%; }
   }
+  &__form-actions { grid-column: 1 / -1; :deep(.el-form-item__content) { display: flex; flex-wrap: wrap; gap: 8px; } :deep(.el-button + .el-button) { margin: 0; } }
 
   &__hour {
     width: 130px;
@@ -519,7 +579,8 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
   &__alert {
     margin: 4px 0 12px;
 
-    p {
+    .maintenance__note-line {
+      display: block;
       margin: 2px 0;
       font-size: 12px;
       line-height: 1.6;
@@ -530,6 +591,7 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
     font-size: 13px;
     line-height: 1.7;
     color: $text-secondary;
+    overflow-wrap: anywhere;
 
     b {
       color: $text-primary;
@@ -550,7 +612,7 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
     padding: 10px 12px;
     background: $bg-page;
     border: 1px solid $border-color;
-    border-radius: $radius-sm;
+    border-radius: $radius-lg;
   }
 
   &__policy-k {
@@ -608,6 +670,7 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
     &--err::before {
       background: $color-error;
     }
+    &--idle::before { background: $text-secondary; }
   }
 
   &__tl-title {
@@ -620,6 +683,7 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
     margin-top: 2px;
     font-size: 12px;
     color: $text-secondary;
+    overflow-wrap: anywhere;
   }
 
   &__empty {
@@ -638,6 +702,7 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
     padding: 12px;
     border: 1px solid $border-color;
     border-radius: $radius-sm;
+    > div { min-width: 0; overflow-wrap: anywhere; }
 
     & + & {
       margin-top: 12px;
@@ -683,8 +748,22 @@ const runRecords = computed<ArchiveRunRecord[]>(() => {
 
 /* 窄屏：执行记录 / 危险操作回到单列 */
 @media (max-width: 1200px) {
-  .maintenance__grid {
+  .maintenance__grid, .maintenance__tasks {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+@media (max-width: 900px) {
+  .maintenance__cards, .maintenance__policy { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .maintenance__policy-item:first-child { grid-column: 1 / -1; }
+  .maintenance__card { min-width: 0; padding: 16px; }
+  .maintenance__card-label { font-size: 12px; }
+  .maintenance__card-value { overflow-wrap: anywhere; }
+  .maintenance__card-value--small { font-size: 13px; line-height: 1.7; }
+  .maintenance__form { grid-template-columns: minmax(0, 1fr); }
+  .maintenance__form :deep(.el-switch) { min-height: 44px; }
+  .maintenance__form :deep(.el-input-number) { height: 44px; line-height: 44px; }
+  .maintenance__form :deep(.el-input-number__decrease), .maintenance__form :deep(.el-input-number__increase) { top: 0; bottom: 0; width: 44px; height: 44px; line-height: 44px; }
+  .maintenance__form :deep(.el-input-number .el-input__wrapper) { padding-inline: 44px; min-height: 44px; }
+  .maintenance__alert :deep(.el-alert__content) { min-width: 0; }
 }
 </style>

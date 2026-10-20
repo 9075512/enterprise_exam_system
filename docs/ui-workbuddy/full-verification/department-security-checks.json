@@ -1,0 +1,110 @@
+{
+  "date": "2026-10-19",
+  "note": "sample-department使用隔离内存样例；live-log-range来自实际应用，只读取筛选控件，不执行清理或保存。",
+  "checks": [
+    {
+      "doc": 312,
+      "h": 740,
+      "kind": "sample-department",
+      "namesFit": true,
+      "nodeHeights": [
+        52,
+        88,
+        68,
+        68,
+        52
+      ],
+      "treeHeight": 328,
+      "w": 320
+    },
+    {
+      "doc": 382,
+      "h": 844,
+      "kind": "sample-department",
+      "namesFit": true,
+      "nodeHeights": [
+        52,
+        52,
+        52,
+        52,
+        52
+      ],
+      "treeHeight": 260,
+      "w": 390
+    },
+    {
+      "doc": 836,
+      "h": 390,
+      "kind": "sample-department",
+      "namesFit": true,
+      "nodeHeights": [
+        52,
+        52,
+        52,
+        52,
+        52
+      ],
+      "treeHeight": 175.6750030517578,
+      "w": 844
+    },
+    {
+      "doc": 1432,
+      "h": 900,
+      "kind": "sample-department",
+      "namesFit": true,
+      "nodeHeights": [
+        40,
+        88,
+        68,
+        68,
+        36
+      ],
+      "treeHeight": 300,
+      "w": 1440
+    },
+    {
+      "cellHeight": 44,
+      "cellWidth": 44.22500228881836,
+      "doc": 320,
+      "footerVisible": true,
+      "h": 740,
+      "kind": "live-log-range",
+      "noHorizontalScroll": true,
+      "panelInside": true,
+      "w": 320
+    },
+    {
+      "cellHeight": 44,
+      "cellWidth": 47.42499923706055,
+      "doc": 390,
+      "footerVisible": true,
+      "h": 844,
+      "kind": "live-log-range",
+      "noHorizontalScroll": true,
+      "panelInside": true,
+      "w": 390
+    },
+    {
+      "cellHeight": 44,
+      "cellWidth": 52.22500228881836,
+      "doc": 844,
+      "footerVisible": true,
+      "h": 390,
+      "kind": "live-log-range",
+      "noHorizontalScroll": true,
+      "panelInside": true,
+      "w": 844
+    },
+    {
+      "cellHeight": 38,
+      "cellWidth": 41.45000076293945,
+      "doc": 1440,
+      "footerVisible": true,
+      "h": 900,
+      "kind": "live-log-range",
+      "noHorizontalScroll": true,
+      "panelInside": true,
+      "w": 1440
+    }
+  ]
+}

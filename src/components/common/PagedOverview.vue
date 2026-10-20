@@ -8,6 +8,7 @@ const props = withDefaults(defineProps<{
   title: string;
   limit?: number;
   pageSize?: number;
+  dialogClass?: string;
 }>(), { limit: 5, pageSize: 10 });
 
 const visible = ref(false);
@@ -34,7 +35,7 @@ function open(): void {
         查看更多（共 {{ items.length }} 条）
       </el-button>
     </div>
-    <el-dialog v-model="visible" :title="title" width="760px" append-to-body destroy-on-close>
+    <el-dialog :class="dialogClass" v-model="visible" :title="title" width="760px" append-to-body destroy-on-close>
       <div class="paged-overview__all">
         <slot :items="paged" :offset="offset" />
       </div>

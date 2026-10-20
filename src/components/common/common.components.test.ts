@@ -49,6 +49,7 @@ describe('PageHeader', () => {
 
     const noDesc = mountWith(PageHeader, { title: '题库管理' });
     expect(noDesc.find('.page-header__desc').exists()).toBe(false);
+    expect(noDesc.find('.page-header__actions').exists()).toBe(false);
   });
 
   it('actions 具名插槽内容渲染在右侧区域', () => {

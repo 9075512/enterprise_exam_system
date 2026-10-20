@@ -1,0 +1,70 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
+import ElementPlus, { ElButton, ElMessage, ElMessageBox } from 'element-plus';
+import RetakeManagePage from './RetakeManagePage.vue';
+import type { Retake } from '@/types';
+const api = vi.hoisted(() => ({ list: vi.fn(), approve: vi.fn(), reject: vi.fn(), loadSettings: vi.fn(), push: vi.fn() }));
+vi.mock('@/api/retakes', () => ({ listRetakes: api.list, approveRetake: api.approve, rejectRetake: api.reject }));
+vi.mock('vue-router', () => ({ useRouter: () => ({ push: api.push }) }));
+vi.mock('@/composables/useExamScope', async () => { const { ref } = await import('vue'); const examId = ref('exam-1'); return { useExamScope: () => ({ examId }) }; });
+vi.mock('@/stores/settings', () => ({ useSettingsStore: () => ({ ready: true, settings: { defaultPageSize: 20, retakeScorePolicy: 'highest', examDefaultPassScore: 60, examDefaultMaxAttempts: 1, retakeDefaultEnabled: true }, load: api.loadSettings }) }));
+const request: Retake = { id: 'r1', examId: 'exam-1', examName: '完整考试名称ABCDEFGHIJKLMNOPQRSTUVWXYZ', userId: 'u1', userName: '完整考生姓名', username: 'long_account', departmentName: '完整科室名称', status: 'pending', reason: '第一段申请原因\n第二段申请原因', appliedAt: '2026-10-19T00:00:00Z', reviewedBy: null, reviewedAt: null };
+let wrapper: VueWrapper;
+beforeEach(() => { vi.resetAllMocks(); api.list.mockResolvedValue({ list: [request], total: 1, page: 1, pageSize: 20 }); api.loadSettings.mockResolvedValue(undefined); });
+afterEach(() => { wrapper?.unmount(); ElMessage.closeAll(); document.body.innerHTML = ''; vi.restoreAllMocks(); });
+async function render() { wrapper = mount(RetakeManagePage, { attachTo: document.body, global: { plugins: [ElementPlus], stubs: { ExamScopeSelect: { props: ['modelValue', 'disabled'], template: '<div />' } } } }); await flushPromises(); }
+const button = (name: string) => wrapper.findAllComponents(ElButton).find(b => b.text() === name)!;
+const fillReason = async (value: string) => { const input = document.querySelector<HTMLTextAreaElement>('.retake-detail textarea')!; input.value = value; input.dispatchEvent(new Event('input', { bubbles: true })); await flushPromises(); };
+describe('补考详情与审批恢复', () => {
+  it('考试名称可打开完整申请，保留换行、账号、科室和真实审批状态', async () => {
+    await render(); await button(request.examName).trigger('click'); await flushPromises();
+    const drawer = document.querySelector('.retake-detail')!;
+    expect(drawer.textContent).toContain(request.username); expect(drawer.textContent).toContain(request.departmentName);
+    expect(drawer.textContent).toContain('尚未审批'); expect(drawer.querySelector('.retake-detail__reason p')?.textContent).toBe(request.reason);
+    expect(wrapper.find('.admin-scope').text()).toContain('1 条申请');
+  });
+  it('驳回原因必填，重复提交只调用一次，失败保留原因并可成功重试', async () => {
+    await render(); await button('驳回').trigger('click'); await flushPromises();
+    const form = wrapper.findComponent({ name: 'ElForm' });
+    expect(form.props('rules')?.reason).toEqual(expect.arrayContaining([expect.objectContaining({ required: true, whitespace: true })]));
+    const validation = vi.spyOn(form.vm.$.exposed as { validate: () => Promise<boolean> }, 'validate').mockRejectedValueOnce({ reason: [{ message: '请填写驳回原因' }] });
+    await button('确认驳回').trigger('click'); await flushPromises(); expect(api.reject).not.toHaveBeenCalled();
+    validation.mockRestore();
+    await fillReason('  请先核对缺失的申请材料  ');
+    let reject!: (error: Error) => void;
+    api.reject.mockReturnValueOnce(new Promise((_resolve, fail) => { reject = fail; }));
+    const submit = button('确认驳回'); submit.vm.$emit('click', new MouseEvent('click')); submit.vm.$emit('click', new MouseEvent('click')); await flushPromises();
+    expect(api.reject).toHaveBeenCalledTimes(1); expect(api.reject).toHaveBeenCalledWith('r1', '请先核对缺失的申请材料');
+    expect(wrapper.findComponent({ name: 'ElDrawer' }).props('closeOnPressEscape')).toBe(false);
+    expect(button('取消').props('disabled')).toBe(true); expect(wrapper.findComponent({ name: 'ElRadioGroup' }).props('disabled')).toBe(true);
+    reject(new Error('offline')); await flushPromises();
+    expect(document.querySelector<HTMLTextAreaElement>('.retake-detail textarea')?.value).toContain('请先核对缺失的申请材料');
+    expect(document.body.textContent).toContain('驳回失败，原因已保留');
+    api.reject.mockResolvedValueOnce({ ...request, status: 'rejected' }); submit.vm.$emit('click', new MouseEvent('click')); await flushPromises();
+    expect(api.reject).toHaveBeenCalledTimes(2); expect(wrapper.findComponent({ name: 'ElDrawer' }).props('modelValue')).toBe(false);
+  });
+  it('通过保留确认并在确认和请求期间锁定，取消不审批，失败显示重试状态', async () => {
+    await render();
+    let finish!: (value: Awaited<ReturnType<typeof ElMessageBox.confirm>>) => void;
+    const confirm = vi.spyOn(ElMessageBox, 'confirm').mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+    const approve = button('通过'); approve.vm.$emit('click', new MouseEvent('click')); approve.vm.$emit('click', new MouseEvent('click')); await flushPromises();
+    expect(confirm).toHaveBeenCalledOnce(); expect(api.approve).not.toHaveBeenCalled(); expect(button('驳回').props('disabled')).toBe(true);
+    api.approve.mockRejectedValueOnce(new Error('offline'));
+    finish('confirm' as Awaited<ReturnType<typeof ElMessageBox.confirm>>); await flushPromises();
+    expect(api.approve).toHaveBeenCalledWith('r1'); expect(wrapper.text()).toContain('本次审批失败');
+    confirm.mockRejectedValueOnce('cancel'); approve.vm.$emit('click', new MouseEvent('click')); await flushPromises();
+    expect(api.approve).toHaveBeenCalledTimes(1); expect(button('通过').props('disabled')).toBe(false);
+  });
+  it('审批后当前页消失会回到有效页，保留考试与状态筛选', async () => {
+    let approved = false;
+    const firstPage = Array.from({ length: 20 }, (_, i) => ({ ...request, id: 'first-' + i }));
+    api.list.mockImplementation(async (params: { page: number }) => ({ list: params.page === 2 ? (approved ? [] : [request]) : firstPage, total: approved ? 20 : 21, page: params.page, pageSize: 20 }));
+    await render(); const group = wrapper.findComponent({ name: 'ElRadioGroup' }); group.vm.$emit('update:modelValue', 'pending'); group.vm.$emit('change', 'pending'); await flushPromises();
+    wrapper.findComponent({ name: 'ResponsivePagination' }).vm.$emit('current-change', 2); await flushPromises();
+    vi.spyOn(ElMessageBox, 'confirm').mockResolvedValueOnce('confirm' as Awaited<ReturnType<typeof ElMessageBox.confirm>>);
+    api.approve.mockImplementation(async () => { approved = true; return { ...request, status: 'approved' }; });
+    await button('通过').trigger('click'); await flushPromises();
+    expect(api.list).toHaveBeenLastCalledWith({ status: 'pending', examId: 'exam-1', page: 1, pageSize: 20 });
+    expect(wrapper.findComponent({ name: 'ResponsivePagination' }).exists()).toBe(false);
+  });
+});

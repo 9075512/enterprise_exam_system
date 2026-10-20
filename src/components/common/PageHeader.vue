@@ -12,7 +12,7 @@ const titleInFrame = computed(() => layoutTitle?.value === props.title);
       <h2 class="page-header__title" :class="{ 'page-header__title--in-frame': titleInFrame }">{{ title }}</h2>
       <p v-if="description" class="page-header__desc">{{ description }}</p>
     </div>
-    <div class="page-header__actions">
+    <div v-if="$slots.actions" class="page-header__actions">
       <slot name="actions" />
     </div>
   </div>
