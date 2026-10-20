@@ -1,0 +1,26 @@
+{
+  "searchEmptyEnter": {
+    "matches": 0,
+    "keptDialogOpen": true
+  },
+  "searchMatchingEnter": {
+    "matches": 1,
+    "target": "http://127.0.0.1:5174/admin/positions",
+    "page": "PositionManagePage",
+    "rendered": true
+  },
+  "importantNotices": {
+    "exam": [
+      "甲",
+      "乙",
+      "丙"
+    ],
+    "practice": [
+      "甲",
+      "乙",
+      "丙"
+    ],
+    "source": "隔离模拟组件，真实关闭动画"
+  },
+  "securityWrites": "仅隔离模拟与单元测试，实际账号页面只读"
+}

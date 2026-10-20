@@ -2,15 +2,18 @@
 import { computed, nextTick, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import * as practiceApi from '@/api/practice';
+import { feedbackApi } from '@/api/coreFeatures';
 import { focusFirstFormError } from '@/composables/useFormFocus';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   visible: boolean;
   questionId: string;
-  sessionId: string;
+  sessionId?: string;
+  source?: 'practice' | 'exam';
+  sourceRefId?: string;
   questionNumber: number;
   stem: string;
-}>();
+}>(), { sessionId: '', source: 'practice', sourceRefId: '' });
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void;
   (e: 'busy', value: boolean): void;
@@ -32,7 +35,7 @@ watch(() => props.visible, (open) => {
 }, { immediate: true });
 
 async function submit(): Promise<void> {
-  if (submitting.value || !props.questionId || !props.sessionId) return;
+  if (submitting.value || !props.questionId || !(props.source === 'exam' ? props.sourceRefId : props.sessionId)) return;
   const value = content.value.trim();
   contentError.value = !value ? '请输入问题描述' : value.length > 1000 ? '问题描述不能超过 1000 字' : '';
   if (contentError.value) {
@@ -43,7 +46,11 @@ async function submit(): Promise<void> {
   submitError.value = '';
   emit('busy', true);
   try {
-    await practiceApi.submitQuestionFeedback({ questionId: props.questionId, sessionId: props.sessionId, category: '题目纠错', content: value });
+    if (props.source === 'exam') {
+      await feedbackApi.create({ questionId: props.questionId, source: 'exam', sourceRefId: props.sourceRefId, category: '题目纠错', content: value });
+    } else {
+      await practiceApi.submitQuestionFeedback({ questionId: props.questionId, sessionId: props.sessionId, category: '题目纠错', content: value });
+    }
     ElMessage.success('反馈已提交');
     emit('update:visible', false);
   } catch {

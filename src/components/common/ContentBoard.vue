@@ -7,7 +7,7 @@
  *
  * v1.9⑦ 的考试端首页会复用本组件。
  */
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import { Bell } from '@element-plus/icons-vue';
 import { fetchFeed, markAnnouncementRead, markBannerClick } from '@/api/content';
 import { formatDateTime } from '@/utils/datetime';
@@ -73,6 +73,11 @@ function popForce(): void {
 
 function closeForce(): void {
   forceVisible.value = false;
+}
+
+async function afterForceClosed(): Promise<void> {
+  // Element Plus emits update:modelValue(false) after closed; advance on the next tick.
+  await nextTick();
   popForce();
 }
 
@@ -148,6 +153,8 @@ function openDetail(item: Announcement): void {
           class="content-board__slide"
           :class="{ 'is-link': !!banner.linkUrl }"
           :title="banner.title"
+          role="button" tabindex="0" :aria-label="banner.title || '查看轮播图'"
+          @keydown.enter="openBanner(banner)" @keydown.space.prevent="openBanner(banner)"
           @click="openBanner(banner)"
         >
           <img class="content-board__image" :src="banner.imageUrl" :alt="banner.title" />
@@ -225,12 +232,13 @@ function openDetail(item: Announcement): void {
     </el-card>
 
     <!-- 公告详情 -->
-    <el-dialog v-model="detailVisible" :title="detail?.title ?? '公告'" width="560px" append-to-body>
+    <el-dialog class="notice-reading-dialog" v-model="detailVisible" :title="detail?.title ?? '公告'" width="560px" append-to-body>
       <p class="content-board__detail-meta">
         <span v-if="detail?.level === 'important'" class="content-board__detail-flag">重要</span>
         发布时间：{{ detail ? formatDateTime(detail.createdAt) : '' }}
       </p>
       <div class="content-board__detail-body rich-text" v-html="detail?.content ?? ''" />
+      <template #footer><el-button type="primary" @click="detailVisible = false">关闭公告</el-button></template>
     </el-dialog>
 
     <!-- 重要公告首次进入强提醒（v2.0①） -->
@@ -238,9 +246,9 @@ function openDetail(item: Announcement): void {
       v-model="forceVisible"
       title="重要公告"
       width="560px"
-      class="content-board__force"
+      class="content-board__force notice-reading-dialog"
       append-to-body
-      @close="closeForce"
+      @closed="afterForceClosed"
     >
       <p class="content-board__detail-meta">
         <span class="content-board__detail-flag">重要</span>
@@ -449,6 +457,7 @@ function openDetail(item: Announcement): void {
   }
 
   &__detail-meta {
+    overflow-wrap: anywhere;
     margin: 0 0 10px;
     font-size: 12px;
     color: $text-secondary;

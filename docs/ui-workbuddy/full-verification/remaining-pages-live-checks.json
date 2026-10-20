@@ -1,0 +1,1357 @@
+[
+  {
+    "label": "岗位桌面",
+    "url": "http://127.0.0.1:5174/admin/positions",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1048,
+    "page": "PositionManagePage",
+    "pageOverflow": false,
+    "title": "岗位管理",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "label": "岗位手机",
+    "url": "http://127.0.0.1:5174/admin/positions",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "PositionManagePage",
+    "pageOverflow": false,
+    "title": "岗位管理",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "数据总览桌面",
+    "url": "http://127.0.0.1:5174/admin/dashboard",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "DashboardPage",
+    "pageOverflow": false,
+    "title": "数据总览",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "科目管理桌面",
+    "url": "http://127.0.0.1:5174/admin/subjects?subjectId=legacy-category-c2d433c208414247d5b70fdf",
+    "error": null,
+    "loading": true,
+    "mainWidth": 1208,
+    "page": "SubjectManagePage",
+    "pageOverflow": false,
+    "title": "科目管理",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "题库管理桌面",
+    "url": "http://127.0.0.1:5174/author/banks",
+    "error": null,
+    "loading": true,
+    "mainWidth": 1208,
+    "page": "QuestionBankListPage",
+    "pageOverflow": false,
+    "title": "题库管理",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "题目反馈桌面",
+    "url": "http://127.0.0.1:5174/admin/question-feedback",
+    "error": null,
+    "loading": true,
+    "mainWidth": 1208,
+    "page": "QuestionFeedbackPage",
+    "pageOverflow": false,
+    "title": "题目反馈",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "重复题审计桌面",
+    "url": "http://127.0.0.1:5174/admin/duplicate-questions",
+    "error": null,
+    "loading": true,
+    "mainWidth": 1208,
+    "page": "DuplicateQuestionsPage",
+    "pageOverflow": false,
+    "title": "重复题审计",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "考试管理桌面",
+    "url": "http://127.0.0.1:5174/admin/exams",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "ExamManagePage",
+    "pageOverflow": false,
+    "title": "考试管理",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "数据总览桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/dashboard",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "DashboardPage",
+    "pageOverflow": false,
+    "title": "数据总览",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "科目管理桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/subjects?subjectId=legacy-category-c2d433c208414247d5b70fdf",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "SubjectManagePage",
+    "pageOverflow": false,
+    "title": "科目管理",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "题库管理桌面完成加载",
+    "url": "http://127.0.0.1:5174/author/banks",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "QuestionBankListPage",
+    "pageOverflow": false,
+    "title": "题库管理",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "题目反馈桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/question-feedback",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "QuestionFeedbackPage",
+    "pageOverflow": false,
+    "title": "题目反馈",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "重复题审计桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/duplicate-questions",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "DuplicateQuestionsPage",
+    "pageOverflow": false,
+    "title": "重复题审计",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "考试管理桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/exams",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "ExamManagePage",
+    "pageOverflow": false,
+    "title": "考试管理",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "补考管理桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/retakes",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "RetakeManagePage",
+    "pageOverflow": false,
+    "title": "补考管理",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "成绩复核桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/appeals",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "AppealManagePage",
+    "pageOverflow": false,
+    "title": "成绩复核",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "人工阅卷桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/reviews",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "ReviewPage",
+    "pageOverflow": false,
+    "title": "人工阅卷",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "成绩报表桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/scores",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "ScoreReportPage",
+    "pageOverflow": false,
+    "title": "成绩报表",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "公告与轮播桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/content",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "ContentViewPage",
+    "pageOverflow": false,
+    "title": "公告与轮播",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "练题端设置桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/practice-settings",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "PracticeSettingsPage",
+    "pageOverflow": false,
+    "title": "练题端设置",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "练题监控桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/practice-monitor",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "PracticeMonitorPage",
+    "pageOverflow": false,
+    "title": "练题监控",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "练题桌面完成加载",
+    "url": "http://127.0.0.1:5174/exam/practice",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "PracticeHomePage",
+    "pageOverflow": false,
+    "title": "练题",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "科室管理桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/departments",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "DepartmentPage",
+    "pageOverflow": false,
+    "title": "科室管理",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "用户管理桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/users",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "UserPage",
+    "pageOverflow": false,
+    "title": "用户管理",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "角色管理桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/roles",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "RoleManagePage",
+    "pageOverflow": false,
+    "title": "角色管理",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "岗位管理桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/positions",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "PositionManagePage",
+    "pageOverflow": false,
+    "title": "岗位管理",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "菜单权限桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/permissions",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "MenuPermissionPage",
+    "pageOverflow": false,
+    "title": "菜单权限",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "系统设置桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/settings",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "SettingsPage",
+    "pageOverflow": false,
+    "title": "系统设置",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "审计日志桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/audit",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "AuditLogPage",
+    "pageOverflow": false,
+    "title": "审计日志",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "登录日志桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/login-logs",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "LoginLogPage",
+    "pageOverflow": false,
+    "title": "登录日志",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "系统维护桌面完成加载",
+    "url": "http://127.0.0.1:5174/admin/maintenance",
+    "error": null,
+    "loading": false,
+    "mainWidth": 1208,
+    "page": "SystemMaintenancePage",
+    "pageOverflow": false,
+    "title": "系统维护",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "数据总览手机390",
+    "url": "http://127.0.0.1:5174/admin/dashboard",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "DashboardPage",
+    "pageOverflow": false,
+    "title": "数据总览",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "科目管理手机390",
+    "url": "http://127.0.0.1:5174/admin/subjects?subjectId=legacy-category-c2d433c208414247d5b70fdf",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "SubjectManagePage",
+    "pageOverflow": false,
+    "title": "科目管理",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "题库管理手机390",
+    "url": "http://127.0.0.1:5174/author/banks",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "QuestionBankListPage",
+    "pageOverflow": false,
+    "title": "题库管理",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "题目反馈手机390",
+    "url": "http://127.0.0.1:5174/admin/question-feedback",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "QuestionFeedbackPage",
+    "pageOverflow": false,
+    "title": "题目反馈",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "重复题审计手机390",
+    "url": "http://127.0.0.1:5174/admin/duplicate-questions",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "DuplicateQuestionsPage",
+    "pageOverflow": false,
+    "title": "重复题审计",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "考试管理手机390",
+    "url": "http://127.0.0.1:5174/admin/exams",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "ExamManagePage",
+    "pageOverflow": false,
+    "title": "考试管理",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "补考管理手机390",
+    "url": "http://127.0.0.1:5174/admin/retakes",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "RetakeManagePage",
+    "pageOverflow": false,
+    "title": "补考管理",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "成绩复核手机390",
+    "url": "http://127.0.0.1:5174/admin/appeals",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "AppealManagePage",
+    "pageOverflow": false,
+    "title": "成绩复核",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "人工阅卷手机390",
+    "url": "http://127.0.0.1:5174/admin/reviews",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "ReviewPage",
+    "pageOverflow": false,
+    "title": "人工阅卷",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "成绩报表手机390",
+    "url": "http://127.0.0.1:5174/admin/scores",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "ScoreReportPage",
+    "pageOverflow": false,
+    "title": "成绩报表",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "公告与轮播手机390",
+    "url": "http://127.0.0.1:5174/admin/content",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "ContentViewPage",
+    "pageOverflow": false,
+    "title": "公告与轮播",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "练题端设置手机390",
+    "url": "http://127.0.0.1:5174/admin/practice-settings",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "PracticeSettingsPage",
+    "pageOverflow": false,
+    "title": "练题端设置",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "练题监控手机390",
+    "url": "http://127.0.0.1:5174/admin/practice-monitor",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "PracticeMonitorPage",
+    "pageOverflow": false,
+    "title": "练题监控",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "练题手机390",
+    "url": "http://127.0.0.1:5174/exam/practice",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "PracticeHomePage",
+    "pageOverflow": false,
+    "title": "练题",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "科室管理手机390",
+    "url": "http://127.0.0.1:5174/admin/departments",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "DepartmentPage",
+    "pageOverflow": false,
+    "title": "科室管理",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "用户管理手机390",
+    "url": "http://127.0.0.1:5174/admin/users",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "UserPage",
+    "pageOverflow": false,
+    "title": "用户管理",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "角色管理手机390",
+    "url": "http://127.0.0.1:5174/admin/roles",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "RoleManagePage",
+    "pageOverflow": false,
+    "title": "角色管理",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "岗位管理手机390",
+    "url": "http://127.0.0.1:5174/admin/positions",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "PositionManagePage",
+    "pageOverflow": false,
+    "title": "岗位管理",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "菜单权限手机390",
+    "url": "http://127.0.0.1:5174/admin/permissions",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "MenuPermissionPage",
+    "pageOverflow": false,
+    "title": "菜单权限",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "系统设置手机390",
+    "url": "http://127.0.0.1:5174/admin/settings",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "SettingsPage",
+    "pageOverflow": false,
+    "title": "系统设置",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "审计日志手机390",
+    "url": "http://127.0.0.1:5174/admin/audit",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "AuditLogPage",
+    "pageOverflow": false,
+    "title": "审计日志",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "登录日志手机390",
+    "url": "http://127.0.0.1:5174/admin/login-logs",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "LoginLogPage",
+    "pageOverflow": false,
+    "title": "登录日志",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "系统维护手机390",
+    "url": "http://127.0.0.1:5174/admin/maintenance",
+    "error": null,
+    "loading": false,
+    "mainWidth": 390.3999938964844,
+    "page": "SystemMaintenancePage",
+    "pageOverflow": false,
+    "title": "系统维护",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "数据总览手机320",
+    "url": "http://127.0.0.1:5174/admin/dashboard",
+    "error": null,
+    "loading": false,
+    "page": "DashboardPage",
+    "pageOverflow": false,
+    "title": "数据总览",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "科目管理手机320",
+    "url": "http://127.0.0.1:5174/admin/subjects?subjectId=legacy-category-c2d433c208414247d5b70fdf",
+    "error": null,
+    "loading": false,
+    "page": "SubjectManagePage",
+    "pageOverflow": false,
+    "title": "科目管理",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "题库管理手机320",
+    "url": "http://127.0.0.1:5174/author/banks",
+    "error": null,
+    "loading": false,
+    "page": "QuestionBankListPage",
+    "pageOverflow": false,
+    "title": "题库管理",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "题目反馈手机320",
+    "url": "http://127.0.0.1:5174/admin/question-feedback",
+    "error": null,
+    "loading": false,
+    "page": "QuestionFeedbackPage",
+    "pageOverflow": false,
+    "title": "题目反馈",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "重复题审计手机320",
+    "url": "http://127.0.0.1:5174/admin/duplicate-questions",
+    "error": null,
+    "loading": false,
+    "page": "DuplicateQuestionsPage",
+    "pageOverflow": false,
+    "title": "重复题审计",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "考试管理手机320",
+    "url": "http://127.0.0.1:5174/admin/exams",
+    "error": null,
+    "loading": false,
+    "page": "ExamManagePage",
+    "pageOverflow": false,
+    "title": "考试管理",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "补考管理手机320",
+    "url": "http://127.0.0.1:5174/admin/retakes",
+    "error": null,
+    "loading": false,
+    "page": "RetakeManagePage",
+    "pageOverflow": false,
+    "title": "补考管理",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "成绩复核手机320",
+    "url": "http://127.0.0.1:5174/admin/appeals",
+    "error": null,
+    "loading": false,
+    "page": "AppealManagePage",
+    "pageOverflow": false,
+    "title": "成绩复核",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "人工阅卷手机320",
+    "url": "http://127.0.0.1:5174/admin/reviews",
+    "error": null,
+    "loading": false,
+    "page": "ReviewPage",
+    "pageOverflow": false,
+    "title": "人工阅卷",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "成绩报表手机320",
+    "url": "http://127.0.0.1:5174/admin/scores",
+    "error": null,
+    "loading": false,
+    "page": "ScoreReportPage",
+    "pageOverflow": false,
+    "title": "成绩报表",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "公告与轮播手机320",
+    "url": "http://127.0.0.1:5174/admin/content",
+    "error": null,
+    "loading": false,
+    "page": "ContentViewPage",
+    "pageOverflow": false,
+    "title": "公告与轮播",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "练题端设置手机320",
+    "url": "http://127.0.0.1:5174/admin/practice-settings",
+    "error": null,
+    "loading": false,
+    "page": "PracticeSettingsPage",
+    "pageOverflow": false,
+    "title": "练题端设置",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "练题监控手机320",
+    "url": "http://127.0.0.1:5174/admin/practice-monitor",
+    "error": null,
+    "loading": false,
+    "page": "PracticeMonitorPage",
+    "pageOverflow": false,
+    "title": "练题监控",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "练题手机320",
+    "url": "http://127.0.0.1:5174/exam/practice",
+    "error": null,
+    "loading": false,
+    "page": "PracticeHomePage",
+    "pageOverflow": false,
+    "title": "练题",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "科室管理手机320",
+    "url": "http://127.0.0.1:5174/admin/departments",
+    "error": null,
+    "loading": false,
+    "page": "DepartmentPage",
+    "pageOverflow": false,
+    "title": "科室管理",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "用户管理手机320",
+    "url": "http://127.0.0.1:5174/admin/users",
+    "error": null,
+    "loading": false,
+    "page": "UserPage",
+    "pageOverflow": false,
+    "title": "用户管理",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "角色管理手机320",
+    "url": "http://127.0.0.1:5174/admin/roles",
+    "error": null,
+    "loading": false,
+    "page": "RoleManagePage",
+    "pageOverflow": false,
+    "title": "角色管理",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "岗位管理手机320",
+    "url": "http://127.0.0.1:5174/admin/positions",
+    "error": null,
+    "loading": false,
+    "page": "PositionManagePage",
+    "pageOverflow": false,
+    "title": "岗位管理",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "菜单权限手机320",
+    "url": "http://127.0.0.1:5174/admin/permissions",
+    "error": null,
+    "loading": false,
+    "page": "MenuPermissionPage",
+    "pageOverflow": false,
+    "title": "菜单权限",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "系统设置手机320",
+    "url": "http://127.0.0.1:5174/admin/settings",
+    "error": null,
+    "loading": false,
+    "page": "SettingsPage",
+    "pageOverflow": false,
+    "title": "系统设置",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "审计日志手机320",
+    "url": "http://127.0.0.1:5174/admin/audit",
+    "error": null,
+    "loading": false,
+    "page": "AuditLogPage",
+    "pageOverflow": false,
+    "title": "审计日志",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "登录日志手机320",
+    "url": "http://127.0.0.1:5174/admin/login-logs",
+    "error": null,
+    "loading": false,
+    "page": "LoginLogPage",
+    "pageOverflow": false,
+    "title": "登录日志",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "系统维护手机320",
+    "url": "http://127.0.0.1:5174/admin/maintenance",
+    "error": null,
+    "loading": false,
+    "page": "SystemMaintenancePage",
+    "pageOverflow": false,
+    "title": "系统维护",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "数据总览横屏844",
+    "url": "http://127.0.0.1:5174/admin/dashboard",
+    "error": null,
+    "loading": false,
+    "page": "DashboardPage",
+    "pageOverflow": false,
+    "title": "数据总览",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "科目管理横屏844",
+    "url": "http://127.0.0.1:5174/admin/subjects?subjectId=legacy-category-c2d433c208414247d5b70fdf",
+    "error": null,
+    "loading": false,
+    "page": "SubjectManagePage",
+    "pageOverflow": false,
+    "title": "科目管理",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "题库管理横屏844",
+    "url": "http://127.0.0.1:5174/author/banks",
+    "error": null,
+    "loading": false,
+    "page": "QuestionBankListPage",
+    "pageOverflow": false,
+    "title": "题库管理",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "题目反馈横屏844",
+    "url": "http://127.0.0.1:5174/admin/question-feedback",
+    "error": null,
+    "loading": false,
+    "page": "QuestionFeedbackPage",
+    "pageOverflow": false,
+    "title": "题目反馈",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "重复题审计横屏844",
+    "url": "http://127.0.0.1:5174/admin/duplicate-questions",
+    "error": null,
+    "loading": false,
+    "page": "DuplicateQuestionsPage",
+    "pageOverflow": false,
+    "title": "重复题审计",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "考试管理横屏844",
+    "url": "http://127.0.0.1:5174/admin/exams",
+    "error": null,
+    "loading": false,
+    "page": "ExamManagePage",
+    "pageOverflow": false,
+    "title": "考试管理",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "补考管理横屏844",
+    "url": "http://127.0.0.1:5174/admin/retakes",
+    "error": null,
+    "loading": false,
+    "page": "RetakeManagePage",
+    "pageOverflow": false,
+    "title": "补考管理",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "成绩复核横屏844",
+    "url": "http://127.0.0.1:5174/admin/appeals",
+    "error": null,
+    "loading": false,
+    "page": "AppealManagePage",
+    "pageOverflow": false,
+    "title": "成绩复核",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "人工阅卷横屏844",
+    "url": "http://127.0.0.1:5174/admin/reviews",
+    "error": null,
+    "loading": false,
+    "page": "ReviewPage",
+    "pageOverflow": false,
+    "title": "人工阅卷",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "成绩报表横屏844",
+    "url": "http://127.0.0.1:5174/admin/scores",
+    "error": null,
+    "loading": false,
+    "page": "ScoreReportPage",
+    "pageOverflow": false,
+    "title": "成绩报表",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "公告与轮播横屏844",
+    "url": "http://127.0.0.1:5174/admin/content",
+    "error": null,
+    "loading": false,
+    "page": "ContentViewPage",
+    "pageOverflow": false,
+    "title": "公告与轮播",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "练题端设置横屏844",
+    "url": "http://127.0.0.1:5174/admin/practice-settings",
+    "error": null,
+    "loading": false,
+    "page": "PracticeSettingsPage",
+    "pageOverflow": false,
+    "title": "练题端设置",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "练题监控横屏844",
+    "url": "http://127.0.0.1:5174/admin/practice-monitor",
+    "error": null,
+    "loading": false,
+    "page": "PracticeMonitorPage",
+    "pageOverflow": false,
+    "title": "练题监控",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "练题横屏844",
+    "url": "http://127.0.0.1:5174/exam/practice",
+    "error": null,
+    "loading": false,
+    "page": "PracticeHomePage",
+    "pageOverflow": false,
+    "title": "练题",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "科室管理横屏844",
+    "url": "http://127.0.0.1:5174/admin/departments",
+    "error": null,
+    "loading": false,
+    "page": "DepartmentPage",
+    "pageOverflow": false,
+    "title": "科室管理",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "用户管理横屏844",
+    "url": "http://127.0.0.1:5174/admin/users",
+    "error": null,
+    "loading": false,
+    "page": "UserPage",
+    "pageOverflow": false,
+    "title": "用户管理",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "角色管理横屏844",
+    "url": "http://127.0.0.1:5174/admin/roles",
+    "error": null,
+    "loading": false,
+    "page": "RoleManagePage",
+    "pageOverflow": false,
+    "title": "角色管理",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "岗位管理横屏844",
+    "url": "http://127.0.0.1:5174/admin/positions",
+    "error": null,
+    "loading": false,
+    "page": "PositionManagePage",
+    "pageOverflow": false,
+    "title": "岗位管理",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "菜单权限横屏844重试",
+    "url": "http://127.0.0.1:5174/admin/permissions",
+    "error": null,
+    "loading": false,
+    "mainWidth": 612,
+    "page": "MenuPermissionPage",
+    "pageOverflow": false,
+    "title": "菜单权限",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "系统设置横屏844",
+    "url": "http://127.0.0.1:5174/admin/settings",
+    "error": null,
+    "loading": false,
+    "page": "SettingsPage",
+    "pageOverflow": false,
+    "title": "系统设置",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "审计日志横屏844",
+    "url": "http://127.0.0.1:5174/admin/audit",
+    "error": null,
+    "loading": false,
+    "page": "AuditLogPage",
+    "pageOverflow": false,
+    "title": "审计日志",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "登录日志横屏844",
+    "url": "http://127.0.0.1:5174/admin/login-logs",
+    "error": null,
+    "loading": false,
+    "page": "LoginLogPage",
+    "pageOverflow": false,
+    "title": "登录日志",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "系统维护横屏844",
+    "url": "http://127.0.0.1:5174/admin/maintenance",
+    "error": null,
+    "loading": false,
+    "page": "SystemMaintenancePage",
+    "pageOverflow": false,
+    "title": "系统维护",
+    "viewport": [
+      844,
+      390
+    ]
+  }
+]

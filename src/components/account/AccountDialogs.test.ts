@@ -111,3 +111,60 @@ describe('账号弹窗的错误恢复与提交保护', () => {
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([false]);
   });
 });
+
+
+describe('账号弹窗的剩余边界', () => {
+  it('修改密码不一致在字段下显示错误，不发送请求并保留输入', async () => {
+    await render(ChangePasswordDialog); await flushPromises();
+    const fields = document.querySelectorAll<HTMLInputElement>('.el-dialog input');
+    ['old-password', 'new-password-123', 'different-password'].forEach((value, i) => { fields[i]!.value = value; fields[i]!.dispatchEvent(new Event('input', { bubbles: true })); });
+    await flushPromises(); expect(wrapper.findComponent({ name: 'ElForm' }).props('model').confirmPassword).toBe('different-password'); button('确定').click(); await flushPromises();
+    expect(api.change).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(document.querySelector('.el-form-item__error')?.textContent).toContain('两次输入的密码不一致'));
+    expect(fields[2]!.value).toBe('different-password');
+    expect(button('取消').disabled).toBe(false);
+  });
+
+  it('设备确认期间锁定安全操作，取消后恢复；当前设备没有下线入口', async () => {
+    api.sessions.mockResolvedValue([
+      { id: 'here', userAgent: 'iPhone Mac OS X Safari/1', current: true, ip: '2001:db8::1', lastSeenAt: '2026-10-20T00:00:00Z' },
+      { id: 'other', userAgent: 'Chrome/1 Windows NT', current: false, ip: '2001:db8::2', lastSeenAt: '2026-10-20T00:00:00Z' },
+    ]);
+    let cancel!: (reason: Error) => void;
+    vi.spyOn(ElMessageBox, 'confirm').mockImplementation(() => new Promise((_, reject) => { cancel = reject; }));
+    await render(AccountSecurityDialog); await flushPromises();
+    expect(document.querySelector('.security__device-head')?.textContent).toContain('iOS · Safari');
+    expect(document.querySelectorAll('.security__device')[0]?.querySelector('button')).toBeNull();
+    button('下线设备').click(); button('下线设备').click(); await flushPromises();
+    expect(ElMessageBox.confirm).toHaveBeenCalledTimes(1);
+    expect(button('开启两步验证').disabled).toBe(true);
+    expect(button('关闭').disabled).toBe(true);
+    cancel(new Error('cancel')); await flushPromises();
+    expect(button('开启两步验证').disabled).toBe(false);
+    expect(api.revoke).not.toHaveBeenCalled();
+  });
+
+  it('安全操作期间禁用设备入口，失败显示原位错误，不清除验证码', async () => {
+    api.sessions.mockResolvedValue([{ id: 'other', userAgent: '', current: false, ip: 'test-ip', lastSeenAt: '2026-10-20T00:00:00Z' }]);
+    let fail!: (error: Error) => void;
+    api.setup.mockReturnValueOnce(new Promise((_, reject) => { fail = reject; }));
+    await render(AccountSecurityDialog); await flushPromises();
+    button('开启两步验证').click(); await flushPromises();
+    expect(button('下线其他设备').disabled).toBe(true);
+    expect(button('下线设备').disabled).toBe(true);
+    fail(new Error('offline')); await flushPromises();
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain('密钥生成失败，请重试');
+    expect(button('关闭').disabled).toBe(false);
+  });
+});
+
+
+describe('密码原有必填和长度规则', () => {
+  it('空旧密码和过短新密码不能提交', async () => {
+    await render(ChangePasswordDialog); await flushPromises();
+    const fields = document.querySelectorAll<HTMLInputElement>('.el-dialog input');
+    ['', '123', '123'].forEach((value, i) => { fields[i]!.value = value; fields[i]!.dispatchEvent(new Event('input', { bubbles: true })); });
+    await flushPromises(); button('确定').click(); await flushPromises();
+    expect(api.change).not.toHaveBeenCalled();
+  });
+});

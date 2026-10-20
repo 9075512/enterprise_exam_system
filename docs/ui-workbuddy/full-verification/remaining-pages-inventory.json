@@ -1,0 +1,1263 @@
+{
+  "date": "2026-10-20",
+  "catalogEntries": 62,
+  "routeEntries": 44,
+  "componentEntries": 18,
+  "uniqueFiles": 60,
+  "nativeOverlayNodes": 47,
+  "livePageChecks": 92,
+  "liveDialogChecks": 16,
+  "fixtureObservations": 24,
+  "note": "本轮真实页检查覆盖当前管理员菜单23个页面；其余角色与流程结合已保存历次验收、本轮全量测试和设计/模板核对。模拟场景不写业务接口。",
+  "sourceRows": [
+    {
+      "id": "NoAccessPage-0",
+      "title": "暂无页面权限",
+      "route": "/no-access",
+      "file": "src/views/common/NoAccessPage.vue",
+      "layout": "status",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 0,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "LoginPage-1",
+      "title": "登录",
+      "route": "/login",
+      "file": "src/views/LoginPage.vue",
+      "layout": "login",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 0,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "ExamTakingPage-2",
+      "title": "在线答题",
+      "route": "/exam/taking/:recordId",
+      "file": "src/views/exam/ExamTakingPage.vue",
+      "layout": "answer",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 3,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "DashboardPage-3",
+      "title": "数据总览",
+      "route": "/admin/dashboard",
+      "file": "src/views/admin/DashboardPage.vue",
+      "layout": "analytics",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 0,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "DepartmentPage-4",
+      "title": "科室管理",
+      "route": "/admin/departments",
+      "file": "src/views/admin/DepartmentPage.vue",
+      "layout": "tree",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "UserPage-5",
+      "title": "用户管理",
+      "route": "/admin/users",
+      "file": "src/views/admin/UserPage.vue",
+      "layout": "list",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "SubjectManagePage-6",
+      "title": "科目管理",
+      "route": "/admin/subjects",
+      "file": "src/views/admin/SubjectManagePage.vue",
+      "layout": "tree",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "RoleManagePage-7",
+      "title": "角色管理",
+      "route": "/admin/roles",
+      "file": "src/views/admin/RoleManagePage.vue",
+      "layout": "list",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 2,
+      "nativeOverlays": 2,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "PositionManagePage-8",
+      "title": "岗位管理",
+      "route": "/admin/positions",
+      "file": "src/views/admin/PositionManagePage.vue",
+      "layout": "list",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "QuestionFeedbackPage-10",
+      "title": "题目反馈",
+      "route": "/admin/question-feedback",
+      "file": "src/views/admin/QuestionFeedbackPage.vue",
+      "layout": "list",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "DuplicateQuestionsPage-11",
+      "title": "重复题审计",
+      "route": "/admin/duplicate-questions",
+      "file": "src/views/admin/DuplicateQuestionsPage.vue",
+      "layout": "compare",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 0,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "PracticeMonitorPage-12",
+      "title": "练题监控",
+      "route": "/admin/practice-monitor",
+      "file": "src/views/admin/PracticeMonitorPage.vue",
+      "layout": "list",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "ExamManagePage-13",
+      "title": "考试管理",
+      "route": "/admin/exams",
+      "file": "src/views/admin/ExamManagePage.vue",
+      "layout": "list",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 2,
+      "nativeOverlays": 2,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "ExamEditorPage-14",
+      "title": "新建考试",
+      "route": "/admin/exams/new",
+      "file": "src/views/admin/ExamEditorPage.vue",
+      "layout": "steps",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 0,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "ExamEditorPage-15",
+      "title": "编辑考试",
+      "route": "/admin/exams/:id/edit",
+      "file": "src/views/admin/ExamEditorPage.vue",
+      "layout": "steps",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 0,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "PaperPreviewPage-16",
+      "title": "题目预览",
+      "route": "/admin/exams/:id/preview",
+      "file": "src/views/author/PaperPreviewPage.vue",
+      "layout": "questions",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 0,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "ExamMonitorPage-17",
+      "title": "监考监控",
+      "route": "/admin/exams/:id/monitor",
+      "file": "src/views/admin/ExamMonitorPage.vue",
+      "layout": "monitor",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 0,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "RetakeManagePage-18",
+      "title": "补考管理",
+      "route": "/admin/retakes",
+      "file": "src/views/admin/RetakeManagePage.vue",
+      "layout": "list",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "ScoreReportPage-19",
+      "title": "成绩报表",
+      "route": "/admin/scores",
+      "file": "src/views/admin/ScoreReportPage.vue",
+      "layout": "analytics",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 2,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "AppealManagePage-20",
+      "title": "成绩复核",
+      "route": "/admin/appeals",
+      "file": "src/views/admin/AppealManagePage.vue",
+      "layout": "list",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "ReviewPage-21",
+      "title": "人工阅卷",
+      "route": "/admin/reviews",
+      "file": "src/views/admin/ReviewPage.vue",
+      "layout": "review",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 0,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "PracticeSettingsPage-22",
+      "title": "练题端设置",
+      "route": "/admin/practice-settings",
+      "file": "src/views/admin/PracticeSettingsPage.vue",
+      "layout": "settings",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "ContentViewPage-23",
+      "title": "公告与轮播",
+      "route": "/admin/content",
+      "file": "src/views/admin/ContentViewPage.vue",
+      "layout": "list",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 3,
+      "nativeOverlays": 3,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "SettingsPage-25",
+      "title": "系统设置",
+      "route": "/admin/settings",
+      "file": "src/views/admin/SettingsPage.vue",
+      "layout": "settings",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "MenuPermissionPage-26",
+      "title": "菜单权限",
+      "route": "/admin/permissions",
+      "file": "src/views/admin/MenuPermissionPage.vue",
+      "layout": "list",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 0,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "AuditLogPage-27",
+      "title": "审计日志",
+      "route": "/admin/audit",
+      "file": "src/views/admin/AuditLogPage.vue",
+      "layout": "list",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 2,
+      "nativeOverlays": 2,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "LoginLogPage-28",
+      "title": "登录日志",
+      "route": "/admin/login-logs",
+      "file": "src/views/admin/LoginLogPage.vue",
+      "layout": "list",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 0,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "SystemMaintenancePage-29",
+      "title": "系统维护",
+      "route": "/admin/maintenance",
+      "file": "src/views/admin/SystemMaintenancePage.vue",
+      "layout": "operations",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 0,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "QuestionBankListPage-30",
+      "title": "题库管理",
+      "route": "/author/banks",
+      "file": "src/views/author/QuestionBankListPage.vue",
+      "layout": "tree",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 0,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "ExamHomePage-31",
+      "title": "首页",
+      "route": "/exam/home",
+      "file": "src/views/exam/ExamHomePage.vue",
+      "layout": "candidate",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 0,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "MyExamPage-32",
+      "title": "我的考试",
+      "route": "/exam/my",
+      "file": "src/views/exam/MyExamPage.vue",
+      "layout": "exam-cards",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 0,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "MyScorePage-33",
+      "title": "我的成绩",
+      "route": "/exam/scores",
+      "file": "src/views/exam/MyScorePage.vue",
+      "layout": "score-cards",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 2,
+      "nativeOverlays": 2,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "MyRetakePage-34",
+      "title": "我的补考",
+      "route": "/exam/retakes",
+      "file": "src/views/exam/MyRetakePage.vue",
+      "layout": "request",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 0,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "ScoreDetailPage-35",
+      "title": "成绩明细",
+      "route": "/score-detail/:recordId",
+      "file": "src/views/exam/ScoreDetailPage.vue",
+      "layout": "result",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 0,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "NotificationCenterPage-36",
+      "title": "消息中心",
+      "route": "/notifications",
+      "file": "src/views/common/NotificationCenterPage.vue",
+      "layout": "list",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "ProfilePage-37",
+      "title": "个人中心",
+      "route": "/profile",
+      "file": "src/views/common/ProfilePage.vue",
+      "layout": "profile",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 0,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "PracticeHomePage-38",
+      "title": "练题",
+      "route": "/exam/practice",
+      "file": "src/views/practice/PracticeHomePage.vue",
+      "layout": "practice-home",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "PracticeSessionPage-39",
+      "title": "开始练题",
+      "route": "/exam/practice/banks/:bankId",
+      "file": "src/views/practice/PracticeSessionPage.vue",
+      "layout": "answer",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "PracticeSessionPage-40",
+      "title": "再次练习",
+      "route": "/exam/practice/reans",
+      "file": "src/views/practice/PracticeSessionPage.vue",
+      "layout": "answer",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "PracticeWrongBookPage-41",
+      "title": "错题本",
+      "route": "/exam/practice/wrong-book",
+      "file": "src/views/practice/PracticeWrongBookPage.vue",
+      "layout": "question-cards",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 0,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "PracticeReportPage-42",
+      "title": "学习报告",
+      "route": "/exam/practice/report",
+      "file": "src/views/practice/PracticeReportPage.vue",
+      "layout": "learning",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 2,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "PracticeFavoritesPage-43",
+      "title": "收藏夹",
+      "route": "/exam/practice/favorites",
+      "file": "src/views/practice/PracticeFavoritesPage.vue",
+      "layout": "question-cards",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 0,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "PracticeProfilePage-44",
+      "title": "我的练题",
+      "route": "/exam/practice/profile",
+      "file": "src/views/practice/PracticeProfilePage.vue",
+      "layout": "profile",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 0,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "QuestionBankDetailPage-module",
+      "title": "科目题库详情",
+      "route": "/author/banks?bankId=:bankId",
+      "file": "src/views/author/QuestionBankDetailPage.vue",
+      "layout": "tree",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 3,
+      "nativeOverlays": 3,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "ExamExceptionDialog",
+      "title": "特殊考试安排",
+      "route": null,
+      "file": "src/views/admin/ExamExceptionDialog.vue",
+      "layout": "overlay",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "ScoreExportDialog",
+      "title": "导出成绩",
+      "route": null,
+      "file": "src/views/admin/ScoreExportDialog.vue",
+      "layout": "overlay",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "SubjectFormDrawer",
+      "title": "科目编辑",
+      "route": null,
+      "file": "src/views/admin/SubjectFormDrawer.vue",
+      "layout": "overlay",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "UserImportDialog",
+      "title": "批量导入账号",
+      "route": null,
+      "file": "src/views/admin/UserImportDialog.vue",
+      "layout": "overlay",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "BankAuthorBatchDialog",
+      "title": "批量维护授权出题人",
+      "route": null,
+      "file": "src/views/author/BankAuthorBatchDialog.vue",
+      "layout": "overlay",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "BankCloneDialog",
+      "title": "复制题库",
+      "route": null,
+      "file": "src/views/author/BankCloneDialog.vue",
+      "layout": "overlay",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "QuestionBatchEditDialog",
+      "title": "批量编辑试题",
+      "route": null,
+      "file": "src/views/author/QuestionBatchEditDialog.vue",
+      "layout": "overlay",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "QuestionFormDialog",
+      "title": "试题编辑",
+      "route": null,
+      "file": "src/views/author/QuestionFormDialog.vue",
+      "layout": "overlay",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "QuestionImportDialog",
+      "title": "批量导入试题",
+      "route": null,
+      "file": "src/views/author/QuestionImportDialog.vue",
+      "layout": "overlay",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "ExamResultDialog",
+      "title": "考试结果",
+      "route": null,
+      "file": "src/views/exam/components/ExamResultDialog.vue",
+      "layout": "overlay",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "PracticeNoticeCard",
+      "title": "练题公告",
+      "route": null,
+      "file": "src/views/practice/components/PracticeNoticeCard.vue",
+      "layout": "overlay",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 2,
+      "nativeOverlays": 2,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "PracticeOptionModal",
+      "title": "练习设置",
+      "route": null,
+      "file": "src/views/practice/components/PracticeOptionModal.vue",
+      "layout": "overlay",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "AccountSecurityDialog",
+      "title": "账号安全",
+      "route": null,
+      "file": "src/components/account/AccountSecurityDialog.vue",
+      "layout": "overlay",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "ChangePasswordDialog",
+      "title": "修改密码",
+      "route": null,
+      "file": "src/components/account/ChangePasswordDialog.vue",
+      "layout": "overlay",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "ContentBoard",
+      "title": "公告详情与必读通知",
+      "route": null,
+      "file": "src/components/common/ContentBoard.vue",
+      "layout": "overlay",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 2,
+      "nativeOverlays": 2,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "PagedOverview",
+      "title": "完整列表",
+      "route": null,
+      "file": "src/components/common/PagedOverview.vue",
+      "layout": "overlay",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "AppLayout",
+      "title": "全局搜索与帮助",
+      "route": null,
+      "file": "src/layouts/AppLayout.vue",
+      "layout": "overlay",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 2,
+      "nativeOverlays": 2,
+      "desktop": true,
+      "mobile": true
+    },
+    {
+      "id": "QuestionFeedbackDialog",
+      "title": "题目纠错反馈",
+      "route": null,
+      "file": "src/views/practice/components/QuestionFeedbackDialog.vue",
+      "layout": "overlay",
+      "exists": true,
+      "layoutApplied": true,
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlayDesigns": 1,
+      "nativeOverlays": 1,
+      "desktop": true,
+      "mobile": true
+    }
+  ],
+  "validation": {
+    "testFiles": 89,
+    "tests": 593,
+    "typecheck": "passed",
+    "build": "passed",
+    "buildSeconds": 30.08,
+    "designScriptSyntax": "passed",
+    "linkedFiles": "passed"
+  }
+}

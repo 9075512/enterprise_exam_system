@@ -7,7 +7,7 @@
  *
  * 视觉：冷静蓝 · 商务风（白卡 + 细边框 + 小圆角，无渐变 / 无 emoji）。
  */
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import * as practiceApi from '@/api/practice';
 import PagedOverview from '@/components/common/PagedOverview.vue';
 import type { Announcement, Banner } from '@/types';
@@ -63,6 +63,11 @@ function popForce(): void {
 
 function closeForce(): void {
   forceVisible.value = false;
+}
+
+async function afterForceClosed(): Promise<void> {
+  // Element Plus emits update:modelValue(false) after closed; advance on the next tick.
+  await nextTick();
   popForce();
 }
 
@@ -112,7 +117,7 @@ function openDetail(item: Announcement): void {
     <div v-if="banners.length > 0" class="notice__carousel">
       <el-carousel height="130px" :interval="5000" :autoplay="banners.length > 1" indicator-position="none">
         <el-carousel-item v-for="banner in banners" :key="banner.id">
-          <div class="notice__slide" :class="{ 'is-link': !!banner.linkUrl }" @click="openBanner(banner)">
+          <div class="notice__slide" role="button" tabindex="0" :aria-label="banner.title || '查看轮播图'" @keydown.enter="openBanner(banner)" @keydown.space.prevent="openBanner(banner)" :class="{ 'is-link': !!banner.linkUrl }" @click="openBanner(banner)">
             <img class="notice__image" :src="banner.imageUrl" :alt="banner.title" />
           </div>
         </el-carousel-item>
@@ -149,16 +154,17 @@ function openDetail(item: Announcement): void {
     </div>
 
     <!-- 公告详情 -->
-    <el-dialog v-model="detailVisible" :title="detail?.title ?? '公告'" width="86%" align-center append-to-body>
+    <el-dialog class="notice-reading-dialog" v-model="detailVisible" :title="detail?.title ?? '公告'" width="640px" align-center append-to-body>
       <p class="notice__detail-meta">
         <span v-if="detail?.level === 'important'" class="notice__detail-flag">重要</span>
         {{ shortDate(detail?.createdAt ?? '') }}
       </p>
-      <div class="notice__detail-body" v-html="detail?.content ?? ''" />
+      <div class="notice__detail-body rich-text" v-html="detail?.content ?? ''" />
+      <template #footer><el-button type="primary" @click="detailVisible = false">关闭公告</el-button></template>
     </el-dialog>
 
     <!-- 重要公告首次进入强提醒（v2.0①） -->
-    <el-dialog v-model="forceVisible" title="重要公告" width="86%" align-center @close="closeForce">
+    <el-dialog class="notice-reading-dialog" v-model="forceVisible" title="重要公告" width="640px" align-center append-to-body @closed="afterForceClosed">
       <p class="notice__detail-meta">
         <span class="notice__detail-flag">重要</span>
         {{ forceItem?.title }}
@@ -229,6 +235,7 @@ function openDetail(item: Announcement): void {
     align-items: center;
     gap: 8px;
     padding: 10px 14px;
+    min-height: 44px;
     border-top: 1px solid $border-color;
     cursor: pointer;
 
@@ -281,6 +288,7 @@ function openDetail(item: Announcement): void {
   }
 
   &__detail-meta {
+    overflow-wrap: anywhere;
     margin: 0 0 10px;
     font-size: 12px;
     color: $text-secondary;

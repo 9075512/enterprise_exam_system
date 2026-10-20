@@ -417,7 +417,7 @@ const pwdVisible = ref(false);
     <ChangePasswordDialog v-model="pwdVisible" />
 
     <!-- 全局搜索面板（⌘K） -->
-    <el-dialog v-model="searchVisible" width="520px" append-to-body class="layout__search-dialog">
+    <el-dialog v-model="searchVisible" title="搜索菜单" width="520px" append-to-body class="layout__search-dialog notice-reading-dialog">
       <template #header>
         <span class="layout__search-title">搜索</span>
       </template>
@@ -425,9 +425,11 @@ const pwdVisible = ref(false);
         ref="searchInputRef"
         v-model="searchKeyword"
         placeholder="输入菜单名称或路径…"
+        @keydown.enter.prevent="searchResults[0] && gotoSearch(searchResults[0].path)"
         clearable
         :prefix-icon="Search"
       />
+      <p class="layout__search-scope">当前账号可访问的菜单 · {{ searchResults.length }} 条匹配</p>
       <ul class="layout__search-list">
         <li v-for="item in searchResults" :key="item.path">
           <button type="button" class="layout__search-item" @click="gotoSearch(item.path)">
@@ -438,16 +440,18 @@ const pwdVisible = ref(false);
         </li>
         <li v-if="searchResults.length === 0" class="layout__search-empty">没有匹配的菜单</li>
       </ul>
+      <template #footer><el-button @click="searchVisible = false">关闭搜索</el-button></template>
     </el-dialog>
 
     <!-- 帮助面板 -->
-    <el-dialog v-model="helpVisible" title="使用帮助" width="520px" append-to-body>
+    <el-dialog v-model="helpVisible" title="使用帮助" width="520px" append-to-body class="notice-reading-dialog">
       <ul class="layout__help-list">
         <li v-for="h in HELP_ITEMS" :key="h.title" class="layout__help-item">
           <p class="layout__help-title">{{ h.title }}</p>
           <p class="layout__help-desc">{{ h.desc }}</p>
         </li>
       </ul>
+      <template #footer><el-button type="primary" @click="helpVisible = false">关闭帮助</el-button></template>
     </el-dialog>
 
     <AccountSecurityDialog v-model="securityVisible" />
@@ -1184,6 +1188,8 @@ const pwdVisible = ref(false);
   color: $text-primary;
 }
 
+.layout__search-scope { margin: 12px 0 0; color: $text-secondary; font-size: 12px; }
+
 .layout__search-list {
   margin: 12px 0 0;
   padding: 0;
@@ -1191,6 +1197,8 @@ const pwdVisible = ref(false);
 }
 
 .layout__search-item {
+  min-height: 44px;
+  &:focus-visible { outline: 2px solid $color-primary; outline-offset: -2px; }
   display: flex;
   align-items: center;
   gap: 9px;
@@ -1219,9 +1227,7 @@ const pwdVisible = ref(false);
   min-width: 0;
   font-size: 13px;
   color: $text-primary;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .layout__search-item-group {

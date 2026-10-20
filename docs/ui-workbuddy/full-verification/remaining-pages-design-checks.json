@@ -1,0 +1,66 @@
+[
+  {
+    "cards": 1,
+    "frameOverflow": false,
+    "overlays": [
+      {
+        "actions": [
+          "关闭"
+        ],
+        "title": "账号安全 · 详情弹窗"
+      }
+    ],
+    "phone": true,
+    "selected": "组件 · 账号安全"
+  },
+  {
+    "cards": 1,
+    "frameOverflow": false,
+    "overlays": [
+      {
+        "actions": [
+          "取消",
+          "确定"
+        ],
+        "title": "修改密码 · 任务弹窗"
+      }
+    ],
+    "phone": true,
+    "selected": "组件 · 修改密码"
+  },
+  {
+    "cards": 1,
+    "frameOverflow": false,
+    "overlays": [
+      {
+        "actions": [
+          "关闭搜索"
+        ],
+        "title": "搜索菜单 · 详情弹窗"
+      },
+      {
+        "actions": [
+          "关闭帮助"
+        ],
+        "title": "使用帮助 · 详情弹窗"
+      }
+    ],
+    "phone": true,
+    "selected": "组件 · 全局搜索与帮助"
+  },
+  {
+    "cards": 1,
+    "frameOverflow": false,
+    "overlays": [
+      {
+        "actions": [
+          "取消",
+          "提交反馈"
+        ],
+        "title": "题目纠错反馈 · 任务弹窗"
+      }
+    ],
+    "phone": true,
+    "selected": "组件 · 题目纠错反馈"
+  }
+]

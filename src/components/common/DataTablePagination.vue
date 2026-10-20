@@ -6,7 +6,7 @@ import { useSettingsStore } from '@/stores/settings';
 
 const settingsStore = useSettingsStore();
 
-const props = defineProps<{ total: number; page: number; pageSize: number; pageSizes?: number[] }>();
+const props = defineProps<{ total: number; page: number; pageSize: number; pageSizes?: number[]; disabled?: boolean }>();
 
 onMounted(() => {
   void settingsStore.load();
@@ -25,11 +25,11 @@ const emit = defineEmits<{
 }>();
 
 function handleCurrentChange(value: number): void {
-  emit('update:page', value);
+  if (!props.disabled) emit('update:page', value);
 }
 
 function handleSizeChange(value: number): void {
-  emit('update:pageSize', value);
+  if (!props.disabled) emit('update:pageSize', value);
 }
 </script>
 
@@ -38,6 +38,7 @@ function handleSizeChange(value: number): void {
     <el-pagination
       class="data-table-pagination__desktop"
       background
+      :disabled="props.disabled"
       :pager-count="5"
       layout="total, sizes, prev, pager, next, jumper"
       :total="props.total"
@@ -52,7 +53,7 @@ function handleSizeChange(value: number): void {
       <button
         type="button"
         class="data-table-pagination__button"
-        :disabled="props.page <= 1"
+        :disabled="props.disabled || props.page <= 1"
         @click="handleCurrentChange(props.page - 1)"
       >
         上一页
@@ -61,7 +62,7 @@ function handleSizeChange(value: number): void {
       <button
         type="button"
         class="data-table-pagination__button"
-        :disabled="props.page >= totalPages"
+        :disabled="props.disabled || props.page >= totalPages"
         @click="handleCurrentChange(props.page + 1)"
       >
         下一页

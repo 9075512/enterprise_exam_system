@@ -1,0 +1,367 @@
+[
+  {
+    "label": "migration-form-error-320",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 740,
+        "overflow": false,
+        "width": 320
+      }
+    ],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "migration-form-error-390",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 844,
+        "overflow": false,
+        "width": 390.3999938964844
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "migration-form-error-844",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 342.3999938964844,
+        "overflow": false,
+        "width": 640
+      }
+    ],
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "migration-form-error-1440",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 475.8999938964844,
+        "overflow": false,
+        "width": 640
+      }
+    ],
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "migration-submit-error-390",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 844,
+        "overflow": false,
+        "width": 390.3999938964844
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "validation-results-320",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 740,
+        "overflow": false,
+        "width": 320
+      }
+    ],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "validation-results-390",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 844,
+        "overflow": false,
+        "width": 390.3999938964844
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "validation-results-844",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 342.3999938964844,
+        "overflow": false,
+        "width": 760
+      }
+    ],
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "validation-results-1440",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 852,
+        "overflow": false,
+        "width": 760
+      }
+    ],
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "validation-second-page-390",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 844,
+        "overflow": false,
+        "width": 390.3999938964844
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "readonly-preview-320",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 740,
+        "overflow": false,
+        "width": 320
+      }
+    ],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "readonly-preview-390",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 844,
+        "overflow": false,
+        "width": 390.3999938964844
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "readonly-preview-844",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 342.3999938964844,
+        "overflow": false,
+        "width": 720
+      }
+    ],
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "readonly-preview-1440",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 357.5,
+        "overflow": false,
+        "width": 720
+      }
+    ],
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "migration-target-read-error-390",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 844,
+        "overflow": false,
+        "width": 390.3999938964844
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "migration-no-targets-390",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 844,
+        "overflow": false,
+        "width": 390.3999938964844
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "live-bank-320",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "live-bank-390",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "live-bank-844",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "live-bank-1440",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "live-preview-320",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 740,
+        "overflow": false,
+        "width": 320
+      }
+    ],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "live-preview-390",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 844,
+        "overflow": false,
+        "width": 390.3999938964844
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "live-preview-844",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 339.6000061035156,
+        "overflow": false,
+        "width": 720
+      }
+    ],
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "live-preview-1440",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 331.6000061035156,
+        "overflow": false,
+        "width": 720
+      }
+    ],
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "batch-failure-390",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ]
+  }
+]
