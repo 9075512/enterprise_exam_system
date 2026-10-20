@@ -291,8 +291,8 @@ const pwdVisible = ref(false);
         </template>
       </el-menu>
 
-      <!-- 侧栏底部用户块（设计稿 .side__foot / .side__user；折叠态只留头像） -->
-      <div class="layout__side-foot">
+      <!-- 仅手机管理端导航抽屉保留账号入口；PC 统一使用右上角账号菜单。 -->
+      <div v-if="isExamMobile" class="layout__side-foot">
         <el-dropdown trigger="click" placement="top-start" @command="handleCommand">
           <span class="layout__side-user">
             <span class="layout__avatar layout__avatar--side">{{ userName.slice(0, 1) }}</span>

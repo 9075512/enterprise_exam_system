@@ -312,14 +312,14 @@ onMounted(() => {
       <StatCard density="compact" label="题目总数" :value="stats?.total ?? '—'" unit="道" :icon="Collection" />
       <StatCard
         density="compact"
-        label="单选 / 多选"
-        :value="stats ? `${typeCount.single} / ${typeCount.multiple}` : '— / —'"
+        label="单选 / 多选 / 判断"
+        :value="stats ? `${typeCount.single} / ${typeCount.multiple} / ${typeCount.judge}` : '— / — / —'"
         :icon="ListIcon"
       />
       <StatCard
         density="compact"
-        label="判断 / 填空 / 简答"
-        :value="stats ? `${typeCount.judge} / ${typeCount.fill} / ${typeCount.short}` : '— / — / —'"
+        label="填空 / 简答"
+        :value="stats ? `${typeCount.fill} / ${typeCount.short}` : '— / —'"
         :icon="CircleCheck"
       >
       </StatCard>

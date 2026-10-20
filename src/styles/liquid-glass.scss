@@ -1,0 +1,126 @@
+@use './variables.scss' as *;
+
+// 顶栏覆盖滚动正文；额外留白让首行说明避开玻璃边缘与阴影。
+@mixin desktop-glass-header {
+  --glass-header-height: #{$header-height};
+  --glass-content-gap: 20px;
+
+  .layout__header {
+    position: relative;
+    z-index: 40;
+    margin-bottom: calc(-1 * var(--glass-header-height));
+    border-bottom: 1px solid rgba(255, 255, 255, .86);
+    background:
+      radial-gradient(ellipse at 10% 0%, rgba(191, 219, 254, .3), transparent 52%),
+      radial-gradient(ellipse at 95% 100%, rgba(199, 210, 254, .22), transparent 45%),
+      linear-gradient(115deg, rgba(255, 255, 255, .94), rgba(244, 248, 255, .9));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, .95),
+      inset 0 -1px 0 rgba(191, 209, 238, .28),
+      0 4px 20px rgba(31, 64, 112, .06);
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border: 1px solid rgba(255, 255, 255, .42);
+      background: linear-gradient(175deg, rgba(255, 255, 255, .28), transparent 48%);
+      pointer-events: none;
+    }
+  }
+
+  .layout__main > .layout__content.layout__content {
+    padding-top: calc(var(--glass-header-height) + var(--glass-content-gap));
+    scroll-padding-top: calc(var(--glass-header-height) + 16px);
+  }
+
+  .layout__date,
+  .layout__search,
+  .layout__account {
+    border-color: rgba(255, 255, 255, .9);
+    background: linear-gradient(135deg, rgba(255, 255, 255, .78), rgba(255, 255, 255, .38));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .95), 0 2px 8px rgba(31, 64, 112, .04);
+  }
+
+  .layout__search,
+  .layout__account {
+    transition: background-color $transition-fast, box-shadow $transition-fast;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, .72);
+      box-shadow: inset 0 1px 0 white, 0 3px 12px rgba($color-primary, .09);
+    }
+  }
+
+  @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .layout__header {
+      background:
+        radial-gradient(ellipse at 10% 0%, rgba(191, 219, 254, .26), transparent 52%),
+        radial-gradient(ellipse at 95% 100%, rgba(199, 210, 254, .2), transparent 45%),
+        linear-gradient(115deg, rgba(255, 255, 255, .66), rgba(244, 248, 255, .46));
+      -webkit-backdrop-filter: blur(22px) saturate(160%);
+      backdrop-filter: blur(22px) saturate(160%);
+    }
+  }
+}
+
+.layout.layout.is-management-layout { @include desktop-glass-header; }
+
+@media (min-width: 901px) {
+  .layout.layout.is-examinee-layout { @include desktop-glass-header; }
+}
+
+@media (max-width: 900px) {
+  .layout.layout.is-management-layout {
+    --glass-header-height: 74px;
+    --glass-content-gap: 16px;
+  }
+}
+
+// 手机考生端使用独立的 sticky 顶栏，不能依赖管理端的选择器。
+@media (max-width: 900px) {
+  .layout.layout.is-examinee-layout .layout__main > .layout__mobile-header.layout__mobile-header {
+    border-bottom: 1px solid rgba(255, 255, 255, .86);
+    background:
+      radial-gradient(ellipse at 0% 0%, rgba(191, 219, 254, .3), transparent 65%),
+      linear-gradient(115deg, rgba(255, 255, 255, .94), rgba(244, 248, 255, .9));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, .95),
+      inset 0 -1px 0 rgba(191, 209, 238, .28),
+      0 4px 20px rgba(31, 64, 112, .06);
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border: 1px solid rgba(255, 255, 255, .42);
+      background: linear-gradient(175deg, rgba(255, 255, 255, .28), transparent 48%);
+      pointer-events: none;
+    }
+
+    @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      background:
+        radial-gradient(ellipse at 0% 0%, rgba(191, 219, 254, .26), transparent 65%),
+        linear-gradient(115deg, rgba(255, 255, 255, .58), rgba(244, 248, 255, .34));
+      -webkit-backdrop-filter: blur(22px) saturate(160%);
+      backdrop-filter: blur(22px) saturate(160%);
+    }
+
+    .layout__mobile-icon,
+    .layout__mobile-avatar {
+      border-color: rgba(255, 255, 255, .9);
+      background: linear-gradient(135deg, rgba(255, 255, 255, .78), rgba(255, 255, 255, .38));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .95), 0 2px 8px rgba(31, 64, 112, .04);
+    }
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .layout.layout.is-management-layout .layout__header,
+  .layout.layout.is-examinee-layout .layout__header,
+  .layout.layout.is-examinee-layout .layout__main > .layout__mobile-header.layout__mobile-header {
+    background: $bg-page;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
