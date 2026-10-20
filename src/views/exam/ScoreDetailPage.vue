@@ -14,11 +14,11 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import dayjs from 'dayjs';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import { ArrowLeft, CircleCheck, CircleClose, Clock, Refresh } from '@element-plus/icons-vue';
 import * as examsApi from '@/api/exams';
 import * as recordsApi from '@/api/records';
-import { feedbackApi } from '@/api/coreFeatures';
+import QuestionFeedbackDialog from '@/views/practice/components/QuestionFeedbackDialog.vue';
 import { useRequest } from '@/composables/useRequest';
 import { useAuthStore } from '@/stores/auth';
 import { useSettingsStore } from '@/stores/settings';
@@ -40,16 +40,15 @@ const settingsStore = useSettingsStore();
 const recordId = computed(() => String(route.params.recordId ?? ''));
 const isAdmin = computed<boolean>(() => auth.currentUser?.role === 'admin');
 
-async function reportQuestion(questionId: string): Promise<void> {
-  try {
-    const { value } = await ElMessageBox.prompt('请说明题干、选项、答案或解析存在的问题', '题目纠错反馈', {
-      confirmButtonText: '提交反馈', cancelButtonText: '取消',
-      inputType: 'textarea', inputPlaceholder: '请输入问题描述', inputValidator: (v) => Boolean(v.trim()) || '请输入问题描述',
-    });
-    await feedbackApi.create({ questionId, source: 'exam', sourceRefId: recordId.value, category: '题目纠错', content: value.trim() });
-    ElMessage.success('反馈已提交');
-  } catch { /* 用户取消或请求错误已统一提示 */ }
+const feedbackVisible = ref(false);
+const feedbackBusy = ref(false);
+const feedbackTarget = ref({ questionId: '', source: 'exam' as const, sourceRefId: '', questionNumber: 0, stem: '' });
+function reportQuestion(item: PaperSnapshotQuestion, questionNumber: number): void {
+  if (isAdmin.value || feedbackBusy.value || feedbackVisible.value || !record.value) return;
+  feedbackTarget.value = { questionId: item.questionId, source: 'exam', sourceRefId: recordId.value, questionNumber, stem: item.question.stem };
+  feedbackVisible.value = true;
 }
+watch(recordId, () => { if (!feedbackBusy.value) feedbackVisible.value = false; });
 
 const { data: exams } = useRequest(() => (isAdmin.value ? examsApi.list() : examsApi.my()));
 const examMap = computed<Record<string, { id: string; name: string; passScore: number }>>(() =>
@@ -497,7 +496,7 @@ watch(record, (rec) => {
                 <span v-else class="sd__bdg sd__bdg--ok">
                   得分 {{ formatScore(subjectiveScore(item.questionId) ?? 0) }} / {{ formatScore(item.score) }}
                 </span>
-                <el-button v-if="!isAdmin" link type="primary" size="small" @click="reportQuestion(item.questionId)">题目纠错</el-button>
+                <el-button v-if="!isAdmin" link type="primary" size="small" :disabled="feedbackBusy || feedbackVisible" @click="reportQuestion(item, index + 1)">题目纠错</el-button>
                 <!-- 存疑为阅卷内部标记，仅管理员可见（考生视角接口已过滤掉该字段） -->
                 <span
                   v-if="isAdmin && reviewNote(item.questionId)?.doubtful"
@@ -699,6 +698,7 @@ watch(record, (rec) => {
         </el-card>
       </aside>
     </div>
+    <QuestionFeedbackDialog v-model:visible="feedbackVisible" v-bind="feedbackTarget" @busy="feedbackBusy = $event" />
   </div>
 </template>
 
@@ -1024,6 +1024,8 @@ watch(record, (rec) => {
   }
 
   &__q-stem {
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
     margin: 0;
     font-size: 13px;
     font-weight: 520;
@@ -1380,9 +1382,7 @@ watch(record, (rec) => {
 
   &__kbar-name {
     min-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    overflow-wrap: anywhere;
     font-size: 12.5px;
     color: $text-body;
   }
@@ -1443,7 +1443,7 @@ watch(record, (rec) => {
 
   @media (max-width: 900px) {
     &__back {
-      min-height: 32px;
+      min-height: 44px;
       margin-bottom: 4px;
       font-size: 13px;
     }
@@ -1529,6 +1529,7 @@ watch(record, (rec) => {
       margin-left: 0;
 
       button {
+        min-height: 44px;
         padding: 0 8px;
       }
     }

@@ -1,0 +1,386 @@
+[
+  {
+    "label": "岗位卡片390",
+    "dialog": null,
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "岗位保存失败390",
+    "dialog": {
+      "height": 844,
+      "inside": true,
+      "width": 390.3999938964844,
+      "x": 0,
+      "y": 0
+    },
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "岗位编辑320",
+    "dialog": {
+      "height": 740,
+      "inside": true,
+      "width": 320,
+      "x": 0,
+      "y": 0
+    },
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "岗位编辑横屏844",
+    "dialog": {
+      "height": 390.3999938964844,
+      "inside": true,
+      "width": 844,
+      "x": 0,
+      "y": 0
+    },
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "账号安全390",
+    "dialog": {
+      "height": 844,
+      "inside": true,
+      "width": 390.3999938964844,
+      "x": 0,
+      "y": 0
+    },
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "账号安全320",
+    "dialog": {
+      "height": 740,
+      "inside": true,
+      "width": 320,
+      "x": 0,
+      "y": 0
+    },
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "账号安全横屏844",
+    "dialog": {
+      "height": 342.3999938964844,
+      "inside": true,
+      "width": 800,
+      "x": 22,
+      "y": 19.512500762939453
+    },
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "账号安全桌面1440",
+    "dialog": {
+      "height": 852,
+      "inside": true,
+      "width": 800,
+      "x": 316,
+      "y": 45
+    },
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 1,
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "密码必填错误390",
+    "dialog": {
+      "height": 844,
+      "inside": true,
+      "width": 390.3999938964844,
+      "x": 0,
+      "y": 0
+    },
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "密码修改失败320",
+    "dialog": {
+      "height": 740,
+      "inside": true,
+      "width": 320,
+      "x": 0,
+      "y": 0
+    },
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "密码修改横屏844",
+    "dialog": {
+      "height": 342.3999938964844,
+      "inside": true,
+      "width": 480,
+      "x": 182,
+      "y": 19.512500762939453
+    },
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "考试重要公告390",
+    "dialog": {
+      "height": 844,
+      "inside": true,
+      "width": 390.3999938964844,
+      "x": 0,
+      "y": 0
+    },
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "练题重要公告第二条390",
+    "dialog": {
+      "height": 844,
+      "inside": true,
+      "width": 390.3999938964844,
+      "x": 0,
+      "y": 0
+    },
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "练题重要公告320",
+    "dialog": {
+      "height": 740,
+      "inside": true,
+      "width": 320,
+      "x": 0,
+      "y": 0
+    },
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "练题重要公告横屏844",
+    "dialog": {
+      "height": 342.3999938964844,
+      "inside": true,
+      "width": 640,
+      "x": 102,
+      "y": 24
+    },
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "练题公告详情横屏844",
+    "dialog": {
+      "height": 342.3999938964844,
+      "inside": true,
+      "width": 640,
+      "x": 102,
+      "y": 24
+    },
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "练题公告详情390",
+    "dialog": {
+      "height": 844,
+      "inside": true,
+      "width": 390.3999938964844,
+      "x": 0,
+      "y": 0
+    },
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "成绩详情320",
+    "dialog": null,
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "成绩纠错320",
+    "dialog": {
+      "height": 740,
+      "inside": true,
+      "width": 320,
+      "x": 0,
+      "y": 0
+    },
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "成绩纠错失败390",
+    "dialog": {
+      "height": 844,
+      "inside": true,
+      "width": 390.3999938964844,
+      "x": 0,
+      "y": 0
+    },
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "成绩纠错横屏844",
+    "dialog": {
+      "height": 342.3999938964844,
+      "inside": true,
+      "width": 600,
+      "x": 122,
+      "y": 19.512500762939453
+    },
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "成绩详情390",
+    "dialog": null,
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "成绩详情桌面1440",
+    "dialog": null,
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 0,
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "账号安全桌面最终1440",
+    "dialog": {
+      "height": 852,
+      "inside": true,
+      "width": 800,
+      "x": 316,
+      "y": 45
+    },
+    "footerInside": true,
+    "pageOverflow": false,
+    "smallFooterButtons": 1,
+    "viewport": [
+      1440,
+      900
+    ]
+  }
+]

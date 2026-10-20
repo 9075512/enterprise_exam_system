@@ -3,6 +3,7 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { reactive } from 'vue';
 import ElementPlus, { ElMessage } from 'element-plus';
 import ScoreDetailPage from './ScoreDetailPage.vue';
+import QuestionFeedbackDialog from '@/views/practice/components/QuestionFeedbackDialog.vue';
 import type { ExamRecord } from '@/types';
 
 const api = vi.hoisted(() => ({ role: 'admin', detail: vi.fn(), exams: vi.fn(), replace: vi.fn(), push: vi.fn() }));
@@ -89,5 +90,17 @@ describe('成绩明细真实数据与身份视角', () => {
     render(); await flushPromises();
     expect(api.replace).toHaveBeenCalledWith('/admin/scores');
     expect(wrapper.text()).not.toContain('single题干');
+  });
+});
+
+
+describe('成绩详情纠错入口', () => {
+  it('考生反馈冻结原答卷及完整题干，管理员保持原有无入口规则', async () => {
+    api.role = 'examinee'; render(); await flushPromises();
+    await wrapper.findAll('button').find(b => b.text() === '题目纠错')!.trigger('click'); await flushPromises();
+    const dialog = wrapper.findComponent(QuestionFeedbackDialog);
+    expect(dialog.props()).toMatchObject({ visible: true, questionId: 'single', source: 'exam', sourceRefId: 'r1', questionNumber: 1, stem: 'single题干' });
+    route.params.recordId = 'r2'; await flushPromises(); expect(dialog.props('visible')).toBe(false);
+    wrapper.unmount(); api.role = 'admin'; render(); await flushPromises(); expect(wrapper.findAll('button').some(b=>b.text()==='题目纠错')).toBe(false);
   });
 });

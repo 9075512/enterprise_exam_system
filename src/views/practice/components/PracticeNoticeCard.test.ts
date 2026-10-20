@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
-import ElementPlus from 'element-plus';
+import ElementPlus, { ElDialog } from 'element-plus';
 import ContentBoard from './PracticeNoticeCard.vue';
 
 const api = vi.hoisted(() => ({ feed: vi.fn(), read: vi.fn().mockResolvedValue(null) }));
@@ -28,5 +28,30 @@ describe('announcement overview', () => {
     expect(api.read).toHaveBeenCalledWith('notice-10');
     expect(document.body.textContent).toContain('正文11');
     expect(wrapper.findAll('.paged-overview__preview .notice__item')).toHaveLength(3);
+  });
+});
+
+
+describe('重要公告队列', () => {
+  it('按钮关闭与弹窗关闭生命周期只推进一次，并按顺序触达全部公告', async () => {
+    api.feed.mockResolvedValue({ banners: [], announcements: ['甲', '乙', '丙'].map((title, i) => ({
+      id: 'important-' + i, title, content: '<p>重要正文' + title + '</p>', level: 'important', pinned: false, createdAt: '2026-10-20T00:00:00Z',
+    })) });
+    wrapper = mount(ContentBoard, { attachTo: document.body, global: { plugins: [ElementPlus] } }); await flushPromises();
+    const force = () => wrapper.findAllComponents(ElDialog).find(d => d.props('title') === '重要公告')!;
+    expect(api.read.mock.calls.map(c => c[0])).toEqual(['important-0']);
+    const close = () => [...document.querySelectorAll<HTMLButtonElement>('button')].find(b => b.textContent?.trim() === '我知道了')!.click();
+    close(); close(); await flushPromises();
+    expect(api.read).toHaveBeenCalledTimes(1);
+    force().vm.$emit('closed'); force().vm.$emit('update:modelValue', false); await flushPromises();
+    expect(api.read.mock.calls.map(c => c[0])).toEqual(['important-0', 'important-1']);
+    expect(document.body.textContent).toContain('重要正文乙');
+    force().vm.$emit('update:modelValue', false); await flushPromises();
+    force().vm.$emit('closed'); force().vm.$emit('update:modelValue', false); await flushPromises();
+    expect(api.read.mock.calls.map(c => c[0])).toEqual(['important-0', 'important-1', 'important-2']);
+    expect(document.body.textContent).toContain('重要正文丙');
+    close(); await flushPromises(); force().vm.$emit('closed'); force().vm.$emit('update:modelValue', false); await flushPromises();
+    expect(force().props('modelValue')).toBe(false);
+    expect(api.read).toHaveBeenCalledTimes(3);
   });
 });

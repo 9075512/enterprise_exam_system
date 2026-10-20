@@ -1,0 +1,294 @@
+{
+  "checks": [
+    {
+      "label": "实际账号安全1440",
+      "footerButtons": [
+        44
+      ],
+      "footerInside": true,
+      "inside": true,
+      "pageOverflow": false,
+      "title": "账号安全",
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "label": "实际账号安全390",
+      "footerButtons": [
+        44
+      ],
+      "footerInside": true,
+      "inside": true,
+      "pageOverflow": false,
+      "title": "账号安全",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "实际账号安全320",
+      "footerButtons": [
+        44
+      ],
+      "footerInside": true,
+      "inside": true,
+      "pageOverflow": false,
+      "title": "账号安全",
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "实际账号安全844",
+      "footerButtons": [
+        44
+      ],
+      "footerInside": true,
+      "inside": true,
+      "pageOverflow": false,
+      "title": "账号安全",
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "label": "实际空密码表单1440",
+      "footerButtons": [
+        44,
+        44
+      ],
+      "footerInside": true,
+      "inside": true,
+      "pageOverflow": false,
+      "title": "修改密码",
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "label": "实际空密码表单390",
+      "footerButtons": [
+        44,
+        44
+      ],
+      "footerInside": true,
+      "inside": true,
+      "pageOverflow": false,
+      "title": "修改密码",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "实际空密码表单320",
+      "footerButtons": [
+        44,
+        44
+      ],
+      "footerInside": true,
+      "inside": true,
+      "pageOverflow": false,
+      "title": "修改密码",
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "实际空密码表单844",
+      "footerButtons": [
+        44,
+        44
+      ],
+      "footerInside": true,
+      "inside": true,
+      "pageOverflow": false,
+      "title": "修改密码",
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "label": "实际菜单搜索1440",
+      "footerButtons": [
+        44
+      ],
+      "footerInside": true,
+      "inside": true,
+      "pageOverflow": false,
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "label": "实际菜单搜索390",
+      "footerButtons": [
+        44
+      ],
+      "footerInside": true,
+      "inside": true,
+      "pageOverflow": false,
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "实际菜单搜索320",
+      "footerButtons": [
+        44
+      ],
+      "footerInside": true,
+      "inside": true,
+      "pageOverflow": false,
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "实际菜单搜索844",
+      "footerButtons": [
+        44
+      ],
+      "footerInside": true,
+      "inside": true,
+      "pageOverflow": false,
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "label": "实际使用帮助1440",
+      "footerButtons": [
+        44
+      ],
+      "footerInside": true,
+      "inside": true,
+      "pageOverflow": false,
+      "title": "使用帮助",
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "label": "实际使用帮助390",
+      "footerButtons": [
+        44
+      ],
+      "footerInside": true,
+      "inside": true,
+      "pageOverflow": false,
+      "title": "使用帮助",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "实际使用帮助320",
+      "footerButtons": [
+        44
+      ],
+      "footerInside": true,
+      "inside": true,
+      "pageOverflow": false,
+      "title": "使用帮助",
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "实际使用帮助844",
+      "footerButtons": [
+        44
+      ],
+      "footerInside": true,
+      "inside": true,
+      "pageOverflow": false,
+      "title": "使用帮助",
+      "viewport": [
+        844,
+        390
+      ]
+    }
+  ],
+  "discarded": [
+    {
+      "label": "实际菜单搜索1440",
+      "footerButtons": [
+        44,
+        44
+      ],
+      "footerInside": true,
+      "inside": true,
+      "pageOverflow": false,
+      "title": "修改密码",
+      "viewport": [
+        1440,
+        900
+      ],
+      "reason": "前一弹窗关闭动画尚未结束，未作为搜索验收结果"
+    },
+    {
+      "label": "实际菜单搜索390",
+      "footerButtons": [
+        44,
+        44
+      ],
+      "footerInside": true,
+      "inside": true,
+      "pageOverflow": false,
+      "title": "修改密码",
+      "viewport": [
+        390,
+        844
+      ],
+      "reason": "前一弹窗关闭动画尚未结束，未作为搜索验收结果"
+    },
+    {
+      "label": "实际菜单搜索320",
+      "footerButtons": [
+        44,
+        44
+      ],
+      "footerInside": true,
+      "inside": true,
+      "pageOverflow": false,
+      "title": "修改密码",
+      "viewport": [
+        320,
+        740
+      ],
+      "reason": "前一弹窗关闭动画尚未结束，未作为搜索验收结果"
+    },
+    {
+      "label": "实际菜单搜索844",
+      "footerButtons": [
+        44,
+        44
+      ],
+      "footerInside": true,
+      "inside": true,
+      "pageOverflow": false,
+      "title": "修改密码",
+      "viewport": [
+        844,
+        390
+      ],
+      "reason": "前一弹窗关闭动画尚未结束，未作为搜索验收结果"
+    }
+  ]
+}
