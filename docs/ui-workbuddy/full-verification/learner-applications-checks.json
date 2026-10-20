@@ -1,0 +1,470 @@
+{
+  "date": "2026-10-20",
+  "scope": "我的补考、我的成绩及复核申请和详情、我的收藏。sample为隔离模拟接口，live为本地真实考生账号只读验证。未在真实环境提交申请、取消收藏、开始考试或练习，已恢复原管理员登录。",
+  "checks": [
+    {
+      "label": "sample-retake-390",
+      "page": [
+        382,
+        382
+      ],
+      "panels": [],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "sample-retake-failure-390",
+      "page": [
+        382,
+        382
+      ],
+      "panels": [],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "sample-score-appeal-390",
+      "page": [
+        390,
+        390
+      ],
+      "panels": [
+        {
+          "bottom": 556.7000122070312,
+          "buttons": [
+            {
+              "height": 44,
+              "text": "取消"
+            },
+            {
+              "height": 44,
+              "text": "提交申请"
+            }
+          ],
+          "class": "el-dialog learner-appeal-dialog",
+          "sw": 357,
+          "top": 12,
+          "w": 357
+        }
+      ],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "sample-appeal-failure-390",
+      "page": [
+        390,
+        390
+      ],
+      "panels": [
+        {
+          "bottom": 639.5,
+          "buttons": [
+            {
+              "height": 44,
+              "text": "取消"
+            },
+            {
+              "height": 44,
+              "text": "提交申请"
+            }
+          ],
+          "class": "el-dialog learner-appeal-dialog",
+          "sw": 357,
+          "top": 12,
+          "w": 357
+        }
+      ],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "sample-appeal-failure-320",
+      "page": [
+        320,
+        320
+      ],
+      "panels": [
+        {
+          "bottom": 684.2999877929688,
+          "buttons": [
+            {
+              "height": 44,
+              "text": "取消"
+            },
+            {
+              "height": 44,
+              "text": "提交申请"
+            }
+          ],
+          "class": "el-dialog learner-appeal-dialog",
+          "sw": 286,
+          "top": 12,
+          "w": 286
+        }
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "sample-appeal-landscape",
+      "page": [
+        844,
+        844
+      ],
+      "panels": [
+        {
+          "bottom": 361.9124946594238,
+          "buttons": [
+            {
+              "height": 44,
+              "text": "取消"
+            },
+            {
+              "height": 44,
+              "text": "提交申请"
+            }
+          ],
+          "class": "el-dialog learner-appeal-dialog",
+          "sw": 558,
+          "top": 19.512500762939453,
+          "w": 558
+        }
+      ],
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "label": "sample-appeal-detail-landscape",
+      "page": [
+        844,
+        844
+      ],
+      "panels": [
+        {
+          "bottom": 390.3999938964844,
+          "buttons": [
+            {
+              "height": 44,
+              "text": "关闭"
+            }
+          ],
+          "class": "el-drawer rtl open",
+          "sw": 844,
+          "top": 0,
+          "w": 844
+        }
+      ],
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "label": "sample-appeal-detail-390",
+      "page": [
+        390,
+        390
+      ],
+      "panels": [
+        {
+          "bottom": 844,
+          "buttons": [
+            {
+              "height": 44,
+              "text": "关闭"
+            }
+          ],
+          "class": "el-drawer rtl open",
+          "sw": 390,
+          "top": 0,
+          "w": 390
+        }
+      ],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "sample-appeal-detail-320",
+      "page": [
+        320,
+        320
+      ],
+      "panels": [
+        {
+          "bottom": 740,
+          "buttons": [
+            {
+              "height": 44,
+              "text": "关闭"
+            }
+          ],
+          "class": "el-drawer rtl open",
+          "sw": 320,
+          "top": 0,
+          "w": 320
+        }
+      ],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "sample-favorites-failure-320",
+      "page": [
+        312,
+        312
+      ],
+      "panels": [],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "sample-favorites-390",
+      "page": [
+        382,
+        382
+      ],
+      "panels": [],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "sample-favorites-read-error",
+      "page": [
+        382,
+        382
+      ],
+      "panels": [],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "sample-favorites-empty",
+      "page": [
+        382,
+        382
+      ],
+      "panels": [],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "sample-retake-desktop",
+      "page": [
+        1432,
+        1432
+      ],
+      "panels": [],
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "label": "sample-favorites-final-320",
+      "page": [
+        312,
+        312
+      ],
+      "panels": [],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "live-retake-desktop",
+      "page": [
+        1440,
+        1440
+      ],
+      "panels": [],
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "label": "live-retake-390",
+      "page": [
+        382,
+        382
+      ],
+      "panels": [],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "live-retake-320",
+      "page": [
+        312,
+        312
+      ],
+      "panels": [],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "live-retake-landscape",
+      "page": [
+        836,
+        836
+      ],
+      "panels": [],
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "label": "live-score-landscape",
+      "page": [
+        836,
+        836
+      ],
+      "panels": [],
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "label": "live-score-390",
+      "page": [
+        382,
+        382
+      ],
+      "panels": [],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "live-score-320",
+      "page": [
+        312,
+        312
+      ],
+      "panels": [],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "live-score-desktop",
+      "page": [
+        1440,
+        1440
+      ],
+      "panels": [],
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "label": "live-favorites-desktop",
+      "page": [
+        1440,
+        1440
+      ],
+      "panels": [],
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "label": "live-favorites-390",
+      "page": [
+        382,
+        382
+      ],
+      "panels": [],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "label": "live-favorites-320",
+      "page": [
+        312,
+        312
+      ],
+      "panels": [],
+      "viewport": [
+        320,
+        740
+      ]
+    },
+    {
+      "label": "live-favorites-landscape",
+      "page": [
+        836,
+        836
+      ],
+      "panels": [],
+      "viewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "label": "sample-appeal-detail-desktop",
+      "page": [
+        1440,
+        1440
+      ],
+      "panels": [
+        {
+          "bottom": 900,
+          "buttons": [
+            {
+              "height": 36,
+              "text": "关闭"
+            }
+          ],
+          "class": "el-drawer rtl open",
+          "sw": 640,
+          "top": 0,
+          "w": 640
+        }
+      ],
+      "viewport": [
+        1440,
+        900
+      ]
+    }
+  ]
+}

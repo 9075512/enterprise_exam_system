@@ -20,6 +20,7 @@ const { data: treeData, loading, error: treeError, refresh: refreshTree } = useR
 const tree = computed(() => treeData.value ?? []);
 const treeRef = ref<{ filter: (value: string) => void; setCurrentKey: (key: string) => void }>();
 const keyword = ref('');
+const directoryExpanded = ref(false);
 const selectedId = ref('');
 
 const flatMap = computed(() => {
@@ -46,9 +47,11 @@ async function loadTree(preferredId = ''): Promise<void> {
   selectedId.value = flatMap.value.has(requested) ? requested : (tree.value[0]?.id ?? '');
   await nextTick();
   if (selectedId.value) treeRef.value?.setCurrentKey(selectedId.value);
+  treeRef.value?.filter(keyword.value);
 }
 
 function selectNode(node: BankTreeNode): void {
+  directoryExpanded.value = false;
   selectedId.value = node.id;
   void router.replace({ path: '/author/banks', query: { bankId: node.id } });
 }
@@ -82,32 +85,36 @@ onMounted(() => void loadTree());
 
     <RequestError v-if="treeError" text="题库目录加载失败" @retry="loadTree()" />
     <div v-else class="bank-workspace__card subject-workspace__layout">
-      <aside class="bank-workspace__tree-panel subject-workspace__sidebar" aria-label="科目目录">
-        <div class="subject-workspace__nav-heading"><h3>科目目录</h3><span>共 {{ flatMap.size }} 个</span></div>
-        <el-input v-model="keyword" clearable placeholder="搜索科目" aria-label="搜索科目" :prefix-icon="Search" />
-        <el-tree
-          ref="treeRef"
-          v-loading="loading"
-          class="bank-workspace__tree subject-workspace__tree"
-          :data="tree"
-          node-key="id"
-          :props="{ label: 'name', children: 'children' }"
-          :filter-node-method="filterNode"
-          :empty-text="loading ? '正在加载科目…' : keyword.trim() ? '未找到匹配科目' : '暂无科目'"
-          highlight-current
-          default-expand-all
-          @node-click="selectNode"
-        >
-          <template #default="{ data }">
-            <span class="bank-tree-node subject-workspace__node">
-              <el-icon><Folder v-if="data.children.length" /><Collection v-else /></el-icon>
-              <span class="subject-workspace__node-name" :title="data.name">{{ data.name }}</span>
-              <span v-if="!data.children.length" class="subject-workspace__node-count" :title="`${data.questionCount} 道题`">{{ data.questionCount }}</span>
-              <span v-if="data.effectiveStatus === 'disabled'" class="subject-workspace__node-disabled">停</span>
-            </span>
-          </template>
-        </el-tree>
-        <div class="subject-workspace__nav-footer"><p>科目结构由管理员在“科目管理”中维护</p></div>
+      <aside :class="{ 'is-collapsed': !directoryExpanded }" class="bank-workspace__tree-panel subject-workspace__sidebar" aria-label="科目目录">
+        <div class="subject-workspace__nav-heading"><h3>科目目录</h3><span>{{ loading ? '加载中…' : `共 ${flatMap.size} 个` }}</span><el-button class="subject-workspace__toggle" text :aria-expanded="directoryExpanded" @click="directoryExpanded = !directoryExpanded">{{ directoryExpanded ? '收起目录' : '展开目录' }}</el-button></div>
+        <p class="subject-workspace__current">当前：{{ selected?.name || (loading ? '正在加载…' : '尚未选择科目') }}</p>
+        <div class="subject-workspace__nav-body">
+          <el-input v-model="keyword" clearable placeholder="搜索科目" aria-label="搜索科目" :prefix-icon="Search" />
+          <el-tree
+            ref="treeRef"
+            v-loading="loading"
+            class="bank-workspace__tree subject-workspace__tree"
+            :data="tree"
+            node-key="id"
+            :indent="12"
+            :props="{ label: 'name', children: 'children' }"
+            :filter-node-method="filterNode"
+            :empty-text="loading ? '正在加载科目…' : keyword.trim() ? '未找到匹配科目' : '暂无科目'"
+            highlight-current
+            default-expand-all
+            @node-click="selectNode"
+          >
+            <template #default="{ data }">
+              <span class="bank-tree-node subject-workspace__node">
+                <el-icon><Folder v-if="data.children.length" /><Collection v-else /></el-icon>
+                <span class="subject-workspace__node-name" :title="data.name">{{ data.name }}</span>
+                <span v-if="!data.children.length" class="subject-workspace__node-count" :title="`${data.questionCount} 道题`">{{ data.questionCount }}</span>
+                <span v-if="data.effectiveStatus === 'disabled'" class="subject-workspace__node-disabled">停</span>
+              </span>
+            </template>
+          </el-tree>
+          <div class="subject-workspace__nav-footer"><p>科目结构由管理员在“科目管理”中维护</p></div>
+          </div>
       </aside>
 
       <main class="bank-workspace__content subject-workspace__content">
@@ -169,18 +176,19 @@ onMounted(() => void loadTree());
   min-width: 0;
   padding: 18px 16px;
   border: 1px solid $border-color;
-  border-radius: $radius-base;
+  border-radius: $radius-lg;
   background: $bg-paper;
   font: inherit;
   text-align: left;
   cursor: pointer;
   transition: border-color $transition-fast, background-color $transition-fast;
 
+  &:focus-visible { outline: 2px solid $color-primary; outline-offset: 2px; }
   &:hover { border-color: $color-primary-border; background: $color-primary-soft; }
 }
 .child-card__icon { display: grid; flex-shrink: 0; place-items: center; width: 40px; height: 40px; border-radius: $radius-base; background: $color-primary-soft; color: $color-primary; font-size: 20px; }
 .child-card__body { flex: 1; min-width: 0; }
-.child-card__name { display: block; overflow: hidden; color: $text-primary; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.child-card__name { display: block; color: $text-primary; font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
 .child-card__summary { display: block; margin-top: 5px; color: $text-secondary; font-size: 12px; }
 
 </style>

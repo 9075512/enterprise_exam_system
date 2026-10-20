@@ -1,0 +1,218 @@
+{
+  "date": "2026-10-19",
+  "scope": "实际页面、顶栏及归档确认框只读检查，真实确认框均取消。失败验证使用隔离内存接口，不连接业务接口。",
+  "checks": [
+    {
+      "doc": 320,
+      "formsFit": true,
+      "h": 740,
+      "kind": "live-maintenance",
+      "numberButtons": [
+        {
+          "h": 44,
+          "w": 44
+        },
+        {
+          "h": 44,
+          "w": 44
+        },
+        {
+          "h": 44,
+          "w": 44
+        },
+        {
+          "h": 44,
+          "w": 44
+        }
+      ],
+      "taskColumns": "280px",
+      "w": 320
+    },
+    {
+      "doc": 390,
+      "formsFit": true,
+      "h": 844,
+      "kind": "live-maintenance",
+      "numberButtons": [
+        {
+          "h": 44,
+          "w": 44
+        },
+        {
+          "h": 44,
+          "w": 44
+        },
+        {
+          "h": 44,
+          "w": 44
+        },
+        {
+          "h": 44,
+          "w": 44
+        }
+      ],
+      "taskColumns": "350.4px",
+      "w": 390
+    },
+    {
+      "doc": 844,
+      "formsFit": true,
+      "h": 390,
+      "kind": "live-maintenance",
+      "numberButtons": [
+        {
+          "h": 44,
+          "w": 44
+        },
+        {
+          "h": 44,
+          "w": 44
+        },
+        {
+          "h": 44,
+          "w": 44
+        },
+        {
+          "h": 44,
+          "w": 44
+        }
+      ],
+      "taskColumns": "564px",
+      "w": 844
+    },
+    {
+      "doc": 1440,
+      "formsFit": true,
+      "h": 900,
+      "kind": "live-maintenance",
+      "numberButtons": [
+        {
+          "h": 34,
+          "w": 32
+        },
+        {
+          "h": 34,
+          "w": 32
+        },
+        {
+          "h": 34,
+          "w": 32
+        },
+        {
+          "h": 34,
+          "w": 32
+        }
+      ],
+      "taskColumns": "562px 562px",
+      "w": 1440
+    },
+    {
+      "footerVisible": true,
+      "h": 740,
+      "inside": true,
+      "kind": "live-archive-confirm",
+      "w": 320
+    },
+    {
+      "footerVisible": true,
+      "h": 844,
+      "inside": true,
+      "kind": "live-archive-confirm",
+      "w": 390
+    },
+    {
+      "footerVisible": true,
+      "h": 390,
+      "inside": true,
+      "kind": "live-archive-confirm",
+      "w": 844
+    },
+    {
+      "footerVisible": true,
+      "h": 900,
+      "inside": true,
+      "kind": "live-archive-confirm",
+      "w": 1440
+    },
+    {
+      "doc": 312,
+      "formsFit": true,
+      "h": 740,
+      "kind": "sample-error-maintenance",
+      "preservedDays": "60",
+      "preservedHour": "07:00",
+      "recordsFit": true,
+      "w": 320
+    },
+    {
+      "doc": 382,
+      "formsFit": true,
+      "h": 844,
+      "kind": "sample-error-maintenance",
+      "preservedDays": "60",
+      "preservedHour": "07:00",
+      "recordsFit": true,
+      "w": 390
+    },
+    {
+      "doc": 836,
+      "formsFit": true,
+      "h": 390,
+      "kind": "sample-error-maintenance",
+      "preservedDays": "60",
+      "preservedHour": "07:00",
+      "recordsFit": true,
+      "w": 844
+    },
+    {
+      "doc": 1432,
+      "formsFit": true,
+      "h": 900,
+      "kind": "sample-error-maintenance",
+      "preservedDays": "60",
+      "preservedHour": "07:00",
+      "recordsFit": true,
+      "w": 1440
+    },
+    {
+      "buttonHeight": 44,
+      "buttonWidth": 44,
+      "h": 740,
+      "iconInside": true,
+      "kind": "live-header-search",
+      "placeholderDisplay": "none",
+      "shortcutDisplay": "none",
+      "w": 320
+    },
+    {
+      "buttonHeight": 44,
+      "buttonWidth": 44,
+      "h": 844,
+      "iconInside": true,
+      "kind": "live-header-search",
+      "placeholderDisplay": "none",
+      "shortcutDisplay": "none",
+      "w": 390
+    },
+    {
+      "buttonHeight": 44,
+      "buttonWidth": 44,
+      "h": 390,
+      "iconInside": true,
+      "kind": "live-header-search",
+      "placeholderDisplay": "none",
+      "shortcutDisplay": "none",
+      "w": 844
+    },
+    {
+      "buttonHeight": 36,
+      "buttonWidth": 36,
+      "h": 900,
+      "iconInside": true,
+      "kind": "live-header-search",
+      "placeholderDisplay": "none",
+      "shortcutDisplay": "none",
+      "w": 1440
+    }
+  ]
+}

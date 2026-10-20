@@ -161,3 +161,22 @@ describe('树形科目编辑抽屉', () => {
     expect(item('浏览范围').getComponent(ElCheckbox).props('modelValue')).toBe(true);
   });
 });
+
+it('保存时锁定条件权限控件，失败保留草稿且排序禁用语义正确恢复', async () => {
+  banksApi.access.mockResolvedValue({ permissionMode: 'override', viewAll: false, includeChildDepartments: false, departmentIds: ['dept-1'], userIds: ['user-1'], editorIds: [] });
+  let reject!: (e: Error) => void;
+  banksApi.update.mockImplementationOnce(() => new Promise((_, fail) => { reject = fail; }));
+  await openDrawer({ id: 'existing', name: '原科目', parentId: null } as QuestionBank);
+  const number = item('排序').get('input');
+  expect(number.attributes('aria-disabled')).toBe('false');
+  await wrapper.findAllComponents(ElButton).find(b => b.text() === '保存')!.trigger('click'); await flushPromises();
+  expect(item('浏览部门').getComponent(ElSelect).props('disabled')).toBe(true);
+  expect(item('浏览人员').getComponent(ElSelect).props('disabled')).toBe(true);
+  expect(item('浏览部门').getComponent(ElCheckbox).props('disabled')).toBe(true);
+  expect(number.attributes('aria-disabled')).toBe('true');
+  reject(new Error('offline')); await flushPromises();
+  expect(document.body.textContent).toContain('保存未完成，已保留填写内容');
+  expect(item('浏览部门').getComponent(ElSelect).props('modelValue')).toEqual(['dept-1']);
+  expect(item('浏览部门').getComponent(ElSelect).props('disabled')).toBe(false);
+  expect(number.attributes('aria-disabled')).toBe('false');
+});

@@ -28,7 +28,8 @@ import type { Department } from '@/types';
 const { confirm } = useConfirm();
 const { data: departments, loading, error, refresh } = useRequest(() => departmentsApi.list());
 /** 用户全量（用于「人员数」列与树上的计数） */
-const { data: users } = useRequest(() => usersApi.list());
+const { data: users, loading: usersLoading, error: usersError, refresh: refreshUsers } = useRequest(() => usersApi.list());
+const membersKnown = computed(() => users.value !== null && !usersLoading.value && !usersError.value);
 const settingsStore = useSettingsStore();
 
 onMounted(() => {
@@ -39,8 +40,16 @@ onMounted(() => {
 const companyName = computed<string>(() => settingsStore.settings.companyName || '全公司');
 
 /** 树根改名：写回设置项 companyName（仅管理员；保存后全站生效） */
+const renaming = ref(false);
 async function renameCompany(): Promise<void> {
+  if (renaming.value) return;
+  renaming.value = true;
   try {
+    await settingsStore.load();
+    if (!settingsStore.ready) {
+      ElMessage.error('组织设置加载失败，请稍后重试');
+      return;
+    }
     const { value } = await ElMessageBox.prompt('修改后科室树根节点与相关文案将同步更新。', '修改组织根节点名称', {
       confirmButtonText: '保存',
       cancelButtonText: '取消',
@@ -54,6 +63,8 @@ async function renameCompany(): Promise<void> {
     ElMessage.success('组织根节点名称已更新');
   } catch {
     /* 用户取消 */
+  } finally {
+    renaming.value = false;
   }
 }
 
@@ -186,7 +197,7 @@ function resetFilter(): void {
 
 /** 页头描述（拼接放脚本里，避免模板内嵌模板字符串） */
 const headerDesc = computed<string>(
-  () => `共 ${departments.value?.length ?? '—'} 个科室 · ${users.value ? totalMembers.value : '—'} 名在册人员`,
+  () => `共 ${error.value ? '—' : departments.value?.length ?? '—'} 个科室 · ${membersKnown.value ? totalMembers.value : '—'} 名已分配科室人员`,
 );
 
 /** 列表层级缩进（模板内不做表达式计算，便于 TS 推断；el-table row 为 any，这里内部取值） */
@@ -215,6 +226,8 @@ const parentTree = computed(() => {
 const dialogVisible = ref(false);
 const editingId = ref<string>('');
 const submitting = ref(false);
+const validating = ref(false);
+const editorBusy = computed(() => submitting.value || validating.value);
 const formRef = ref<FormInstance>();
 const form = reactive({ name: '', description: '', parentId: null as string | null });
 
@@ -251,8 +264,14 @@ function openCreateChild(department: Department): void {
 }
 
 async function handleSubmit(): Promise<void> {
-  if (!formRef.value) return;
-  const valid = await validateAndFocus(formRef.value);
+  if (!formRef.value || editorBusy.value) return;
+  validating.value = true;
+  let valid = false;
+  try {
+    valid = await validateAndFocus(formRef.value);
+  } finally {
+    validating.value = false;
+  }
   if (!valid) return;
 
   submitting.value = true;
@@ -281,15 +300,16 @@ async function handleSubmit(): Promise<void> {
 const deleting = ref(false);
 
 async function handleDelete(department: Department): Promise<void> {
-  const ok = await confirm(`确定删除科室「${department.name}」吗？存在归属用户或子科室的科室无法删除`, {
-    title: '删除科室',
-    confirmButtonText: '确认删除',
-    type: 'warning',
-  });
-  if (!ok) return;
-
+  if (deleting.value) return;
   deleting.value = true;
   try {
+    const ok = await confirm(`确定删除科室「${department.name}」吗？存在归属用户或子科室的科室无法删除`, {
+      title: '删除科室',
+      confirmButtonText: '确认删除',
+      type: 'warning',
+    });
+    if (!ok) return;
+
     await departmentsApi.remove(department.id);
     ElMessage.success('科室已删除');
     void refresh();
@@ -321,6 +341,7 @@ async function handleDelete(department: Department): Promise<void> {
     />
 
     <div v-else class="department-page__wrap">
+      <RequestError v-if="usersError" class="department-page__members-error" text="人员统计加载失败，科室结构仍可使用" @retry="refreshUsers" />
       <!-- 左：科室树（可收起；根节点可改名） -->
       <el-card
         class="department-page__tree-card"
@@ -329,7 +350,7 @@ async function handleDelete(department: Department): Promise<void> {
       >
         <template #header>
           <div class="department-page__tree-head">
-            <span class="department-page__tree-title">科室树</span>
+            <span class="department-page__tree-title">{{ treeCollapsed ? '科室范围：' + activeScopeName : '科室树' }}</span>
             <el-button
               text
               size="small"
@@ -354,22 +375,24 @@ async function handleDelete(department: Department): Promise<void> {
           @node-click="handleTreeNodeClick"
         >
           <template #default="{ data }">
-            <span class="department-page__tnode" :title="data.id === ROOT_ID ? `${data.name}（点击改名）` : data.name">
+            <span class="department-page__tnode" :title="data.name">
               <el-icon v-if="data.id === ROOT_ID" class="department-page__tnode-ico"><OfficeBuilding /></el-icon>
               <span class="department-page__tnode-name">{{ data.name }}</span>
-              <span class="department-page__tnode-count">{{ users ? data.count : '—' }}</span>
-              <el-icon
+              <span class="department-page__tnode-count">{{ membersKnown ? data.count : '—' }}</span>
+              <el-button
                 v-if="data.id === ROOT_ID"
                 class="department-page__tnode-edit"
-                title="修改根节点名称"
+                text
+                :icon="EditPen"
+                :disabled="renaming"
+                aria-label="修改组织根节点名称"
                 @click.stop="renameCompany"
-              >
-                <EditPen />
-              </el-icon>
+              />
             </span>
           </template>
         </el-tree>
         <div class="department-page__tree-foot">
+          <p class="department-page__scope-note">科室人数为直属人员；组织合计仅含已分配科室的人员。</p>
           <el-button text :icon="Plus" @click="openCreate">新增同级科室</el-button>
         </div>
         </template>
@@ -411,7 +434,7 @@ async function handleDelete(department: Department): Promise<void> {
           </el-table-column>
           <el-table-column label="人员数" width="100" align="right">
             <template #default="{ row }">
-              <span class="num department-page__count">{{ users ? memberCountMap[row.id] ?? 0 : '—' }}</span>
+              <span class="num department-page__count">{{ membersKnown ? memberCountMap[row.id] ?? 0 : '—' }}</span>
             </template>
           </el-table-column>
           <el-table-column label="创建时间" width="170">
@@ -421,7 +444,7 @@ async function handleDelete(department: Department): Promise<void> {
           </el-table-column>
           <el-table-column class-name="table-actions-cell" label="操作" width="210" align="right" fixed="right">
             <template #default="{ row }">
-              <TableActions>
+              <TableActions :loading="deleting">
                 <el-button type="primary" link @click="openCreateChild(row as Department)">新增下级</el-button>
                 <el-button type="primary" link @click="openEdit(row as Department)">编辑</el-button>
                 <template #more>
@@ -446,11 +469,15 @@ async function handleDelete(department: Department): Promise<void> {
     <el-drawer
       v-model="dialogVisible"
       :title="editingId ? '编辑科室' : '新建科室'"
+      class="department-editor"
       size="560px"
       append-to-body
       destroy-on-close
+      :close-on-click-modal="!editorBusy"
+      :close-on-press-escape="!editorBusy"
+      :show-close="!editorBusy"
      data-ui-role="editor">
-      <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
+      <el-form ref="formRef" :model="form" :rules="rules" :disabled="submitting" label-position="top">
         <el-form-item label="科室名称" prop="name">
           <el-input v-model="form.name" maxlength="60" show-word-limit placeholder="如：研发部" />
         </el-form-item>
@@ -458,6 +485,7 @@ async function handleDelete(department: Department): Promise<void> {
           <el-tree-select
             v-model="form.parentId"
             :data="parentTree"
+            popper-class="department-parent-popper"
             class="department-page__full"
             placeholder="留空表示顶级科室"
             clearable
@@ -470,7 +498,7 @@ async function handleDelete(department: Department): Promise<void> {
           <el-input
             v-model="form.description"
             type="textarea"
-            :rows="3"
+            :autosize="{ minRows: 3, maxRows: 8 }"
             maxlength="255"
             show-word-limit
             placeholder="选填"
@@ -478,8 +506,8 @@ async function handleDelete(department: Department): Promise<void> {
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleSubmit">
+        <el-button :disabled="editorBusy" @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="editorBusy" @click="handleSubmit">
           {{ editingId ? '保存' : '创建' }}
         </el-button>
       </template>
@@ -501,10 +529,11 @@ async function handleDelete(department: Department): Promise<void> {
     grid-template-columns: 52px minmax(0, 1fr);
   }
 }
+.department-page__members-error { grid-column: 1 / -1; }
+.department-page__scope-note { margin: 0 4px 8px; color: $text-secondary; font-size: 12px; line-height: 1.7; }
 
 @media (max-width: 900px) {
   .department-page__wrap, .department-page__wrap:has(.department-page__tree-card.is-collapsed) { grid-template-columns: minmax(0, 1fr); }
-  .department-page__tree { max-height: 240px; }
 }
 
 .department-page__tree-card.el-card {
@@ -552,7 +581,9 @@ async function handleDelete(department: Department): Promise<void> {
   font-size: 12.5px;
 
   :deep(.el-tree-node__content) {
-    height: 30px;
+    height: auto;
+    min-height: 36px;
+    padding-block: 4px;
     border-radius: $radius-xs;
     transition: background-color 0.12s;
   }
@@ -587,9 +618,9 @@ async function handleDelete(department: Department): Promise<void> {
 .department-page__tnode-name {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
 }
 
 .department-page__tnode-count {
@@ -602,12 +633,15 @@ async function handleDelete(department: Department): Promise<void> {
 /* 根节点改名铅笔：hover 时浮现 */
 .department-page__tnode-edit {
   flex: 0 0 auto;
+  margin: 0;
+  padding: 4px;
   font-size: 12px;
   color: $text-disabled;
   opacity: 0;
   transition: opacity 0.12s;
 
-  .department-page__tnode:hover & {
+  .department-page__tnode:hover &,
+  .department-page__tnode:focus-within & {
     opacity: 1;
   }
 
@@ -635,6 +669,9 @@ async function handleDelete(department: Department): Promise<void> {
   display: flex;
   align-items: baseline;
   gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .department-page__list-title {
@@ -655,6 +692,8 @@ async function handleDelete(department: Department): Promise<void> {
 .department-page__row-meta { display: flex; flex-wrap: wrap; gap: 2px 12px; color: $text-secondary; font-size: 12px; line-height: 1.6; margin-top: 4px; overflow-wrap: anywhere; }
 .department-page__full {
   width: 100%;
+  :deep(.el-select__selected-item) { position: static; white-space: normal; overflow-wrap: anywhere; }
+  :deep(.el-select__wrapper) { height: auto; }
 }
 
 .department-page__filter-actions {
@@ -666,8 +705,9 @@ async function handleDelete(department: Department): Promise<void> {
 /* 列表单元：层级缩进 + 主色/弱色分工 */
 .department-page__name {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
+  overflow-wrap: anywhere;
 }
 
 .department-page__branch {
@@ -696,7 +736,15 @@ async function handleDelete(department: Department): Promise<void> {
   }
 
   .department-page__tree {
-    max-height: none;
+    max-height: min(360px, 45dvh);
+    :deep(.el-tree-node__content) { height: auto; min-height: 44px; padding-block: 4px; }
+    :deep(.el-tree-node__expand-icon) { display: flex; align-items: center; justify-content: center; flex: 0 0 44px; width: 44px; min-height: 44px; padding: 0; }
   }
+  .department-page__tnode-edit { opacity: 1; }
+  .department-page__tree-card.is-collapsed .department-page__tree-title { display: block; min-width: 0; overflow-wrap: anywhere; }
+  .department-page__tree-card.is-collapsed .department-page__tree-head { justify-content: space-between; }
+  .department-page__tree-head > .el-button { flex-shrink: 0; }
+  .department-page__list-head { display: block; }
+  .department-page__list-sub { display: block; margin-top: 4px; }
 }
 </style>

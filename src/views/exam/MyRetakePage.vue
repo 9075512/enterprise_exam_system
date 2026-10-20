@@ -7,7 +7,8 @@
  * 申请记录改「卡头状态筛选 + 表格 + 分页」；
  * 右侧列新增「申请补考」表单卡与「补考规则」说明卡（表单动作复用既有 applyRetake 接口）。
  */
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { CircleCheck, CircleClose, Clock, InfoFilled, Refresh } from '@element-plus/icons-vue';
 import * as examsApi from '@/api/exams';
@@ -15,6 +16,8 @@ import { applyRetake, listMyRetakes } from '@/api/retakes';
 import { useRequest } from '@/composables/useRequest';
 import { useSettingsStore } from '@/stores/settings';
 import RequestError from '@/components/common/RequestError.vue';
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
+import { focusFirstFormError } from '@/composables/useFormFocus';
 import { formatDateTime } from '@/utils/datetime';
 import EmptyState from '@/components/common/EmptyState.vue';
 import PageHeader from '@/components/common/PageHeader.vue';
@@ -36,11 +39,19 @@ const STATUS_TAG: Record<RetakeStatus, 'warning' | 'success' | 'danger'> = {
 const { data: retakePage, loading, error: loadError, refresh: load } = useRequest(() => listMyRetakes(1, 100));
 const list = computed(() => retakePage.value?.list ?? []);
 const settingsStore = useSettingsStore();
+const router = useRouter();
+const confirmedExamIds = ref(new Set<string>());
+const rulesError = ref(false);
+async function loadRules(): Promise<void> {
+  try { await settingsStore.load(); rulesError.value = !settingsStore.ready; }
+  catch { rulesError.value = true; }
+}
+onMounted(() => { void loadRules(); });
 
 const { data: myExams, loading: examsLoading, error: examsError, refresh: refreshExams } = useRequest(() => examsApi.my());
 
-/** 可发起补考申请的考试（后端已按「未及格 + 未申请过 + 未超期」判定） */
-const eligibleExams = computed<ExamMy[]>(() => (myExams.value ?? []).filter((e) => e.canApplyRetake));
+/** 可发起补考申请的考试（资格由后端判定，已知有效申请不重复展示） */
+const eligibleExams = computed<ExamMy[]>(() => (myExams.value ?? []).filter((e) => e.canApplyRetake && !confirmedExamIds.value.has(e.id) && !list.value.some(r => r.examId === e.id && r.status !== 'rejected')));
 
 /* ------------------------------ 状态筛选 + 分页 ------------------------------ */
 type FilterKey = '' | RetakeStatus;
@@ -73,37 +84,55 @@ const counts = computed(() => {
     else if (r.status === 'approved') stat.approved += 1;
     else stat.rejected += 1;
   }
-  return { eligible: myExams.value && !examsError.value ? eligibleExams.value.length : '—', ...(!retakePage.value || loadError.value ? { pending: '—', approved: '—', rejected: '—' } : stat) };
+  return { eligible: myExams.value && !examsError.value && !examsLoading.value ? eligibleExams.value.length : '—', ...(!retakePage.value || loadError.value || loading.value ? { pending: '—', approved: '—', rejected: '—' } : stat) };
 });
 
 /* ------------------------------ 申请补考 ------------------------------ */
 const applyExamId = ref('');
 const applyReason = ref('');
 const applying = ref(false);
+const applyScope = ref<HTMLElement>();
+const applyError = ref('');
+const applyMessage = ref('');
+const fieldErrors = ref({ exam: '', reason: '' });
+const selectedExam = computed(() => eligibleExams.value.find(e => e.id === applyExamId.value));
+
+async function refreshAll(): Promise<void> {
+  if (applying.value || loading.value || examsLoading.value) return;
+  await Promise.all([load(), refreshExams()]);
+  if (!loadError.value && !examsError.value) confirmedExamIds.value.clear();
+}
 
 function resetApply(): void {
   applyExamId.value = '';
   applyReason.value = '';
+  applyError.value = '';
+  fieldErrors.value = { exam: '', reason: '' };
 }
 
 async function submitApply(): Promise<void> {
   if (applying.value || examsLoading.value || examsError.value) return;
-  if (!applyExamId.value) {
-    ElMessage.warning('请选择需要补考的考试');
-    return;
-  }
-  if (!applyReason.value.trim()) {
-    ElMessage.warning('请填写申请说明');
+  fieldErrors.value = { exam: selectedExam.value ? '' : '请选择当前可申请补考的考试', reason: applyReason.value.trim() ? '' : '请填写申请说明' };
+  if (fieldErrors.value.exam || fieldErrors.value.reason) {
+    if (applyScope.value) await focusFirstFormError(applyScope.value);
     return;
   }
   applying.value = true;
+  applyError.value = '';
+  applyMessage.value = '';
   try {
-    await applyRetake(applyExamId.value, applyReason.value.trim());
+    const submitted = await applyRetake(applyExamId.value, applyReason.value.trim());
+    confirmedExamIds.value.add(applyExamId.value);
+    if (retakePage.value) {
+      const existed = retakePage.value.list.some(row => row.id === submitted.id);
+      retakePage.value = { ...retakePage.value, list: [submitted, ...retakePage.value.list.filter(row => row.id !== submitted.id)].slice(0, 100), total: retakePage.value.total + (existed ? 0 : 1) };
+    }
     ElMessage.success('补考申请已提交，请等待管理员审批');
     resetApply();
+    applyMessage.value = '申请已提交，请等待审批；可在申请记录查看状态。';
     await Promise.all([load(), refreshExams()]);
   } catch {
-    // 错误已由拦截器提示
+    applyError.value = '申请提交失败，所选考试和说明已保留，请核对后重试。';
   } finally {
     applying.value = false;
   }
@@ -113,14 +142,14 @@ async function submitApply(): Promise<void> {
  * 补考规则说明。口径对齐后端 retakes.service 的真实判定：
  * - 资格：未及格，且该考试的答题次数已全部用完（含特殊安排的额外次数）；
  * - 次数：每场至多一条有效申请（待审批 / 已通过），被驳回后可重新申请；
- * - 成绩：以最近一次作答成绩为准（系统不合并历史最高分）；
+ * - 成绩：报表和导出遵循当前取分设置；资格仍由服务端判定；
  * - 时限：后端未设申请截止时间（无「逾期不再受理」约束）。
  */
 const RULES = computed(() => [
   { k: '补考资格', v: '未及格，且答题次数已用完' },
   { k: '审批方式', v: '管理员逐条审批，通过后可再作答一次' },
   { k: '申请次数', v: '每场至多一条有效申请，被驳回后可重新申请' },
-  { k: '成绩口径', v: settingsStore.settings.retakeScorePolicy === 'highest' ? '报表和导出取本人最高分的已交卷答卷' : '报表和导出取本人最近一次已交卷答卷' },
+  { k: '成绩口径', v: !settingsStore.ready ? '当前规则暂未知，请重试读取' : settingsStore.settings.retakeScorePolicy === 'highest' ? '报表和导出取本人最高分的已交卷答卷' : '报表和导出取本人最近一次已交卷答卷' },
 ]);
 </script>
 
@@ -128,7 +157,7 @@ const RULES = computed(() => [
   <div data-ui-layout="request" data-ui-page="MyRetakePage" class="my-retake">
     <PageHeader title="我的补考" description="查看补考申请与审批结果 · 未及格可申请补考，由管理员审批">
       <template #actions>
-        <el-button :icon="Refresh" @click="load">刷新状态</el-button>
+        <el-button :icon="Refresh" :loading="loading || examsLoading" :disabled="applying" @click="refreshAll">刷新状态</el-button>
       </template>
     </PageHeader>
 
@@ -140,14 +169,14 @@ const RULES = computed(() => [
       <StatCard label="已驳回" :value="counts.rejected" unit="项" :icon="CircleClose" />
     </div>
 
-    <p class="learner-scope">{{ loadError ? '申请记录数量未知' : `已加载 ${list.length} / ${retakePage?.total ?? 0} 条申请，统计与状态筛选限于已加载记录` }}</p>
+    <p class="learner-scope">{{ loading ? (retakePage ? '正在刷新申请记录，以下为上次加载记录' : '申请记录加载中，数量暂未知') : loadError ? '申请记录数量未知' : `已加载 ${list.length} / ${retakePage?.total ?? 0} 条申请，统计与状态筛选限于已加载记录` }}</p>
 
     <el-card class="my-retake__panel" shadow="never">
       <template #header>
         <h3 class="my-retake__panel-title">补考申请记录</h3>
         <el-select
           v-model="filterStatus"
-          class="my-retake__filter"
+          class="my-retake__filter" :disabled="loading || applying"
           placeholder="全部状态"
           @change="onFilterChange"
         >
@@ -158,7 +187,8 @@ const RULES = computed(() => [
         </el-select>
       </template>
 
-      <RequestError v-if="loadError" text="补考申请加载失败" @retry="load" />
+      <LoadingSkeleton v-if="loading && !retakePage" :rows="4" />
+      <RequestError v-else-if="loadError" text="补考申请加载失败" @retry="load" />
       <div v-else class="my-retake__desktop-table">
       <el-table v-loading="loading" :data="paged" row-key="id" stripe>
         <el-table-column label="考试名称" min-width="200">
@@ -178,7 +208,7 @@ const RULES = computed(() => [
           <template #default="{ row }">{{ row.reviewedAt ? formatDateTime(row.reviewedAt) : '—' }}</template>
         </el-table-column>
         <el-table-column label="说明 / 驳回原因" min-width="220">
-          <template #default="{ row }">{{ row.reason || '—' }}</template>
+          <template #default="{ row }"><span class="my-retake__reason">{{ row.reason || '—' }}</span></template>
         </el-table-column>
         <template #empty>
           <EmptyState
@@ -190,9 +220,9 @@ const RULES = computed(() => [
       </el-table>
       </div>
 
-      <div v-if="!loadError" v-loading="loading" class="my-retake__mobile-list">
+      <div v-if="!loadError && !(loading && !retakePage)" v-loading="loading" class="my-retake__mobile-list">
         <EmptyState
-          v-if="paged.length === 0"
+          v-if="!loading && paged.length === 0"
           :text="filterStatus ? '没有该状态的补考申请' : '暂无补考申请'"
           :filtered="Boolean(filterStatus)"
           @clear="clearFilter"
@@ -209,12 +239,13 @@ const RULES = computed(() => [
           </div>
           <dl class="my-retake__mobile-detail">
             <div><dt>审批时间</dt><dd>{{ row.reviewedAt ? formatDateTime(row.reviewedAt) : '—' }}</dd></div>
-            <div><dt>说明</dt><dd>{{ row.reason || '—' }}</dd></div>
+            <div><dt>{{ row.status === 'rejected' ? '驳回说明' : '申请说明' }}</dt><dd>{{ row.reason || '—' }}</dd></div>
           </dl>
+          <el-button v-if="row.status === 'approved'" type="primary" plain @click="router.push('/exam/my')">查看我的考试</el-button>
         </article>
       </div>
 
-      <div v-if="filtered.length > PAGE_SIZE" class="my-retake__pager">
+      <div v-if="!loading && !loadError && filtered.length > PAGE_SIZE" class="my-retake__pager">
         <span class="my-retake__pager-info">共 {{ filtered.length }} 条</span>
         <button type="button" class="my-retake__pg my-retake__pg--nav" :disabled="page <= 1" aria-label="上一页" @click="page -= 1">
           <span class="my-retake__pg-arrow">‹</span>
@@ -243,20 +274,19 @@ const RULES = computed(() => [
         </template>
         <RequestError v-if="examsError" text="可申请考试加载失败" @retry="refreshExams" />
 
-        <div class="my-retake__field">
-          <label>选择考试 <span class="my-retake__req">*</span></label>
-          <el-select v-model="applyExamId" :disabled="applying || examsLoading || Boolean(examsError)" class="my-retake__select" placeholder="请选择需要补考的考试" clearable>
+        <div ref="applyScope"><el-form label-position="top" :disabled="applying">
+        <el-form-item label="选择考试" required :error="fieldErrors.exam" class="my-retake__field">
+          <el-select v-model="applyExamId" :disabled="applying || examsLoading || Boolean(examsError)" class="my-retake__select" :loading="examsLoading" filterable popper-class="organization-choice-popper" placeholder="请选择需要补考的考试" clearable @change="fieldErrors.exam = ''">
             <el-option v-for="exam in eligibleExams" :key="exam.id" :label="exam.name" :value="exam.id" />
           </el-select>
           <span class="my-retake__hint">
-            仅列出你本人可申请补考的考试（未及格、答题次数已用完、且未申请过）
+            仅列出本人可申请的考试：未及格、次数已用完，且无待审批或已通过申请；被驳回后可重新申请。
           </span>
-        </div>
-
-        <div class="my-retake__field">
-          <label>申请说明 <span class="my-retake__req">*</span></label>
+        </el-form-item>
+        <p v-if="selectedExam" class="my-retake__selected">当前申请：{{ selectedExam.name }}</p>
+        <el-form-item label="申请说明" required :error="fieldErrors.reason" class="my-retake__field">
           <el-input
-            v-model="applyReason"
+            v-model="applyReason" @input="fieldErrors.reason = ''"
             :disabled="applying"
             type="textarea"
             :rows="3"
@@ -264,8 +294,10 @@ const RULES = computed(() => [
             show-word-limit
             placeholder="请说明需要补考的原因，如缺席、设备故障、成绩复核后仍未及格等"
           />
-        </div>
-
+        </el-form-item></el-form></div>
+        <p v-if="applyError" class="my-retake__error" role="alert">{{ applyError }}</p>
+        <p v-if="applyMessage" class="learner-scope" role="status">{{ applyMessage }}</p>
+        <p v-if="!examsLoading && !examsError && !eligibleExams.length" class="learner-scope">当前暂无符合补考条件的考试，可查看申请状态或刷新资格。</p>
         <div class="my-retake__tip">
           <el-icon class="my-retake__tip-icon"><InfoFilled /></el-icon>
           <div>
@@ -284,6 +316,7 @@ const RULES = computed(() => [
           <template #header>
             <h3 class="my-retake__card-title">补考规则</h3>
           </template>
+          <RequestError v-if="rulesError" text="成绩口径读取失败" @retry="loadRules" />
           <div class="my-retake__desc">
             <div v-for="rule in RULES" :key="rule.k" class="my-retake__desc-row">
               <span class="my-retake__desc-k">{{ rule.k }}</span>
@@ -305,6 +338,9 @@ const RULES = computed(() => [
 @use '@/styles/variables.scss' as *;
 
 .my-retake {
+  &__reason { white-space: pre-wrap; overflow-wrap: anywhere; }
+  &__error { padding: 12px 16px; border-radius: $radius-base; color: $color-error-text; background: $color-error-bg; overflow-wrap: anywhere; }
+  &__selected { padding: 12px 16px; margin: 0 0 16px; border-radius: $radius-lg; background: $bg-page; overflow-wrap: anywhere; font-size: 13px; }
   &__mobile-list { display: none; }
 
   &__stats {
@@ -465,6 +501,7 @@ const RULES = computed(() => [
 
   &__form-act {
     display: flex;
+    flex-wrap: wrap;
     justify-content: flex-end;
     gap: 8px;
     margin-top: 16px;
@@ -505,17 +542,17 @@ const RULES = computed(() => [
     &__mobile-card {
       padding: 14px;
       border: 1px solid $border-color;
-      border-radius: $radius-base;
+      border-radius: $radius-lg;
       background: $bg-paper;
     }
     &__mobile-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     &__mobile-detail { margin: 12px 0 0; display: flex; flex-direction: column; gap: 8px; }
     &__mobile-detail div { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 8px; font-size: 12px; }
     &__mobile-detail dt { color: $text-secondary; }
-    &__mobile-detail dd { margin: 0; color: $text-primary; overflow-wrap: anywhere; }
+    &__mobile-detail dd { white-space: pre-wrap; margin: 0; color: $text-primary; overflow-wrap: anywhere; }
     &__pager { flex-wrap: nowrap; gap: 7px; }
     &__pager-info { flex-basis: auto; white-space: nowrap; }
-    &__pg.my-retake__pg--nav { min-width: 58px; }
+    &__pg.my-retake__pg--nav { min-width: 58px; height: 44px; }
     &__pg-arrow { display: none; }
     &__pg-label { display: inline; }
     &__desc-row { grid-template-columns: 72px minmax(0, 1fr); }

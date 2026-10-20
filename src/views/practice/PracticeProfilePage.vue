@@ -25,7 +25,12 @@ const configStore = usePracticeConfigStore();
 const config = computed(() => configStore.config);
 
 const loading = ref(true);
-const loadError = ref(false);
+const configError = ref(false);
+const reportError = ref(false);
+const wrongError = ref(false);
+const loadError = computed(() => configError.value || reportError.value || wrongError.value);
+const loggingOut = ref(false);
+let statsPending = false;
 const doneTotal = ref(0);
 const correctTotal = ref(0);
 const wrongTotal = ref(0);
@@ -50,8 +55,12 @@ const accuracy = computed<number>(() =>
 
 /** 加载练题统计：统一走学习报告总览（与报告页同口径，全量 practice_answers 聚合） */
 async function loadStats(): Promise<void> {
+  if (statsPending || loggingOut.value) return;
+  statsPending = true;
   loading.value = true;
-  loadError.value = false;
+  configError.value = false;
+  reportError.value = false;
+  wrongError.value = false;
   try {
     await configStore.load();
     // 功能被后台关闭时接口会 404 → 各自静默降级（不影响另一项统计）
@@ -63,15 +72,19 @@ async function loadStats(): Promise<void> {
         ? practiceApi.reportSummary().catch(() => null)
         : Promise.resolve(null),
     ]);
-    loadError.value = (configStore.config.wrongBookEnabled && !wrongPage) || (configStore.config.reportEnabled && !report);
+    wrongError.value = configStore.config.wrongBookEnabled && !wrongPage;
+    reportError.value = configStore.config.reportEnabled && !report;
     wrongTotal.value = wrongPage?.total ?? 0;
     streakDays.value = report?.streakDays ?? 0;
     doneTotal.value = report?.doneTotal ?? 0;
     correctTotal.value = report?.correctTotal ?? 0;
   } catch {
-    loadError.value = true;
+    configError.value = true;
+    reportError.value = true;
+    wrongError.value = true;
   } finally {
     loading.value = false;
+    statsPending = false;
   }
 }
 
@@ -82,18 +95,15 @@ function goReport(): void {
 
 /** 退出当前系统账号（二次确认） */
 async function handleLogout(): Promise<void> {
+  if (loggingOut.value) return;
+  loggingOut.value = true;
   try {
-    await ElMessageBox.confirm('确认退出当前系统账号？', '退出登录', {
-      confirmButtonText: '退出',
-      cancelButtonText: '取消',
-      type: 'warning',
-    });
-  } catch {
-    return;
-  }
-  practiceAuth.logout();
-  configStore.reset();
-  void router.replace('/login');
+    await ElMessageBox.confirm('确认退出当前系统账号？', '退出登录', { confirmButtonText: '退出', cancelButtonText: '取消', type: 'warning' });
+    practiceAuth.logout();
+    configStore.reset();
+    void router.replace('/login');
+  } catch { /* 取消保留当前会话。 */ }
+  finally { loggingOut.value = false; }
 }
 
 onMounted(loadStats);
@@ -123,29 +133,30 @@ onMounted(loadStats);
       </div>
 
       <!-- 练题统计 -->
-      <div class="pf__section">练题统计</div>
-      <p class="learner-scope">当前账号累计首次作答记录 · 未作答时正确率显示“—”</p>
+      <div class="pf__section pf__section--actions">练题统计<el-button text type="primary" :loading="loading" :disabled="loggingOut" @click="loadStats">刷新统计</el-button></div>
+      <p class="learner-scope">当前账号累计首次作答记录 · 未作答时正确率显示“—”；错题数为当前可见题库中的错题本条数。</p>
       <div class="pf__stats">
         <div class="pf__stat">
-          <span class="pf__num">{{ loading || loadError || !config.reportEnabled ? '—' : doneTotal }}</span>
+          <span class="pf__num">{{ loading || reportError || !config.reportEnabled ? '—' : doneTotal }}</span>
           <span class="pf__label">累计练题</span>
         </div>
         <div class="pf__stat">
-          <span class="pf__num pf__num--ok">{{ loading || loadError || !config.reportEnabled ? '—' : correctTotal }}</span>
+          <span class="pf__num pf__num--ok">{{ loading || reportError || !config.reportEnabled ? '—' : correctTotal }}</span>
           <span class="pf__label">累计答对</span>
         </div>
         <div class="pf__stat">
-          <span class="pf__num">{{ loading || loadError || !doneTotal ? '—' : `${accuracy}%` }}</span>
+          <span class="pf__num">{{ loading || reportError || !config.reportEnabled || !doneTotal ? '—' : `${accuracy}%` }}</span>
           <span class="pf__label">正确率</span>
         </div>
         <div class="pf__stat">
-          <span class="pf__num pf__num--err">{{ loading || loadError || !config.wrongBookEnabled ? '—' : wrongTotal }}</span>
+          <span class="pf__num pf__num--err">{{ loading || wrongError || !config.wrongBookEnabled ? '—' : wrongTotal }}</span>
           <span class="pf__label">错题数</span>
         </div>
       </div>
       <PracticeLoading :loading="loading" compact caption="正在加载练题统计…" />
       <RequestError v-if="loadError" text="练题统计加载失败" @retry="loadStats" />
 
+      <p v-if="!loading && !configError && (!config.reportEnabled || !config.wrongBookEnabled)" class="learner-scope">{{ !config.reportEnabled ? '学习报告统计未开放；' : '' }}{{ !config.wrongBookEnabled ? '错题本统计未开放。' : '' }}</p>
       <!-- 学习（学习报告入口可被后台关闭，v1.9⑤） -->
       <template v-if="config.reportEnabled">
         <div class="pf__section">学习</div>
@@ -154,7 +165,7 @@ onMounted(loadStats);
             <el-icon class="pf__row-icon"><TrendCharts /></el-icon>
             <span class="pf__row-text">学习报告</span>
             <span class="pf__row-tail">
-              <span v-if="streakDays > 0" class="pf__badge">连续 {{ streakDays }} 天</span>
+              <span v-if="!loading && !reportError && streakDays > 0" class="pf__badge">连续 {{ streakDays }} 天</span>
               <span class="pf__row-arrow" aria-hidden="true">›</span>
             </span>
           </button>
@@ -164,7 +175,7 @@ onMounted(loadStats);
       <!-- 账号操作 -->
       <div class="pf__section">账号</div>
       <div class="pf__list">
-        <button type="button" class="pf__row" @click="handleLogout">
+        <button type="button" class="pf__row" :disabled="loggingOut" @click="handleLogout">
           <el-icon class="pf__row-icon pf__row-icon--muted"><SwitchButton /></el-icon>
           <span class="pf__row-text">退出登录</span>
           <span class="pf__row-arrow" aria-hidden="true">›</span>
@@ -228,7 +239,7 @@ onMounted(loadStats);
 
   &__dept {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 6px;
     margin: 6px 0 0;
     font-size: 12px;
@@ -251,7 +262,7 @@ onMounted(loadStats);
   &__dept-value {
     min-width: 0;
     color: $text-secondary;
-    word-break: break-word;
+    overflow-wrap: anywhere;
   }
 
   &__meta {
@@ -262,6 +273,8 @@ onMounted(loadStats);
   }
 
   /* 区块标题：v3.1 去掉左缘竖条 */
+  &__section--actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; .el-button { min-height: 44px; } }
+  &__row:focus-visible { outline: 2px solid $color-primary; outline-offset: -2px; }
   &__section {
     margin: 0 2px 9px;
     font-size: 13px;

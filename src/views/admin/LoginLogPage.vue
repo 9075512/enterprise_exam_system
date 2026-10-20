@@ -13,6 +13,7 @@ import RequestError from '@/components/common/RequestError.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
 import DataTablePagination from '@/components/common/DataTablePagination.vue';
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import type { LoginLog } from '@/types';
 
 const filters = reactive<{
@@ -135,6 +136,7 @@ onMounted(load);
         </el-select>
         <el-date-picker
           v-model="filters.dateRange"
+          popper-class="log-date-range-picker"
           class="login-log__range"
           type="datetimerange"
           range-separator="至"
@@ -148,7 +150,7 @@ onMounted(load);
     </el-card>
 
     <el-card class="login-log__card" data-ui-role="table" shadow="never">
-      <div class="admin-toolbar"><span class="admin-scope">当前筛选范围 · {{ error ? '数量未知' : total + ' 条登录记录' }}</span></div>
+      <div class="admin-toolbar"><span class="admin-scope">当前筛选范围 · {{ loading ? '正在加载' : error ? '数量未知' : total + ' 条登录记录' }}</span></div>
       <RequestError v-if="error" text="登录日志加载失败" @retry="load" />
       <el-table v-else v-loading="loading" :data="logs" row-key="id" stripe>
         <el-table-column label="时间" width="180">
@@ -195,11 +197,13 @@ onMounted(load);
       <template #header>
         <div class="login-log__anomaly-head">
           <span class="login-log__anomaly-title">异常登录提示</span>
-          <el-tag size="small" type="warning" effect="plain">需关注</el-tag>
+          <el-tag v-if="!loading && !error && failedLogs.length > 0" size="small" type="warning" effect="plain">需关注</el-tag>
         </div>
       </template>
 
-      <p v-if="error" class="login-log__anomaly-empty">日志加载失败，暂无法分析异常。</p>
+      <p class="login-log__analysis-scope">仅分析当前筛选结果的当前页，不代表全部登录记录。</p>
+      <LoadingSkeleton v-if="loading" :rows="3" />
+      <p v-else-if="error" class="login-log__anomaly-empty">日志加载失败，暂无法分析异常。</p>
       <template v-else-if="logs.length > 0">
         <div class="login-log__tip">
           <el-icon class="login-log__tip-icon"><Warning /></el-icon>
@@ -225,7 +229,7 @@ onMounted(load);
         <!-- 异地登录需 IP 归属地，登录日志接口未返回，按说明性文案渲染 -->
         <div class="login-log__kv">
           <span class="login-log__kv-k">异地登录</span>
-          <span class="login-log__kv-v login-log__kv-v--muted">暂无法判定（接口未返回 IP 归属地）</span>
+          <span class="login-log__kv-v login-log__kv-v--muted">暂无来源地区信息，无法判定</span>
         </div>
       </template>
 
@@ -282,6 +286,7 @@ onMounted(load);
     font-weight: 600;
     color: $text-primary;
   }
+  &__analysis-scope { margin: 0 0 16px; color: $text-secondary; font-size: 12px; }
 
   &__tip {
     display: flex;
@@ -326,6 +331,8 @@ onMounted(load);
   &__kv-v {
     font-weight: 600;
     color: $text-primary;
+    text-align: right;
+    overflow-wrap: anywhere;
 
     &--muted {
       font-weight: 400;
@@ -340,5 +347,10 @@ onMounted(load);
     font-size: 12.5px;
     color: $text-secondary;
   }
+}
+@media (max-width: 900px) {
+  .login-log__tip { overflow-wrap: anywhere; }
+  .login-log__kv { align-items: flex-start; }
+  .login-log__kv-k { flex: 0 0 44%; }
 }
 </style>

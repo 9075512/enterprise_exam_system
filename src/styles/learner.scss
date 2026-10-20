@@ -130,3 +130,5 @@
 @media (prefers-reduced-motion: reduce) {
   .practice-layout *, .taking * { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+.answering-confirm .el-message-box__message { white-space: pre-line; overflow-wrap: anywhere; line-height: 1.8; }

@@ -23,7 +23,7 @@ vi.mock('@/api/practice', () => ({ listBanks: api.banks, bankTree: api.tree, wro
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ currentUser: { name: '考生甲', role: 'examinee' } }) }));
 vi.mock('@/stores/permissions', () => ({ usePermissionsStore: () => ({ myMenus: ['home', 'my-exams', 'my-scores', 'my-retakes', 'exam-messages', 'practice'] }) }));
 vi.mock('@/stores/practiceAuth', () => ({ usePracticeAuthStore: () => ({ currentUser: { name: '考生甲', role: 'examinee' } }) }));
-vi.mock('@/stores/settings', () => ({ useSettingsStore: () => ({ load: vi.fn(), settings: { defaultPageSize: 20, appealEnabled: true, appealWindowDays: 7, cheatCountThreshold: 5, cheatSecondsThreshold: 60, retakeScorePolicy: 'highest' } }) }));
+vi.mock('@/stores/settings', () => ({ useSettingsStore: () => ({ ready: true, load: vi.fn(), settings: { defaultPageSize: 20, appealEnabled: true, appealWindowDays: 7, cheatCountThreshold: 5, cheatSecondsThreshold: 60, retakeScorePolicy: 'highest' } }) }));
 vi.mock('@/stores/practiceConfig', () => ({ usePracticeConfigStore: () => ({ load: vi.fn(), config: { wrongBookEnabled: true, favoriteEnabled: true, reportEnabled: true, achievementEnabled: false, defaultPracticeMode: 'sequence', sessionMaxCount: 50, sessionMinCount: 1 } }) }));
 let wrapper: VueWrapper;
 function render(component: Parameters<typeof mount>[0]) {
@@ -103,11 +103,11 @@ describe('考生和练题页面的真实数据与错误恢复', () => {
   });
   it('学习报告失败不显示空数据，重试后无样本正确率仍为未知', async () => {
     api.summary.mockRejectedValueOnce(new Error('offline')); render(Report); await flushPromises();
-    expect(wrapper.text()).toContain('学习报告加载失败'); expect(wrapper.text()).not.toContain('暂无可练习的题库');
+    expect(wrapper.text()).toContain('学习报告加载失败'); expect(wrapper.findAll('.rpt__num').every(n => n.text() === '—')).toBe(true);
     await button('重新加载').trigger('click'); await flushPromises(); expect(wrapper.findAll('.rpt__num')[2]!.text()).toBe('—');
   });
   it('练题个人统计请求失败，保留账号与退出入口，统计显示未知', async () => {
     api.summary.mockRejectedValue(new Error('offline')); render(Profile); await flushPromises();
-    expect(wrapper.text()).toContain('练题统计加载失败'); expect(wrapper.findAll('.pf__num').every(n => n.text() === '—')).toBe(true); expect(wrapper.text()).toContain('退出登录');
+    expect(wrapper.text()).toContain('练题统计加载失败'); expect(wrapper.findAll('.pf__num').map(n => n.text())).toEqual(['—', '—', '—', '0']); expect(wrapper.text()).toContain('退出登录');
   });
 });

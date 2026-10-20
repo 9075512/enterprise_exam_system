@@ -20,6 +20,7 @@ withDefaults(
     count: number;
     /** 量词，如「条公告」「道试题」 */
     noun?: string;
+    disabled?: boolean;
   }>(),
   { noun: '项' },
 );
@@ -36,7 +37,7 @@ const emit = defineEmits<{ clear: [] }>();
       <div class="batch-bar__actions">
         <slot />
       </div>
-      <el-button class="batch-bar__clear" link @click="emit('clear')">取消选择</el-button>
+      <el-button class="batch-bar__clear" link :disabled="disabled" @click="emit('clear')">取消选择</el-button>
     </div>
   </transition>
 </template>

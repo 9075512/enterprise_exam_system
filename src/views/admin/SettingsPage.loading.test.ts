@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, shallowMount, type VueWrapper } from '@vue/test-utils';
 import { createPinia } from 'pinia';
-import ElementPlus from 'element-plus';
+import ElementPlus, { ElMessageBox } from 'element-plus';
 import SettingsPage from './SettingsPage.vue';
 import { getSettings, updateSettings } from '@/api/settings';
 import { SETTINGS_DEFAULTS } from '@/constants/settings';
+import { useSettingsStore } from '@/stores/settings';
 
 vi.mock('@/api/settings', () => ({
   getSettings: vi.fn(),
@@ -14,7 +15,7 @@ vi.mock('@/api/settings', () => ({
 
 let wrapper: VueWrapper | undefined;
 beforeEach(() => vi.clearAllMocks());
-afterEach(() => wrapper?.unmount());
+afterEach(() => { wrapper?.unmount(); vi.restoreAllMocks(); });
 
 function mountPage() {
   wrapper = shallowMount(SettingsPage, {
@@ -35,6 +36,34 @@ function mountPage() {
 }
 
 describe('设置页加载保护', () => {
+  it('已有缓存但强制读取失败时，仍提示失败并阻止覆盖保存', async () => {
+    const pinia = createPinia(); const store = useSettingsStore(pinia);
+    vi.mocked(getSettings).mockResolvedValueOnce({ ...SETTINGS_DEFAULTS }); await store.load();
+    vi.mocked(getSettings).mockRejectedValueOnce(new Error('offline'));
+    wrapper = mount(SettingsPage, { global: { plugins: [pinia, ElementPlus] } }); await flushPromises();
+    expect(wrapper.text()).toContain('设置加载失败'); expect(wrapper.findAll('button').find(b => b.text() === '保存设置')!.attributes()).toHaveProperty('disabled');
+  });
+
+  it('异步校验期间阻止重复保存，失败保留全部草稿并展示恢复提示', async () => {
+    vi.mocked(getSettings).mockResolvedValue({ ...SETTINGS_DEFAULTS });
+    const page = mountPage(); await flushPromises();
+    const form = page.findComponent({ name: 'ElForm' }); const draft = form.props('model'); draft.examDefaultDuration = 90; await flushPromises();
+    let validate!: (valid: boolean) => void;
+    vi.spyOn(form.vm, 'validate').mockImplementation((callback: unknown) => { validate = callback as (valid: boolean) => void; });
+    vi.mocked(updateSettings).mockRejectedValue(new Error('offline'));
+    const button = page.get('footer button:last-child'); await button.trigger('click'); await button.trigger('click');
+    expect(form.vm.validate).toHaveBeenCalledTimes(1); expect(form.props('disabled')).toBe(true); expect(updateSettings).not.toHaveBeenCalled();
+    validate(true); await flushPromises(); expect(updateSettings).toHaveBeenCalledTimes(1); expect(draft.examDefaultDuration).toBe(90); expect(page.text()).toContain('所有分类的修改已保留');
+  });
+
+  it('恢复默认确认期间锁定重复点击，取消后保留草稿', async () => {
+    vi.mocked(getSettings).mockResolvedValue({ ...SETTINGS_DEFAULTS }); const page = mountPage(); await flushPromises();
+    const draft = page.findComponent({ name: 'ElForm' }).props('model'); draft.examDefaultDuration = 90; await flushPromises();
+    let cancel!: (reason: string) => void; const confirm = vi.spyOn(ElMessageBox, 'confirm').mockImplementation(() => new Promise((_, reject) => { cancel = reject; }));
+    const button = page.get('footer button:first-of-type'); await button.trigger('click'); await button.trigger('click'); expect(confirm).toHaveBeenCalledTimes(1);
+    cancel('cancel'); await flushPromises(); expect(draft.examDefaultDuration).toBe(90); expect(updateSettings).not.toHaveBeenCalled();
+  });
+
   it('响应未返回时禁止编辑和保存，回填真实配置后才解锁', async () => {
     let resolve!: (value: Awaited<ReturnType<typeof getSettings>>) => void;
     vi.mocked(getSettings).mockReturnValue(new Promise((r) => { resolve = r; }));

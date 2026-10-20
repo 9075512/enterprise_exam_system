@@ -1,0 +1,487 @@
+[
+  {
+    "label": "subject-expanded-390",
+    "current": "当前：集团培训科目目录",
+    "dialogs": [],
+    "overflow": false,
+    "pageWidth": 382,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "subject-selected-390",
+    "current": "当前：安全生产与设备运行管理培训科目ABCDEFGHIJKLMNOPQRSTUVWXYZ移动端长名称完整阅读验证",
+    "dialogs": [],
+    "overflow": false,
+    "pageWidth": 382,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "delete-confirm-390",
+    "current": "当前：安全生产与设备运行管理培训科目ABCDEFGHIJKLMNOPQRSTUVWXYZ移动端长名称完整阅读验证",
+    "dialogs": [
+      {
+        "height": 188,
+        "overflow": false,
+        "width": 358
+      }
+    ],
+    "overflow": false,
+    "pageWidth": 390,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "subject-delete-error-390",
+    "current": "当前：安全生产与设备运行管理培训科目ABCDEFGHIJKLMNOPQRSTUVWXYZ移动端长名称完整阅读验证",
+    "dialogs": [],
+    "overflow": false,
+    "pageWidth": 382,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "clone-initial-390",
+    "current": "当前：安全生产与设备运行管理培训科目ABCDEFGHIJKLMNOPQRSTUVWXYZ移动端长名称完整阅读验证",
+    "dialogs": [
+      {
+        "height": 844,
+        "overflow": false,
+        "width": 382
+      }
+    ],
+    "overflow": false,
+    "pageWidth": 382,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "clone-failure-fullscreen-390",
+    "current": "当前：安全生产与设备运行管理培训科目ABCDEFGHIJKLMNOPQRSTUVWXYZ移动端长名称完整阅读验证",
+    "dialogs": [
+      {
+        "height": 844,
+        "overflow": false,
+        "width": 390
+      }
+    ],
+    "overflow": false,
+    "pageWidth": 390,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "batch-failure-390",
+    "current": "当前：安全生产与设备运行管理培训科目ABCDEFGHIJKLMNOPQRSTUVWXYZ移动端长名称完整阅读验证",
+    "dialogs": [
+      {
+        "height": 844,
+        "overflow": false,
+        "width": 382
+      }
+    ],
+    "overflow": false,
+    "pageWidth": 382,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "subject-expanded-320",
+    "current": "当前：安全生产与设备运行管理培训科目ABCDEFGHIJKLMNOPQRSTUVWXYZ移动端长名称完整阅读验证",
+    "dialogs": [],
+    "overflow": false,
+    "pageWidth": 312,
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "clone-320",
+    "current": "当前：安全生产与设备运行管理培训科目ABCDEFGHIJKLMNOPQRSTUVWXYZ移动端长名称完整阅读验证",
+    "dialogs": [
+      {
+        "height": 740,
+        "overflow": false,
+        "width": 320
+      }
+    ],
+    "overflow": false,
+    "pageWidth": 320,
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "batch-320",
+    "current": "当前：安全生产与设备运行管理培训科目ABCDEFGHIJKLMNOPQRSTUVWXYZ移动端长名称完整阅读验证",
+    "dialogs": [
+      {
+        "height": 740,
+        "overflow": false,
+        "width": 320
+      }
+    ],
+    "overflow": false,
+    "pageWidth": 320,
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "subject-expanded-844",
+    "current": "当前：安全生产与设备运行管理培训科目ABCDEFGHIJKLMNOPQRSTUVWXYZ移动端长名称完整阅读验证",
+    "dialogs": [],
+    "overflow": false,
+    "pageWidth": 836,
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "clone-844",
+    "current": "当前：安全生产与设备运行管理培训科目ABCDEFGHIJKLMNOPQRSTUVWXYZ移动端长名称完整阅读验证",
+    "dialogs": [
+      {
+        "height": 342,
+        "overflow": false,
+        "width": 560
+      }
+    ],
+    "overflow": false,
+    "pageWidth": 844,
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "batch-844",
+    "current": "当前：安全生产与设备运行管理培训科目ABCDEFGHIJKLMNOPQRSTUVWXYZ移动端长名称完整阅读验证",
+    "dialogs": [
+      {
+        "height": 315,
+        "overflow": false,
+        "width": 560
+      }
+    ],
+    "overflow": false,
+    "pageWidth": 844,
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "subject-expanded-1440",
+    "current": "当前：安全生产与设备运行管理培训科目ABCDEFGHIJKLMNOPQRSTUVWXYZ移动端长名称完整阅读验证",
+    "dialogs": [],
+    "overflow": false,
+    "pageWidth": 1432,
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "clone-1440",
+    "current": "当前：安全生产与设备运行管理培训科目ABCDEFGHIJKLMNOPQRSTUVWXYZ移动端长名称完整阅读验证",
+    "dialogs": [
+      {
+        "height": 644,
+        "overflow": false,
+        "width": 560
+      }
+    ],
+    "overflow": false,
+    "pageWidth": 1440,
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "batch-1440",
+    "current": "当前：安全生产与设备运行管理培训科目ABCDEFGHIJKLMNOPQRSTUVWXYZ移动端长名称完整阅读验证",
+    "dialogs": [
+      {
+        "height": 287,
+        "overflow": false,
+        "width": 560
+      }
+    ],
+    "overflow": false,
+    "pageWidth": 1440,
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "bank-directory-320",
+    "current": "当前：集团培训科目目录",
+    "dialogs": [],
+    "overflow": false,
+    "pageWidth": 312,
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "bank-directory-390",
+    "current": "当前：集团培训科目目录",
+    "dialogs": [],
+    "overflow": false,
+    "pageWidth": 382,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "bank-directory-844",
+    "current": "当前：集团培训科目目录",
+    "dialogs": [],
+    "overflow": false,
+    "pageWidth": 836,
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "bank-directory-1440",
+    "current": "当前：集团培训科目目录",
+    "dialogs": [],
+    "overflow": false,
+    "pageWidth": 1432,
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "bank-read-error-390",
+    "dialogs": [],
+    "overflow": false,
+    "pageWidth": 382,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "bank-empty-390",
+    "current": "当前：尚未选择科目",
+    "dialogs": [],
+    "overflow": false,
+    "pageWidth": 382,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "subject-read-error-390",
+    "dialogs": [],
+    "overflow": false,
+    "pageWidth": 382,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "subject-empty-390",
+    "current": "当前：尚未选择科目",
+    "dialogs": [],
+    "overflow": false,
+    "pageWidth": 382,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "live-subject-collapsed-390",
+    "current": "当前：安全知识",
+    "dialogs": [],
+    "overflow": false,
+    "pageWidth": 390,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "live-subject-editor-390",
+    "current": "当前：煤矿安全监测监控作业",
+    "dialogs": [
+      {
+        "height": 844,
+        "overflow": false,
+        "width": 390
+      }
+    ],
+    "overflow": false,
+    "pageWidth": 390,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "live-bank-leaf-390",
+    "current": "当前：煤矿安全监测监控作业",
+    "dialogs": [],
+    "overflow": false,
+    "pageWidth": 390,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "live-bank-leaf-320",
+    "current": "当前：煤矿安全监测监控作业",
+    "dialogs": [],
+    "overflow": false,
+    "pageWidth": 320,
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "live-bank-leaf-1440",
+    "current": "当前：煤矿安全监测监控作业",
+    "dialogs": [],
+    "overflow": false,
+    "pageWidth": 1440,
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "subject-editor-landscape-844",
+    "current": "当前：集团培训科目目录",
+    "dialogs": [
+      {
+        "height": 390,
+        "overflow": false,
+        "width": 844
+      }
+    ],
+    "overflow": false,
+    "pageWidth": 844,
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "subject-editor-320",
+    "current": "当前：集团培训科目目录",
+    "dialogs": [
+      {
+        "height": 740,
+        "overflow": false,
+        "width": 320
+      }
+    ],
+    "overflow": false,
+    "pageWidth": 320,
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "subject-editor-failure-320",
+    "current": "当前：集团培训科目目录",
+    "dialogs": [
+      {
+        "height": 740,
+        "overflow": false,
+        "width": 320
+      }
+    ],
+    "overflow": false,
+    "pageWidth": 320,
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "subject-editor-failure-844",
+    "current": "当前：集团培训科目目录",
+    "dialogs": [
+      {
+        "height": 390,
+        "overflow": false,
+        "width": 844
+      }
+    ],
+    "overflow": false,
+    "pageWidth": 844,
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "subject-editor-failure-1440",
+    "current": "当前：集团培训科目目录",
+    "dialogs": [
+      {
+        "height": 900,
+        "overflow": false,
+        "width": 720
+      }
+    ],
+    "overflow": false,
+    "pageWidth": 1440,
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "clone-invalid-final-390",
+    "current": "当前：集团培训科目目录",
+    "dialogs": [
+      {
+        "height": 844,
+        "overflow": false,
+        "width": 390
+      }
+    ],
+    "overflow": false,
+    "pageWidth": 390,
+    "viewport": [
+      390,
+      844
+    ]
+  }
+]

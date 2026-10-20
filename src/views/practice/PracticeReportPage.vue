@@ -9,12 +9,14 @@
  *   - `GET /api/practice/report/banks`    开放题库概览
  *   - `GET /api/practice/daily`           今日任务（每日一练关闭时 enabled=false）
  *
- * 仅移动端；视觉沿用「冷静蓝 · 商务风」。
+ * 桌面与移动端统一采用 Workbuddy 白卡、蓝色操作与16 px圆角。
  */
 import { computed, onMounted, ref } from 'vue';
+import { useRequest } from '@/composables/useRequest';
 import { useRouter } from 'vue-router';
 import PracticeLayout from '@/layouts/PracticeLayout.vue';
 import RequestError from '@/components/common/RequestError.vue';
+import EmptyState from '@/components/common/EmptyState.vue';
 import PracticeLoading from '@/components/common/PracticeLoading.vue';
 import PagedOverview from '@/components/common/PagedOverview.vue';
 import PracticeTrendChart from './components/PracticeTrendChart.vue';
@@ -22,9 +24,6 @@ import * as practiceApi from '@/api/practice';
 import { usePracticeAuthStore } from '@/stores/practiceAuth';
 import type {
   PracticeBankStat,
-  PracticeDailyTask,
-  PracticeReportSummary,
-  PracticeSubjectStat,
   PracticeTrendPoint,
 } from '@/types';
 
@@ -32,14 +31,17 @@ const router = useRouter();
 const practiceAuth = usePracticeAuthStore();
 
 const loading = ref(true);
-const loadError = ref(false);
+const requestOptions = { immediate: false, keepPreviousData: false };
+const { data: summary, loading: summaryLoading, error: loadError, refresh: loadSummary } = useRequest(practiceApi.reportSummary, [], requestOptions);
+const { data: subjectData, loading: subjectsLoading, error: subjectsError, refresh: loadSubjects } = useRequest(practiceApi.reportSubjects, [], requestOptions);
+const { data: bankData, loading: banksLoading, error: banksError, refresh: loadBanks } = useRequest(practiceApi.reportBanks, [], requestOptions);
+const { data: daily, loading: dailyLoading, error: dailyError, refresh: loadDaily } = useRequest(practiceApi.daily, [], requestOptions);
+const subjects = computed(() => subjectData.value ?? []);
+const banks = computed(() => bankData.value ?? []);
 const trendError = ref(false);
 const requestedDays = ref<7 | 30>(7);
-const summary = ref<PracticeReportSummary | null>(null);
 const trend = ref<PracticeTrendPoint[]>([]);
-const subjects = ref<PracticeSubjectStat[]>([]);
-const banks = ref<PracticeBankStat[]>([]);
-const daily = ref<PracticeDailyTask | null>(null);
+let reportPending = false;
 
 /** 趋势区间（7 / 30 天） */
 const trendDays = ref<7 | 30>(7);
@@ -76,43 +78,29 @@ function accTone(acc: number): string {
 
 /** 加载全部报告数据 */
 async function load(): Promise<void> {
+  if (reportPending || trendLoading.value) return;
+  reportPending = true;
   loading.value = true;
-  loadError.value = false;
-  try {
-    const [s, t, sub, b, d] = await Promise.all([
-      practiceApi.reportSummary(),
-      practiceApi.reportTrend(trendDays.value),
-      practiceApi.reportSubjects(),
-      practiceApi.reportBanks(),
-      practiceApi.daily().catch(() => null),
-    ]);
-    summary.value = s;
-    trend.value = t;
-    subjects.value = sub;
-    banks.value = b;
-    daily.value = d;
-  } catch {
-    loadError.value = true;
-  } finally {
-    loading.value = false;
-  }
+  try { await Promise.all([loadSummary(), loadSubjects(), loadBanks(), loadDaily(), loadTrend(trendDays.value)]); }
+  finally { reportPending = false; loading.value = false; }
+}
+
+async function loadTrend(days: 7 | 30): Promise<void> {
+  requestedDays.value = days;
+  trendLoading.value = true;
+  trendError.value = false;
+  try { trend.value = await practiceApi.reportTrend(days); trendDays.value = days; }
+  catch { trendError.value = true; }
+  finally { trendLoading.value = false; }
 }
 
 /** 切换趋势区间 */
 async function switchDays(days: 7 | 30): Promise<void> {
   if ((trendDays.value === days && !trendError.value) || trendLoading.value) return;
-  requestedDays.value = days;
-  trendLoading.value = true;
-  trendError.value = false;
-  try {
-    trend.value = await practiceApi.reportTrend(days);
-    trendDays.value = days;
-  } catch {
-    trendError.value = true;
-  } finally {
-    trendLoading.value = false;
-  }
+  await loadTrend(days);
 }
+
+function goPracticeHome(): void { void router.push({ name: 'practice-home' }); }
 
 /** 去完成今日一练 */
 function goDaily(): void {
@@ -135,7 +123,6 @@ onMounted(load);
 
     <div class="rpt">
       <PracticeLoading v-if="loading" :loading="loading" :rows="6" caption="正在加载学习报告…" />
-      <RequestError v-else-if="loadError" text="学习报告加载失败" @retry="load" />
 
       <template v-else>
         <!-- 总览 -->
@@ -145,31 +132,36 @@ onMounted(load);
             <p class="rpt__hero-sub">基于每次练习的首次作答记录统计</p>
           </div>
           <div class="rpt__streak">
-            <span class="rpt__streak-num">{{ summary?.streakDays ?? 0 }}</span>
+            <span class="rpt__streak-num">{{ summaryLoading || loadError ? '—' : summary?.streakDays ?? '—' }}</span>
             <span class="rpt__streak-label">连续打卡（天）</span>
           </div>
+          <el-button :disabled="trendLoading" @click="load">刷新报告</el-button>
         </div>
 
         <div class="rpt__stats">
           <div class="rpt__stat">
-            <span class="rpt__num">{{ summary?.doneTotal ?? 0 }}</span>
+            <span class="rpt__num">{{ summaryLoading || loadError ? '—' : summary?.doneTotal ?? '—' }}</span>
             <span class="rpt__label">累计练题</span>
           </div>
           <div class="rpt__stat">
-            <span class="rpt__num rpt__num--ok">{{ summary?.correctTotal ?? 0 }}</span>
+            <span class="rpt__num rpt__num--ok">{{ summaryLoading || loadError ? '—' : summary?.correctTotal ?? '—' }}</span>
             <span class="rpt__label">累计答对</span>
           </div>
           <div class="rpt__stat">
-            <span class="rpt__num">{{ summary?.doneTotal ? `${summary.accuracy}%` : '—' }}</span>
+            <span class="rpt__num">{{ !summaryLoading && !loadError && summary?.doneTotal ? `${summary.accuracy}%` : '—' }}</span>
             <span class="rpt__label">正确率</span>
           </div>
           <div class="rpt__stat">
-            <span class="rpt__num rpt__num--err">{{ summary?.wrongTotal ?? 0 }}</span>
+            <span class="rpt__num rpt__num--err">{{ summaryLoading || loadError ? '—' : summary?.wrongTotal ?? '—' }}</span>
             <span class="rpt__label">错题数</span>
           </div>
         </div>
 
+        <RequestError v-if="loadError" text="学习报告加载失败（总览统计暂不可用）" @retry="loadSummary" />
+        <p class="learner-scope">当前账号累计首次作答记录；错题数为当前可见题库中的错题本条数，趋势限所选7 / 30天；未作答正确率显示“—”。</p>
         <!-- 今日一练 -->
+        <RequestError v-if="dailyError" text="今日一练状态加载失败" @retry="loadDaily" />
+        <PracticeLoading v-if="dailyLoading" :loading="true" compact caption="正在读取今日一练…" />
         <template v-if="dailyAvailable">
           <div class="rpt__section">今日一练</div>
           <div class="rpt__daily">
@@ -221,8 +213,10 @@ onMounted(load);
         <!-- 科目掌握度 -->
         <div class="rpt__section">科目掌握度</div>
         <div class="rpt__card">
-          <p v-if="subjects.length === 0" class="rpt__empty">还没有作答记录，先去练几道题吧</p>
-          <PagedOverview :items="subjects" title="科目掌握度">
+          <PracticeLoading v-if="subjectsLoading" :loading="true" compact caption="正在读取科目掌握度…" />
+          <RequestError v-else-if="subjectsError" text="科目掌握度加载失败" @retry="loadSubjects" />
+          <EmptyState v-else-if="subjects.length === 0" text="还没有作答记录，先去练几道题吧" action-text="去练题" @action="goPracticeHome" />
+          <PagedOverview v-if="!subjectsLoading && !subjectsError" :items="subjects" title="科目掌握度" dialog-class="learning-overview-dialog">
             <template #default="{ items }">
               <div v-for="item in items" :key="item.subject" class="rpt__subject">
                 <div class="rpt__subject-top">
@@ -246,8 +240,10 @@ onMounted(load);
         <!-- 题库概览 -->
         <div class="rpt__section">题库进度</div>
         <div class="rpt__card">
-          <p v-if="banks.length === 0" class="rpt__empty">暂无可练习的题库</p>
-          <PagedOverview :items="banks" title="题库进度">
+          <PracticeLoading v-if="banksLoading" :loading="true" compact caption="正在读取题库进度…" />
+          <RequestError v-else-if="banksError" text="题库进度加载失败" @retry="loadBanks" />
+          <EmptyState v-else-if="banks.length === 0" text="暂无可练习的题库" action-text="返回练题首页" @action="goPracticeHome" />
+          <PagedOverview v-if="!banksLoading && !banksError" :items="banks" title="题库进度" dialog-class="learning-overview-dialog">
             <template #default="{ items }">
               <button
                 v-for="item in items"
@@ -284,9 +280,8 @@ onMounted(load);
 .rpt {
   &__user {
     max-width: 120px;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    overflow-wrap: anywhere;
+    white-space: normal;
   }
 
   &__skeleton {
@@ -300,15 +295,18 @@ onMounted(load);
     }
   }
 
-  /* 顶部：标题 + 连续打卡（主色实底卡，设计图 .rp__hero） */
+  /* 顶部：标题、连续打卡与刷新入口，统一白色卡片。 */
   &__hero {
     display: flex;
+    flex-wrap: wrap;
+    .el-button { min-height: 44px; }
     align-items: center;
     gap: 12px;
     padding: 16px;
     margin-bottom: 10px;
-    background: $practice-primary;
-    color: #fff;
+    background: $bg-paper;
+    border: 1px solid $border-color;
+    color: $text-primary;
     border-radius: $practice-radius;
   }
 
@@ -316,7 +314,7 @@ onMounted(load);
     margin: 0;
     font-size: 17px;
     font-weight: 660;
-    color: #fff;
+    color: $text-primary;
   }
 
   &__hero-sub {
@@ -338,8 +336,9 @@ onMounted(load);
     font-weight: 700;
     letter-spacing: -0.03em;
     line-height: 1;
-    color: #fff;
+    color: $text-primary;
     font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
   }
 
   &__streak-label {
@@ -369,6 +368,7 @@ onMounted(load);
     line-height: 1.1;
     color: $text-primary;
     font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
 
     &--ok {
       color: $color-success-text;
@@ -460,7 +460,7 @@ onMounted(load);
 
     :deep(.el-button) {
       flex: 0 0 auto;
-      height: 30px;
+      min-height: 44px;
       padding: 0 13px;
       border: none;
       border-radius: $radius-sm;
@@ -516,6 +516,7 @@ onMounted(load);
   }
 
   &__subject-top {
+    flex-wrap: wrap;
     display: flex;
     align-items: center;
     gap: 7px;
@@ -524,9 +525,8 @@ onMounted(load);
 
   &__subject-name {
     min-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    overflow-wrap: anywhere;
+    white-space: normal;
     font-size: 12.5px;
     font-weight: 580;
     color: $text-primary;
@@ -552,6 +552,7 @@ onMounted(load);
     font-weight: 640;
     color: $text-primary;
     font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
 
     &.is-ok {
       color: $color-success-text;
@@ -607,7 +608,9 @@ onMounted(load);
     }
   }
 
+  &__bank:focus-visible { outline: 2px solid $color-primary; outline-offset: 2px; }
   &__bank-top {
+    flex-wrap: wrap;
     display: flex;
     align-items: center;
     gap: 7px;
@@ -616,9 +619,8 @@ onMounted(load);
 
   &__bank-name {
     min-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    overflow-wrap: anywhere;
+    white-space: normal;
     font-size: 12.5px;
     font-weight: 580;
     color: $text-primary;
@@ -631,6 +633,7 @@ onMounted(load);
     font-weight: 640;
     color: $text-secondary;
     font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
   }
 
   &__bank-meta {
@@ -645,5 +648,10 @@ onMounted(load);
     line-height: 1.7;
     color: $text-secondary;
   }
+}
+@media (max-width: 600px) {
+  :global(.learning-overview-dialog.el-dialog.el-dialog) { width: 100%; max-width: 100%; height: 100dvh; max-height: 100dvh; margin: 0 !important; border-radius: 0; }
+  :global(.learning-overview-dialog.el-dialog .el-dialog__body) { flex: 1; }
+  :global(.learning-overview-dialog.el-dialog .el-dialog__footer) { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
 }
 </style>

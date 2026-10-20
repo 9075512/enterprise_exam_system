@@ -71,7 +71,7 @@ const analysisVisible = computed<boolean>(() => props.result.analysisVisible !==
 .feedback {
   margin-top: 12px;
   padding: 12px 13px;
-  border-radius: $radius-sm;
+  border-radius: $radius-lg;
   border: 1px solid transparent;
   background: $bg-paper;
   animation: feedback-in 0.2s ease-out;

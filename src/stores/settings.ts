@@ -63,6 +63,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const publicSettings = ref<PublicSettings>(readCachedPublicSettings());
   const ready = ref(false);
   const loading = ref(false);
+  const lastLoadFailed = ref(false);
   let inflight: Promise<void> | null = null;
   let publicInflight: Promise<void> | null = null;
   let revision = 0;
@@ -81,6 +82,7 @@ export const useSettingsStore = defineStore('settings', () => {
     if (inflight) return inflight;
     if (ready.value && !force) return;
     loading.value = true;
+    lastLoadFailed.value = false;
     const currentRevision = revision;
     inflight = (async () => {
       try {
@@ -90,6 +92,7 @@ export const useSettingsStore = defineStore('settings', () => {
           ready.value = true;
         }
       } catch {
+        lastLoadFailed.value = true;
         /* 静默：保留默认值，下次调用可重试 */
       } finally {
         loading.value = false;
@@ -137,6 +140,7 @@ export const useSettingsStore = defineStore('settings', () => {
     publicSettings,
     ready,
     loading,
+    lastLoadFailed,
     load,
     loadPublic,
     save,

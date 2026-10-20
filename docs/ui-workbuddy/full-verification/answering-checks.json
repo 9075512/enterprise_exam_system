@@ -1,0 +1,885 @@
+[
+  {
+    "label": "exam-390",
+    "fixedActions": [
+      {
+        "bottom": 834,
+        "height": 44,
+        "text": "答题卡"
+      },
+      {
+        "bottom": 834,
+        "height": 44,
+        "text": "暂存退出"
+      },
+      {
+        "bottom": 834,
+        "height": 44,
+        "text": "交卷"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 382,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "exam-confirm-390",
+    "fixedActions": [
+      {
+        "bottom": 834,
+        "height": 44,
+        "text": "答题卡"
+      },
+      {
+        "bottom": 834,
+        "height": 44,
+        "text": "暂存退出"
+      },
+      {
+        "bottom": 834,
+        "height": 44,
+        "text": "交卷"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 390,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 260,
+        "horizontalOverflow": false,
+        "width": 358
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "exam-sheet-390",
+    "fixedActions": [
+      {
+        "bottom": 834,
+        "height": 44,
+        "text": "答题卡"
+      },
+      {
+        "bottom": 834,
+        "height": 44,
+        "text": "暂存退出"
+      },
+      {
+        "bottom": 834,
+        "height": 44,
+        "text": "交卷"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 390,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 633,
+        "horizontalOverflow": false,
+        "width": 390
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "exam-save-failure-390",
+    "fixedActions": [
+      {
+        "bottom": 834,
+        "height": 44,
+        "text": "答题卡"
+      },
+      {
+        "bottom": 834,
+        "height": 44,
+        "text": "暂存退出"
+      },
+      {
+        "bottom": 834,
+        "height": 44,
+        "text": "交卷"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 382,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "exam-320",
+    "fixedActions": [
+      {
+        "bottom": 730,
+        "height": 44,
+        "text": "答题卡"
+      },
+      {
+        "bottom": 730,
+        "height": 44,
+        "text": "暂存退出"
+      },
+      {
+        "bottom": 730,
+        "height": 44,
+        "text": "交卷"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 312,
+    "panels": [],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "exam-confirm-320",
+    "fixedActions": [
+      {
+        "bottom": 730,
+        "height": 44,
+        "text": "答题卡"
+      },
+      {
+        "bottom": 730,
+        "height": 44,
+        "text": "暂存退出"
+      },
+      {
+        "bottom": 730,
+        "height": 44,
+        "text": "交卷"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 320,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 260,
+        "horizontalOverflow": false,
+        "width": 288
+      }
+    ],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "exam-844",
+    "fixedActions": [
+      {
+        "bottom": 380,
+        "height": 44,
+        "text": "答题卡"
+      },
+      {
+        "bottom": 380,
+        "height": 44,
+        "text": "暂存退出"
+      },
+      {
+        "bottom": 380,
+        "height": 44,
+        "text": "交卷"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 836,
+    "panels": [],
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "exam-confirm-844",
+    "fixedActions": [
+      {
+        "bottom": 380,
+        "height": 44,
+        "text": "答题卡"
+      },
+      {
+        "bottom": 380,
+        "height": 44,
+        "text": "暂存退出"
+      },
+      {
+        "bottom": 380,
+        "height": 44,
+        "text": "交卷"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 844,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 236,
+        "horizontalOverflow": false,
+        "width": 420
+      }
+    ],
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "exam-1440",
+    "fixedActions": [
+      {
+        "bottom": 78,
+        "height": 44,
+        "text": "暂存退出"
+      },
+      {
+        "bottom": 78,
+        "height": 44,
+        "text": "交卷"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 1432,
+    "panels": [],
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "exam-confirm-1440",
+    "fixedActions": [
+      {
+        "bottom": 114,
+        "height": 36,
+        "text": "暂存退出"
+      },
+      {
+        "bottom": 114,
+        "height": 36,
+        "text": "交卷"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 1440,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 228,
+        "horizontalOverflow": false,
+        "width": 420
+      }
+    ],
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "exam-submit-failure-390",
+    "fixedActions": [
+      {
+        "bottom": 834,
+        "height": 44,
+        "text": "答题卡"
+      },
+      {
+        "bottom": 834,
+        "height": 44,
+        "text": "暂存退出"
+      },
+      {
+        "bottom": 834,
+        "height": 44,
+        "text": "交卷"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 382,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "exam-result-390",
+    "fixedActions": [
+      {
+        "bottom": 834,
+        "height": 44,
+        "text": "答题卡"
+      },
+      {
+        "bottom": 834,
+        "height": 44,
+        "text": "暂存退出"
+      },
+      {
+        "bottom": 834,
+        "height": 44,
+        "text": "交卷"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 390,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 538,
+        "horizontalOverflow": false,
+        "width": 358
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "practice-check-failure-390",
+    "fixedActions": [
+      {
+        "bottom": 830,
+        "height": 44,
+        "text": "提交本题"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 382,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "feedback-invalid-390",
+    "fixedActions": [
+      {
+        "bottom": 830,
+        "height": 44,
+        "text": "题目纠错"
+      },
+      {
+        "bottom": 830,
+        "height": 44,
+        "text": "重做本题"
+      },
+      {
+        "bottom": 830,
+        "height": 44,
+        "text": "下一题 ›"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 390,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 844,
+        "horizontalOverflow": false,
+        "width": 390
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "feedback-error-390",
+    "fixedActions": [
+      {
+        "bottom": 830,
+        "height": 44,
+        "text": "题目纠错"
+      },
+      {
+        "bottom": 830,
+        "height": 44,
+        "text": "重做本题"
+      },
+      {
+        "bottom": 830,
+        "height": 44,
+        "text": "下一题 ›"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 390,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 844,
+        "horizontalOverflow": false,
+        "width": 390
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "feedback-error-320",
+    "fixedActions": [
+      {
+        "bottom": 726,
+        "height": 44,
+        "text": "题目纠错"
+      },
+      {
+        "bottom": 726,
+        "height": 44,
+        "text": "重做本题"
+      },
+      {
+        "bottom": 726,
+        "height": 44,
+        "text": "下一题 ›"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 320,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 740,
+        "horizontalOverflow": false,
+        "width": 320
+      }
+    ],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "feedback-error-844",
+    "fixedActions": [
+      {
+        "bottom": 376,
+        "height": 44,
+        "text": "题目纠错"
+      },
+      {
+        "bottom": 376,
+        "height": 44,
+        "text": "重做本题"
+      },
+      {
+        "bottom": 376,
+        "height": 44,
+        "text": "下一题 ›"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 844,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 342,
+        "horizontalOverflow": false,
+        "width": 600
+      }
+    ],
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "feedback-error-1440",
+    "fixedActions": [
+      {
+        "bottom": 843,
+        "height": 44,
+        "text": "题目纠错"
+      },
+      {
+        "bottom": 843,
+        "height": 44,
+        "text": "重做本题"
+      },
+      {
+        "bottom": 843,
+        "height": 44,
+        "text": "下一题 ›"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 1440,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 518,
+        "horizontalOverflow": false,
+        "width": 600
+      }
+    ],
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "practice-result-hidden-320",
+    "fixedActions": [
+      {
+        "bottom": 726,
+        "height": 44,
+        "text": "题目纠错"
+      },
+      {
+        "bottom": 726,
+        "height": 44,
+        "text": "重做本题"
+      },
+      {
+        "bottom": 726,
+        "height": 44,
+        "text": "下一题 ›"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 312,
+    "panels": [],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "practice-sheet-320",
+    "fixedActions": [
+      {
+        "bottom": 726,
+        "height": 44,
+        "text": "题目纠错"
+      },
+      {
+        "bottom": 726,
+        "height": 44,
+        "text": "重做本题"
+      },
+      {
+        "bottom": 726,
+        "height": 44,
+        "text": "下一题 ›"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 320,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 518,
+        "horizontalOverflow": false,
+        "width": 320
+      }
+    ],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "practice-result-hidden-390",
+    "fixedActions": [
+      {
+        "bottom": 830,
+        "height": 44,
+        "text": "题目纠错"
+      },
+      {
+        "bottom": 830,
+        "height": 44,
+        "text": "重做本题"
+      },
+      {
+        "bottom": 830,
+        "height": 44,
+        "text": "下一题 ›"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 382,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "practice-sheet-390",
+    "fixedActions": [
+      {
+        "bottom": 830,
+        "height": 44,
+        "text": "题目纠错"
+      },
+      {
+        "bottom": 830,
+        "height": 44,
+        "text": "重做本题"
+      },
+      {
+        "bottom": 830,
+        "height": 44,
+        "text": "下一题 ›"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 390,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 591,
+        "horizontalOverflow": false,
+        "width": 390
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "practice-result-hidden-844",
+    "fixedActions": [
+      {
+        "bottom": 376,
+        "height": 44,
+        "text": "题目纠错"
+      },
+      {
+        "bottom": 376,
+        "height": 44,
+        "text": "重做本题"
+      },
+      {
+        "bottom": 376,
+        "height": 44,
+        "text": "下一题 ›"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 836,
+    "panels": [],
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "practice-sheet-844",
+    "fixedActions": [
+      {
+        "bottom": 376,
+        "height": 44,
+        "text": "题目纠错"
+      },
+      {
+        "bottom": 376,
+        "height": 44,
+        "text": "重做本题"
+      },
+      {
+        "bottom": 376,
+        "height": 44,
+        "text": "下一题 ›"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 844,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 390,
+        "horizontalOverflow": false,
+        "width": 844
+      }
+    ],
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "practice-result-hidden-1440",
+    "fixedActions": [
+      {
+        "bottom": 819,
+        "height": 44,
+        "text": "题目纠错"
+      },
+      {
+        "bottom": 819,
+        "height": 44,
+        "text": "重做本题"
+      },
+      {
+        "bottom": 819,
+        "height": 44,
+        "text": "下一题 ›"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 1432,
+    "panels": [],
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "practice-sheet-1440",
+    "fixedActions": [
+      {
+        "bottom": 742,
+        "height": 42,
+        "text": "题目纠错"
+      },
+      {
+        "bottom": 742,
+        "height": 42,
+        "text": "重做本题"
+      },
+      {
+        "bottom": 742,
+        "height": 42,
+        "text": "下一题 ›"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 1440,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 630,
+        "horizontalOverflow": false,
+        "width": 1440
+      }
+    ],
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "feedback-final-landscape",
+    "fixedActions": [
+      {
+        "bottom": 376,
+        "height": 44,
+        "text": "题目纠错"
+      },
+      {
+        "bottom": 376,
+        "height": 44,
+        "text": "重做本题"
+      },
+      {
+        "bottom": 376,
+        "height": 44,
+        "text": "下一题 ›"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 844,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 342,
+        "horizontalOverflow": false,
+        "width": 600
+      }
+    ],
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "practice-sheet-final-390",
+    "fixedActions": [
+      {
+        "bottom": 830,
+        "height": 44,
+        "text": "题目纠错"
+      },
+      {
+        "bottom": 830,
+        "height": 44,
+        "text": "重做本题"
+      },
+      {
+        "bottom": 830,
+        "height": 44,
+        "text": "下一题 ›"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 390,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 591,
+        "horizontalOverflow": false,
+        "width": 390
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "practice-load-error-390",
+    "fixedActions": [],
+    "pageOverflow": false,
+    "pageWidth": 382,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "practice-load-recovered-390",
+    "fixedActions": [
+      {
+        "bottom": 830,
+        "height": 44,
+        "text": "提交本题"
+      }
+    ],
+    "pageOverflow": false,
+    "pageWidth": 382,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ]
+  }
+]

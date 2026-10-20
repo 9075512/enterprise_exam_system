@@ -32,6 +32,7 @@ import { NOTIFY_TEMPLATES_DEFAULT, NOTIFY_TEMPLATE_META } from '@/constants';
 import { useSettingsStore } from '@/stores/settings';
 import { focusFirstFormError } from '@/composables/useFormFocus';
 import PageHeader from '@/components/common/PageHeader.vue';
+import { vInputNumberAria } from '@/directives/inputNumberAria';
 import type { NotifyTemplateKey, SystemSettings } from '@/types';
 
 const settingsStore = useSettingsStore();
@@ -300,6 +301,7 @@ const tpl = computed(() => form.notifyTemplates[tplKey.value]);
 
 /** 重置当前事件模板为内置默认文案 */
 function resetTpl(): void {
+  if (formLocked.value) return;
   form.notifyTemplates[tplKey.value] = { ...NOTIFY_TEMPLATES_DEFAULT[tplKey.value] };
   ElMessage.success('已恢复该事件的默认文案');
 }
@@ -307,15 +309,20 @@ function resetTpl(): void {
 /* ------------------------------ 加载 ------------------------------ */
 const loading = ref(true);
 const loadFailed = ref(false);
-const formLocked = computed(() => loading.value || loadFailed.value || saving.value);
+const validating = ref(false);
+const resetting = ref(false);
+const saveError = ref('');
+const formLocked = computed(() => loading.value || loadFailed.value || saving.value || validating.value || resetting.value);
+function canLeaveTab(): boolean { return !formLocked.value; }
 
 async function loadSettings(): Promise<void> {
+  if (saving.value || validating.value || resetting.value) return;
   loading.value = true;
   loadFailed.value = false;
   try {
     await settingsStore.load(true);
     // 首次加载失败时不能将默认值当成服务端配置保存回去。
-    if (!settingsStore.ready) {
+    if (!settingsStore.ready || settingsStore.lastLoadFailed) {
       loadFailed.value = true;
       return;
     }
@@ -324,6 +331,7 @@ async function loadSettings(): Promise<void> {
       notifyTemplates: cloneTemplates(settingsStore.settings.notifyTemplates),
     });
     savedSnapshot.value = JSON.stringify(form);
+    saveError.value = '';
   } finally {
     loading.value = false;
   }
@@ -334,15 +342,24 @@ onMounted(loadSettings);
 /* ------------------------------ 保存 ------------------------------ */
 async function handleSave(): Promise<void> {
   if (formLocked.value || !formRef.value) return;
+  validating.value = true;
+  saveError.value = '';
 
   // 使用回调式校验以拿到 invalidFields（用于自动定位出错配置域）
-  const [valid, invalidFields] = await new Promise<
-    [boolean, Record<string, unknown> | undefined]
-  >((resolve) => {
-    formRef.value!.validate((ok, fields) => {
-      resolve([ok, fields as Record<string, unknown> | undefined]);
+  let result: [boolean, Record<string, unknown> | undefined];
+  try {
+    result = await new Promise<[boolean, Record<string, unknown> | undefined]>((resolve) => {
+      formRef.value!.validate((ok, fields) => {
+        resolve([ok, fields as Record<string, unknown> | undefined]);
+      });
     });
-  });
+  } catch {
+    saveError.value = '校验未完成，请检查表单后重试。';
+    return;
+  } finally {
+    validating.value = false;
+  }
+  const [valid, invalidFields] = result;
 
   if (!valid) {
     const firstField = Object.keys(invalidFields ?? {})[0];
@@ -370,7 +387,7 @@ async function handleSave(): Promise<void> {
     savedSnapshot.value = JSON.stringify(form);
     ElMessage.success('设置已保存，已全局生效');
   } catch {
-    // 错误提示已由 http.ts 响应拦截器统一弹出
+    saveError.value = '保存失败，所有分类的修改已保留，请重试。';
   } finally {
     saving.value = false;
   }
@@ -379,21 +396,27 @@ async function handleSave(): Promise<void> {
 /* ------------------------------ 恢复默认 ------------------------------ */
 async function handleReset(): Promise<void> {
   if (formLocked.value) return;
-  const ok = await ElMessageBox.confirm(
-    '将恢复所有分类的默认设置。恢复后需点击「保存设置」才会生效。',
-    '恢复全部默认设置',
-    { confirmButtonText: '恢复默认', cancelButtonText: '取消', type: 'warning' },
-  )
-    .then(() => true)
-    .catch(() => false);
-  if (!ok) return;
+  resetting.value = true;
+  try {
+    const ok = await ElMessageBox.confirm(
+      '将恢复所有分类的默认设置。恢复后需点击「保存设置」才会生效。',
+      '恢复全部默认设置',
+      { confirmButtonText: '恢复默认', cancelButtonText: '取消', type: 'warning' },
+    )
+      .then(() => true)
+      .catch(() => false);
+    if (!ok) return;
 
-  const defaults = settingsStore.resetToDefaults();
-  Object.assign(form, defaults, {
-    gradeBands: defaults.gradeBands.map((band) => ({ ...band })),
-    notifyTemplates: cloneTemplates(defaults.notifyTemplates),
-  });
-  formRef.value?.clearValidate();
+    const defaults = settingsStore.resetToDefaults();
+    Object.assign(form, defaults, {
+      gradeBands: defaults.gradeBands.map((band) => ({ ...band })),
+      notifyTemplates: cloneTemplates(defaults.notifyTemplates),
+    });
+    formRef.value?.clearValidate();
+    saveError.value = '';
+  } finally {
+    resetting.value = false;
+  }
 }
 </script>
 
@@ -407,6 +430,8 @@ async function handleReset(): Promise<void> {
       <template #title>设置加载失败，请重试后再编辑。</template>
       <el-button @click="loadSettings">重新加载</el-button>
     </el-alert>
+    <p class="admin-scope">所有分类统一保存后生效；恢复默认只修改当前草稿。安全策略、通知渠道与考务规则按原有权限及校验执行。</p>
+    <p v-if="saveError" class="settings-page__error" role="alert">{{ saveError }}</p>
 
     <el-form
       v-loading="loading"
@@ -419,7 +444,7 @@ async function handleReset(): Promise<void> {
       class="settings-page__form"
     >
       <!-- 加载成功后再挂载控件，避免数值输入框保留初始化时的禁用语义。 -->
-      <el-tabs v-if="!loading && !loadFailed" ref="settingsTabsRef" v-model="activeTab" :tab-position="settingsTabPosition" class="settings-page__tabs">
+      <el-tabs v-if="!loading && !loadFailed" ref="settingsTabsRef" v-model="activeTab" :before-leave="canLeaveTab" :tab-position="settingsTabPosition" class="settings-page__tabs">
         <el-tab-pane label="考试默认值" name="exam">
           <template #label><span class="settings-page__nav-label"><el-icon><component :is="TAB_ICONS.exam" /></el-icon><span>{{ TAB_LABEL.exam }}</span></span></template>
       <el-card shadow="never" class="settings-page__card settings-page__card--exam">
@@ -435,7 +460,7 @@ async function handleReset(): Promise<void> {
               </template>
               <div class="settings-page__control">
                 <div class="settings-page__number-unit">
-                  <el-input-number v-model="form.examDefaultDuration" :min="1" :max="600" :step="5" :controls="false" class="settings-page__num" />
+                  <el-input-number v-input-number-aria v-model="form.examDefaultDuration" :min="1" :max="600" :step="5" :controls="false" class="settings-page__num" />
                   <span>分钟</span>
                 </div>
               </div>
@@ -447,7 +472,7 @@ async function handleReset(): Promise<void> {
               </template>
               <div class="settings-page__control">
                 <div class="settings-page__number-unit">
-                  <el-input-number v-model="form.examDefaultPassScore" :min="1" :max="1000" :step="1" :controls="false" class="settings-page__num" />
+                  <el-input-number v-input-number-aria v-model="form.examDefaultPassScore" :min="1" :max="1000" :step="1" :controls="false" class="settings-page__num" />
                   <span>分</span>
                 </div>
               </div>
@@ -459,7 +484,7 @@ async function handleReset(): Promise<void> {
               </template>
               <div class="settings-page__control">
                 <div class="settings-page__number-unit">
-                  <el-input-number v-model="form.examDefaultMaxAttempts" :min="1" :max="10" :step="1" :controls="false" class="settings-page__num" />
+                  <el-input-number v-input-number-aria v-model="form.examDefaultMaxAttempts" :min="1" :max="10" :step="1" :controls="false" class="settings-page__num" />
                   <span>次</span>
                 </div>
               </div>
@@ -473,7 +498,7 @@ async function handleReset(): Promise<void> {
           <div class="settings-page__advanced-body">
             <el-form-item label="组卷难度系数目标值" prop="paperTargetDifficulty">
               <div class="settings-page__control">
-                <el-input-number
+                <el-input-number v-input-number-aria
                   v-model="form.paperTargetDifficulty"
                   :min="0.01"
                   :max="1"
@@ -506,7 +531,7 @@ async function handleReset(): Promise<void> {
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="切屏异常：次数阈值（≥ 判为异常）" prop="cheatCountThreshold">
               <div class="settings-page__control">
-                <el-input-number controls-position="right"
+                <el-input-number v-input-number-aria controls-position="right"
                   v-model="form.cheatCountThreshold"
                   :min="1"
                   :max="99"
@@ -522,7 +547,7 @@ async function handleReset(): Promise<void> {
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="切屏异常：累计离开秒数阈值" prop="cheatSecondsThreshold">
               <div class="settings-page__control">
-                <el-input-number controls-position="right"
+                <el-input-number v-input-number-aria controls-position="right"
                   v-model="form.cheatSecondsThreshold"
                   :min="5"
                   :max="3600"
@@ -603,7 +628,7 @@ async function handleReset(): Promise<void> {
                   v-model="form.shuffleOptionsDefault"
                   active-text="开启"
                   inactive-text="关闭"
-                  :disabled="!form.shuffleDefaultEnabled"
+                  :disabled="formLocked || !form.shuffleDefaultEnabled"
                 />
                 <p class="settings-page__hint">
                   人手一卷开启时，进一步打乱每道题的选项顺序（同步调整正确答案）。
@@ -614,7 +639,7 @@ async function handleReset(): Promise<void> {
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="倒计时提醒：剩余不足该分钟数时提醒" prop="countdownWarningMinutes">
               <div class="settings-page__control">
-                <el-input-number controls-position="right"
+                <el-input-number v-input-number-aria controls-position="right"
                   v-model="form.countdownWarningMinutes"
                   :min="1"
                   :max="60"
@@ -645,12 +670,12 @@ async function handleReset(): Promise<void> {
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="监考推送间隔（秒）" prop="monitorPushIntervalSeconds">
               <div class="settings-page__control">
-                <el-input-number controls-position="right"
+                <el-input-number v-input-number-aria controls-position="right"
                   v-model="form.monitorPushIntervalSeconds"
                   :min="3"
                   :max="60"
                   :step="1"
-                  :disabled="!form.monitorPushEnabled"
+                  :disabled="formLocked || !form.monitorPushEnabled"
                   class="settings-page__num"
                 />
                 <p class="settings-page__hint">
@@ -662,7 +687,7 @@ async function handleReset(): Promise<void> {
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="简答作图片：单张上限（MB）" prop="richTextImageMaxMb">
               <div class="settings-page__control">
-                <el-input-number controls-position="right"
+                <el-input-number v-input-number-aria controls-position="right"
                   v-model="form.richTextImageMaxMb"
                   :min="1"
                   :max="10"
@@ -678,7 +703,7 @@ async function handleReset(): Promise<void> {
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="简答作图片：最多张数" prop="richTextImageMaxCount">
               <div class="settings-page__control">
-                <el-input-number controls-position="right"
+                <el-input-number v-input-number-aria controls-position="right"
                   v-model="form.richTextImageMaxCount"
                   :min="1"
                   :max="10"
@@ -737,12 +762,12 @@ async function handleReset(): Promise<void> {
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="成绩复核时限（天）" prop="appealWindowDays">
               <div class="settings-page__control">
-                <el-input-number controls-position="right"
+                <el-input-number v-input-number-aria controls-position="right"
                   v-model="form.appealWindowDays"
                   :min="0"
                   :max="365"
                   :step="1"
-                  :disabled="!form.appealEnabled"
+                  :disabled="formLocked || !form.appealEnabled"
                   class="settings-page__num"
                 />
                 <p class="settings-page__hint">自交卷起算；填 0 表示不限时限。</p>
@@ -791,7 +816,7 @@ async function handleReset(): Promise<void> {
             <el-form-item :label="`等级 ${idx + 1}`">
               <div class="settings-page__control">
                 <el-input v-model="band.name" maxlength="20" placeholder="等级名称" />
-                <el-input-number controls-position="right" v-model="band.minPercent" :min="0" :max="100" :step="1" class="settings-page__num" />
+                <el-input-number v-input-number-aria controls-position="right" v-model="band.minPercent" :min="0" :max="100" :step="1" class="settings-page__num" />
               </div>
             </el-form-item>
           </el-col>
@@ -829,7 +854,7 @@ async function handleReset(): Promise<void> {
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="密码最小长度" prop="minPasswordLength">
               <div class="settings-page__control">
-                <el-input-number controls-position="right"
+                <el-input-number v-input-number-aria controls-position="right"
                   v-model="form.minPasswordLength"
                   :min="6"
                   :max="32"
@@ -858,7 +883,7 @@ async function handleReset(): Promise<void> {
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="密码有效期（天）" prop="passwordExpireDays">
               <div class="settings-page__control">
-                <el-input-number controls-position="right"
+                <el-input-number v-input-number-aria controls-position="right"
                   v-model="form.passwordExpireDays"
                   :min="0"
                   :max="3650"
@@ -887,12 +912,12 @@ async function handleReset(): Promise<void> {
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="连续失败锁定阈值（次）" prop="loginMaxFails">
               <div class="settings-page__control">
-                <el-input-number controls-position="right"
+                <el-input-number v-input-number-aria controls-position="right"
                   v-model="form.loginMaxFails"
                   :min="1"
                   :max="20"
                   :step="1"
-                  :disabled="!form.loginLockEnabled"
+                  :disabled="formLocked || !form.loginLockEnabled"
                   class="settings-page__num"
                 />
                 <p class="settings-page__hint">连续登录失败达到该次数后锁定账号。</p>
@@ -902,12 +927,12 @@ async function handleReset(): Promise<void> {
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="锁定时长（分钟）" prop="loginLockMinutes">
               <div class="settings-page__control">
-                <el-input-number controls-position="right"
+                <el-input-number v-input-number-aria controls-position="right"
                   v-model="form.loginLockMinutes"
                   :min="1"
                   :max="1440"
                   :step="5"
-                  :disabled="!form.loginLockEnabled"
+                  :disabled="formLocked || !form.loginLockEnabled"
                   class="settings-page__num"
                 />
                 <p class="settings-page__hint">锁定期间该账号无法登录，达到时长后自动解锁。</p>
@@ -917,7 +942,7 @@ async function handleReset(): Promise<void> {
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="验证码触发次数" prop="loginCaptchaAfterFails">
               <div class="settings-page__control">
-                <el-input-number controls-position="right"
+                <el-input-number v-input-number-aria controls-position="right"
                   v-model="form.loginCaptchaAfterFails"
                   :min="1"
                   :max="20"
@@ -1025,7 +1050,7 @@ async function handleReset(): Promise<void> {
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="SMTP 端口" prop="smtpPort">
               <div class="settings-page__control">
-                <el-input-number controls-position="right"
+                <el-input-number v-input-number-aria controls-position="right"
                   v-model="form.smtpPort"
                   :min="1"
                   :max="65535"
@@ -1090,7 +1115,7 @@ async function handleReset(): Promise<void> {
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="通知事件">
               <div class="settings-page__control">
-                <el-select v-model="tplKey" class="settings-page__input">
+                <el-select v-model="tplKey" class="settings-page__input" popper-class="organization-choice-popper">
                   <el-option v-for="m in NOTIFY_TEMPLATE_META" :key="m.key" :label="m.label" :value="m.key" />
                 </el-select>
                 <p class="settings-page__hint">可用变量：{{ tplVarsText }}</p>
@@ -1136,7 +1161,7 @@ async function handleReset(): Promise<void> {
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="列表默认每页条数" prop="defaultPageSize">
               <div class="settings-page__control">
-                <el-input-number controls-position="right"
+                <el-input-number v-input-number-aria controls-position="right"
                   v-model="form.defaultPageSize"
                   :min="1"
                   :max="100"
@@ -1150,7 +1175,7 @@ async function handleReset(): Promise<void> {
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="Excel 单次导入最大行数" prop="importMaxRows">
               <div class="settings-page__control">
-                <el-input-number controls-position="right"
+                <el-input-number v-input-number-aria controls-position="right"
                   v-model="form.importMaxRows"
                   :min="1"
                   :max="50000"
@@ -1164,7 +1189,7 @@ async function handleReset(): Promise<void> {
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="Excel 导入文件大小上限（MB）" prop="importMaxFileMb">
               <div class="settings-page__control">
-                <el-input-number controls-position="right"
+                <el-input-number v-input-number-aria controls-position="right"
                   v-model="form.importMaxFileMb"
                   :min="1"
                   :max="50"
@@ -1185,7 +1210,7 @@ async function handleReset(): Promise<void> {
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="审计日志保留天数（天）" prop="auditRetentionDays">
               <div class="settings-page__control">
-                <el-input-number controls-position="right"
+                <el-input-number v-input-number-aria controls-position="right"
                   v-model="form.auditRetentionDays"
                   :min="0"
                   :max="3650"
@@ -1201,7 +1226,7 @@ async function handleReset(): Promise<void> {
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="成绩归档保留天数（天）" prop="archiveRetentionDays">
               <div class="settings-page__control">
-                <el-input-number controls-position="right"
+                <el-input-number v-input-number-aria controls-position="right"
                   v-model="form.archiveRetentionDays"
                   :min="0"
                   :max="3650"
@@ -1231,12 +1256,12 @@ async function handleReset(): Promise<void> {
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="自动归档时点（0~23 时）" prop="archiveAutoHour">
               <div class="settings-page__control">
-                <el-input-number controls-position="right"
+                <el-input-number v-input-number-aria controls-position="right"
                   v-model="form.archiveAutoHour"
                   :min="0"
                   :max="23"
                   :step="1"
-                  :disabled="!form.archiveAutoEnabled"
+                  :disabled="formLocked || !form.archiveAutoEnabled"
                   class="settings-page__num"
                 />
                 <p class="settings-page__hint">
@@ -1345,6 +1370,7 @@ async function handleReset(): Promise<void> {
 @use '@/styles/variables.scss' as *;
 
 .settings-page {
+  &__error { margin: 0 0 16px; padding: 12px 16px; border-radius: $radius-base; background: $color-error-bg; color: $color-error-text; overflow-wrap: anywhere; }
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -1546,7 +1572,7 @@ async function handleReset(): Promise<void> {
   .settings-page__tabs :deep(.el-tabs__item) { padding: 0 10px; }
   .settings-page__card.el-card :deep(.el-card__body) { padding: 24px; }
   .settings-page__card--exam .settings-page__exam-grid :deep(.el-form-item__content) { flex-basis: 140px; }
-  .settings-page__save-state { display: none; }
+  .settings-page__save-state { display: inline-flex; flex-basis: 100%; margin: 0; }
 }
 
 @container (max-width: 620px) {
@@ -1554,7 +1580,7 @@ async function handleReset(): Promise<void> {
   .settings-page__tabs :deep(.el-tabs__header) { flex: 0 0 auto; width: 100%; height: auto; padding: 10px; border-right: 0; border-bottom: 1px solid $border-color; &::before, &::after { display: none; } }
   .settings-page__tabs :deep(.el-tabs__nav-scroll) { overflow: auto; scrollbar-width: none; &::-webkit-scrollbar { display: none; } }
   .settings-page__tabs :deep(.el-tabs__nav) { display: flex; flex-direction: row; width: max-content; }
-  .settings-page__tabs :deep(.el-tabs__item) { flex-shrink: 0; height: 38px; margin: 0 3px; &.is-active::after { display: none; } }
+  .settings-page__tabs :deep(.el-tabs__item) { flex-shrink: 0; height: 44px; margin: 0 3px; &.is-active::after { display: none; } }
   .settings-page__nav-label { gap: 7px; }
   .settings-page__header { gap: 18px; padding-bottom: 24px; :deep(.page-header__actions) { width: 100%; } }
   .settings-page__card.el-card :deep(.el-card__body) { padding: 20px; }

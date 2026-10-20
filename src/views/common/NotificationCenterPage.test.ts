@@ -87,3 +87,39 @@ describe('消息中心分类、分页和状态', () => {
     expect(wrapper.findAll('.stat-card__value')[0]!.text()).toBe('0条');
   });
 });
+
+it('单条失败在详情内可重试，处理中禁止刷新和全部已读', async () => {
+  let reject!: (error: Error) => void;
+  api.read.mockImplementationOnce(() => new Promise((_, fail) => { reject = fail; }));
+  render(); await flushPromises(); await wrapper.get('.notif__item').trigger('click');
+  expect(button('刷新').attributes('disabled')).toBeDefined();
+  expect(button('全部已读').attributes('disabled')).toBeDefined();
+  reject(new Error('offline')); await flushPromises();
+  expect(document.body.textContent).toContain('标记已读失败，消息仍保留未读');
+  [...document.querySelectorAll<HTMLButtonElement>('.el-drawer button')].find(b => b.textContent?.trim() === '重试标记已读')!.click(); await flushPromises();
+  expect(api.read).toHaveBeenCalledTimes(2);
+  expect(wrapper.findAll('.stat-card__value')[0]!.text()).toBe('37条');
+  expect(document.body.textContent).not.toContain('标记已读失败，消息仍保留未读');
+});
+
+it('全部标记期间打开详情不会再单独扣减，全部成功后同步详情状态', async () => {
+  let finish!: (value: null) => void;
+  api.all.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  render(); await flushPromises(); await button('全部已读').trigger('click');
+  await wrapper.get('.notif__item').trigger('click');
+  expect(api.read).not.toHaveBeenCalled();
+  finish(null); await flushPromises();
+  expect(wrapper.findAll('.stat-card__value')[0]!.text()).toBe('0条');
+  expect([...document.querySelectorAll('.el-drawer button')].some(b => b.textContent?.trim() === '标记已读')).toBe(false);
+});
+
+it('刷新沿用同一消息ID的新详情，失败与加载分类数不冒充零', async () => {
+  api.list.mockRejectedValueOnce(new Error('offline'));
+  render(); await flushPromises(); expect(button('全部 —').exists()).toBe(true);
+  await button('刷新').trigger('click'); await flushPromises();
+  await wrapper.get('.notif__item').trigger('click'); await flushPromises();
+  const updated = items(21); updated[0] = { ...updated[0]!, title: '已更新的通知', content: '新的完整正文', isRead: true };
+  api.list.mockResolvedValueOnce({ list: updated, total: 140 });
+  await button('刷新').trigger('click'); await flushPromises();
+  expect(document.body.textContent).toContain('新的完整正文');
+});

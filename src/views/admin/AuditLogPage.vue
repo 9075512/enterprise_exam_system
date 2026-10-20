@@ -108,6 +108,11 @@ function handleRowClick(row: AuditLog): void {
 /* ------------------------------ 导出（v1.7②） ------------------------------ */
 /** 导出字段勾选（默认列集） */
 const exportColumns = ref<string[]>([...DEFAULT_AUDIT_EXPORT_KEYS]);
+const allColumnsSelected = computed(() => exportColumns.value.length === AUDIT_EXPORT_COLUMNS.length);
+const someColumnsSelected = computed(() => exportColumns.value.length > 0 && !allColumnsSelected.value);
+function toggleAllColumns(value: boolean | string | number): void {
+  exportColumns.value = value ? AUDIT_EXPORT_COLUMNS.map(col => col.key) : [];
+}
 const columnDialogVisible = ref(false);
 const exporting = ref(false);
 
@@ -144,14 +149,21 @@ async function handleExport(format: 'xlsx' | 'csv'): Promise<void> {
 
 /* ------------------------------ 保留策略（v1.7②） ------------------------------ */
 const retentionDays = ref<number | null>(null);
+const retentionLoading = ref(true);
+const retentionError = ref(false);
 const cleaning = ref(false);
 
 async function loadRetention(): Promise<void> {
+  retentionLoading.value = true;
+  retentionError.value = false;
   try {
     const res = await auditApi.getRetention();
     retentionDays.value = res.retentionDays;
   } catch {
     retentionDays.value = null;
+    retentionError.value = true;
+  } finally {
+    retentionLoading.value = false;
   }
 }
 
@@ -163,24 +175,29 @@ function retentionText(): string {
 
 /** 按保留策略清理过期日志 */
 async function handleCleanup(): Promise<void> {
+  if (cleaning.value) return;
   const days = retentionDays.value;
+  if (days === null) {
+    ElMessage.warning('保留策略尚未加载成功，请先重新加载');
+    return;
+  }
   const message =
-    days === null || days === 0
+    days === 0
       ? '当前设置为「永久保留」，不会删除任何日志。如需清理请先在系统设置中调整「审计日志保留天数」。'
       : `将删除 ${days} 天前的历史日志，且不可恢复。是否继续？`;
-  if (days === null || days === 0) {
+  if (days === 0) {
     ElMessage.info(message);
     return;
   }
-  const ok = await confirm(message, {
-    title: '清理过期审计日志',
-    confirmButtonText: '确认清理',
-    type: 'warning',
-  });
-  if (!ok) return;
-
   cleaning.value = true;
   try {
+    const ok = await confirm(message, {
+      title: '清理过期审计日志',
+      confirmButtonText: '确认清理',
+      type: 'warning',
+    });
+    if (!ok) return;
+
     const res = await auditApi.cleanupAuditLogs();
     ElMessage.success(`清理完成，共删除 ${res.deletedCount} 条日志`);
     load();
@@ -204,7 +221,9 @@ onMounted(() => {
         <span v-if="retentionDays !== null" class="audit-page__retention">
           保留策略：{{ retentionText() }}
         </span>
-        <el-button :icon="Setting" @click="columnDialogVisible = true">导出字段</el-button>
+        <span v-else-if="retentionLoading" class="audit-page__retention" role="status">保留策略加载中</span>
+        <el-button v-else-if="retentionError" text @click="loadRetention">重新加载保留策略</el-button>
+        <el-button :icon="Setting" :disabled="exporting" @click="columnDialogVisible = true">导出字段</el-button>
         <el-dropdown trigger="click" :disabled="exporting" @command="(cmd: string) => handleExport(cmd as 'xlsx' | 'csv')">
           <el-button type="primary" :loading="exporting">
             导出<el-icon class="audit-page__caret"><ArrowDown /></el-icon>
@@ -216,7 +235,7 @@ onMounted(() => {
             </el-dropdown-menu>
           </template>
         </el-dropdown>
-        <el-button :icon="Delete" :loading="cleaning" @click="handleCleanup">清理过期日志</el-button>
+        <el-button :icon="Delete" :loading="cleaning" :disabled="retentionLoading || retentionError" @click="handleCleanup">清理过期日志</el-button>
       </template>
     </PageHeader>
 
@@ -240,6 +259,7 @@ onMounted(() => {
 
         <el-date-picker
           v-model="filters.dateRange"
+          popper-class="log-date-range-picker"
           type="datetimerange"
           start-placeholder="开始时间"
           end-placeholder="结束时间"
@@ -254,7 +274,7 @@ onMounted(() => {
     </el-card>
 
     <el-card class="table-card" shadow="never">
-        <div class="admin-toolbar"><span class="admin-scope">当前筛选范围 · {{ error ? '数量未知' : total + ' 条日志' }} · 展开或点击行查看详情</span></div>
+        <div class="admin-toolbar"><span class="admin-scope">当前筛选范围 · {{ loading ? '正在加载' : error ? '数量未知' : total + ' 条日志' }} · 展开或点击行查看详情</span></div>
         <RequestError v-if="error" text="审计日志加载失败" @retry="load" />
         <el-table v-else
           v-loading="loading"
@@ -354,11 +374,11 @@ onMounted(() => {
           <!-- AuditLog 模型暂无 IP / 客户端字段，按说明性文案渲染 -->
           <div class="audit-page__desc-row">
             <span class="audit-page__desc-k">IP</span>
-            <span class="audit-page__desc-v audit-page__desc-v--muted">当前日志模型未记录来源 IP</span>
+            <span class="audit-page__desc-v audit-page__desc-v--muted">此记录未包含来源 IP</span>
           </div>
           <div class="audit-page__desc-row">
             <span class="audit-page__desc-k">客户端</span>
-            <span class="audit-page__desc-v audit-page__desc-v--muted">当前日志模型未记录客户端信息</span>
+            <span class="audit-page__desc-v audit-page__desc-v--muted">此记录未包含客户端信息</span>
           </div>
         </div>
 
@@ -369,15 +389,19 @@ onMounted(() => {
 
     <!-- 导出字段勾选 -->
     <el-dialog v-model="columnDialogVisible" title="选择导出字段" width="480px" append-to-body>
-      <el-checkbox-group v-model="exportColumns" class="audit-page__columns">
+      <div class="audit-page__columns-head">
+        <el-checkbox :model-value="allColumnsSelected" :indeterminate="someColumnsSelected" :disabled="exporting" @change="toggleAllColumns">全选字段</el-checkbox>
+        <span aria-live="polite">已选 {{ exportColumns.length }} / {{ AUDIT_EXPORT_COLUMNS.length }} 项</span>
+      </div>
+      <el-checkbox-group v-model="exportColumns" :disabled="exporting" class="audit-page__columns">
         <el-checkbox v-for="col in AUDIT_EXPORT_COLUMNS" :key="col.key" :value="col.key">
           {{ col.label }}
         </el-checkbox>
       </el-checkbox-group>
       <p class="audit-page__columns-tip">导出将应用当前筛选条件，最多 20000 条。</p>
       <template #footer>
-        <el-button @click="exportColumns = [...DEFAULT_AUDIT_EXPORT_KEYS]">恢复默认</el-button>
-        <el-button type="primary" @click="columnDialogVisible = false">确定</el-button>
+        <el-button :disabled="exporting" @click="exportColumns = [...DEFAULT_AUDIT_EXPORT_KEYS]">恢复默认</el-button>
+        <el-button type="primary" :disabled="!exportColumns.length" @click="columnDialogVisible = false">确定</el-button>
       </template>
     </el-dialog>
   </div>
@@ -427,15 +451,20 @@ onMounted(() => {
   }
 
   &__columns {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
 
     :deep(.el-checkbox) {
-      width: 140px;
+      width: auto;
+      min-width: 0;
+      height: auto;
+      min-height: 36px;
       margin-right: 0;
     }
   }
+  &__columns-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid $border-color; font-size: 12px; color: $text-secondary; }
+  &__columns :deep(.el-checkbox__label) { white-space: normal; overflow-wrap: anywhere; }
 
   &__columns-tip {
     margin: 12px 0 0;
@@ -525,5 +554,9 @@ onMounted(() => {
     color: $text-secondary;
   }
 
+}
+@media (max-width: 900px) {
+  .audit-page__columns :deep(.el-checkbox), .audit-page__columns-head :deep(.el-checkbox) { min-height: 44px; }
+  .audit-page__detail-head { flex-wrap: wrap; }
 }
 </style>

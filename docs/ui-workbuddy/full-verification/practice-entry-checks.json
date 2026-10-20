@@ -1,0 +1,344 @@
+[
+  {
+    "label": "home-320",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "home-390",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "home-844",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "home-1440",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "achievement-320",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 740,
+        "overflow": false,
+        "width": 320
+      }
+    ],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "achievement-390",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 844,
+        "overflow": false,
+        "width": 390.3999938964844
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "achievement-844",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 342.3999938964844,
+        "overflow": false,
+        "width": 560
+      }
+    ],
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "achievement-1440",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 852,
+        "overflow": false,
+        "width": 560
+      }
+    ],
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "options-320",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 716,
+        "overflow": false,
+        "width": 288
+      }
+    ],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "options-390",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 631.4000244140625,
+        "overflow": false,
+        "width": 358.3999938964844
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "options-844",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 342.3999938964844,
+        "overflow": false,
+        "width": 560
+      }
+    ],
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "options-1440",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 557.6000366210938,
+        "overflow": false,
+        "width": 560
+      }
+    ],
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "home-directory-failure-390",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "home-auxiliary-failure-320",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "home-auxiliary-failure-390",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "achievement-error-390",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 844,
+        "overflow": false,
+        "width": 390.3999938964844
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "wrong-names-failure-320",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "wrong-names-failure-390",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "wrong-names-failure-844",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "wrong-names-failure-1440",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "wrong-more-failure-390",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "wrong-empty-320",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "wrong-empty-390",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "live-home-320",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "live-home-390",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "live-home-844",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "live-home-1440",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "label": "live-wrong-320",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "label": "live-wrong-390",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "label": "live-wrong-844",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "label": "live-wrong-1440",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      1440,
+      900
+    ]
+  }
+]

@@ -15,6 +15,7 @@ const router = useRouter();
 const passwordVisible = ref(false);
 const securityVisible = ref(false);
 const refreshing = ref(false);
+const refreshError = ref(false);
 const user = computed(() => auth.currentUser);
 const roleLabel = computed(() => user.value ? (user.value.roleName || ROLE_LABELS[user.value.role]) : '—');
 
@@ -32,11 +33,14 @@ const details = computed(() => {
 });
 
 async function refresh(): Promise<void> {
+  if (refreshing.value) return;
   refreshing.value = true;
+  refreshError.value = false;
   try {
     await auth.fetchMe();
-    ElMessage.success('个人资料已更新');
-  } catch { /* The API layer reports errors; retain current account details. */ }
+    if (auth.currentUser) ElMessage.success('个人资料已更新');
+    else refreshError.value = true;
+  } catch { refreshError.value = true; }
   finally {
     refreshing.value = false;
   }
@@ -52,6 +56,8 @@ async function logout(): Promise<void> {
 <template>
   <div data-ui-layout="profile" data-ui-page="ProfilePage" class="profile-page">
     <PageHeader class="profile-page__header" title="个人中心" description="查看账号资料与安全状态" />
+    <el-alert v-if="refreshError && user" class="profile-page__refresh-error" type="warning" title="资料刷新失败，当前显示上次读取的账号信息" :closable="false" show-icon><el-button link type="primary" :loading="refreshing" @click="refresh">重新加载</el-button></el-alert>
+    <section v-if="!user" class="profile-page__unavailable" role="status"><p>当前账号资料不可用，请重新登录后查看。</p><el-button type="primary" @click="router.replace('/login')">前往登录</el-button></section>
 
     <section v-if="user" class="profile-page__hero">
       <span class="profile-page__avatar">{{ user.name.slice(0, 1) }}</span>
@@ -133,7 +139,7 @@ async function logout(): Promise<void> {
     margin-bottom: 16px;
     padding: 24px;
     border: 1px solid $color-primary-border;
-    border-radius: $radius-base;
+    border-radius: $radius-lg;
     background: $color-primary-soft;
   }
 
@@ -310,7 +316,8 @@ async function logout(): Promise<void> {
     // The mobile shell already shows the page title; start directly with the identity card.
     .profile-page__header { display: none; }
 
-    &__hero { padding: 16px; gap: 12px; }
+    &__hero { padding: 16px; gap: 12px; align-items: flex-start; }
+    &__refresh.el-button { flex-basis: 44px; width: 44px; height: 44px; }
     &__avatar { width: 48px; height: 48px; flex-basis: 48px; font-size: 19px; }
     &__identity h2 { font-size: 20px; }
     &__identity-heading { gap: 6px 10px; }
@@ -330,7 +337,7 @@ async function logout(): Promise<void> {
     }
     &__security-row { gap: 10px; align-items: flex-start; }
     &__security-state { padding: 3px 7px; }
-    &__card :deep(.el-button.el-button:not(.is-link):not(.is-text)) { min-height: 42px; }
+    &__card :deep(.el-button.el-button:not(.is-link):not(.is-text)) { min-height: 44px; }
     &__logout-row { margin-top: 16px; padding-top: 12px; }
   }
 
@@ -339,4 +346,6 @@ async function logout(): Promise<void> {
     &__security-icon { display: none; }
   }
 }
+.profile-page__unavailable { padding: 24px; border: 1px solid $border-color; border-radius: $radius-lg; background: $bg-paper; }
+.profile-page__refresh-error { margin-bottom: 16px; }
 </style>

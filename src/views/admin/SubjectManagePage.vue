@@ -34,12 +34,15 @@ const treeRef = ref<{
   setCurrentKey: (key: string) => void;
 }>();
 const keyword = ref('');
+const directoryExpanded = ref(false);
 const selectedId = ref('');
 const { data: access, loading: accessLoading, error: accessError, refresh: refreshAccess } = useRequest(
   () => selectedId.value ? banksApi.access(selectedId.value) : Promise.resolve(null),
   [selectedId], { immediate: false, keepPreviousData: false },
 );
 const formVisible = ref(false);
+const deleting = ref(false);
+const deleteError = ref('');
 const editingSubject = ref<QuestionBank | null>(null);
 const defaultParentId = ref<string | null>(null);
 
@@ -94,6 +97,8 @@ async function syncSelection(id: string, updateRoute = true): Promise<void> {
   selectedId.value = id;
   await nextTick();
   treeRef.value?.setCurrentKey(id);
+  deleteError.value = '';
+  treeRef.value?.filter(keyword.value);
   if (updateRoute && String(route.query.subjectId ?? '') !== id) {
     void router.replace({ path: '/admin/subjects', query: { subjectId: id } });
   }
@@ -110,17 +115,20 @@ async function loadTree(preferredId = ''): Promise<void> {
 }
 
 function selectNode(node: BankTreeNode): void {
+  if (deleting.value) return;
+  directoryExpanded.value = false;
   void syncSelection(node.id);
 }
 
 function openCreate(parentId: string | null = null): void {
+  if (deleting.value) return;
   editingSubject.value = null;
   defaultParentId.value = parentId;
   formVisible.value = true;
 }
 
 function openEdit(): void {
-  if (!selected.value) return;
+  if (!selected.value || deleting.value) return;
   editingSubject.value = selected.value;
   defaultParentId.value = selected.value.parentId;
   formVisible.value = true;
@@ -132,7 +140,7 @@ async function onSaved(subject: QuestionBank): Promise<void> {
 
 async function removeSelected(): Promise<void> {
   const item = selected.value;
-  if (!item) return;
+  if (!item || deleting.value) return;
   if (item.children.length > 0) {
     ElMessage.warning('该科目仍有下级，请先移动或删除下级科目');
     return;
@@ -141,16 +149,22 @@ async function removeSelected(): Promise<void> {
     ElMessage.warning(`该科目下有 ${item.questionCount} 道题，请先迁移题目`);
     return;
   }
-  const ok = await confirm(`确认删除科目“${item.name}”？`, {
-    title: '删除科目',
-    type: 'warning',
-    confirmButtonText: '确认删除',
-  });
-  if (!ok) return;
-  await banksApi.remove(item.id);
-  ElMessage.success('科目已删除');
-  selectedId.value = item.parentId ?? '';
-  await loadTree(selectedId.value);
+  deleting.value = true;
+  deleteError.value = '';
+  try {
+    const ok = await confirm(`确认删除科目“${item.name}”？删除后不可恢复。`, {
+      title: '删除科目', type: 'warning', confirmButtonText: '确认删除',
+    });
+    if (!ok) return;
+    await banksApi.remove(item.id);
+    ElMessage.success('科目已删除');
+    selectedId.value = item.parentId ?? '';
+    await loadTree(selectedId.value);
+  } catch {
+    deleteError.value = `“${item.name}”删除未完成，请刷新核对结果后重试。`;
+  } finally {
+    deleting.value = false;
+  }
 }
 
 function viewQuestions(): void {
@@ -173,41 +187,45 @@ onMounted(() => void loadTree());
   <div data-ui-layout="tree" data-ui-page="SubjectManagePage" class="subject-manage subject-workspace page">
     <PageHeader title="科目管理" description="维护科目层级、状态、练题开放范围与数据权限">
       <template #actions>
-        <el-button :icon="Refresh" :loading="loading" @click="loadTree()">刷新</el-button>
-        <el-button type="primary" :icon="Plus" @click="openCreate(null)">新增根科目</el-button>
+        <el-button :icon="Refresh" :loading="loading" :disabled="deleting" @click="loadTree()">刷新</el-button>
+        <el-button type="primary" :icon="Plus" :disabled="deleting" @click="openCreate(null)">新增根科目</el-button>
       </template>
     </PageHeader>
 
     <RequestError v-if="treeError" text="科目目录加载失败" @retry="loadTree()" />
     <div v-else class="subject-manage__workspace subject-workspace__layout">
-      <aside class="subject-manage__tree-panel subject-workspace__sidebar" aria-label="科目目录">
-        <div class="subject-workspace__nav-heading"><h3>科目目录</h3><span>共 {{ flatMap.size }} 个</span></div>
-        <el-input v-model="keyword" clearable placeholder="搜索科目" aria-label="搜索科目" :prefix-icon="Search" />
-        <el-tree
-          ref="treeRef"
-          v-loading="loading"
-          class="subject-manage__tree subject-workspace__tree"
-          :data="tree"
-          node-key="id"
-          :props="{ label: 'name', children: 'children' }"
-          :filter-node-method="filterNode"
-          :empty-text="loading ? '正在加载科目…' : keyword.trim() ? '未找到匹配科目' : '暂无科目'"
-          highlight-current
-          default-expand-all
-          @node-click="selectNode"
-        >
-          <template #default="{ data }">
-            <span class="subject-node subject-workspace__node">
-              <el-icon><Folder v-if="data.children.length" /><Collection v-else /></el-icon>
-              <span class="subject-workspace__node-name" :title="data.name">{{ data.name }}</span>
-              <span v-if="!data.children.length" class="subject-workspace__node-count" :title="`${data.questionCount} 道题`">{{ data.questionCount }}</span>
-              <span v-if="data.effectiveStatus === 'disabled'" class="subject-workspace__node-disabled">停</span>
-            </span>
-          </template>
-        </el-tree>
-        <div class="subject-workspace__nav-footer">
-          <el-button text :icon="Plus" @click="openCreate(null)">新增根科目</el-button>
-        </div>
+      <aside :class="{ 'is-collapsed': !directoryExpanded }" class="subject-manage__tree-panel subject-workspace__sidebar" aria-label="科目目录">
+        <div class="subject-workspace__nav-heading"><h3>科目目录</h3><span>{{ loading ? '加载中…' : `共 ${flatMap.size} 个` }}</span><el-button class="subject-workspace__toggle" text :disabled="deleting" :aria-expanded="directoryExpanded" @click="directoryExpanded = !directoryExpanded">{{ directoryExpanded ? '收起目录' : '展开目录' }}</el-button></div>
+        <p class="subject-workspace__current">当前：{{ selected?.name || (loading ? '正在加载…' : '尚未选择科目') }}</p>
+        <div class="subject-workspace__nav-body" :inert="deleting || undefined">
+          <el-input v-model="keyword" clearable placeholder="搜索科目" aria-label="搜索科目" :prefix-icon="Search" />
+          <el-tree
+            ref="treeRef"
+            v-loading="loading"
+            class="subject-manage__tree subject-workspace__tree"
+            :data="tree"
+            node-key="id"
+            :indent="12"
+            :props="{ label: 'name', children: 'children' }"
+            :filter-node-method="filterNode"
+            :empty-text="loading ? '正在加载科目…' : keyword.trim() ? '未找到匹配科目' : '暂无科目'"
+            highlight-current
+            default-expand-all
+            @node-click="selectNode"
+          >
+            <template #default="{ data }">
+              <span class="subject-node subject-workspace__node">
+                <el-icon><Folder v-if="data.children.length" /><Collection v-else /></el-icon>
+                <span class="subject-workspace__node-name" :title="data.name">{{ data.name }}</span>
+                <span v-if="!data.children.length" class="subject-workspace__node-count" :title="`${data.questionCount} 道题`">{{ data.questionCount }}</span>
+                <span v-if="data.effectiveStatus === 'disabled'" class="subject-workspace__node-disabled">停</span>
+              </span>
+            </template>
+          </el-tree>
+          <div class="subject-workspace__nav-footer">
+            <el-button text :icon="Plus" :disabled="deleting" @click="openCreate(null)">新增根科目</el-button>
+          </div>
+          </div>
       </aside>
 
       <main class="subject-manage__detail subject-workspace__content">
@@ -231,18 +249,19 @@ onMounted(() => void loadTree());
               <p class="subject-detail__path">{{ selectedPath }}</p>
             </div>
             <div class="subject-detail__actions">
-              <el-button v-if="selected.isLeaf" :icon="Tickets" @click="viewQuestions">查看题目</el-button>
+              <el-button v-if="selected.isLeaf" :icon="Tickets" :disabled="deleting" @click="viewQuestions">查看题目</el-button>
               <el-tooltip
                 :disabled="selected.questionCount === 0"
                 content="已有题目的科目不能新增下级，请先迁移题目"
               >
-                <span><el-button :icon="Plus" :disabled="selected.questionCount > 0" @click="openCreate(selected.id)">新增下级</el-button></span>
+                <span><el-button :icon="Plus" :disabled="deleting || selected.questionCount > 0" @click="openCreate(selected.id)">新增下级</el-button></span>
               </el-tooltip>
-              <el-button type="primary" :icon="EditPen" @click="openEdit">编辑科目</el-button>
-              <el-button type="danger" plain :icon="Delete" @click="removeSelected">删除科目</el-button>
+              <el-button type="primary" :icon="EditPen" :disabled="deleting" @click="openEdit">编辑科目</el-button>
+              <el-button type="danger" plain :icon="Delete" :loading="deleting" @click="removeSelected">删除科目</el-button>
             </div>
           </header>
 
+          <el-alert v-if="deleteError" :title="deleteError" type="error" show-icon :closable="false" class="subject-detail__error" />
           <div class="subject-detail__metrics">
             <div class="subject-metric"><span>直属下级</span><strong>{{ selected.children.length }}</strong></div>
             <div class="subject-metric"><span>题目数量</span><strong>{{ selected.questionCount }}</strong></div>
@@ -308,6 +327,7 @@ onMounted(() => void loadTree());
   border-bottom: 1px solid $border-color;
 }
 
+.subject-detail__error { margin-top: 16px; overflow-wrap: anywhere; }
 .subject-detail__heading { min-width: 0; }
 .subject-detail__title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .subject-detail__title-row h2 { min-width: 0; margin: 0; font-size: 22px; color: $text-primary; overflow-wrap: anywhere; }
@@ -325,7 +345,7 @@ onMounted(() => void loadTree());
 .subject-metric {
   padding: 14px 16px;
   border: 1px solid $border-color;
-  border-radius: $radius-base;
+  border-radius: $radius-lg;
   background: $bg-page;
 }
 .subject-metric span { display: block; font-size: 12px; color: $text-secondary; }
@@ -348,6 +368,7 @@ onMounted(() => void loadTree());
 .subject-detail__list dt { flex-shrink: 0; color: $text-secondary; font-size: 13px; }
 .subject-detail__list dd { margin: 0; color: $text-primary; font-size: 13px; text-align: right; overflow-wrap: anywhere; }
 .subject-detail__list .is-block dd { text-align: left; }
+.subject-detail__list .is-block dd:not(.subject-detail__tags) { white-space: pre-wrap; }
 .subject-detail__tags { display: flex; flex-wrap: wrap; gap: 6px; }
 
 @container subject-content (min-width: 1000px) {

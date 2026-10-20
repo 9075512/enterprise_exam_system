@@ -5,6 +5,7 @@ import * as banksApi from '@/api/banks';
 import * as usersApi from '@/api/users';
 import * as departmentsApi from '@/api/departments';
 import { useAuthStore } from '@/stores/auth';
+import { vInputNumberAria } from '@/directives/inputNumberAria';
 import { validateAndFocus } from '@/composables/useFormFocus';
 import { useRequest } from '@/composables/useRequest';
 import RequestError from '@/components/common/RequestError.vue';
@@ -19,6 +20,7 @@ const isEdit = computed(() => Boolean(props.bank?.id));
 const formRef = ref<FormInstance>();
 const submitting = ref(false);
 const createdBankId = ref('');
+const submitError = ref('');
 const { data: options, loading: loadingOptions, error: optionsError, refresh: loadOptions } = useRequest(async () => {
   if (!props.visible) return null;
   const accessId = props.bank?.id || props.defaultParentId;
@@ -28,6 +30,7 @@ const { data: options, loading: loadingOptions, error: optionsError, refresh: lo
   ]);
   return { users, departments, access, editing: Boolean(props.bank?.id) };
 }, [], { immediate: false, keepPreviousData: false });
+const formLocked = computed(() => submitting.value || loadingOptions.value || Boolean(optionsError.value) || !options.value);
 const departments = computed(() => options.value?.departments ?? []);
 watch(options, (data) => {
   if (!data?.access) return;
@@ -78,6 +81,7 @@ function applyAccess(access: BankAccessConfig): void {
 }
 async function resetForm(): Promise<void> {
   createdBankId.value = '';
+  submitError.value = '';
   form.name = props.bank?.name ?? ''; form.parentId = props.bank?.parentId ?? props.defaultParentId ?? null;
   form.sortOrder = props.bank?.sortOrder ?? 0; form.status = props.bank?.status ?? 'active';
   form.description = props.bank?.description ?? ''; form.allowPractice = props.bank?.allowPractice ?? true;
@@ -98,6 +102,7 @@ watch(() => form.parentId, (parentId) => {
 async function handleSubmit(): Promise<void> {
   if (!formRef.value || submitting.value || loadingOptions.value || optionsError.value || !options.value) return;
   if (!(await validateAndFocus(formRef.value)) || submitting.value) return;
+  submitError.value = '';
   submitting.value = true;
   try {
     if (isRoot.value) form.permissionMode = 'override';
@@ -119,7 +124,7 @@ async function handleSubmit(): Promise<void> {
       userIds: form.permissionMode === 'override' ? form.userIds : [], editorIds: form.permissionMode === 'override' ? form.editorIds : [],
     });
     ElMessage.success(props.bank ? '科目已更新' : '科目已创建'); emit('saved', saved); emit('update:visible', false);
-  } catch { /* 请求失败保留草稿，错误由接口拦截器提示。 */ }
+  } catch { submitError.value = '保存未完成，已保留填写内容，请重试。'; }
   finally { submitting.value = false; }
 }
 </script>
@@ -128,19 +133,20 @@ async function handleSubmit(): Promise<void> {
   <el-drawer v-model="dialogVisible" :title="isEdit ? '编辑科目' : '新增科目'" size="720px" append-to-body destroy-on-close :close-on-click-modal="!submitting" :close-on-press-escape="!submitting" :show-close="!submitting">
     <el-alert v-if="createdBankId && !submitting" type="warning" :closable="false" title="科目已创建，访问权限尚未保存。请重试保存以完成配置。" show-icon />
     <RequestError v-if="optionsError" text="科目权限或人员选项加载失败，请重试后再保存" @retry="loadOptions" />
-    <el-form ref="formRef" v-loading="loadingOptions" :model="form" :rules="rules" label-position="top" :disabled="submitting || loadingOptions || Boolean(optionsError) || !options">
-      <el-form-item label="上级科目"><el-select v-model="form.parentId" clearable filterable placeholder="根科目" style="width:100%"><el-option v-for="node in flatNodes" :key="node.id" :label="`${'　'.repeat(node.depth)}${node.name}`" :value="node.id" /></el-select></el-form-item>
+    <el-alert v-if="submitError" :title="submitError" type="error" show-icon :closable="false" />
+    <el-form class="subject-form" ref="formRef" v-loading="loadingOptions" :model="form" :rules="rules" label-position="top" :disabled="formLocked">
+      <el-form-item label="上级科目"><el-select v-model="form.parentId" clearable filterable popper-class="organization-choice-popper" placeholder="根科目" style="width:100%"><el-option v-for="node in flatNodes" :key="node.id" :label="`${'　'.repeat(node.depth)}${node.name}`" :value="node.id" /></el-select><div v-if="form.parentId" class="hint">当前上级：{{ flatNodes.find(node => node.id === form.parentId)?.name || form.parentId }}</div></el-form-item>
       <el-form-item label="科目名称" prop="name"><el-input v-model="form.name" maxlength="120" show-word-limit /></el-form-item>
-      <div class="form-grid"><el-form-item label="排序"><el-input-number v-model="form.sortOrder" :min="0" :max="999999" /></el-form-item><el-form-item label="状态"><el-radio-group v-model="form.status"><el-radio-button value="active">启用</el-radio-button><el-radio-button value="disabled">停用</el-radio-button></el-radio-group></el-form-item></div>
+      <div class="form-grid"><el-form-item label="排序"><el-input-number v-input-number-aria v-model="form.sortOrder" :min="0" :max="999999" /></el-form-item><el-form-item label="状态"><el-radio-group v-model="form.status"><el-radio-button value="active">启用</el-radio-button><el-radio-button value="disabled">停用</el-radio-button></el-radio-group></el-form-item></div>
       <el-form-item label="描述" prop="description"><el-input v-model="form.description" type="textarea" :rows="2" maxlength="255" show-word-limit /></el-form-item>
       <el-form-item label="开放练题"><el-switch v-model="form.allowPractice" /><span class="hint">叶子科目还需命中浏览权限才会出现在练题端</span></el-form-item>
       <el-divider content-position="left">访问权限</el-divider>
-      <el-form-item label="权限方式"><el-radio-group v-model="form.permissionMode"><el-radio value="inherit" :disabled="isRoot">继承上级</el-radio><el-radio value="override">完整覆盖</el-radio></el-radio-group><div class="hint">覆盖会替换继承的整组权限；编辑人员自动拥有浏览权限。根科目必须使用完整覆盖。</div></el-form-item>
+      <el-form-item label="权限方式"><el-radio-group v-model="form.permissionMode"><el-radio value="inherit" :disabled="formLocked || isRoot">继承上级</el-radio><el-radio value="override">完整覆盖</el-radio></el-radio-group><div class="hint">覆盖会替换继承的整组权限；编辑人员自动拥有浏览权限。根科目必须使用完整覆盖。</div></el-form-item>
       <template v-if="form.permissionMode === 'override'">
         <el-form-item label="浏览范围"><el-checkbox v-model="form.viewAll">所有人员均可预览</el-checkbox><div v-if="!isEdit" class="hint">新增科目默认开放练题，并向全部部门和全部人员开放浏览。</div><div v-if="form.viewAll" class="hint">已包含全部部门和全部人员，后续新增的部门及人员也可浏览；取消勾选后可指定范围。</div></el-form-item>
-        <el-form-item label="浏览部门"><el-select v-model="form.departmentIds" :disabled="form.viewAll" :placeholder="form.viewAll ? '全部部门' : '请选择浏览部门'" multiple filterable collapse-tags style="width:100%"><el-option v-for="item in departments" :key="item.id" :label="item.name" :value="item.id" /></el-select><el-checkbox v-model="form.includeChildDepartments" :disabled="form.viewAll">包含子部门</el-checkbox></el-form-item>
-        <el-form-item label="浏览人员"><el-select v-model="form.userIds" :disabled="form.viewAll" :placeholder="form.viewAll ? '全部人员' : '请选择浏览人员'" multiple filterable collapse-tags style="width:100%"><el-option v-for="item in activeUsers" :key="item.id" :label="`${item.name}（${item.username}）`" :value="item.id" /></el-select></el-form-item>
-        <el-form-item label="编辑人员"><el-select v-model="form.editorIds" multiple filterable collapse-tags style="width:100%"><el-option v-for="item in authorOptions" :key="item.id" :label="`${item.name}（${item.username}）`" :value="item.id" /></el-select><div class="hint">仅出题人可选；管理员始终拥有全部权限。</div></el-form-item>
+        <el-form-item label="浏览部门"><el-select v-model="form.departmentIds" :disabled="formLocked || form.viewAll" :placeholder="form.viewAll ? '全部部门' : '请选择浏览部门'" multiple filterable popper-class="organization-choice-popper" collapse-tags style="width:100%"><el-option v-for="item in departments" :key="item.id" :label="item.name" :value="item.id" /></el-select><div v-if="!form.viewAll && form.departmentIds.length" class="hint">已选部门：{{ form.departmentIds.map(id => departments.find(item => item.id === id)?.name || id).join('、') }}</div><el-checkbox v-model="form.includeChildDepartments" :disabled="formLocked || form.viewAll">包含子部门</el-checkbox></el-form-item>
+        <el-form-item label="浏览人员"><el-select v-model="form.userIds" :disabled="formLocked || form.viewAll" :placeholder="form.viewAll ? '全部人员' : '请选择浏览人员'" multiple filterable popper-class="organization-choice-popper" collapse-tags style="width:100%"><el-option v-for="item in activeUsers" :key="item.id" :label="`${item.name}（${item.username}）`" :value="item.id" /></el-select><div v-if="!form.viewAll && form.userIds.length" class="hint">已选人员：{{ form.userIds.map(id => activeUsers.find(user => user.id === id)?.name || id).join('、') }}</div></el-form-item>
+        <el-form-item label="编辑人员"><el-select v-model="form.editorIds" multiple filterable popper-class="organization-choice-popper" collapse-tags style="width:100%"><el-option v-for="item in authorOptions" :key="item.id" :label="`${item.name}（${item.username}）`" :value="item.id" /></el-select><div v-if="form.editorIds.length" class="hint">已选编辑人员：{{ form.editorIds.map(id => activeUsers.find(user => user.id === id)?.name || id).join('、') }}</div><div class="hint">仅出题人可选；管理员始终拥有全部权限。</div></el-form-item>
       </template>
     </el-form>
     <template #footer><el-button :disabled="submitting" @click="dialogVisible=false">取消</el-button><el-button type="primary" :loading="submitting" :disabled="loadingOptions || Boolean(optionsError) || !options" @click="handleSubmit">保存</el-button></template>
@@ -149,6 +155,12 @@ async function handleSubmit(): Promise<void> {
 
 <style scoped lang="scss">
 .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-.hint { display:block; flex-basis:100%; width:100%; margin:6px 0 0; color:var(--el-text-color-secondary); font-size:13px; line-height:1.55; }
-@media (max-width:600px) { .form-grid { grid-template-columns:minmax(0,1fr); gap:0; } }
+.hint { display:block; flex-basis:100%; width:100%; margin:6px 0 0; color:var(--el-text-color-secondary); font-size:13px; line-height:1.7; overflow-wrap:anywhere; }
+@media (max-width:600px) {
+  .form-grid { grid-template-columns:minmax(0,1fr); gap:0; }
+  .subject-form :deep(.el-input-number.el-input-number) { width: min(180px, 100%); height: 44px; line-height: 44px; }
+  .subject-form :deep(.el-input-number.el-input-number .el-input-number__decrease),
+  .subject-form :deep(.el-input-number.el-input-number .el-input-number__increase) { top: 0; bottom: 0; width: 44px; height: 44px; line-height: 44px; }
+  .subject-form :deep(.el-input-number.el-input-number .el-input__wrapper) { padding-inline: 44px; min-height: 44px; }
+}
 </style>

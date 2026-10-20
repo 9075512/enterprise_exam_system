@@ -36,7 +36,8 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import DataTablePagination from '@/components/common/DataTablePagination.vue';
 import StatCard from '@/components/common/StatCard.vue';
 import ScoreExportDialog from './ScoreExportDialog.vue';
-import type { Exam, ExamRecord, Report } from '@/types';
+import CheatEventList from '@/components/exams/CheatEventList.vue';
+import type { Exam, ExamRecord, Report, WrongItem } from '@/types';
 
 use([BarChart, GridComponent, TooltipComponent, TitleComponent, LegendComponent, CanvasRenderer]);
 
@@ -49,14 +50,14 @@ const DEPARTMENT_PASS_RATE_WARN = 0.9;
 
 const settingsStore = useSettingsStore();
 
-onMounted(() => {
-  void settingsStore.load();
-});
+const settingsError = ref(false);
+async function loadRules(): Promise<void> { try { await settingsStore.load(); settingsError.value = !settingsStore.ready; } catch { settingsError.value = true; } }
+onMounted(() => { void loadRules(); });
 
 /* ------------------------------ 基础数据 ------------------------------ */
-const { data: exams, error: examsError, refresh: refreshExams } = useRequest(() => examsApi.list());
-const { data: users } = useRequest(() => usersApi.list());
-const { data: departments } = useRequest(() => departmentsApi.list());
+const { data: exams, loading: examsLoading, error: examsError, refresh: refreshExams } = useRequest(() => examsApi.list());
+const { data: users, error: usersError, refresh: refreshUsers } = useRequest(() => usersApi.list());
+const { data: departments, error: departmentsError, refresh: refreshDepartments } = useRequest(() => departmentsApi.list());
 
 const userNameMap = computed<Record<string, string>>(() =>
   Object.fromEntries((users.value ?? []).map((u) => [u.id, u.name])),
@@ -92,6 +93,11 @@ watch(
 const selectedExam = computed<Exam | null>(
   () => (exams.value ?? []).find((e) => e.id === selectedExamId.value) ?? null,
 );
+const detailVisible = ref(false);
+const detailWrong = ref<WrongItem | null>(null);
+const detailRecord = ref<ExamRecord | null>(null);
+function openWrong(row: WrongItem): void { detailWrong.value = row; detailRecord.value = null; detailVisible.value = true; }
+function openCheat(row: ExamRecord): void { detailRecord.value = row; detailWrong.value = null; detailVisible.value = true; }
 const passScore = computed<number>(() => selectedExam.value?.passScore ?? 60);
 
 /** 页头描述（设计稿 .ph 副标题写法：考试名 · 参考人数） */
@@ -132,6 +138,7 @@ const { data: cheatRecords, loading: cheatLoading, error: cheatError, refresh: r
 const cheatList = computed<ExamRecord[]>(() => cheatRecords.value ?? []);
 
 watch(selectedExamId, (examId) => {
+  detailVisible.value = false;
   clearRecords();
   if (examId) resetRecords();
 });
@@ -178,7 +185,7 @@ const bandPeak = computed(() => {
 });
 
 /**
- * 科室对比卡：按人数降序只列前 5 个科室（卡头「参考人数 ≥ 10」为设计稿表头说明标签）。
+ * 科室对比卡：按人数降序只列前 5 个科室，不附加最少人数门槛。
  */
 const topDepartments = computed(() =>
   [...(report.value?.departments ?? [])].sort((a, b) => b.count - a.count).slice(0, 5),
@@ -200,6 +207,7 @@ function wrongTone(rate: number): string {
 
 /* ------------------------------ 工具 ------------------------------ */
 function isCheat(record: ExamRecord): boolean {
+  if (!settingsStore.ready) return false;
   const count = record.cheatEvents.length;
   const seconds = record.cheatEvents.reduce((sum, e) => sum + e.awaySeconds, 0);
   return (
@@ -220,12 +228,13 @@ const cheatCount = computed<number>(() => new Set(cheatList.value.filter(isCheat
 /** 顶部统计卡（设计稿 scores.html 的 .grid.g5 五卡）——仅「切屏异常」上状态色 */
 const statItems = computed(() => {
   const s = report.value?.summary;
+  const hasSample = Boolean(s && s.total > 0);
   return [
-    { key: 'total', label: '总作答人数', value: s?.total ?? 0, unit: '人', icon: User, tone: 'primary' as const },
+    { key: 'total', label: '总作答人数', value: s?.total ?? '—', unit: '人', icon: User, tone: 'primary' as const },
     {
       key: 'avg',
       label: '平均分',
-      value: formatScore(s?.avgScore ?? 0),
+      value: hasSample ? formatScore(s!.avgScore) : '—',
       unit: '分',
       icon: TrendCharts,
       tone: 'primary' as const,
@@ -233,18 +242,18 @@ const statItems = computed(() => {
     {
       key: 'pass',
       label: '及格率',
-      value: formatPercent(s?.passRate ?? 0),
+      value: hasSample ? formatPercent(s!.passRate) : '—',
       icon: CircleCheck,
       tone: 'primary' as const,
     },
     {
       key: 'range',
       label: '最高 / 最低分',
-      value: `${formatScore(s?.maxScore ?? 0)} / ${formatScore(s?.minScore ?? 0)}`,
+      value: hasSample ? `${formatScore(s!.maxScore)} / ${formatScore(s!.minScore)}` : '—',
       icon: Star,
       tone: 'primary' as const,
     },
-    { key: 'cheat', label: '切屏异常考生（审查范围）', value: cheatError.value || cheatLoading.value ? '—' : cheatCount.value, unit: '人', icon: Warning, tone: 'warning' as const },
+    { key: 'cheat', label: '切屏异常考生（审查范围）', value: !settingsStore.ready || cheatError.value || cheatLoading.value ? '—' : cheatCount.value, unit: '人', icon: Warning, tone: 'warning' as const },
   ];
 });
 </script>
@@ -253,7 +262,7 @@ const statItems = computed(() => {
   <div data-ui-layout="analytics" data-ui-page="ScoreReportPage" class="report-page">
     <PageHeader title="成绩报表" :description="headerDesc">
       <template #actions>
-        <el-select v-model="selectedExamId" class="report-page__select-input" placeholder="请选择一场考试" clearable>
+        <el-select v-model="selectedExamId" :loading="examsLoading" :disabled="examsLoading || Boolean(examsError)" class="report-page__select-input" placeholder="请选择一场考试" clearable filterable popper-class="organization-choice-popper">
           <el-option
             v-for="exam in exams || []"
             :key="exam.id"
@@ -264,20 +273,23 @@ const statItems = computed(() => {
         <el-button
           type="primary"
           :icon="Download"
-          :disabled="!selectedExamId || exportCount === 0"
+          :disabled="!selectedExamId || examsLoading || Boolean(examsError) || reportLoading || Boolean(reportError) || exportCount === 0"
           @click="exportVisible = true"
         >导出成绩</el-button>
       </template>
     </PageHeader>
 
-    <RequestError v-if="examsError" text="考试列表加载失败" @retry="refreshExams" />
+    <LoadingSkeleton v-if="examsLoading && !exams" :rows="4" />
+    <RequestError v-else-if="examsError" text="考试列表加载失败" @retry="refreshExams" />
     <EmptyState v-else-if="!selectedExamId" text="请选择一场考试查看报表" />
 
     <LoadingSkeleton v-else-if="reportLoading && !report" :rows="6" />
 
     <RequestError v-else-if="reportError" text="成绩统计加载失败" @retry="refreshReport" />
     <template v-else>
-      <p class="admin-scope">统计范围：当前考试 · 每位考生{{ settingsStore.settings.retakeScorePolicy === 'highest' ? '最高分' : '最近一次' }}已交卷答卷；科室对比、错题排行各显示前 5 项。成绩列表包含各次作答、按开始时间倒序；切屏审查仅含已交卷且有切屏事件的记录，按切屏次数倒序，最多 500 条。</p>
+      <p class="admin-scope">统计范围：当前考试 · {{ settingsStore.ready ? '每位考生' + (settingsStore.settings.retakeScorePolicy === 'highest' ? '最高分' : '最近一次') + '已交卷答卷' : '已交卷答卷（成绩选取口径暂未知）' }}；科室对比、错题排行各显示前 5 项。成绩列表包含各次作答、按开始时间倒序；切屏审查仅含已交卷且有切屏事件的记录，按切屏次数倒序，最多 500 条。</p>
+      <el-alert v-if="settingsError" type="warning" title="统计与切屏标记规则加载失败，相关口径暂未知" :closable="false"><el-button link type="primary" @click="loadRules">重试读取规则</el-button></el-alert>
+      <el-alert v-if="usersError || departmentsError" type="warning" title="姓名或科室对照加载失败，当前保留可用标识" :closable="false"><el-button v-if="usersError" link type="primary" @click="refreshUsers">重试姓名</el-button><el-button v-if="departmentsError" link type="primary" @click="refreshDepartments">重试科室</el-button></el-alert>
       <!-- 顶部统计卡（设计稿 .grid.g5） -->
       <div class="report-page__stats">
         <StatCard
@@ -296,7 +308,7 @@ const statItems = computed(() => {
         <template #header>
           <div class="report-page__hd">
             <h3 class="report-page__hd-title">成绩列表</h3>
-            <span class="report-page__hd-sub">{{ recordsError ? '数量未知' : '共 ' + total + ' 条' }}</span>
+            <span class="report-page__hd-sub">{{ recordsLoading ? '正在加载' : recordsError ? '数量未知' : '共 ' + total + ' 条' }}</span>
           </div>
         </template>
         <RequestError v-if="recordsError" text="成绩列表加载失败" @retry="loadRecords" />
@@ -307,10 +319,10 @@ const statItems = computed(() => {
             </template>
           </el-table-column>
           <el-table-column label="考生姓名" width="120">
-            <template #default="{ row }">{{ userNameMap[row.userId] || row.userId }}</template>
+            <template #default="{ row }">{{ row.userName || userNameMap[row.userId] || row.userId }}</template>
           </el-table-column>
           <el-table-column label="科室" width="140">
-            <template #default="{ row }">{{ departmentNameMap[row.departmentId] || '—' }}</template>
+            <template #default="{ row }">{{ row.departmentName || departmentNameMap[row.departmentId] || '—' }}</template>
           </el-table-column>
           <el-table-column label="得分" width="90" align="center">
             <template #default="{ row }">
@@ -329,7 +341,7 @@ const statItems = computed(() => {
           </el-table-column>
           <el-table-column label="切屏异常" min-width="140">
             <template #default="{ row }">
-              <el-tag v-if="isCheat(row as ExamRecord)" type="danger" size="small">
+              <span v-if="!settingsStore.ready" class="report-page__muted">规则未知</span><el-tag v-else-if="isCheat(row as ExamRecord)" type="danger" size="small">
                 {{ cheatSummary(row as ExamRecord) }}
               </el-tag>
               <span v-else class="report-page__muted">正常</span>
@@ -342,7 +354,7 @@ const statItems = computed(() => {
             <EmptyState text="暂无成绩记录" />
           </template>
         </el-table>
-        <DataTablePagination v-if="!recordsError"
+        <DataTablePagination v-if="!recordsError && !recordsLoading"
           :page="page"
           :page-size="pageSize"
           :total="total"
@@ -380,7 +392,7 @@ const statItems = computed(() => {
             <div class="report-page__hd">
               <h3 class="report-page__hd-title">科室对比</h3>
               <div class="report-page__hd-right">
-                <span class="report-page__tag">参考人数 ≥ 10</span>
+                <span class="report-page__tag">按人数前 5 项</span>
               </div>
             </div>
           </template>
@@ -432,7 +444,7 @@ const statItems = computed(() => {
               <div v-for="row in topWrong" :key="row.questionId">
                 <div class="report-page__wrong-head">
                   <el-tooltip :content="row.stem" placement="top" :show-after="300">
-                    <span class="report-page__wrong-stem">{{ row.stem }}</span>
+                    <el-button link type="primary" class="report-page__wrong-stem" @click="openWrong(row)">{{ row.stem }}</el-button>
                   </el-tooltip>
                   <span class="report-page__wrong-rate num">{{ formatPercent(row.wrongRate) }}</span>
                 </div>
@@ -450,7 +462,7 @@ const statItems = computed(() => {
             </div>
             <div class="report-page__tip report-page__tip--warn">
               <el-icon class="report-page__tip-ic"><Warning /></el-icon>
-              <div>前两题错误率偏高，建议在题库详情中复核参考答案与解析措辞。</div>
+              <div>按错误率显示前 5 题；点击题干查看完整内容与实际作答统计。</div>
             </div>
           </template>
           <EmptyState v-else text="暂无错题数据" />
@@ -463,31 +475,23 @@ const statItems = computed(() => {
         <template #header>
           <div class="report-page__hd">
             <h3 class="report-page__hd-title">切屏审查</h3>
-            <span class="report-page__hd-sub">{{ cheatCount }} 人异常</span>
+            <span class="report-page__hd-sub">{{ cheatLoading ? '正在加载' : cheatError || !settingsStore.ready ? '异常人数未知' : cheatCount + ' 人异常' }}</span>
           </div>
         </template>
         <RequestError v-if="cheatError" text="切屏记录加载失败" @retry="refreshCheats" />
-        <el-table v-else v-loading="cheatLoading" :data="cheatList" row-key="id" stripe>
+        <div v-else class="report-page__cheat-table-wrap"><el-table v-loading="cheatLoading" :data="cheatList" row-key="id" stripe class="report-cheat-table">
           <el-table-column type="expand">
             <template #default="{ row }">
               <div class="report-page__cheat-timeline">
                 <p class="report-page__cheat-timeline-title">
                   切屏时间线（共 {{ (row as ExamRecord).cheatEvents.length }} 次）
                 </p>
-                <el-table :data="(row as ExamRecord).cheatEvents" size="small" border>
-                  <el-table-column type="index" label="#" width="60" align="center" />
-                  <el-table-column label="发生时间" min-width="220">
-                    <template #default="{ row: e }">{{ formatDateTime(e.at) }}</template>
-                  </el-table-column>
-                  <el-table-column label="离开时长（秒）" width="160" align="center">
-                    <template #default="{ row: e }">{{ e.awaySeconds }}</template>
-                  </el-table-column>
-                </el-table>
+                <CheatEventList :events="(row as ExamRecord).cheatEvents" />
               </div>
             </template>
           </el-table-column>
           <el-table-column label="考生姓名" width="120">
-            <template #default="{ row }">{{ row.userName || userNameMap[row.userId] || row.userId }}</template>
+            <template #default="{ row }"><el-button link type="primary" class="report-page__person-entry" @click="openCheat(row as ExamRecord)">{{ row.userName || userNameMap[row.userId] || row.userId }}</el-button></template>
           </el-table-column>
           <el-table-column label="科室" width="140">
             <template #default="{ row }">{{ row.departmentName || departmentNameMap[row.departmentId] || '—' }}</template>
@@ -500,7 +504,7 @@ const statItems = computed(() => {
           </el-table-column>
           <el-table-column label="切屏" width="170" align="center">
             <template #default="{ row }">
-              <el-tag :type="isCheat(row as ExamRecord) ? 'danger' : 'warning'" size="small">
+              <el-tag :type="!settingsStore.ready ? 'info' : isCheat(row as ExamRecord) ? 'danger' : 'warning'" size="small">
                 {{ cheatSummary(row as ExamRecord) }}
               </el-tag>
             </template>
@@ -511,11 +515,17 @@ const statItems = computed(() => {
           <template #empty>
             <EmptyState text="该考试暂无切屏记录" />
           </template>
-        </el-table>
+        </el-table></div>
       </el-card>
     </template>
 
     <ScoreExportDialog v-model="exportVisible" :exam-id="selectedExamId" :exam-name="exportExamName" />
+    <el-drawer v-model="detailVisible" :title="detailWrong ? '错题统计详情' : '切屏记录详情'" size="720px" append-to-body destroy-on-close data-ui-role="detail">
+      <p class="report-detail__scope">{{ selectedExam?.name }} · 打开时的记录</p>
+      <template v-if="detailWrong"><section class="report-detail__block"><h3>完整题干</h3><p>{{ detailWrong.stem }}</p></section><dl class="report-detail__meta"><div><dt>题目 ID</dt><dd>{{ detailWrong.questionId }}</dd></div><div><dt>错误率</dt><dd>{{ formatPercent(detailWrong.wrongRate) }}</dd></div><div><dt>答错人数</dt><dd>{{ detailWrong.wrongCount }} 人</dd></div><div><dt>本题作答人数</dt><dd>{{ detailWrong.totalAnswered }} 人</dd></div></dl></template>
+      <template v-else-if="detailRecord"><dl class="report-detail__meta"><div><dt>考生</dt><dd>{{ detailRecord.userName || userNameMap[detailRecord.userId] || detailRecord.userId }}</dd></div><div><dt>科室</dt><dd>{{ detailRecord.departmentName || departmentNameMap[detailRecord.departmentId] || '—' }}</dd></div><div><dt>作答次数</dt><dd>第 {{ detailRecord.attemptNo }} 次</dd></div><div><dt>交卷时间</dt><dd>{{ formatDateTime(detailRecord.submittedAt) }}</dd></div><div><dt>得分</dt><dd>{{ formatScore(detailRecord.score) }}</dd></div><div><dt>切屏合计</dt><dd>{{ cheatSummary(detailRecord) }}</dd></div></dl><p class="report-detail__scope">{{ settingsStore.ready ? '标记阈值：' + settingsStore.settings.cheatCountThreshold + ' 次或 ' + settingsStore.settings.cheatSecondsThreshold + ' 秒' : '标记规则暂未知' }}</p><CheatEventList :events="detailRecord.cheatEvents" /></template>
+      <template #footer><el-button @click="detailVisible = false">关闭</el-button></template>
+    </el-drawer>
   </div>
 </template>
 
@@ -702,6 +712,9 @@ const statItems = computed(() => {
     white-space: nowrap;
     font-size: 12.5px;
     color: $text-body;
+    height: auto;
+    text-align: left;
+    :deep(span) { overflow: hidden; text-overflow: ellipsis; }
   }
 
   &__wrong-rate {
@@ -748,7 +761,7 @@ const statItems = computed(() => {
   }
 
   &__cheat-timeline {
-    padding: 4px 48px 8px;
+    box-sizing: border-box; position: sticky; left: 0; width: 100cqw; max-width: 100%; padding: 16px; background: $bg-page;
   }
 
   &__cheat-timeline-title {
@@ -758,6 +771,13 @@ const statItems = computed(() => {
     color: $text-primary;
   }
 }
+.report-page__cheat-table-wrap { container-type: inline-size; }
+.report-cheat-table :deep(.el-table__expanded-cell) { padding: 0; }
+.report-page__person-entry { max-width: 100%; height: auto; white-space: normal; text-align: left; :deep(span) { white-space: normal; overflow-wrap: anywhere; } }
+.report-detail__scope { margin: 0 0 20px; overflow-wrap: anywhere; color: $text-secondary; font-size: 13px; }
+.report-detail__block { padding: 16px; margin-bottom: 20px; border: 1px solid $border-color; border-radius: $radius-lg; background: $bg-page; h3 { margin: 0 0 12px; font-size: 14px; } p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; } }
+.report-detail__meta { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; margin: 0 0 20px; dt { color: $text-secondary; font-size: 12px; } dd { margin: 4px 0 0; overflow-wrap: anywhere; } }
+@media(max-width:480px) { .report-detail__meta { grid-template-columns:minmax(0,1fr); } }
 
 @container score-report (max-width: 1000px) {
   // 三联卡窄屏折成单列

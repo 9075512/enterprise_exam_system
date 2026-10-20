@@ -32,15 +32,18 @@ const form = reactive({
 });
 
 const submitting = ref(false);
+const submitError = ref('');
 
 /** 每次打开重置表单 */
 watch(
   () => props.visible,
   (visible) => {
     if (!visible) return;
+    submitError.value = '';
     form.changeDifficulty = false;
     form.difficulty = '';
   },
+  { immediate: true },
 );
 
 /** 未勾选任何字段时提交按钮禁用 */
@@ -57,6 +60,7 @@ async function handleSubmit(): Promise<void> {
   const payload: QuestionBatchEditInput = { ids: [...props.questionIds] };
   if (form.changeDifficulty) payload.difficulty = form.difficulty || null;
 
+  submitError.value = '';
   submitting.value = true;
   try {
     const { updated } = await questionsApi.batchEdit(payload);
@@ -64,7 +68,7 @@ async function handleSubmit(): Promise<void> {
     emit('saved');
     emit('update:visible', false);
   } catch {
-    // 错误提示已由 http.ts 响应拦截器统一弹出
+    submitError.value = '批量修改失败，已保留所选题目和难度设置，请重试。';
   } finally {
     submitting.value = false;
   }
@@ -76,7 +80,7 @@ function handleCancel(): void {
 </script>
 
 <template>
-  <el-dialog
+  <el-dialog class="bank-workflow-dialog"
     v-model="dialogVisible"
     title="批量编辑试题"
     width="560px"
@@ -91,13 +95,15 @@ function handleCancel(): void {
       已选择 <strong>{{ questionIds.length }}</strong> 道试题；仅勾选的字段会被修改，其余字段保持原值。
     </p>
 
+    <el-alert v-if="submitError" :title="submitError" type="error" show-icon :closable="false" class="batch-error" />
     <el-form label-position="top" :disabled="submitting">
       <el-form-item>
         <el-checkbox v-model="form.changeDifficulty">修改难度</el-checkbox>
         <el-select
           v-model="form.difficulty"
+          aria-label="试题难度"
           clearable
-          :disabled="!form.changeDifficulty"
+          :disabled="submitting || !form.changeDifficulty"
           placeholder="不设置（清空难度）"
           class="batch-select"
         >
@@ -108,6 +114,7 @@ function handleCancel(): void {
             :value="opt.value"
           />
         </el-select>
+        <p v-if="form.changeDifficulty && !form.difficulty" class="batch-clear">确认后将清除所选 {{ questionIds.length }} 道试题的难度设置。</p>
       </el-form-item>
     </el-form>
 
@@ -129,6 +136,8 @@ function handleCancel(): void {
   color: $text-secondary;
 }
 
+.batch-error { margin-bottom: 16px; overflow-wrap: anywhere; }
+.batch-clear { margin: 8px 0 0; color: $text-secondary; font-size: 13px; line-height: 1.7; }
 .batch-select {
   width: 100%;
 }

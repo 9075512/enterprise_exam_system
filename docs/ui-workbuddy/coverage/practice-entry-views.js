@@ -1,0 +1,7 @@
+// 练题入口与错题补充设计；所有数字均为设计示例。
+Object.assign(window.DESIGN_ORG_VIEWS,{
+  PracticeHomePage:()=>card('完整问候与刷新','<p class="quality-wrap">你好，完整姓名ABCDEFGHIJKLMNOPQRSTUVWXYZ</p><button>刷新首页</button>')+card('每日一练及快捷入口','<p>每日蓝色主卡 · 已答3 / 10题（设计示例）</p><button>开始练习</button><p>错题本 / 收藏 / 学习报告 / 成就按原功能开关显示。</p><p class="scope">每日、数量、进度各自失败与重试；已成功的其他区域继续可用。</p>')+card('目录与题库交集','<p class="scope">当前目录3个题库 / 2000题（设计示例），只统计实际显示的原服务端交集，目录失败不放宽范围。</p><p class="quality-wrap">完整科目ABCDEFGHIJKLMNOPQRSTUVWXYZ / 完整题库ABCDEFGHIJKLMNOPQRSTUVWXYZ</p><button>选择练题方式</button><p>进度按本人首次作答；失败不显示假零值，提供独立重试。</p>'),
+  PracticeWrongBookPage:()=>card('我的错题本','<p class="scope">共23道 / 已加载20道（设计示例）</p><button>刷新错题</button><button class="primary">全部复习</button>')+card('完整题库与复习','<p class="quality-wrap">完整题库名称ABCDEFGHIJKLMNOPQRSTUVWXYZ</p><p>已加载10道（设计示例）</p><button>复习</button><p class="scope">名称读取失败明确说明并可重试，保留原题目与bankId复习参数。</p>')+card('完整原题干','<p class="quality-wrap">原题第一段ABCDEFGHIJKLMNOPQRSTUVWXYZ<br>第二段完整内容保留。</p><p>原有五类题型及错误次数</p><button>加载更多</button><p class="scope">下一页失败保留已加载题目与原页重试，分页等待时禁止刷新。</p>')
+});
+Object.assign(window.DESIGN_ORG_DRAWERS,{PracticeHomePage:()=>'<p class="scope">累计题量与正确率基于本人首次作答；打卡统计从当前业务日前400天起算，按后台每日重置时间划分。徽章按当前规则计算。</p>'+card('5天连续 / 80题 / 3枚（示例）','<p class="quality-wrap">完整徽章名称ABCDEFGHIJKLMNOPQRSTUVWXYZ</p><p class="quality-wrap">完整成长说明ABCDEFGHIJKLMNOPQRSTUVWXYZ</p><p>已解锁或实际目标进度</p>')+'<p class="scope">手机全屏，正文滚动，固定44px刷新与关闭；失败重试，未开放单独显示。</p><button>刷新成就</button>'});
+Object.assign(window.DESIGN_ORG_PRIMARY,{PracticeHomePage:'刷新首页',PracticeWrongBookPage:'全部复习'});

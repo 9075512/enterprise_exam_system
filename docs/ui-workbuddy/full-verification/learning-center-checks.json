@@ -1,0 +1,424 @@
+[
+  {
+    "label": "notifications-390",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 382
+  },
+  {
+    "label": "notification-read-error-390",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 844,
+        "overflow": false,
+        "width": 390
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 390
+  },
+  {
+    "label": "notification-detail-320",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 740,
+        "overflow": false,
+        "width": 320
+      }
+    ],
+    "viewport": [
+      320,
+      740
+    ],
+    "width": 320
+  },
+  {
+    "label": "notification-detail-844",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 390,
+        "overflow": false,
+        "width": 844
+      }
+    ],
+    "viewport": [
+      844,
+      390
+    ],
+    "width": 844
+  },
+  {
+    "label": "notification-detail-1440",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 900,
+        "overflow": false,
+        "width": 560
+      }
+    ],
+    "viewport": [
+      1440,
+      900
+    ],
+    "width": 1440
+  },
+  {
+    "label": "notifications-all-error-390",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 382
+  },
+  {
+    "label": "profile-summary-error-390",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 382
+  },
+  {
+    "label": "profile-partial-320",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      320,
+      740
+    ],
+    "width": 312
+  },
+  {
+    "label": "profile-partial-844",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      844,
+      390
+    ],
+    "width": 836
+  },
+  {
+    "label": "profile-partial-1440",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      1440,
+      900
+    ],
+    "width": 1432
+  },
+  {
+    "label": "report-trend-error-1440",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      1440,
+      900
+    ],
+    "width": 1432
+  },
+  {
+    "label": "report-trend-error-390",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 382
+  },
+  {
+    "label": "report-subject-overview-390",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 844,
+        "overflow": false,
+        "width": 390
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 390
+  },
+  {
+    "label": "report-subject-overview-320",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 740,
+        "overflow": false,
+        "width": 320
+      }
+    ],
+    "viewport": [
+      320,
+      740
+    ],
+    "width": 320
+  },
+  {
+    "label": "report-subject-overview-844",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 342,
+        "overflow": false,
+        "width": 760
+      }
+    ],
+    "viewport": [
+      844,
+      390
+    ],
+    "width": 844
+  },
+  {
+    "label": "report-subject-overview-1440",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 715,
+        "overflow": false,
+        "width": 760
+      }
+    ],
+    "viewport": [
+      1440,
+      900
+    ],
+    "width": 1440
+  },
+  {
+    "label": "report-bank-overview-1440",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 852,
+        "overflow": false,
+        "width": 760
+      }
+    ],
+    "viewport": [
+      1440,
+      900
+    ],
+    "width": 1440
+  },
+  {
+    "label": "report-bank-overview-320",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 740,
+        "overflow": false,
+        "width": 320
+      }
+    ],
+    "viewport": [
+      320,
+      740
+    ],
+    "width": 320
+  },
+  {
+    "label": "report-bank-overview-390",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 844,
+        "overflow": false,
+        "width": 390
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 390
+  },
+  {
+    "label": "report-bank-overview-844",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 342,
+        "overflow": false,
+        "width": 760
+      }
+    ],
+    "viewport": [
+      844,
+      390
+    ],
+    "width": 844
+  },
+  {
+    "label": "report-main-320",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      320,
+      740
+    ],
+    "width": 312
+  },
+  {
+    "label": "notification-main-320",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      320,
+      740
+    ],
+    "width": 312
+  },
+  {
+    "label": "notification-pagination-320",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      320,
+      740
+    ],
+    "width": 312
+  },
+  {
+    "label": "report-partial-390",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 382
+  },
+  {
+    "label": "report-ready-1440",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      1440,
+      900
+    ],
+    "width": 1432
+  },
+  {
+    "label": "report-empty-390",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 382
+  },
+  {
+    "label": "live-notification-route-access-390",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 390,
+    "redirect": "/admin/dashboard"
+  },
+  {
+    "label": "live-profile-390",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 390
+  },
+  {
+    "label": "live-report-390",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 390
+  },
+  {
+    "label": "live-report-1440",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      1440,
+      900
+    ],
+    "width": 1440
+  },
+  {
+    "label": "live-examinee-notifications-390",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 382
+  },
+  {
+    "label": "live-message-detail-390",
+    "overflow": false,
+    "panels": [
+      {
+        "footerVisible": true,
+        "height": 844,
+        "overflow": false,
+        "width": 390
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ],
+    "width": 390
+  },
+  {
+    "label": "live-examinee-notifications-1440",
+    "overflow": false,
+    "panels": [],
+    "viewport": [
+      1440,
+      900
+    ],
+    "width": 1440
+  }
+]

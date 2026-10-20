@@ -88,3 +88,50 @@ describe('题库二级弹窗的状态与权限', () => {
     expect(wrapper.emitted('update:visible')?.at(-1)).toEqual([false]);
   });
 });
+
+describe('复制与难度弹窗的提交状态', () => {
+  it('空白名称就地校验并聚焦，复制失败保留设置且提交期间锁定授权选择器', async () => {
+    const wrapper = await cloneDialog();
+    const input = wrapper.findComponent({ name: 'ElInput' });
+    await input.setValue('   '); button('确认复制').click(); await flushPromises();
+    await vi.waitFor(() => expect(document.body.textContent).toContain('请填写新题库名称'));
+    expect(document.activeElement?.getAttribute('placeholder')).toBe('请输入新题库名称');
+    expect(api.clone).not.toHaveBeenCalled();
+    await input.setValue('复核用副本');
+    let reject!: (error: Error) => void;
+    api.clone.mockImplementationOnce(() => new Promise((_, fail) => { reject = fail; }));
+    button('确认复制').click(); await flushPromises();
+    expect(wrapper.findComponent({ name: 'ElSelect' }).props('disabled')).toBe(true);
+    expect(button('取消').disabled).toBe(true);
+    expect(wrapper.getComponent(ElDialog).props('closeOnPressEscape')).toBe(false);
+    button('确认复制').click(); await flushPromises(); expect(api.clone).toHaveBeenCalledTimes(1);
+    reject(new Error('offline')); await flushPromises();
+    expect(document.body.textContent).toContain('复制失败，已保留');
+    expect(input.props('modelValue')).toBe('复核用副本');
+    expect(wrapper.findComponent({ name: 'ElSelect' }).props('modelValue')).toEqual(['author-1']);
+    expect(wrapper.findComponent({ name: 'ElSelect' }).props('disabled')).toBe(false);
+  });
+
+  it('清空难度明确显示影响范围，待提交时锁定难度并保持 null 语义', async () => {
+    const wrapper = mount(QuestionBatchEditDialog, { attachTo: document.body, props: { visible: false, questionIds: ['q1', 'q2'] }, global: { plugins: [ElementPlus] } });
+    wrappers.push(wrapper); await wrapper.setProps({ visible: true }); await flushPromises();
+    await wrapper.findComponent({ name: 'ElCheckbox' }).setValue(true);
+    expect(document.body.textContent).toContain('清除所选 2 道试题的难度设置');
+    let reject!: (error: Error) => void;
+    api.batchEdit.mockImplementationOnce(() => new Promise((_, fail) => { reject = fail; }));
+    button('确认修改').click(); await flushPromises();
+    expect(api.batchEdit).toHaveBeenCalledWith({ ids: ['q1', 'q2'], difficulty: null });
+    expect(wrapper.findComponent({ name: 'ElSelect' }).props('disabled')).toBe(true);
+    button('确认修改').click(); await flushPromises(); expect(api.batchEdit).toHaveBeenCalledTimes(1);
+    reject(new Error('offline')); await flushPromises();
+    expect(document.body.textContent).toContain('批量修改失败，已保留');
+    expect(wrapper.findComponent({ name: 'ElSelect' }).props('disabled')).toBe(false);
+  });
+});
+
+it('初次以打开状态挂载时也初始化复制名称和原授权', async () => {
+  const wrapper = mount(BankCloneDialog, { attachTo: document.body, props: { visible: true, bank, isAdmin: true }, global: { plugins: [ElementPlus] } });
+  wrappers.push(wrapper); await flushPromises();
+  expect(wrapper.findComponent({ name: 'ElInput' }).props('modelValue')).toBe('安全题库（副本）');
+  expect(wrapper.findComponent({ name: 'ElSelect' }).props('modelValue')).toEqual(['author-1']);
+});
