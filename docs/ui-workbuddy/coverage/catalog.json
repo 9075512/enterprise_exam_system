@@ -383,51 +383,6 @@
       "mobile": "岗位列表局部横滚，说明采用多行输入；加载与数量未知不显示0，空态区分无岗位与筛选无结果。"
     },
     {
-      "id": "TemplateManagePage-9",
-      "title": "模板管理",
-      "route": "/admin/templates",
-      "file": "src/views/admin/TemplateManagePage.vue",
-      "layout": "list",
-      "sections": [
-        "页头说明与主操作",
-        "筛选与范围",
-        "数据表格（手机内部横滚）",
-        "分页或加载更多"
-      ],
-      "reference": "本轮补充设计",
-      "header": "模板管理",
-      "columns": [
-        "模板名称",
-        "说明",
-        "随机人数",
-        "更新时间",
-        "操作"
-      ],
-      "fields": [],
-      "overlays": [
-        {
-          "primaryAction": "保存模板",
-          "kind": "drawer",
-          "title": "模板编辑",
-          "fields": [
-            "模板名称",
-            "说明",
-            "参数 JSON"
-          ],
-          "mode": "edit"
-        }
-      ],
-      "states": [
-        "ready",
-        "loading",
-        "empty",
-        "error",
-        "forbidden"
-      ],
-      "desktop": "白色分区侧栏，面包屑与标题、日期、账号区；页头说明与主操作；16px白卡承载筛选、内容和状态。按“页头说明与主操作、筛选与范围、数据表格（手机内部横滚）、分页或加载更多”组织页面。",
-      "mobile": "管理端使用导航抽屉；页头及筛选纵向排列，表格只在卡片内横向滚动；树目录独立折叠。考生端为五项底部导航，列表转卡片，作答隐藏通用导航；手机按钮、输入和编辑工具触控至少44px。"
-    },
-    {
       "id": "QuestionFeedbackPage-10",
       "title": "题目反馈",
       "route": "/admin/question-feedback",
@@ -1030,39 +985,6 @@
       ],
       "desktop": "白色分区侧栏，面包屑与标题、日期、账号区；页头说明与主操作；16px白卡承载筛选、内容和状态。按“页头说明与主操作、筛选与范围、数据表格（手机内部横滚）、分页或加载更多”组织页面。",
       "mobile": "标题可直接进入编辑；公告与轮播编辑全屏，单列时间和图片预览，发布范围、富文本工具、数值加减和保存至少44px；原日期与时间能力保留且浮层受视口约束。保存及批量确认/请求期间锁定，失败保留内容或选择；轮播上传期间锁定关闭与保存，末页清空后回到有效页。"
-    },
-    {
-      "id": "HomeConfigPage-24",
-      "title": "首页配置",
-      "route": "/admin/home-config",
-      "file": "src/views/admin/HomeConfigPage.vue",
-      "layout": "settings",
-      "sections": [
-        "配置分类",
-        "当前分组说明",
-        "按用途分区表单",
-        "固定保存与失败恢复"
-      ],
-      "reference": "本轮补充设计",
-      "header": "首页配置",
-      "columns": [
-        "配置范围",
-        "快捷入口",
-        "推荐题库",
-        "最后修改",
-        "操作"
-      ],
-      "fields": [],
-      "overlays": [],
-      "states": [
-        "ready",
-        "loading",
-        "empty",
-        "error",
-        "forbidden"
-      ],
-      "desktop": "白色分区侧栏，面包屑与标题、日期、账号区；页头说明与主操作；16px白卡承载筛选、内容和状态。配置分类或标签置顶，相关字段按用途分组；底部固定保存状态、重置与保存操作。",
-      "mobile": "分类横向滚动，表单标签在输入上方，底部保存栏保持可见；所有输入至少44px。"
     },
     {
       "id": "SettingsPage-25",
