@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
-import { unlink } from 'node:fs/promises';
+import { readFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { app } from '../app.js';
 import { prepareTestDb } from './db.js';
@@ -24,11 +24,39 @@ async function create(body = input()): Promise<ManagedCourse> {
 beforeAll(prepareTestDb);
 afterAll(async () => {
   const files = await query<RowDataPacket[]>('SELECT filename FROM course_media');
-  for (const file of files) if (/^[a-f0-9-]+\.(mp4|webm|png|jpg|webp)$/.test(file.filename)) await unlink(path.join(courseMediaRoot, file.filename)).catch(() => {});
+  for (const file of files) if (/^[a-f0-9-]+\.(mp4|webm|png|jpg|webp|svg)$/.test(file.filename)) await unlink(path.join(courseMediaRoot, file.filename)).catch(() => {});
   await closePool();
 });
 
 describe('课程管理和学员端联动', () => {
+  it('按课程信息生成可持久读取的封面，转义输入，保存上架后学员能读取', async () => {
+    const before = await query<RowDataPacket[]>('SELECT COUNT(*) AS total FROM courses');
+    const result = await request(app).post('/api/courses/manage/cover').set(admin).send({ title: '瓦斯安全 <script>alert(1)</script> & "学习"', category: '瓦斯防治', instructor: '教学团队' });
+    expect(result.status, JSON.stringify(result.body)).toBe(200);
+    expect(result.body.data).toMatchObject({ mime: 'image/svg+xml' });
+    expect((await query<RowDataPacket[]>('SELECT COUNT(*) AS total FROM courses'))[0].total).toBe(before[0].total);
+    const svg = await readFile(path.join(courseMediaRoot, result.body.data.id + '.svg'), 'utf8');
+    expect(svg).toContain('width="1280" height="720"'); expect(svg).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(svg).toContain('&amp; &quot;学习&quot;'); expect(svg).not.toContain('<script>'); expect(svg).not.toContain('<foreignObject');
+    const media = await request(app).get(result.body.data.url);
+    expect(media.status).toBe(200); expect(media.headers['content-type']).toContain('image/svg+xml');
+    expect(media.headers['content-security-policy']).toBe("default-src 'none'; sandbox");
+    expect((await request(app).get(`/api/courses/media/${result.body.data.id}?t=${'0'.repeat(32)}`)).status).toBe(403);
+    const course = await create({ ...input(), cover: result.body.data.url });
+    expect((await request(app).put(`/api/courses/manage/${course.id}/status`).set(admin).send({ revision: course.revision, status: 'published' })).status).toBe(200);
+    expect((await request(app).get(`/api/courses/${course.id}`).set(learner)).body.data.cover).toBe(result.body.data.url);
+  });
+  it('生成封面要求管理权限和有效标题，不接受上传任意SVG', async () => {
+    const endpoint = '/api/courses/manage/cover';
+    expect((await request(app).post(endpoint).send({ title: '课程' })).status).toBe(401);
+    expect((await request(app).post(endpoint).set(learner).send({ title: '课程' })).status).toBe(403);
+    expect((await request(app).post(endpoint).set(author).send({ title: '课程' })).status).toBe(403);
+    for (const body of [{ title: ' ' }, { title: '\u0000' }, { title: '测'.repeat(121) }, { title: '课程', category: '分'.repeat(51) }]) expect((await request(app).post(endpoint).set(admin).send(body)).status).toBe(400);
+    await query("INSERT INTO menu_overrides (user_id, menu_key, effect, updated_at) VALUES ('user-admin', 'course-manage', 'deny', NOW(3))");
+    try { expect((await request(app).post(endpoint).set(admin).send({ title: '课程' })).status).toBe(403); }
+    finally { await query("DELETE FROM menu_overrides WHERE user_id = 'user-admin' AND menu_key = 'course-manage'"); }
+    expect((await request(app).post('/api/courses/manage/media').set(admin).attach('file', Buffer.from('<svg/>'), { filename: 'untrusted.svg', contentType: 'image/svg+xml' })).status).toBe(400);
+  });
   it('未登录、考生和出题人不能调用管理接口', async () => {
     expect((await request(app).get('/api/courses/manage')).status).toBe(401);
     expect((await request(app).post('/api/courses/manage').set(learner).send(input())).status).toBe(403);

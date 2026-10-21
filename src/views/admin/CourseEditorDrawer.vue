@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { onBeforeRouteLeave } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { ArrowDown, ArrowUp, Delete, Plus, Upload } from '@element-plus/icons-vue';
+import { ArrowDown, ArrowUp, Delete, MagicStick, Plus, Upload } from '@element-plus/icons-vue';
 import * as api from '@/api/courses';
 import type { CourseInput, ManagedCourse } from '@/api/courses';
 import type { CourseLesson } from '@/data/courses';
@@ -14,6 +14,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean]; saved: [course
 function blank(): CourseInput { return { title: '', description: '', category: '', cover: '', instructor: '', level: '入门', sortOrder: 0, isDemo: false, chapters: [] }; }
 const form = reactive<CourseInput>(blank());
 const saving = ref(false);
+const generating = ref(false);
 const uploading = ref('');
 const percent = ref(0);
 const saveError = ref('');
@@ -24,7 +25,7 @@ const recordId = ref('');
 const revision = ref(1);
 let baseline = '';
 let controller: AbortController | undefined;
-const busy = computed(() => saving.value || !!uploading.value);
+const busy = computed(() => saving.value || generating.value || !!uploading.value);
 const dirty = computed(() => JSON.stringify(form) !== baseline);
 function reset(course: ManagedCourse | null): void {
   const { id, status, revision: version, createdAt, updatedAt, ...content } = course ?? {} as ManagedCourse;
@@ -32,7 +33,7 @@ function reset(course: ManagedCourse | null): void {
   recordId.value = id ?? ''; revision.value = version ?? 1;
   baseline = JSON.stringify(form); saveError.value = ''; fieldError.value = ''; activeTab.value = 'basic';
 }
-watch(() => props.modelValue, open => { if (open) reset(props.course); }, { immediate: true });
+watch(() => props.modelValue, open => { if (open) reset(props.course); else controller?.abort(); }, { immediate: true });
 function id(prefix: string): string { return `${prefix}-${crypto.randomUUID?.() ?? Date.now().toString(36) + '-' + Math.random().toString(36).slice(2)}`; }
 function addChapter(): void { form.chapters.push({ id: id('chapter'), title: `第${form.chapters.length + 1}章`, lessons: [] }); }
 function addLesson(chapterIndex: number): void {
@@ -75,6 +76,22 @@ async function reload(): Promise<void> {
   catch { saveError.value = '重新加载失败，当前填写内容已保留'; }
   finally { saving.value = false; }
 }
+async function generateCover(): Promise<void> {
+  if (busy.value || form.cover.trim()) return;
+  fieldError.value = ''; saveError.value = '';
+  if (!form.title.trim()) {
+    fieldError.value = '请先填写课程标题，再生成封面';
+    await nextTick(); host.value?.querySelector<HTMLInputElement>('[aria-label="课程标题"]')?.focus(); return;
+  }
+  generating.value = true;
+  const request = controller = new AbortController();
+  try {
+    const result = await api.generateCourseCover({ title: form.title, category: form.category, instructor: form.instructor }, request.signal);
+    if (!request.signal.aborted && props.modelValue) { form.cover = result.url; ElMessage.success('封面已生成，保存课程后生效'); }
+  } catch (error) {
+    if (props.modelValue) saveError.value = request.signal.aborted ? '生成已取消，可以重新生成' : (error as Error).message || '封面生成失败，请重试';
+  } finally { generating.value = false; if (controller === request) controller = undefined; }
+}
 async function videoDuration(file: File): Promise<string> {
   return new Promise(resolve => {
     const media = document.createElement('video'); const url = URL.createObjectURL(file);
@@ -106,13 +123,14 @@ async function upload(event: Event, lesson?: CourseLesson): Promise<void> {
       <el-alert v-if="saveError" :title="saveError" type="error" :closable="false" show-icon role="alert" />
       <el-alert v-if="fieldError" :title="fieldError" type="warning" :closable="false" show-icon role="alert" />
       <el-alert v-if="uploading" :title="`正在上传${uploading === 'cover' ? '封面' : '视频'} ${percent}% · 完成传输后请等待处理`" type="info" :closable="false"><el-button size="small" @click="controller?.abort()">取消上传</el-button></el-alert>
+      <el-alert v-if="generating" title="正在生成课程封面…" type="info" :closable="false" role="status"><el-button size="small" @click="controller?.abort()">取消生成</el-button></el-alert>
       <el-tabs v-model="activeTab">
         <el-tab-pane label="基本信息" name="basic">
           <el-form label-position="top" :disabled="busy" @submit.prevent="save">
             <el-form-item label="课程标题" required><el-input v-model="form.title" aria-label="课程标题" maxlength="120" show-word-limit placeholder="为课程起一个清晰的名字" /></el-form-item>
             <div class="course-editor__two"><el-form-item label="课程分类"><el-input v-model="form.category" aria-label="课程分类" maxlength="50" placeholder="如：临床护理、岗位培训" /></el-form-item><el-form-item label="讲师"><el-input v-model="form.instructor" aria-label="讲师" maxlength="80" placeholder="讲师姓名或教学团队" /></el-form-item></div>
             <el-form-item label="课程简介"><el-input v-model="form.description" aria-label="课程简介" type="textarea" :rows="4" maxlength="2000" show-word-limit placeholder="介绍课程内容、学习目标和适合人群" /></el-form-item>
-            <el-form-item label="课程封面"><div class="course-editor__cover"><img v-if="form.cover" :src="form.cover" alt="课程封面预览"><div v-else class="course-editor__cover-empty">暂无封面</div><div><label class="course-upload" :class="{ disabled: busy }"><Upload />上传封面<input type="file" accept="image/jpeg,image/png,image/webp" :disabled="busy" aria-label="上传课程封面" @change="upload($event)"></label><p>JPG / PNG / WebP，最大8MB，建议16:9</p></div></div><el-input v-model="form.cover" aria-label="封面地址" placeholder="也可填写可访问的 HTTP(S) 图片地址" /></el-form-item>
+            <el-form-item label="课程封面"><div class="course-editor__cover"><img v-if="form.cover" :src="form.cover" alt="课程封面预览"><div v-else class="course-editor__cover-empty">暂无封面</div><div><div class="course-editor__cover-actions"><label class="course-upload" :class="{ disabled: busy }"><Upload />上传封面<input type="file" accept="image/jpeg,image/png,image/webp" :disabled="busy" aria-label="上传课程封面" @change="upload($event)"></label><el-button :icon="MagicStick" :loading="generating" :disabled="busy || !!form.cover.trim()" @click="generateCover">生成封面</el-button></div><p>JPG / PNG / WebP，最大8MB，建议16:9</p><p>{{ form.cover.trim() ? '已保留当前封面；清空下方地址后可重新生成。' : '填写课程标题，可一键生成同款深色封面。' }}</p></div></div><el-input v-model="form.cover" aria-label="封面地址" placeholder="也可填写可访问的 HTTP(S) 图片地址" /></el-form-item>
             <div class="course-editor__two"><el-form-item label="课程难度"><el-select v-model="form.level" aria-label="课程难度"><el-option v-for="level in ['入门', '进阶', '高级']" :key="level" :label="level" :value="level" /></el-select></el-form-item><el-form-item label="展示排序"><el-input-number v-model="form.sortOrder" aria-label="展示排序" :min="0" :max="99999" :precision="0" /><small>数字越小，展示越靠前</small></el-form-item></div>
             <el-form-item><el-checkbox v-model="form.isDemo">标记为演示课程</el-checkbox></el-form-item>
           </el-form>
@@ -133,7 +151,7 @@ async function upload(event: Event, lesson?: CourseLesson): Promise<void> {
         </el-tab-pane>
       </el-tabs>
     </div>
-    <template #footer><div class="course-editor__footer"><span>{{ recordId ? '保存修改后，可返回列表上架' : '新课程将保存为草稿' }}</span><el-button v-if="recordId && saveError" :disabled="busy" @click="reload">重新加载</el-button><el-button :disabled="busy" @click="close">取消</el-button><el-button type="primary" :loading="saving" :disabled="!!uploading" @click="save">{{ recordId ? '保存修改' : '保存草稿' }}</el-button></div></template>
+    <template #footer><div class="course-editor__footer"><span>{{ recordId ? '保存修改后，可返回列表上架' : '新课程将保存为草稿' }}</span><el-button v-if="recordId && saveError" :disabled="busy" @click="reload">重新加载</el-button><el-button :disabled="busy" @click="close">取消</el-button><el-button type="primary" :loading="saving" :disabled="generating || !!uploading" @click="save">{{ recordId ? '保存修改' : '保存草稿' }}</el-button></div></template>
   </el-drawer>
 </template>
 
@@ -144,6 +162,7 @@ async function upload(event: Event, lesson?: CourseLesson): Promise<void> {
   .el-alert { margin-bottom: 12px; } .el-form-item { margin-bottom: 20px; } .el-input-number { width: 100%; } .el-select { width: 100%; }
   &__two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
   &__cover { width: 100%; display: flex; align-items: center; gap: 20px; margin-bottom: 12px; img, &-empty { width: 180px; aspect-ratio: 16 / 9; border-radius: $radius-base; object-fit: cover; background: $bg-page; } p { color: $text-secondary; font-size: 11px; } &-empty { display: grid; place-items: center; color: $text-disabled; font-size: 12px; } }
+  &__cover-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; .el-button { margin-left: 0; } }
   &__chapter { padding: 16px; border: 1px solid $border-color; border-radius: $radius-lg; margin-bottom: 16px; background: $bg-page; }
   &__chapter-head { display: flex; align-items: center; gap: 6px; margin-bottom: 16px; > span { color: $text-secondary; font-variant-numeric: tabular-nums; } .el-input { flex: 1; min-width: 0; } .el-button { padding: 8px; margin-left: 0; } }
   &__lesson { border: 1px solid $border-color; border-radius: $radius-base; background: $bg-paper; padding: 16px; margin-bottom: 14px; }

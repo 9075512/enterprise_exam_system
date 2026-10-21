@@ -8,6 +8,12 @@ export function validCourseUrl(value: string): boolean {
 }
 const mediaUrl = z.string().trim().max(2048).refine(validCourseUrl, '请填写有效的 HTTP(S) 地址或本站上传资源地址');
 const id = z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/, '课程、章节及小节标识不合法');
+export const courseCoverSchema = z.object({
+  title: z.string().trim().min(1, '请先填写课程标题').max(120).refine(value => !!value.replace(/[\u0000-\u001f\u007f-\u009f]/g, '').trim(), '请先填写课程标题'),
+  category: z.string().trim().max(50).default(''),
+  instructor: z.string().trim().max(80).default(''),
+});
+export type CourseCoverInput = z.infer<typeof courseCoverSchema>;
 export const courseBodySchema = z.object({
   title: z.string().trim().min(1, '请输入课程标题').max(120),
   description: z.string().trim().max(2000).default(''),

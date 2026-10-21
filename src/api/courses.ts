@@ -14,6 +14,9 @@ export function createCourse(course: CourseInput): Promise<ManagedCourse> { retu
 export function updateCourse(id: string, revision: number, course: CourseInput): Promise<ManagedCourse> { return put(`/courses/manage/${encodeURIComponent(id)}`, { revision, course }, { suppressErrorToast: true }); }
 export function setCourseStatus(id: string, revision: number, status: CourseStatus): Promise<ManagedCourse> { return put(`/courses/manage/${encodeURIComponent(id)}/status`, { revision, status }, { suppressErrorToast: true }); }
 export function deleteCourse(id: string, revision: number): Promise<void> { return del(`/courses/manage/${encodeURIComponent(id)}`, { revision }, { suppressErrorToast: true }); }
+export function generateCourseCover(input: { title: string; category: string; instructor: string }, signal: AbortSignal): Promise<{ url: string }> {
+  return post('/courses/manage/cover', input, { signal, suppressErrorToast: true });
+}
 export async function uploadCourseMedia(file: File, signal: AbortSignal, onProgress: (percent: number) => void): Promise<{ url: string }> {
   const form = new FormData(); form.append('file', file);
   return await http.post('/courses/manage/media', form, { timeout: 0, signal, onUploadProgress: event => { if (event.total) onProgress(Math.round(event.loaded / event.total * 100)); } }) as unknown as { url: string };
