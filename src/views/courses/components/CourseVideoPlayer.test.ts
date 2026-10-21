@@ -46,7 +46,7 @@ describe('受控课程播放器', () => {
     media.currentTime = 36.2;
     await wrapper.get('video').trigger('timeupdate');
     window.dispatchEvent(new Event('pagehide'));
-    expect(progress()).toEqual(['course-a', 'lesson-a', { position: 36.2, duration: 100, completed: false }]);
+    expect(progress()).toEqual(['course-a', 'lesson-a', { position: 36.2, duration: 100, completed: false, immediate: true }]);
     const before = wrapper.emitted('progress')!.length;
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
     document.dispatchEvent(new Event('visibilitychange'));
@@ -62,7 +62,7 @@ describe('受控课程播放器', () => {
     await wrapper.get('video').trigger('timeupdate');
     expect(progress()?.[2]).toMatchObject({ completed: false });
     await wrapper.get('video').trigger('ended');
-    expect(progress()?.[2]).toEqual({ position: 100, duration: 100, completed: true });
+    expect(progress()?.[2]).toEqual({ position: 100, duration: 100, completed: true, immediate: true });
     expect(wrapper.emitted('ended')).toHaveLength(1);
     await wrapper.get('.course-player__big-play').trigger('click');
     expect(media.currentTime).toBe(0);

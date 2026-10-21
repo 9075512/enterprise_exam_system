@@ -745,3 +745,56 @@ CREATE TABLE IF NOT EXISTS bank_tree_migration_reports (
     updated_at    DATETIME(3) NOT NULL,
     PRIMARY KEY (migration_key)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- Course catalogue, categories and account playback progress
+CREATE TABLE IF NOT EXISTS courses (
+    id VARCHAR(64) NOT NULL PRIMARY KEY,
+    title VARCHAR(120) NOT NULL,
+    status ENUM('draft','published','archived') NOT NULL DEFAULT 'draft',
+    sort_order INT NOT NULL DEFAULT 0,
+    content_json JSON NOT NULL,
+    revision INT NOT NULL DEFAULT 1,
+    created_by VARCHAR(64) NOT NULL,
+    updated_by VARCHAR(64) NOT NULL,
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    deleted_at DATETIME(3) NULL,
+    KEY idx_course_status_sort (deleted_at, status, sort_order)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS course_media (
+    id VARCHAR(64) NOT NULL PRIMARY KEY,
+    filename VARCHAR(100) NOT NULL,
+    mime VARCHAR(50) NOT NULL,
+    size BIGINT UNSIGNED NOT NULL,
+    created_by VARCHAR(64) NOT NULL,
+    created_at DATETIME(3) NOT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS course_categories (
+    id VARCHAR(64) NOT NULL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    revision INT NOT NULL DEFAULT 1,
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    UNIQUE KEY uk_course_category_name (name)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS course_progress (
+    user_id VARCHAR(64) NOT NULL,
+    course_id VARCHAR(64) NOT NULL,
+    lesson_id VARCHAR(64) NOT NULL,
+    position_seconds DOUBLE NOT NULL DEFAULT 0,
+    duration_seconds DOUBLE NOT NULL DEFAULT 0,
+    completed TINYINT(1) NOT NULL DEFAULT 0,
+    revision BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    client_id VARCHAR(64) NOT NULL DEFAULT '',
+    client_sequence BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    selected_at DATETIME(6) NULL,
+    updated_at DATETIME(3) NOT NULL,
+    PRIMARY KEY (user_id, course_id, lesson_id),
+    CONSTRAINT fk_course_progress_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_course_progress_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

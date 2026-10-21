@@ -1,6 +1,6 @@
 export interface CourseLesson { id: string; title: string; description: string; src: string; durationLabel: string }
 export interface CourseChapter { id: string; title: string; lessons: CourseLesson[] }
-export interface Course { id: string; title: string; description: string; category: string; cover: string; instructor: string; level: string; isDemo?: boolean; chapters: CourseChapter[] }
+export interface Course { id: string; title: string; description: string; detailHtml?: string; category: string; categoryId?: string; cover: string; instructor: string; level: string; isDemo?: boolean; chapters: CourseChapter[] }
 
 // 保留为测试与可选种子数据，正式页面从课程 API 读取；公开样片不代表正式教学内容。
 const flower = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';

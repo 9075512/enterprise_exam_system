@@ -24,6 +24,7 @@ import type { AuditAction, AuditLogDto, AuditTargetType, Page } from '../../type
 
 /** 审计动作 → 中文文案（前端展示层另有一份镜像，见 src/constants）。 */
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
+  'course-category.create': '新增课程分类', 'course-category.update': '修改课程分类', 'course-category.delete': '删除课程分类',
   'course.create': '新增课程', 'course.update': '编辑课程', 'course.delete': '删除课程', 'course.status': '调整课程上架状态',
   'role.create': '新增角色',
   'role.update': '编辑角色',

@@ -14,6 +14,11 @@ export function createCourse(course: CourseInput): Promise<ManagedCourse> { retu
 export function updateCourse(id: string, revision: number, course: CourseInput): Promise<ManagedCourse> { return put(`/courses/manage/${encodeURIComponent(id)}`, { revision, course }, { suppressErrorToast: true }); }
 export function setCourseStatus(id: string, revision: number, status: CourseStatus): Promise<ManagedCourse> { return put(`/courses/manage/${encodeURIComponent(id)}/status`, { revision, status }, { suppressErrorToast: true }); }
 export function deleteCourse(id: string, revision: number): Promise<void> { return del(`/courses/manage/${encodeURIComponent(id)}`, { revision }, { suppressErrorToast: true }); }
+export interface CourseCategory { id: string; name: string; sortOrder: number; revision: number; courseCount: number }
+export function listCourseCategories(): Promise<CourseCategory[]> { return get('/courses/manage/categories', undefined, { suppressErrorToast: true }); }
+export function createCourseCategory(input: { name: string; sortOrder: number }): Promise<CourseCategory> { return post('/courses/manage/categories', input, { suppressErrorToast: true }); }
+export function updateCourseCategory(id: string, revision: number, input: { name: string; sortOrder: number }): Promise<CourseCategory> { return put(`/courses/manage/categories/${encodeURIComponent(id)}`, { ...input, revision }, { suppressErrorToast: true }); }
+export function deleteCourseCategory(id: string, revision: number): Promise<void> { return del(`/courses/manage/categories/${encodeURIComponent(id)}`, { revision }, { suppressErrorToast: true }); }
 export function generateCourseCover(input: { title: string; category: string; instructor: string }, signal: AbortSignal): Promise<{ url: string }> {
   return post('/courses/manage/cover', input, { signal, suppressErrorToast: true });
 }

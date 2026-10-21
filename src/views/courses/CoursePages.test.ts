@@ -6,8 +6,12 @@ import ListPage from './CourseListPage.vue';
 import DetailPage from './CourseDetailPage.vue';
 import { useCourseProgress } from '@/composables/useCourseProgress';
 import { courses } from '@/data/courses';
+import type { SavedProgress, ProgressWrite } from '@/api/courseProgress';
 const api = vi.hoisted(() => ({ list: vi.fn(), get: vi.fn() }));
 vi.mock('@/api/courses', () => ({ listCourses: api.list, getCourse: api.get }));
+const cloudApi = vi.hoisted(() => ({ get: vi.fn(), save: vi.fn(), select: vi.fn(), migrate: vi.fn() }));
+vi.mock('@/api/courseProgress', () => ({ getCourseProgress: cloudApi.get, saveCourseProgress: cloudApi.save, selectCourseLesson: cloudApi.select, importCourseProgress: cloudApi.migrate }));
+let cloud: SavedProgress;
 
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ currentUser: { id: 'learner' } }) }));
 const player = defineComponent({
@@ -18,11 +22,16 @@ const player = defineComponent({
 let wrapper: VueWrapper | undefined;
 let router: Router;
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
   localStorage.clear();
+  cloud = { version: 1, courses: {} };
+  cloudApi.get.mockImplementation(async () => structuredClone(cloud));
+  cloudApi.select.mockImplementation(async (courseId: string, lessonId: string) => { (cloud.courses[courseId] ??= { lessons: {} }).lastLessonId = lessonId; });
+  cloudApi.save.mockImplementation(async (courseId: string, lessonId: string, body: ProgressWrite) => { const result = { ...body, revision: 1, updatedAt: Date.now() }; (cloud.courses[courseId] ??= { lessons: {} }).lessons[lessonId] = result; return result; });
   api.list.mockResolvedValue(courses);
   api.get.mockImplementation(async (id: string) => { const course = courses.find(item => item.id === id); if (!course) throw Object.assign(new Error('not found'), { status: 404 }); return course; });
 });
-afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.restoreAllMocks(); });
+afterEach(async () => { wrapper?.unmount(); wrapper = undefined; await flushPromises(); vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); });
 async function render(path: string) {
   router = createRouter({ history: createMemoryHistory(), routes: [
     { path: '/exam/courses', component: ListPage },
@@ -39,6 +48,12 @@ async function render(path: string) {
   return wrapper;
 }
 describe('课程列表和章节学习流程', () => {
+  it('富文本课程详情在学习页独立展示，列表简介保持纯文本', async () => {
+    api.get.mockResolvedValueOnce({ ...courses[0], detailHtml: '<h2>学习目标</h2><p><strong>安全知识</strong></p>' });
+    const page = await render('/exam/courses/visual-story');
+    expect(page.get('.course-rich-detail h2').text()).toBe('课程详情');
+    expect(page.get('.course-rich-detail .rich-text strong').text()).toBe('安全知识');
+  });
   it('列表有封面、标题与简介，支持搜索、分类及空态恢复', async () => {
     const page = await render('/exam/courses');
     expect(page.findAll('.course-card')).toHaveLength(3);
