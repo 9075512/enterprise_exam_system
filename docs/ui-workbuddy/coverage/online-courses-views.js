@@ -6,7 +6,7 @@ Object.assign(window.DESIGN_ORG_VIEWS, {
   CourseListPage: () => card('把好奇，变成你的下一项能力', '<p>浅蓝学习引导区、书本插画与继续学习入口。</p>')
     + card('学习概览', '<p>3 门课程 / 已开始学习 / 已完成课程；按当前账号的浏览器记录计算。</p>')
     + card('发现好课程', '<input class="input" placeholder="搜索课程"><p>全部课程 / 影像表达 / 自然观察 / 学习中 / 已完成</p><div class="split">'
-      + ['影像观察与视觉叙事', '自然中的色彩与细节', '动画里的故事语言'].map(title => `<article class="card"><h3>${title}</h3><p>本地封面插画、课程简介、难度、章节数、完成进度。</p><button>开始学习</button></article>`).join('')
+      + ['影像观察与视觉叙事', '自然中的色彩与细节', '动画里的故事语言'].map(title => `<article class="card"><h3>${title}</h3><p>本地封面插画、最多两行的课程简介、难度、章节数、完成进度；完整说明和出处保留在详情页。</p><button>开始学习</button></article>`).join('')
       + '</div><p class="scope">桌面三列，平板两列，手机单列；无结果可重置筛选。存储失败显示明确提示。</p>'),
   CourseDetailPage: () => card('课程学习', '<p>全部课程返回入口、课程名称、分类、完整简介。</p>')
     + card('视频播放器', '<div style="aspect-ratio:16/9;background:#101b2d;color:white;display:grid;place-items:center">公开样片 · 点击播放</div><p>播放 / 暂停　00:23 / 09:56　只读进度条　1.0×　全屏</p><p class="scope">元数据就绪后续播，不自动出声。禁止拖动及倍速修改，播放结束标记完成；加载失败和20秒超时支持重试。</p>')
