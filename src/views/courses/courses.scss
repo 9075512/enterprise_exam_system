@@ -75,6 +75,46 @@
 .courses-warning { border: 1px solid #f4d5a3; background: #fff9ee; color: #96612c; padding: 12px 16px; border-radius: 8px; font-size: 12px; }
 .courses-warning button { border: 0; background: transparent; color: $color-primary; cursor: pointer; padding: 8px; text-decoration: underline; }
 .course-rich-detail { margin-top: 20px; padding: 24px; border: 1px solid $border-color; border-radius: $radius-lg; background: $bg-paper; overflow-wrap: anywhere; h2 { margin: 0 0 16px; font-size: 20px; } .rich-text { min-width: 0; max-width: 100%; overflow-x: auto; } }
+.course-study-back { display: flex; align-items: center; gap: 24px; }
+.course-overview {
+  &__hero { display: grid; grid-template-columns: minmax(240px, .85fr) minmax(0, 1.4fr); gap: 32px; padding: 28px; border: 1px solid $border-color; border-radius: $radius-lg; background: $bg-paper; }
+  &__cover { align-self: start; aspect-ratio: 16 / 9; overflow: hidden; border-radius: $radius-base; background: $bg-page; img { display: block; width: 100%; height: 100%; object-fit: cover; } }
+  &__cover-fallback { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; height: 100%; font-size: 12px; color: $text-secondary; svg { width: 36px; } }
+  &__info { min-width: 0; h1 { margin: 10px 0 14px; font-size: 27px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; } }
+  &__summary { margin: 0; color: $text-secondary; font-size: 13px; line-height: 1.8; white-space: pre-line; overflow-wrap: anywhere; &.collapsed { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; } }
+  &__expand { padding: 5px 0; border: 0; background: transparent; color: $color-primary; font-size: 12px; cursor: pointer; }
+  &__meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 20px 0; font-size: 12px; color: $text-secondary; span { overflow-wrap: anywhere; } }
+  &__desktop-action { display: flex; align-items: center; gap: 16px; small { font-size: 11px; color: $text-secondary; } }
+  &__content { display: grid; grid-template-columns: minmax(0, 1fr) 310px; align-items: start; gap: 24px; margin-top: 24px; }
+  &__intro { margin-top: 0; min-width: 0; .rich-text { line-height: 1.9; img { max-width: 100%; height: auto; } } }
+  &__plain { white-space: pre-wrap; margin: 0; line-height: 1.9; font-size: 14px; }
+  &__outline { min-width: 0; position: sticky; top: 20px; }
+  &__tabs, &__mobile-action { display: none; }
+  .course-image-failed { display: block; width: 100%; min-height: 80px; padding: 16px; border: 1px dashed $border-color; color: $text-secondary; background: $bg-page; font-size: 12px; }
+}
+@media (max-width: 1050px) {
+  .course-overview {
+    padding-bottom: calc(100px + env(safe-area-inset-bottom));
+    &__hero { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+    &__cover { width: 100%; max-width: 560px; }
+    &__desktop-action { display: none; }
+    &__tabs { display: flex; gap: 24px; margin-top: 24px; border-bottom: 1px solid $border-color; button { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 10px 0; border: 0; border-bottom: 2px solid transparent; background: transparent; color: $text-secondary; font-size: 14px; cursor: pointer; &[aria-selected='true'] { color: $color-primary; border-bottom-color: $color-primary; } span { font-size: 11px; } } }
+    &__content { display: block; margin-top: 16px; }
+    &__intro, &__outline { display: none; &.is-active { display: block; } }
+    &__outline { position: static; }
+    &__mobile-action { position: fixed; z-index: 35; bottom: 0; left: var(--course-action-left, 0px); right: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid $border-color; background: $bg-paper; box-shadow: 0 -4px 16px rgba($text-primary, .04); > span { color: $text-secondary; font-size: 12px; } .courses-primary { min-height: 44px; } }
+  }
+}
+@media (max-width: 600px) {
+  .course-overview {
+    padding-bottom: calc(100px + env(safe-area-inset-bottom));
+    &__hero { padding: 16px; gap: 18px; }
+    &__info h1 { font-size: 22px; }
+    &__meta { gap: 8px 14px; margin-bottom: 0; }
+    &__intro { padding: 20px 16px; }
+    &__mobile-action { padding-left: 16px; padding-right: 16px; .courses-primary { padding-left: 14px; padding-right: 14px; gap: 6px; } }
+  }
+}
 .courses-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; padding: 30px; gap: 10px; text-align: center; }
 .courses-empty > svg { width: 38px; color: #839abc; }
 .courses-empty h3, .courses-empty h1 { margin: 0; font-size: 20px; }
@@ -117,3 +157,6 @@
 @media (max-width: 1050px) { .courses-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .course-study-grid { grid-template-columns: minmax(0, 1fr); } .course-desktop-directory { display: none; } .course-mobile-directory { display: flex; align-items: center; width: 100%; gap: 12px; padding: 16px; margin-bottom: 18px; border: 1px solid #dce6f6; border-radius: 10px; background: #f1f6fe; color: #3b619a; text-align: left; cursor: pointer; } .course-mobile-directory > svg { width: 20px; } .course-mobile-directory > svg:last-child { width: 15px; margin-left: auto; } .course-mobile-directory small { display: block; color: #7d90ad; font-size: 10px; margin-top: 4px; } .course-detail__badge { display: none; } .courses-stats { gap: 25px; } .courses-stats > p { display: none; } .courses-hero { grid-template-columns: 1fr 190px; padding: 28px; } .hero-book { transform: rotate(10deg) scale(.8); } .hero-orbit { width: 170px; height: 170px; } .hero-spark { right: 0; font-size: 30px; } }
 @media (max-width: 600px) { .courses-page { padding: 16px 16px 25px; } .courses-kicker { margin-bottom: 16px; } .courses-hero { grid-template-columns: 1fr; min-height: 250px; padding: 25px 22px; } .courses-hero > div:first-child { position: relative; z-index: 1; } .courses-hero h1 { font-size: 25px; max-width: 280px; } .courses-hero p { max-width: 260px; font-size: 12px; } .courses-hero__art { position: absolute; right: -75px; bottom: -85px; width: 170px; height: 210px; opacity: .13; } .courses-stats { justify-content: space-between; padding: 22px 2px; gap: 8px; } .courses-stats > div { gap: 8px; } .stat-mark { width: 32px; height: 35px; border-radius: 8px; } .stat-mark svg { width: 17px; } .courses-stats strong { font-size: 21px; } .courses-stats small { font-size: 10px; } .courses-section-head { align-items: stretch; flex-direction: column; gap: 16px; } .courses-section-head h2 { font-size: 19px; } .courses-section-head h2 span { display: inline; } .courses-search input { flex: 1; width: 100%; } .courses-library { padding-top: 24px; } .courses-filters { gap: 4px; margin: 16px 0; } .courses-filters button { padding: 7px 9px; font-size: 11px; } .courses-filters > span { display: none; } .courses-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; } .course-card__cover { aspect-ratio: 1.95; } .course-card__body { padding: 20px; } .course-card__body > p { min-height: auto; } .course-card__bottom > small, .course-card__bottom > span { font-size: 11px; } .courses-footer { line-height: 1.8; margin-top: 24px; } .course-back { margin-bottom: 18px; } .course-detail__heading { margin-bottom: 20px; } .course-detail__heading h1 { font-size: 23px; } .course-detail__heading p { line-height: 1.8; font-size: 11px; } .course-lesson-info { padding: 20px 16px; } .course-lesson-info h2 { font-size: 18px; } .course-playback-note { font-size: 9px; } .course-learning-tip { padding: 20px 2px 0; } }
 @media (prefers-reduced-motion: reduce) { .courses-page *, .courses-page *::before, .courses-page *::after { transition: none !important; } }
+
+@media (min-width: 701px) and (max-width: 1050px) { .layout.is-management-layout .layout__aside ~ .layout__main .course-overview { --course-action-left: #{$sidebar-width}; } .layout.is-management-layout .layout__aside.is-collapsed ~ .layout__main .course-overview { --course-action-left: #{$sidebar-width-collapsed}; } }
+@media (min-width: 901px) and (max-width: 1050px) { .layout.is-examinee-layout .layout__aside ~ .layout__main .course-overview { --course-action-left: #{$sidebar-width}; } .layout.is-examinee-layout .layout__aside.is-collapsed ~ .layout__main .course-overview { --course-action-left: #{$sidebar-width-collapsed}; } }

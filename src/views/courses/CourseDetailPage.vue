@@ -1,92 +1,103 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ArrowLeft, ArrowRight, CircleCheckFilled, Fold, Lock, Reading } from '@element-plus/icons-vue';
-import { courseLessons, formatVideoTime, type Course } from '@/data/courses';
+import { ArrowLeft, ArrowRight, Reading } from '@element-plus/icons-vue';
+import { courseLessons, type Course } from '@/data/courses';
 import { getCourse } from '@/api/courses';
-import type { ApiError } from '@/api/http';
+import { useAuthStore } from '@/stores/auth';
+import { useCourseProgress } from '@/composables/useCourseProgress';
 import RequestError from '@/components/common/RequestError.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
-import { useAuthStore } from '@/stores/auth';
-import { useCourseProgress, type PlaybackProgress } from '@/composables/useCourseProgress';
 import CourseOutline from './components/CourseOutline.vue';
-import CourseVideoPlayer from './components/CourseVideoPlayer.vue';
 import './courses.scss';
 
-const route = useRoute();
-const router = useRouter();
-const auth = useAuthStore();
+const route = useRoute(); const router = useRouter(); const auth = useAuthStore();
 const progress = useCourseProgress(auth.currentUser?.id ?? 'guest', auth.token);
-const course = ref<Course>();
-const loading = ref(true);
-const loadError = ref(false);
-let request: AbortController | undefined;
+const course = ref<Course>(); const loading = ref(true); const loadError = ref(false);
+const tab = ref<'intro' | 'outline'>('intro'); const expanded = ref(false); const coverFailed = ref(false);
+const summary = ref<HTMLElement>(); const summaryOverflow = ref(false);
+let request: AbortController | undefined; let observer: ResizeObserver | undefined;
+function measureSummary(): void { if (summary.value && !expanded.value) summaryOverflow.value = summary.value.scrollHeight > summary.value.clientHeight + 1; }
+watch(summary, element => {
+  observer?.disconnect();
+  if (element && typeof ResizeObserver !== 'undefined') { observer = new ResizeObserver(measureSummary); observer.observe(element); }
+  measureSummary();
+}, { flush: 'post' });
+watch(expanded, () => void nextTick(measureSummary));
+window.addEventListener('resize', measureSummary);
 async function load(): Promise<void> {
   request?.abort(); const controller = request = new AbortController();
   loading.value = true; loadError.value = false; course.value = undefined;
-  try { const [result] = await Promise.all([getCourse(String(route.params.courseId), controller.signal), progress.load()]); if (!controller.signal.aborted) course.value = result; }
-  catch (error) { if (!controller.signal.aborted) loadError.value = (error as ApiError).status !== 404; }
+  expanded.value = false; summaryOverflow.value = false; coverFailed.value = false; tab.value = 'intro';
+  try {
+    const [result] = await Promise.all([getCourse(String(route.params.courseId), controller.signal), progress.load()]);
+    if (!controller.signal.aborted) course.value = result;
+  } catch (error) { if (!controller.signal.aborted) loadError.value = (error as { status?: number }).status !== 404; }
   finally { if (!controller.signal.aborted) loading.value = false; }
 }
-watch(() => route.params.courseId, load, { immediate: true });
-onBeforeUnmount(() => request?.abort());
-const lessons = computed(() => course.value ? courseLessons(course.value) : []);
-const selectedId = ref('');
-const drawerOpen = ref(false);
-const ended = ref(false);
-const initialPosition = ref(0);
-const lesson = computed(() => lessons.value.find(item => item.id === selectedId.value));
-const index = computed(() => lessons.value.findIndex(item => item.id === selectedId.value));
-const chapter = computed(() => course.value?.chapters.find(item => item.lessons.some(section => section.id === selectedId.value)));
-const savedLessons = computed(() => progress.data.value.courses[course.value?.id ?? '']?.lessons ?? {});
-const completedCount = computed(() => lessons.value.filter(item => savedLessons.value[item.id]?.completed).length);
-function select(id: string): void {
-  if (!course.value || !lessons.value.some(item => item.id === id)) return;
-  drawerOpen.value = false;
-  if (selectedId.value === id) return;
-  const saved = progress.lesson(course.value.id, id);
-  initialPosition.value = saved?.completed ? 0 : saved?.position ?? 0;
-  selectedId.value = id;
-  ended.value = false;
-  progress.select(course.value.id, id);
-  void router.replace({ query: { ...route.query, lesson: id } });
-}
-watch(() => course.value?.id, () => {
-  selectedId.value = '';
-  const fromQuery = typeof route.query.lesson === 'string' ? route.query.lesson : '';
-  const savedId = course.value ? progress.lastLesson(course.value.id) : '';
-  const target = lessons.value.find(item => item.id === fromQuery) ?? lessons.value.find(item => item.id === savedId) ?? lessons.value[0];
-  if (target) select(target.id);
+watch(() => [route.params.courseId, route.query.lesson], () => {
+  if (typeof route.query.lesson === 'string') {
+    request?.abort();
+    void router.replace({ name: 'course-study', params: { courseId: route.params.courseId }, query: route.query, hash: route.hash });
+  } else void load();
 }, { immediate: true });
-watch(() => route.query.lesson, id => { if (typeof id === 'string' && id !== selectedId.value) select(id); });
-function onProgress(courseId: string, lessonId: string, value: PlaybackProgress): void { progress.save(courseId, lessonId, value); }
+onBeforeUnmount(() => { request?.abort(); observer?.disconnect(); window.removeEventListener('resize', measureSummary); });
+const lessons = computed(() => course.value ? courseLessons(course.value) : []);
+const savedLessons = computed(() => progress.data.value.courses[course.value?.id ?? '']?.lessons ?? {});
+const completed = computed(() => lessons.value.filter(item => savedLessons.value[item.id]?.completed).length);
+const allCompleted = computed(() => lessons.value.length > 0 && completed.value === lessons.value.length);
+const target = computed(() => {
+  const available = lessons.value.filter(item => item.src.trim());
+  const last = course.value && progress.lastLesson(course.value.id);
+  return !allCompleted.value && available.find(item => item.id === last) || available[0];
+});
+const started = computed(() => !!course.value && (!!progress.lastLesson(course.value.id) || lessons.value.some(item => savedLessons.value[item.id]?.position > 0 || savedLessons.value[item.id]?.completed)));
+const actionLabel = computed(() => !target.value ? '暂无可学习小节' : allCompleted.value ? '再次学习' : started.value ? '继续学习' : '开始学习');
+function learn(lessonId = target.value?.id): void {
+  if (!course.value || !lessons.value.some(item => item.id === lessonId && item.src.trim())) return;
+  void router.push({ name: 'course-study', params: { courseId: course.value.id }, query: { lesson: lessonId } });
+}
+function imageError(event: Event): void {
+  if (event.target instanceof HTMLImageElement) { event.target.alt = '图片加载失败，请刷新页面重试'; event.target.classList.add('course-image-failed'); }
+}
+function changeTab(event: KeyboardEvent): void {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+  event.preventDefault(); tab.value = event.key === 'Home' ? 'intro' : event.key === 'End' ? 'outline' : tab.value === 'intro' ? 'outline' : 'intro';
+  void nextTick(() => document.getElementById(`course-tab-${tab.value}`)?.focus());
+}
 </script>
 
 <template>
-  <main class="courses-page course-detail" data-ui-layout="course-study" data-ui-page="CourseDetailPage">
+  <main class="courses-page course-overview" data-ui-layout="course-overview" data-ui-page="CourseDetailPage">
     <RouterLink to="/exam/courses" class="course-back"><ArrowLeft />全部课程</RouterLink>
     <LoadingSkeleton v-if="loading" :rows="7" />
     <RequestError v-else-if="loadError" text="课程加载失败，请检查网络后重试" @retry="load" />
-    <template v-else-if="course && lesson">
-      <div class="course-detail__heading"><div><div class="courses-eyebrow">{{ course.category }} <span> / </span> {{ course.level }}课程</div><h1>{{ course.title }}</h1><p>{{ course.description }}</p></div><span class="course-detail__badge"><Reading />{{ lessons.length }} 小节 · 自主学习</span></div>
-      <p v-if="progress.storageError.value" class="courses-warning" role="alert">{{ progress.storageError.value }} <button type="button" @click="load">重新同步</button></p>
-      <div class="course-study-grid">
-        <section class="course-study-main" aria-label="课程学习">
-          <CourseVideoPlayer :key="`${course.id}:${lesson.id}`" :course-id="course.id" :lesson-id="lesson.id" :src="lesson.src" :title="lesson.title" :poster="course.cover" :initial-position="initialPosition" :demo="course.isDemo" @progress="onProgress" @ended="ended = true" />
-          <div class="course-playback-note"><span><Lock />正常倍速播放 · 不支持拖动跳播</span><span>观看进度自动保存</span></div>
-          <button class="course-mobile-directory" type="button" :aria-expanded="drawerOpen" @click="drawerOpen = true"><Fold /><span>课程目录<small>已完成 {{ completedCount }} / {{ lessons.length }} 小节</small></span><ArrowRight /></button>
-          <article class="course-lesson-info"><div class="course-lesson-info__eyebrow">{{ chapter?.title }}<span>第 {{ index + 1 }} / {{ lessons.length }} 小节</span></div><h2>{{ lesson.title }}<span v-if="savedLessons[lesson.id]?.completed" class="course-completed"><CircleCheckFilled />已完成</span></h2><p>{{ lesson.description }}</p>
-            <p v-if="initialPosition > 0" class="course-resume-note">已恢复上次观看位置 {{ formatVideoTime(initialPosition) }}，点击播放继续学习。</p>
-            <div v-if="ended" class="course-ended" role="status"><CircleCheckFilled /><span>{{ index < lessons.length - 1 ? '本小节已完成，继续下一段探索吧。' : completedCount === lessons.length ? '这门课程已全部学完，期待你的下一次探索。' : '本小节已完成，可在目录中继续学习其他小节。' }}</span></div>
-            <div class="course-lesson-actions"><button class="courses-secondary" type="button" :disabled="index === 0" @click="select(lessons[index - 1].id)"><ArrowLeft />上一小节</button><span>学习的每一步，都值得记录</span><button class="courses-primary" type="button" :disabled="index >= lessons.length - 1" @click="select(lessons[index + 1].id)">下一小节<ArrowRight /></button></div>
-          </article>
-          <section v-if="course.detailHtml" class="course-rich-detail" aria-label="课程详情"><h2>课程详情</h2><div class="rich-text" v-html="course.detailHtml" /></section>
-          <aside class="course-learning-tip"><span>✦</span><div><strong>给自己一段专注的时间</strong><p>观看结束后，小节会自动标记为已完成。进度保存到账号，换设备登录也可以继续。</p></div></aside>
-        </section>
-        <aside class="course-desktop-directory" aria-label="课程章节目录"><CourseOutline :course="course" :active-id="selectedId" :progress="savedLessons" @select="select" /></aside>
+    <template v-else-if="course">
+      <header class="course-overview__hero">
+        <div class="course-overview__cover"><img v-if="course.cover && !coverFailed" :src="course.cover" :alt="course.title + '封面'" @error="coverFailed = true"><div v-else class="course-overview__cover-fallback"><Reading /><span>{{ coverFailed ? '封面暂时无法加载' : '课程封面' }}</span></div></div>
+        <div class="course-overview__info">
+          <div class="courses-eyebrow">{{ course.category || '在线课程' }} · {{ course.level }}</div>
+          <h1>{{ course.title }}</h1>
+          <p id="course-summary" ref="summary" class="course-overview__summary" :class="{ collapsed: !expanded }">{{ course.description }}</p>
+          <button v-if="summaryOverflow || expanded" type="button" class="course-overview__expand" :aria-expanded="expanded" aria-controls="course-summary" @click="expanded = !expanded">{{ expanded ? '收起简介' : '展开简介' }}</button>
+          <div class="course-overview__meta"><span>{{ course.instructor || '学习中心' }}</span><span>{{ course.chapters.length }} 章 · {{ lessons.length }} 小节</span><span>已完成 {{ completed }} / {{ lessons.length }}</span></div>
+          <div class="course-overview__desktop-action"><button type="button" class="courses-primary" :disabled="!target" @click="learn()">{{ actionLabel }}<ArrowRight v-if="target" /></button><small>学习进度随账号保存</small></div>
+        </div>
+      </header>
+      <p v-if="progress.storageError.value" class="courses-warning" role="alert">{{ progress.storageError.value }} <button type="button" :disabled="progress.loading.value" @click="progress.retry">重新同步</button></p>
+      <div class="course-overview__tabs" role="tablist" aria-label="课程内容" @keydown="changeTab">
+        <button id="course-tab-intro" type="button" role="tab" :aria-selected="tab === 'intro'" :tabindex="tab === 'intro' ? 0 : -1" aria-controls="course-panel-intro" @click="tab = 'intro'">课程介绍</button>
+        <button id="course-tab-outline" type="button" role="tab" :aria-selected="tab === 'outline'" :tabindex="tab === 'outline' ? 0 : -1" aria-controls="course-panel-outline" @click="tab = 'outline'">课程目录<span>{{ lessons.length }}</span></button>
       </div>
-      <el-drawer v-model="drawerOpen" title="课程目录" direction="btt" size="78%" append-to-body class="course-directory-drawer"><CourseOutline :course="course" :active-id="selectedId" :progress="savedLessons" @select="select" /></el-drawer>
-      <footer class="courses-footer"><p v-if="course.isDemo">演示素材：MDN CC0 花朵短片、Blender Foundation 的 Big Buck Bunny / Sintel 公开样片。课程结构用于功能演示。</p><p>观看记录随账号保存；网络异常时暂存本机，可点击重新同步。</p></footer>
+      <div class="course-overview__content">
+        <section id="course-panel-intro" class="course-rich-detail course-overview__intro" :class="{ 'is-active': tab === 'intro' }" aria-label="课程介绍">
+          <h2>课程介绍</h2>
+          <div v-if="course.detailHtml" class="rich-text" @error.capture="imageError" v-html="course.detailHtml" />
+          <p v-else class="course-overview__plain">{{ course.description || '课程介绍正在完善中，可先查看目录并开始学习。' }}</p>
+        </section>
+        <aside id="course-panel-outline" class="course-overview__outline" :class="{ 'is-active': tab === 'outline' }" aria-label="课程章节目录"><CourseOutline :course="course" active-id="" :progress="savedLessons" overview @select="learn" /></aside>
+      </div>
+      <div class="course-overview__mobile-action"><span>已完成 {{ completed }} / {{ lessons.length }} 小节</span><button type="button" class="courses-primary" :disabled="!target" @click="learn()">{{ actionLabel }}<ArrowRight v-if="target" /></button></div>
     </template>
     <div v-else class="courses-empty"><Reading /><h1>没有找到这门课程</h1><p>课程可能已下架，请返回课程列表继续探索。</p><RouterLink to="/exam/courses" class="courses-primary">返回全部课程</RouterLink></div>
   </main>

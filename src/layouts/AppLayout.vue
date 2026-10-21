@@ -18,6 +18,7 @@ import { MENU_GROUP_DEFS, getMenuGroups, getMenuItems, type MenuItem } from './m
 
 const route = useRoute();
 const isPracticeRoute = computed(() => route.path.startsWith('/exam/practice'));
+const hasCourseStudyBar = computed(() => route.name === 'course-detail');
 const isExamManagementRoute = computed(() => route.path.startsWith('/admin/exams'));
 const examViewport = window.matchMedia?.('(max-width: 700px)');
 const isSmallExamViewport = ref(examViewport?.matches ?? false);
@@ -391,7 +392,7 @@ const pwdVisible = ref(false);
       </main>
     </div>
 
-    <nav v-if="isExaminee && !isFocusedExamineeRoute" class="layout__mobile-nav" aria-label="考生导航">
+    <nav v-if="isExaminee && !isFocusedExamineeRoute && !hasCourseStudyBar" class="layout__mobile-nav" aria-label="考生导航">
       <button
         v-for="item in mobileNavItems"
         :key="item.key"
@@ -407,7 +408,7 @@ const pwdVisible = ref(false);
     </nav>
 
     <el-backtop
-      v-if="isExaminee && !isFocusedExamineeRoute"
+      v-if="isExaminee && !isFocusedExamineeRoute && !hasCourseStudyBar"
       class="layout__mobile-backtop"
       :visibility-height="600"
       aria-label="返回顶部"
