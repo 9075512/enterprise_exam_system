@@ -854,10 +854,37 @@ export const DDL_STATEMENTS: readonly string[] = [
     created_by VARCHAR(64) NOT NULL,
     created_at DATETIME(3) NOT NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS course_categories (
+    id VARCHAR(64) NOT NULL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    revision INT NOT NULL DEFAULT 1,
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    UNIQUE KEY uk_course_category_name (name)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS course_progress (
+    user_id VARCHAR(64) NOT NULL,
+    course_id VARCHAR(64) NOT NULL,
+    lesson_id VARCHAR(64) NOT NULL,
+    position_seconds DOUBLE NOT NULL DEFAULT 0,
+    duration_seconds DOUBLE NOT NULL DEFAULT 0,
+    completed TINYINT(1) NOT NULL DEFAULT 0,
+    revision BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    client_id VARCHAR(64) NOT NULL DEFAULT '',
+    client_sequence BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    selected_at DATETIME(6) NULL,
+    updated_at DATETIME(3) NOT NULL,
+    PRIMARY KEY (user_id, course_id, lesson_id),
+    CONSTRAINT fk_course_progress_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_course_progress_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 ];
 
 /** 建表完成后用于统计的核心表名列表（含练题域 6 张表）。 */
 export const TABLE_NAMES: readonly string[] = [
+  'course_progress',
+  'course_categories',
   'courses',
   'course_media',
   'departments',

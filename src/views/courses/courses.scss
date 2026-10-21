@@ -73,6 +73,8 @@
 .courses-footer > span { color: #7b8ba3; font-size: 11px; }
 .courses-footer p { margin: 8px 0; }
 .courses-warning { border: 1px solid #f4d5a3; background: #fff9ee; color: #96612c; padding: 12px 16px; border-radius: 8px; font-size: 12px; }
+.courses-warning button { border: 0; background: transparent; color: $color-primary; cursor: pointer; padding: 8px; text-decoration: underline; }
+.course-rich-detail { margin-top: 20px; padding: 24px; border: 1px solid $border-color; border-radius: $radius-lg; background: $bg-paper; overflow-wrap: anywhere; h2 { margin: 0 0 16px; font-size: 20px; } .rich-text { min-width: 0; max-width: 100%; overflow-x: auto; } }
 .courses-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; padding: 30px; gap: 10px; text-align: center; }
 .courses-empty > svg { width: 38px; color: #839abc; }
 .courses-empty h3, .courses-empty h1 { margin: 0; font-size: 20px; }

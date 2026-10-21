@@ -164,6 +164,7 @@ export const DEFAULT_SCORE_EXPORT_FIELDS: readonly string[] = [
 
 /** 审计动作文案（与后端 audit.service AUDIT_ACTION_LABELS 一致） */
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
+  'course-category.create': '新增课程分类', 'course-category.update': '修改课程分类', 'course-category.delete': '删除课程分类',
   'course.create': '新增课程', 'course.update': '编辑课程', 'course.delete': '删除课程', 'course.status': '调整课程上架状态',
   'role.create': '新增角色',
   'role.update': '编辑角色',

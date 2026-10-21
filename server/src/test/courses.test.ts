@@ -5,6 +5,8 @@ import path from 'node:path';
 import { app } from '../app.js';
 import { prepareTestDb } from './db.js';
 import { closePool, query } from '../db/pool.js';
+import { withTransaction } from '../db/pool.js';
+import { migrateCourseCatalog } from '../db/courseCatalogMigration.js';
 import { signToken } from '../middleware/auth.js';
 import { courseMediaRoot } from '../modules/courses/courses.media.js';
 import type { ManagedCourse } from '../modules/courses/courses.schema.js';
@@ -21,7 +23,7 @@ async function create(body = input()): Promise<ManagedCourse> {
   const res = await request(app).post('/api/courses/manage').set(admin).send(body);
   expect(res.status, JSON.stringify(res.body)).toBe(200); return res.body.data;
 }
-beforeAll(prepareTestDb);
+beforeAll(async () => { await prepareTestDb(); const res = await request(app).post('/api/courses/manage/categories').set(admin).send({ name: '护理' }); expect(res.status).toBe(200); });
 afterAll(async () => {
   const files = await query<RowDataPacket[]>('SELECT filename FROM course_media');
   for (const file of files) if (/^[a-f0-9-]+\.(mp4|webm|png|jpg|webp|svg)$/.test(file.filename)) await unlink(path.join(courseMediaRoot, file.filename)).catch(() => {});
@@ -29,6 +31,77 @@ afterAll(async () => {
 });
 
 describe('课程管理和学员端联动', () => {
+  it('分类维护支持唯一名称、排序、改名同步课程和版本冲突；被引用的分类不能删除', async () => {
+    const endpoint = '/api/courses/manage/categories';
+    expect((await request(app).get(endpoint).set(learner)).status).toBe(403);
+    const category = (await request(app).post(endpoint).set(admin).send({ name: '安全专题', sortOrder: 2 })).body.data;
+    expect((await request(app).post(endpoint).set(admin).send({ name: '安全专题' })).status).toBe(409);
+    const course = await create({ ...input(), categoryId: category.id, category: '伪造的分类名称' } as ReturnType<typeof input>);
+    expect(course.category).toBe('安全专题'); expect(course.categoryId).toBe(category.id);
+    const renamed = await request(app).put(`${endpoint}/${category.id}`).set(admin).send({ name: '矿山安全专题', sortOrder: 1, revision: category.revision });
+    expect(renamed.status).toBe(200);
+    expect((await request(app).get(`/api/courses/manage/${course.id}`).set(admin)).body.data.category).toBe('矿山安全专题');
+    expect((await request(app).put(`${endpoint}/${category.id}`).set(admin).send({ name: '过期修改', revision: category.revision })).status).toBe(409);
+    expect((await request(app).delete(`${endpoint}/${category.id}`).set(admin).query({ revision: renamed.body.data.revision })).status).toBe(409);
+    const current = (await request(app).get(`/api/courses/manage/${course.id}`).set(admin)).body.data;
+    expect((await request(app).delete(`/api/courses/manage/${course.id}`).set(admin).query({ revision: current.revision })).status).toBe(200);
+    expect((await request(app).delete(`${endpoint}/${category.id}`).set(admin).query({ revision: renamed.body.data.revision })).status).toBe(200);
+    expect((await request(app).post('/api/courses/manage').set(admin).send({ ...input(), categoryId: category.id })).status).toBe(400);
+  });
+  it('历史分类迁移可重复执行，保留课程状态、版本及章节内容', async () => {
+    const course = await create();
+    await query("UPDATE courses SET content_json = JSON_REMOVE(content_json, '$.categoryId') WHERE id = ?", [course.id]);
+    await withTransaction(migrateCourseCatalog); await withTransaction(migrateCourseCatalog);
+    const result = (await request(app).get('/api/courses/manage/' + course.id).set(admin)).body.data;
+    expect(result).toMatchObject({ status: course.status, revision: course.revision, chapters: course.chapters, categoryId: course.categoryId });
+  });
+  it('富文本课程详情保留格式与本站图片、清除脚本和事件，学员详情可读取', async () => {
+    const detailHtml = '<h2>学习目标</h2><p><strong>掌握安全知识</strong></p><ul><li>图文学习</li></ul><script>alert(1)</script><img src="/api/attachments/course-image?t=abc" onerror="alert(1)"><a href="javascript:alert(1)">错误链接</a>';
+    const result = await request(app).post('/api/courses/manage').set(admin).send({ ...input(), detailHtml });
+    expect(result.status).toBe(200); const course = result.body.data;
+    expect(course.detailHtml).toContain('<strong>掌握安全知识</strong>'); expect(course.detailHtml).toContain('/api/attachments/course-image?t=abc');
+    expect(course.detailHtml).not.toMatch(/script|onerror|javascript:/);
+    await request(app).put(`/api/courses/manage/${course.id}/status`).set(admin).send({ status: 'published', revision: course.revision });
+    expect((await request(app).get(`/api/courses/${course.id}`).set(learner)).body.data.detailHtml).toBe(course.detailHtml);
+    expect((await request(app).post('/api/courses/manage').set(admin).send({ ...input(), detailHtml: '字'.repeat(20001) })).status).toBe(400);
+  });
+  it('观看记录按账号入库、换设备可读；迟到和重复写入不覆盖最新进度，完成状态保留', async () => {
+    const course = await create(); await request(app).put(`/api/courses/manage/${course.id}/status`).set(admin).send({ revision: course.revision, status: 'published' });
+    const endpoint = `/api/courses/progress/${course.id}/lesson-1`;
+    const write = (body: Record<string, unknown>) => request(app).put(endpoint).set(learner).send({ position: 12, duration: 60, completed: false, revision: 0, clientId: 'device-a', sequence: 1, ...body });
+    expect((await request(app).get('/api/courses/progress')).status).toBe(401);
+    expect((await request(app).put(`/api/courses/progress/${course.id}/selection`).set(learner).send({ lessonId: 'lesson-1' })).status).toBe(200);
+    expect((await write({})).body.data).toMatchObject({ position: 12, revision: 1 });
+    expect((await write({ position: 20, sequence: 2 })).body.data).toMatchObject({ position: 20, revision: 2 });
+    expect((await write({ position: 1 })).body.data).toMatchObject({ position: 20, revision: 2 });
+    const deviceB = (await request(app).get('/api/courses/progress').set(learner)).body.data;
+    expect(deviceB.courses[course.id]).toMatchObject({ lastLessonId: 'lesson-1', lessons: { 'lesson-1': { position: 20, revision: 2 } } });
+    expect((await write({ position: 30, revision: 2, clientId: 'device-b' })).status).toBe(200);
+    expect((await write({ position: 22, revision: 2, sequence: 99 })).status).toBe(409);
+    expect((await write({ position: 60, completed: true, revision: 3, clientId: 'device-b', sequence: 2 })).body.data.completed).toBe(true);
+    expect((await write({ position: 5, revision: 4, clientId: 'device-b', sequence: 3 })).body.data.completed).toBe(true);
+    await request(app).put(`/api/courses/progress/${course.id}/selection`).set(learner).send({ lessonId: 'lesson-2' });
+    await write({ position: 8, revision: 5, clientId: 'device-b', sequence: 4, userId: 'user-admin' });
+    expect((await request(app).get('/api/courses/progress').set(learner)).body.data.courses[course.id].lastLessonId).toBe('lesson-2');
+    expect((await request(app).get('/api/courses/progress').set(admin)).body.data.courses[course.id]).toBeUndefined();
+    expect((await request(app).put(`/api/courses/progress/${course.id}/missing`).set(learner).send({ position: 1, duration: 60, completed: false, revision: 0, clientId: 'device-a', sequence: 1 })).status).toBe(404);
+    expect((await write({ position: 61 })).status).toBe(400);
+  });
+  it('旧本地记录只补入缺失小节，不覆盖数据库；下架或更换视频后旧小节不再可写或返回', async () => {
+    const course = await create(); const published = (await request(app).put(`/api/courses/manage/${course.id}/status`).set(admin).send({ revision: course.revision, status: 'published' })).body.data;
+    await request(app).put(`/api/courses/progress/${course.id}/lesson-1`).set(learner).send({ position: 25, duration: 60, completed: false, revision: 0, clientId: 'device-a', sequence: 1 });
+    const body = { lessons: [{ courseId: course.id, lessonId: 'lesson-1', position: 2, duration: 60, completed: false, selected: true }, { courseId: course.id, lessonId: 'lesson-2', position: 9, duration: 60, completed: true }, { courseId: course.id, lessonId: 'removed', position: 1, duration: 60, completed: false }] };
+    const imported = await request(app).post('/api/courses/progress/import').set(learner).send(body);
+    expect(imported.status).toBe(200); expect(imported.body.data.courses[course.id].lessons).toMatchObject({ 'lesson-1': { position: 25 }, 'lesson-2': { position: 9, completed: true } });
+    expect(imported.body.data.courses[course.id].lessons.removed).toBeUndefined();
+    const archived = (await request(app).put(`/api/courses/manage/${course.id}/status`).set(admin).send({ revision: published.revision, status: 'archived' })).body.data;
+    expect((await request(app).get('/api/courses/progress').set(learner)).body.data.courses[course.id]).toBeUndefined();
+    expect((await request(app).put(`/api/courses/progress/${course.id}/selection`).set(learner).send({ lessonId: 'lesson-1' })).status).toBe(404);
+    const replacement = input(); replacement.chapters[0].lessons[0].src = 'https://example.com/replaced.mp4';
+    const edited = (await request(app).put(`/api/courses/manage/${course.id}`).set(admin).send({ revision: archived.revision, course: replacement })).body.data;
+    await request(app).put(`/api/courses/manage/${course.id}/status`).set(admin).send({ revision: edited.revision, status: 'published' });
+    expect((await request(app).get('/api/courses/progress').set(learner)).body.data.courses[course.id].lessons['lesson-1']).toBeUndefined();
+  });
   it('按课程信息生成可持久读取的封面，转义输入，保存上架后学员能读取', async () => {
     const before = await query<RowDataPacket[]>('SELECT COUNT(*) AS total FROM courses');
     const result = await request(app).post('/api/courses/manage/cover').set(admin).send({ title: '瓦斯安全 <script>alert(1)</script> & "学习"', category: '瓦斯防治', instructor: '教学团队' });

@@ -10,7 +10,7 @@ import { useAuthStore } from '@/stores/auth';
 import './courses.scss';
 
 const auth = useAuthStore();
-const progress = useCourseProgress(auth.currentUser?.id ?? 'guest');
+const progress = useCourseProgress(auth.currentUser?.id ?? 'guest', auth.token);
 const query = ref('');
 const category = ref('全部课程');
 const courses = ref<Course[]>([]);
@@ -18,7 +18,7 @@ const loading = ref(true);
 const loadError = ref(false);
 async function load(): Promise<void> {
   loading.value = true; loadError.value = false;
-  try { courses.value = await listCourses(); } catch { loadError.value = true; } finally { loading.value = false; }
+  try { const [result] = await Promise.all([listCourses(), progress.load()]); courses.value = result; } catch { loadError.value = true; } finally { loading.value = false; }
 }
 onMounted(load);
 const categories = computed(() => ['全部课程', ...new Set(courses.value.map(course => course.category)), '学习中', '已完成']);
@@ -52,9 +52,9 @@ const recent = computed(() => courses.value.filter(course => !!progress.lastLess
       <div><span class="stat-mark"><Collection /></span><span><strong>{{ loading || loadError ? '—' : courses.length.toString().padStart(2, '0') }}</strong><small>可学课程</small></span></div>
       <div><span class="stat-mark blue"><VideoPlay /></span><span><strong>{{ studied.toString().padStart(2, '0') }}</strong><small>已开始学习</small></span></div>
       <div><span class="stat-mark green">✓</span><span><strong>{{ finished.toString().padStart(2, '0') }}</strong><small>已完成课程</small></span></div>
-      <p>保持专注，好好享受学习的过程。<small>观看记录自动保存在当前浏览器</small></p>
+      <p>保持专注，好好享受学习的过程。<small>观看记录随账号保存，换设备也能继续</small></p>
     </section>
-    <p v-if="progress.storageError.value" class="courses-warning" role="alert">{{ progress.storageError.value }}</p>
+    <p v-if="progress.storageError.value" class="courses-warning" role="alert">{{ progress.storageError.value }} <button type="button" :disabled="progress.loading.value" @click="progress.retry">重新同步</button></p>
     <section id="course-library" class="courses-library">
       <div class="courses-section-head"><div><h2>发现好课程 <span>为每一份好奇找到方向</span></h2></div><label class="courses-search"><Search /><input v-model="query" aria-label="搜索课程" placeholder="搜索你感兴趣的课程…" type="search"></label></div>
       <div class="courses-filters" aria-label="课程筛选"><button v-for="item in categories" :key="item" type="button" :class="{ active: category === item }" :aria-pressed="category === item" @click="category = item">{{ item }}</button><span>{{ filtered.length }} 门课程</span></div>
@@ -71,6 +71,6 @@ const recent = computed(() => courses.value.filter(course => !!progress.lastLess
       </div>
       <div v-else class="courses-empty"><Search /><h3>{{ courses.length ? '暂时没有找到课程' : '暂无已上架课程' }}</h3><p>{{ courses.length ? '试试其他关键词，或查看全部课程。' : '课程准备好后会在这里展示，请稍后再来。' }}</p><button v-if="courses.length" class="courses-secondary" @click="query = ''; category = '全部课程'">查看全部课程</button></div>
     </section>
-    <footer class="courses-footer"><span>✦ 让学习成为日常</span><p>观看记录仅保存在本浏览器，清除数据后将重置。</p></footer>
+    <footer class="courses-footer"><span>✦ 让学习成为日常</span><p>观看记录自动同步到当前账号；离线时暂存，恢复网络后继续同步。</p></footer>
   </main>
 </template>

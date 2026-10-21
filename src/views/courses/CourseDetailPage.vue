@@ -16,7 +16,7 @@ import './courses.scss';
 const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
-const progress = useCourseProgress(auth.currentUser?.id ?? 'guest');
+const progress = useCourseProgress(auth.currentUser?.id ?? 'guest', auth.token);
 const course = ref<Course>();
 const loading = ref(true);
 const loadError = ref(false);
@@ -24,7 +24,7 @@ let request: AbortController | undefined;
 async function load(): Promise<void> {
   request?.abort(); const controller = request = new AbortController();
   loading.value = true; loadError.value = false; course.value = undefined;
-  try { const result = await getCourse(String(route.params.courseId), controller.signal); if (!controller.signal.aborted) course.value = result; }
+  try { const [result] = await Promise.all([getCourse(String(route.params.courseId), controller.signal), progress.load()]); if (!controller.signal.aborted) course.value = result; }
   catch (error) { if (!controller.signal.aborted) loadError.value = (error as ApiError).status !== 404; }
   finally { if (!controller.signal.aborted) loading.value = false; }
 }
@@ -69,7 +69,7 @@ function onProgress(courseId: string, lessonId: string, value: PlaybackProgress)
     <RequestError v-else-if="loadError" text="课程加载失败，请检查网络后重试" @retry="load" />
     <template v-else-if="course && lesson">
       <div class="course-detail__heading"><div><div class="courses-eyebrow">{{ course.category }} <span> / </span> {{ course.level }}课程</div><h1>{{ course.title }}</h1><p>{{ course.description }}</p></div><span class="course-detail__badge"><Reading />{{ lessons.length }} 小节 · 自主学习</span></div>
-      <p v-if="progress.storageError.value" class="courses-warning" role="alert">{{ progress.storageError.value }}</p>
+      <p v-if="progress.storageError.value" class="courses-warning" role="alert">{{ progress.storageError.value }} <button type="button" @click="load">重新同步</button></p>
       <div class="course-study-grid">
         <section class="course-study-main" aria-label="课程学习">
           <CourseVideoPlayer :key="`${course.id}:${lesson.id}`" :course-id="course.id" :lesson-id="lesson.id" :src="lesson.src" :title="lesson.title" :poster="course.cover" :initial-position="initialPosition" :demo="course.isDemo" @progress="onProgress" @ended="ended = true" />
@@ -80,12 +80,13 @@ function onProgress(courseId: string, lessonId: string, value: PlaybackProgress)
             <div v-if="ended" class="course-ended" role="status"><CircleCheckFilled /><span>{{ index < lessons.length - 1 ? '本小节已完成，继续下一段探索吧。' : completedCount === lessons.length ? '这门课程已全部学完，期待你的下一次探索。' : '本小节已完成，可在目录中继续学习其他小节。' }}</span></div>
             <div class="course-lesson-actions"><button class="courses-secondary" type="button" :disabled="index === 0" @click="select(lessons[index - 1].id)"><ArrowLeft />上一小节</button><span>学习的每一步，都值得记录</span><button class="courses-primary" type="button" :disabled="index >= lessons.length - 1" @click="select(lessons[index + 1].id)">下一小节<ArrowRight /></button></div>
           </article>
-          <aside class="course-learning-tip"><span>✦</span><div><strong>给自己一段专注的时间</strong><p>观看结束后，小节会自动标记为已完成。离开、刷新或切换课程，都可以回来继续。</p></div></aside>
+          <section v-if="course.detailHtml" class="course-rich-detail" aria-label="课程详情"><h2>课程详情</h2><div class="rich-text" v-html="course.detailHtml" /></section>
+          <aside class="course-learning-tip"><span>✦</span><div><strong>给自己一段专注的时间</strong><p>观看结束后，小节会自动标记为已完成。进度保存到账号，换设备登录也可以继续。</p></div></aside>
         </section>
         <aside class="course-desktop-directory" aria-label="课程章节目录"><CourseOutline :course="course" :active-id="selectedId" :progress="savedLessons" @select="select" /></aside>
       </div>
       <el-drawer v-model="drawerOpen" title="课程目录" direction="btt" size="78%" append-to-body class="course-directory-drawer"><CourseOutline :course="course" :active-id="selectedId" :progress="savedLessons" @select="select" /></el-drawer>
-      <footer class="courses-footer"><p v-if="course.isDemo">演示素材：MDN CC0 花朵短片、Blender Foundation 的 Big Buck Bunny / Sintel 公开样片。课程结构用于功能演示。</p><p>记录保存在当前账号的本地浏览器中，不支持跨设备同步。</p></footer>
+      <footer class="courses-footer"><p v-if="course.isDemo">演示素材：MDN CC0 花朵短片、Blender Foundation 的 Big Buck Bunny / Sintel 公开样片。课程结构用于功能演示。</p><p>观看记录随账号保存；网络异常时暂存本机，可点击重新同步。</p></footer>
     </template>
     <div v-else class="courses-empty"><Reading /><h1>没有找到这门课程</h1><p>课程可能已下架，请返回课程列表继续探索。</p><RouterLink to="/exam/courses" class="courses-primary">返回全部课程</RouterLink></div>
   </main>

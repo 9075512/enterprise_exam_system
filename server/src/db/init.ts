@@ -17,6 +17,7 @@ import { fromDbDate } from '../utils/datetime.js';
 import { CREATE_DATABASE_SQL, DB_NAME, DDL_STATEMENTS, TABLE_NAMES } from './schema.js';
 import { seed } from './seed.js';
 import { migrateRoles } from './rolesMigration.js';
+import { migrateCourseCatalog } from './courseCatalogMigration.js';
 
 const reset = process.argv.includes('--reset');
 const schemaOnly = process.argv.includes('--schema-only');
@@ -449,6 +450,7 @@ async function main(): Promise<void> {
       await conn.query(stmt);
     }
     console.log(`[db:init] 已确保 ${DDL_STATEMENTS.length} 张表存在`);
+    await migrateCourseCatalog(conn);
 
     // 增量升级：旧库原地补齐 max_attempts / attempt_no 与新唯一键（幂等）
     await applyMigrations(conn);

@@ -39,7 +39,7 @@ const props = withDefaults(
   },
 );
 
-const emit = defineEmits<{ (e: 'update:modelValue', value: string): void }>();
+const emit = defineEmits<{ (e: 'update:modelValue', value: string): void; (e: 'uploading-change', value: boolean): void }>();
 
 const editorRef = ref<HTMLDivElement>();
 const fileInputRef = ref<HTMLInputElement>();
@@ -157,6 +157,7 @@ async function uploadAndInsert(file: File): Promise<void> {
     return;
   }
   uploading.value = true;
+  emit('uploading-change', true);
   try {
     const attachment = await attachmentsApi.uploadImage(file);
     insertHtml(`<img src="${escapeAttr(attachment.url)}" alt="作答图片">`);
@@ -164,6 +165,7 @@ async function uploadAndInsert(file: File): Promise<void> {
     /* 错误已由请求拦截器统一提示 */
   } finally {
     uploading.value = false;
+    emit('uploading-change', false);
   }
 }
 

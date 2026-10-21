@@ -6,6 +6,7 @@ import { fromDbDateSafe } from '../../utils/datetime.js';
 import { parseJsonColumn } from '../../utils/json.js';
 import * as audit from '../audit/audit.service.js';
 import type { CourseInput, CourseListQuery, ManagedCourse } from './courses.schema.js';
+import { lockCatalog, resolveCategory } from './courseCategories.service.js';
 
 interface CourseRow extends RowDataPacket { id: string; status: ManagedCourse['status']; revision: number; content_json: unknown; created_at: string; updated_at: string }
 function dto(row: CourseRow): ManagedCourse {
@@ -40,12 +41,16 @@ export async function list(input: CourseListQuery) {
 }
 export async function create(input: CourseInput, actorId: string): Promise<ManagedCourse> {
   const id = genId('course-');
-  await query<ResultSetHeader>("INSERT INTO courses (id, title, status, sort_order, content_json, revision, created_by, updated_by, created_at, updated_at) VALUES (?, ?, 'draft', ?, ?, 1, ?, ?, NOW(3), NOW(3))", [id, input.title, input.sortOrder, JSON.stringify(input), actorId, actorId]);
+  await withTransaction(async conn => {
+    await lockCatalog(conn); const course = await resolveCategory(input, conn);
+    await runQuery(conn, "INSERT INTO courses (id, title, status, sort_order, content_json, revision, created_by, updated_by, created_at, updated_at) VALUES (?, ?, 'draft', ?, ?, 1, ?, ?, NOW(3), NOW(3))", [id, course.title, course.sortOrder, JSON.stringify(course), actorId, actorId]);
+  });
   await audit.record({ actorId, action: 'course.create', targetType: 'course', targetId: id, targetName: input.title });
   return find(id, true);
 }
 export async function update(id: string, revision: number, input: CourseInput, actorId: string): Promise<ManagedCourse> {
   const result = await withTransaction(async conn => {
+    await lockCatalog(conn); input = await resolveCategory(input, conn);
     const rows = await runQuery<CourseRow[]>(conn, 'SELECT * FROM courses WHERE id = ? AND deleted_at IS NULL FOR UPDATE', [id]);
     if (!rows[0]) throw notFound('课程不存在或已删除');
     const current = dto(rows[0]);
@@ -62,12 +67,13 @@ export async function update(id: string, revision: number, input: CourseInput, a
 }
 export async function setStatus(id: string, revision: number, status: ManagedCourse['status'], actorId: string): Promise<ManagedCourse> {
   const result = await withTransaction(async conn => {
+    await lockCatalog(conn);
     const rows = await runQuery<CourseRow[]>(conn, 'SELECT * FROM courses WHERE id = ? AND deleted_at IS NULL FOR UPDATE', [id]);
     if (!rows[0]) throw notFound('课程不存在或已删除');
     const current = dto(rows[0]);
     if (current.revision !== revision) throw conflict('课程已变化，请刷新后重试');
     if (status === 'draft') throw badRequest('已保存课程仅支持上架或下架');
-    if (status === 'published') assertPublishable(current);
+    if (status === 'published') { await resolveCategory(current, conn); assertPublishable(current); }
     await runQuery(conn, 'UPDATE courses SET status = ?, revision = revision + 1, updated_by = ?, updated_at = NOW(3) WHERE id = ?', [status, actorId, id]);
     return current;
   });

@@ -26,8 +26,8 @@ function waitForVideo(): void {
   loading.value = true; clearTimer();
   loadTimer = setTimeout(() => fail('视频加载超时，请检查网络后重试。'), 20000);
 }
-function flush(completed = false): void {
-  if (duration.value > 0) emit('progress', props.courseId, props.lessonId, { position: position.value, duration: duration.value, completed });
+function flush(completed = false, immediate = false): void {
+  if (duration.value > 0) emit('progress', props.courseId, props.lessonId, { position: position.value, duration: duration.value, completed, ...(immediate ? { immediate: true } : {}) });
 }
 function metadata(): void {
   const media = video.value;
@@ -77,8 +77,8 @@ async function toggle(): Promise<void> {
     else fail();
   }
 }
-function paused(): void { playing.value = false; flush(); }
-function ended(): void { position.value = duration.value; playing.value = false; flush(true); emit('ended'); }
+function paused(): void { playing.value = false; flush(false, true); }
+function ended(): void { position.value = duration.value; playing.value = false; flush(true, true); emit('ended'); }
 function retry(): void {
   resumePosition = position.value || props.initialPosition;
   error.value = ''; notice.value = ''; expectedSeek = null;
@@ -91,10 +91,10 @@ async function fullscreen(): Promise<void> {
     else notice.value = '当前浏览器不支持页面全屏，可横屏观看。';
   } catch { notice.value = '暂时无法进入全屏，可横屏观看。'; }
 }
-function visibility(): void { if (document.visibilityState === 'hidden') flush(); }
+function visibility(): void { if (document.visibilityState === 'hidden') flush(false, true); }
 onMounted(() => { waitForVideo(); window.addEventListener('pagehide', flushOnExit); document.addEventListener('visibilitychange', visibility); });
-function flushOnExit(): void { flush(); }
-onBeforeUnmount(() => { flush(); video.value?.pause(); clearTimer(); window.removeEventListener('pagehide', flushOnExit); document.removeEventListener('visibilitychange', visibility); });
+function flushOnExit(): void { flush(false, true); }
+onBeforeUnmount(() => { flush(false, true); video.value?.pause(); clearTimer(); window.removeEventListener('pagehide', flushOnExit); document.removeEventListener('visibilitychange', visibility); });
 </script>
 
 <template>

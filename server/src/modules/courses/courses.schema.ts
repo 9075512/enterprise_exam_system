@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sanitizeRichText } from '../../utils/richText.js';
 
 export function validCourseUrl(value: string): boolean {
   if (!value) return true;
@@ -17,7 +18,9 @@ export type CourseCoverInput = z.infer<typeof courseCoverSchema>;
 export const courseBodySchema = z.object({
   title: z.string().trim().min(1, '请输入课程标题').max(120),
   description: z.string().trim().max(2000).default(''),
+  detailHtml: z.string().max(20000).default('').transform(value => sanitizeRichText(value, { maxLength: 20000, maxImages: 10, maxImageBytes: 2 * 1024 * 1024 })),
   category: z.string().trim().max(50).default(''),
+  categoryId: z.string().regex(/^[a-zA-Z0-9_-]{0,64}$/).default(''),
   cover: mediaUrl.default(''),
   instructor: z.string().trim().max(80).default(''),
   level: z.enum(['入门', '进阶', '高级']).default('入门'),
@@ -46,3 +49,12 @@ export const courseListSchema = z.object({
   page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(12),
 });
 export type CourseListQuery = z.infer<typeof courseListSchema>;
+export const courseCategorySchema = z.object({ name: z.string().trim().min(1, '请输入分类名称').max(50), sortOrder: z.number().int().min(0).max(99999).default(0) });
+export type CourseCategoryInput = z.infer<typeof courseCategorySchema>;
+export const courseCategoryUpdateSchema = courseCategorySchema.extend({ revision: z.number().int().positive() });
+export const lessonSelectionSchema = z.object({ lessonId: id });
+export const courseLessonIdSchema = z.object({ courseId: id, lessonId: id });
+const playback = z.object({ position: z.number().finite().min(0).max(604800), duration: z.number().finite().positive().max(604800), completed: z.boolean() });
+export const courseProgressSchema = playback.extend({ revision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), clientId: id, sequence: z.number().int().positive().max(Number.MAX_SAFE_INTEGER) }).refine(value => value.position <= value.duration, '播放位置不能超过视频时长');
+export type CourseProgressInput = z.infer<typeof courseProgressSchema>;
+export const courseProgressImportSchema = z.object({ lessons: z.array(playback.extend({ courseId: id, lessonId: id, selected: z.boolean().default(false) }).refine(value => value.position <= value.duration, '播放位置不能超过视频时长')).max(500) });

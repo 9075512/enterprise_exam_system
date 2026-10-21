@@ -3,10 +3,11 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import ElementPlus, { ElMessage, ElMessageBox } from 'element-plus';
 import Editor from './CourseEditorDrawer.vue';
 import ManagePage from './CourseManagePage.vue';
+import CategoriesDialog from './CourseCategoriesDialog.vue';
 import type { ManagedCourse } from '@/api/courses';
 
-const api = vi.hoisted(() => ({ list: vi.fn(), get: vi.fn(), create: vi.fn(), update: vi.fn(), status: vi.fn(), remove: vi.fn(), upload: vi.fn(), generate: vi.fn() }));
-vi.mock('@/api/courses', () => ({ listManagedCourses: api.list, getManagedCourse: api.get, createCourse: api.create, updateCourse: api.update, setCourseStatus: api.status, deleteCourse: api.remove, uploadCourseMedia: api.upload, generateCourseCover: api.generate }));
+const api = vi.hoisted(() => ({ list: vi.fn(), get: vi.fn(), create: vi.fn(), update: vi.fn(), status: vi.fn(), remove: vi.fn(), upload: vi.fn(), generate: vi.fn(), categories: vi.fn(), createCategory: vi.fn(), updateCategory: vi.fn(), deleteCategory: vi.fn() }));
+vi.mock('@/api/courses', () => ({ listManagedCourses: api.list, getManagedCourse: api.get, createCourse: api.create, updateCourse: api.update, setCourseStatus: api.status, deleteCourse: api.remove, uploadCourseMedia: api.upload, generateCourseCover: api.generate, listCourseCategories: api.categories, createCourseCategory: api.createCategory, updateCourseCategory: api.updateCategory, deleteCourseCategory: api.deleteCategory }));
 vi.mock('vue-router', () => ({ onBeforeRouteLeave: vi.fn() }));
 const record = (): ManagedCourse => ({ id: 'course-1', title: '护理基础', description: '课程简介', category: '护理', instructor: '教学团队', cover: '/courses/flower.svg', level: '入门', isDemo: false, sortOrder: 0, status: 'draft', revision: 3, createdAt: '2026-10-21T00:00:00Z', updatedAt: '2026-10-21T00:00:00Z', chapters: [{ id: 'ch-1', title: '第一章', lessons: [{ id: 'lesson-1', title: '第一小节', src: 'https://example.com/a.mp4', durationLabel: '05:00', description: '' }] }] });
 let wrapper: VueWrapper | undefined;
@@ -14,6 +15,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   api.list.mockResolvedValue({ list: [record()], total: 1, page: 1, pageSize: 12, stats: { draft: 1, published: 0, archived: 0 } });
   api.get.mockResolvedValue(record());
+  api.categories.mockResolvedValue([{ id: 'category-nursing', name: '护理', sortOrder: 0, revision: 1, courseCount: 1 }, { id: 'category-gas', name: '瓦斯防治', sortOrder: 1, revision: 1, courseCount: 0 }]);
   vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never);
 });
 afterEach(() => { wrapper?.unmount(); wrapper = undefined; ElMessage.closeAll(); document.body.innerHTML = ''; vi.restoreAllMocks(); });
@@ -25,11 +27,23 @@ async function page() {
   wrapper = mount(ManagePage, { attachTo: document.body, global: { plugins: [ElementPlus], stubs: { CourseEditorDrawer: true, CourseVideoPlayer: true, ElDialog: { props: ['modelValue'], template: '<section v-if="modelValue"><slot /><slot name="footer" /></section>' } } } }); await flushPromises(); return wrapper;
 }
 describe('课程编辑工作流', () => {
+  it('分类通过已维护选项选择，富文本详情随草稿保存；详情图片上传时禁止保存', async () => {
+    await editor(); await wrapper!.get('input[aria-label="课程标题"]').setValue('课程详情测试');
+    const category = wrapper!.findAllComponents({ name: 'ElSelect' })[0];
+    expect(category.props('allowCreate')).toBe(false); category.vm.$emit('update:modelValue', 'category-gas'); category.vm.$emit('change', 'category-gas');
+    await wrapper!.get('#tab-details').trigger('click');
+    const rich = wrapper!.getComponent({ name: 'RichTextEditor' });
+    rich.vm.$emit('update:modelValue', '<h2>安全目标</h2><p><strong>正确佩戴</strong></p>'); rich.vm.$emit('uploading-change', true); await flushPromises();
+    expect(button('保存草稿').attributes('disabled')).toBeDefined();
+    rich.vm.$emit('uploading-change', false); await flushPromises(); api.create.mockResolvedValue(record());
+    await button('保存草稿').trigger('click'); await flushPromises();
+    expect(api.create.mock.calls[0][0]).toMatchObject({ categoryId: 'category-gas', category: '瓦斯防治', detailHtml: '<h2>安全目标</h2><p><strong>正确佩戴</strong></p>' });
+  });
   it('未填写标题不能生成；生成期间阻止保存和重复请求，完成后回填并随草稿保存', async () => {
     await editor(); await button('生成封面').trigger('click'); expect(api.generate).not.toHaveBeenCalled();
     expect(wrapper!.text()).toContain('请先填写课程标题，再生成封面');
     await wrapper!.get('input[aria-label="课程标题"]').setValue('瓦斯安全');
-    await wrapper!.get('input[aria-label="课程分类"]').setValue('瓦斯防治');
+    const category = wrapper!.findAllComponents({ name: 'ElSelect' })[0]; category.vm.$emit('update:modelValue', 'category-gas'); category.vm.$emit('change', 'category-gas'); await flushPromises();
     let resolve!: (value: { url: string }) => void;
     api.generate.mockReturnValueOnce(new Promise(done => { resolve = done; }));
     await button('生成封面').trigger('click'); await button('生成封面').trigger('click');
@@ -108,6 +122,26 @@ describe('课程编辑工作流', () => {
     await input.trigger('change'); await flushPromises();
     expect(wrapper!.text()).toContain('网络中断');
     expect((wrapper!.get('input[aria-label="封面地址"]').element as HTMLInputElement).value).toBe('/api/courses/media/asset?t=123');
+  });
+});
+describe('课程分类维护', () => {
+  async function categories() {
+    wrapper = mount(CategoriesDialog, { props: { modelValue: true }, attachTo: document.body, global: { plugins: [ElementPlus], stubs: { ElDialog: { props: ['modelValue'], template: '<section v-if="modelValue"><slot /><slot name="footer" /></section>' } } } }); await flushPromises();
+  }
+  it('加载失败可重试，已被课程使用的分类禁止删除', async () => {
+    api.categories.mockRejectedValueOnce(new Error('offline')); await categories(); expect(wrapper!.text()).toContain('分类列表加载失败');
+    await button('重新加载分类').trigger('click'); await flushPromises();
+    expect(wrapper!.findAll('.course-categories__list article')).toHaveLength(2);
+    expect(wrapper!.findAll('.course-categories__list article')[0].findAll('button')[1].attributes('disabled')).toBeDefined();
+  });
+  it('新增失败保留名称，重试保存成功会清空输入；修改保留版本', async () => {
+    await categories(); await wrapper!.get('input[aria-label="分类名称"]').setValue('安全课程');
+    api.createCategory.mockRejectedValueOnce(new Error('分类名称已存在')); await button('添加分类').trigger('click'); await flushPromises();
+    expect(wrapper!.text()).toContain('分类名称已存在'); expect((wrapper!.get('input[aria-label="分类名称"]').element as HTMLInputElement).value).toBe('安全课程');
+    api.createCategory.mockResolvedValueOnce({}); await button('添加分类').trigger('click'); await flushPromises(); expect(wrapper!.emitted('changed')).toHaveLength(1);
+    await wrapper!.findAll('.course-categories__list article')[0].findAll('button')[0].trigger('click');
+    await wrapper!.get('input[aria-label="分类名称"]').setValue('护理安全'); api.updateCategory.mockResolvedValueOnce({});
+    await button('保存分类').trigger('click'); await flushPromises(); expect(api.updateCategory).toHaveBeenCalledWith('category-nursing', 1, { name: '护理安全', sortOrder: 0 });
   });
 });
 describe('课程管理列表', () => {
