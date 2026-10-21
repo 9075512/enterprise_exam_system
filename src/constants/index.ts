@@ -164,6 +164,7 @@ export const DEFAULT_SCORE_EXPORT_FIELDS: readonly string[] = [
 
 /** 审计动作文案（与后端 audit.service AUDIT_ACTION_LABELS 一致） */
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
+  'course.create': '新增课程', 'course.update': '编辑课程', 'course.delete': '删除课程', 'course.status': '调整课程上架状态',
   'role.create': '新增角色',
   'role.update': '编辑角色',
   'role.delete': '删除角色',
@@ -212,6 +213,7 @@ export const AUDIT_ACTION_OPTIONS: ReadonlyArray<{ value: AuditAction; label: st
 
 /** 审计目标类型文案 */
 export const AUDIT_TARGET_TYPE_LABELS: Record<AuditTargetType, string> = {
+  course: '课程',
   role: '角色',
   user: '用户',
   exam: '考试',
@@ -228,6 +230,7 @@ export const AUDIT_TARGET_TYPE_LABELS: Record<AuditTargetType, string> = {
 
 /** 审计目标类型下拉选项 */
 export const AUDIT_TARGET_TYPE_OPTIONS: ReadonlyArray<{ value: AuditTargetType; label: string }> = [
+  { value: 'course', label: '课程' },
   { value: 'role', label: '角色' },
   { value: 'user', label: '用户' },
   { value: 'exam', label: '考试' },

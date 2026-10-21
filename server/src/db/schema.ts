@@ -832,10 +832,34 @@ export const DDL_STATEMENTS: readonly string[] = [
     updated_at    DATETIME(3) NOT NULL,
     PRIMARY KEY (migration_key)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS courses (
+    id VARCHAR(64) NOT NULL PRIMARY KEY,
+    title VARCHAR(120) NOT NULL,
+    status ENUM('draft','published','archived') NOT NULL DEFAULT 'draft',
+    sort_order INT NOT NULL DEFAULT 0,
+    content_json JSON NOT NULL,
+    revision INT NOT NULL DEFAULT 1,
+    created_by VARCHAR(64) NOT NULL,
+    updated_by VARCHAR(64) NOT NULL,
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    deleted_at DATETIME(3) NULL,
+    KEY idx_course_status_sort (deleted_at, status, sort_order)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS course_media (
+    id VARCHAR(64) NOT NULL PRIMARY KEY,
+    filename VARCHAR(100) NOT NULL,
+    mime VARCHAR(50) NOT NULL,
+    size BIGINT UNSIGNED NOT NULL,
+    created_by VARCHAR(64) NOT NULL,
+    created_at DATETIME(3) NOT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 ];
 
 /** 建表完成后用于统计的核心表名列表（含练题域 6 张表）。 */
 export const TABLE_NAMES: readonly string[] = [
+  'courses',
+  'course_media',
   'departments',
   'roles',
   'users',

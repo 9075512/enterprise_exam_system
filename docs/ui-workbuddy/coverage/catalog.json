@@ -2526,6 +2526,166 @@
         "提交锁定与失败草稿"
       ],
       "mobile": "考试成绩和练题复用手机全屏纠错弹窗，原题完整换行并保留段落、正文独立滚动、底部44px。按来源调用原考试反馈或原练题会话接口，保留服务端归属校验；失败保留说明，提交中关闭与重复操作锁定。"
+    },
+    {
+      "id": "CourseListPage",
+      "title": "在线看课",
+      "route": "/exam/courses",
+      "file": "src/views/courses/CourseListPage.vue",
+      "layout": "course-list",
+      "sections": [
+        "学习引导与继续学习",
+        "当前账号学习统计",
+        "关键词与课程分类筛选",
+        "封面课程卡片和完成比例",
+        "本地保存说明及存储异常提示"
+      ],
+      "reference": "在线看课功能设计",
+      "header": "在线看课",
+      "columns": [],
+      "fields": [
+        "课程关键词",
+        "课程分类与完成状态"
+      ],
+      "overlays": [],
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "desktop": "复用主系统白侧栏与浅灰蓝工作区，浅蓝学习引导及书本插画；三列封面课程卡片，平板两列。数据来自课程API，仅展示已上架课程；加载失败明确提示并可重试，课程入口按courses菜单权限校验；搜索无匹配保留筛选并可恢复全部。",
+      "mobile": "600px及以下为单列课程卡，搜索和筛选可换行，320px无横向溢出。底栏增加在线看课入口，统计来自当前账号本地记录；无存储权限时提示，权限不足沿用原无权限页面。"
+    },
+    {
+      "id": "CourseDetailPage",
+      "title": "课程学习",
+      "route": "/exam/courses/:courseId",
+      "file": "src/views/courses/CourseDetailPage.vue",
+      "layout": "course-study",
+      "sections": [
+        "返回课程与课程完整信息",
+        "16:9受控视频与只读进度",
+        "小节说明和上一节下一节",
+        "章节折叠目录和完成状态",
+        "按账号隔离的本地续播记录"
+      ],
+      "reference": "在线看课功能设计",
+      "header": "课程学习",
+      "columns": [],
+      "fields": [],
+      "overlays": [
+        {
+          "kind": "drawer",
+          "title": "课程目录",
+          "fields": [
+            "课程完成比例",
+            "可展开章节",
+            "小节列表与完成状态"
+          ],
+          "primaryAction": "关闭目录",
+          "mode": "detail"
+        }
+      ],
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "desktop": "左侧16:9播放器和小节说明，右侧固定宽度折叠目录。固定1.0倍速，拦截跳播及倍速变化；加载动画、20秒超时、资源失败及重试均原位展示；无效课程显示返回列表入口，未授权沿用路由守卫。播放结束后才标记完成，重看保留完成状态。",
+      "mobile": "1050px及以下隐藏右栏，目录通过底部78%高度抽屉展示，正文独立滚动，遮罩或Escape可关闭，选择小节后自动关闭。390px及320px播放器、只读进度条、小节导航均无横向溢出；恢复上次位置，浏览器需点击后播放，存储失败明确提示。"
+    },
+    {
+      "id": "CourseManagePage",
+      "title": "课程管理",
+      "route": "/admin/courses",
+      "file": "src/views/admin/CourseManagePage.vue",
+      "layout": "course-manage",
+      "sections": [
+        "课程状态统计",
+        "关键词与状态筛选",
+        "封面课程列表与分页",
+        "编辑预览及上架下架删除"
+      ],
+      "reference": "课程管理与在线看课联动",
+      "header": "课程管理",
+      "columns": [],
+      "fields": [
+        "关键词",
+        "课程状态"
+      ],
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlays": [
+        {
+          "kind": "dialog",
+          "title": "课程预览",
+          "fields": [
+            "课程信息",
+            "小节选择",
+            "视频播放器"
+          ],
+          "primaryAction": "关闭预览",
+          "mode": "detail"
+        }
+      ],
+      "desktop": "三张真实状态统计卡，封面图文课程列表，筛选分页和操作区；上架课程禁用编辑删除，先下架再变更。视频预览复用播放器但不写学员进度；失败区分列表错误和操作错误，确认与提交防重复。",
+      "mobile": "统计紧凑三列，筛选纵向排列，封面与信息配对，操作整行至少44px；预览94vw可滚动，不出现页面横向溢出。空态提供新增或清空筛选入口，无权限由路由及API共同控制。"
+    },
+    {
+      "id": "CourseEditorDrawer",
+      "title": "课程编辑",
+      "route": null,
+      "file": "src/views/admin/CourseEditorDrawer.vue",
+      "layout": "overlay",
+      "sections": [
+        "基本信息与封面",
+        "章节与小节排序",
+        "视频上传和外链",
+        "未保存提示和版本冲突"
+      ],
+      "reference": "课程管理与在线看课联动",
+      "header": "课程编辑",
+      "columns": [],
+      "fields": [
+        "标题",
+        "分类",
+        "讲师",
+        "简介",
+        "封面",
+        "难度",
+        "排序",
+        "章节小节视频"
+      ],
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "overlays": [
+        {
+          "kind": "drawer",
+          "title": "新增或编辑课程",
+          "fields": [
+            "基本信息",
+            "章节与视频"
+          ],
+          "primaryAction": "保存草稿 / 保存修改",
+          "mode": "edit"
+        }
+      ],
+      "desktop": "880px编辑抽屉，基本信息与章节视频两页签，固定底部操作。课程标题必填，其他资料可暂存草稿，上架由后端完整校验；章节小节稳定ID，替换视频重置对应学习身份。上传进度可见并可取消，保存失败保留输入，并发冲突提供重新加载。",
+      "mobile": "抽屉全宽，表单单列，章节工具可换行，44px上传与底部操作；正文独立滚动，不压缩标题和视频地址。未保存关闭需确认，上传或保存期间不允许关闭及重复写入。"
     }
   ]
 }

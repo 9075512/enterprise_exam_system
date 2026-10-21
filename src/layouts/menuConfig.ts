@@ -32,6 +32,7 @@ import {
   User,
   Tickets,
   Tools,
+  VideoPlay,
 } from '@element-plus/icons-vue';
 import type { Role } from '@/types';
 
@@ -84,6 +85,7 @@ export function groupKeyOf(menuKey: string): string {
 const ALL_MENUS: MenuItem[] = [
   { key: 'dashboard', text: '数据总览', path: '/admin/dashboard', icon: DataBoard, roles: ['admin'], group: 'dashboard' },
   { key: 'subjects', text: '科目管理', path: '/admin/subjects', icon: FolderOpened, roles: ['admin'], group: 'resources' },
+  { key: 'course-manage', text: '课程管理', path: '/admin/courses', icon: VideoPlay, roles: ['admin'], group: 'resources' },
   { key: 'banks', text: '题库管理', path: '/author/banks', icon: Collection, roles: ['admin', 'author'], group: 'resources' },
   { key: 'question-feedback', text: '题目反馈', path: '/admin/question-feedback', icon: EditPen, roles: ['admin', 'author'], group: 'resources' },
   { key: 'duplicate-questions', text: '重复题审计', path: '/admin/duplicate-questions', icon: Tickets, roles: ['admin'], group: 'resources' },
@@ -96,6 +98,7 @@ const ALL_MENUS: MenuItem[] = [
   { key: 'practice-settings', text: '练题端设置', path: '/admin/practice-settings', icon: Notebook, roles: ['admin'], group: 'practice-ops' },
   { key: 'practice-monitor', text: '练题监控', path: '/admin/practice-monitor', icon: DataBoard, roles: ['admin'], group: 'practice-ops' },
   { key: 'practice', text: '练题', path: '/exam/practice', icon: Notebook, roles: ['admin', 'author', 'examinee'], group: 'learning' },
+  { key: 'courses', text: '在线看课', path: '/exam/courses', icon: VideoPlay, roles: ['admin', 'author', 'examinee'], group: 'learning' },
   { key: 'departments', text: '科室管理', path: '/admin/departments', icon: OfficeBuilding, roles: ['admin'], group: 'system' },
   { key: 'users', text: '用户管理', path: '/admin/users', icon: User, roles: ['admin'], group: 'system' },
   { key: 'roles', text: '角色管理', path: '/admin/roles', icon: User, roles: ['admin'], group: 'system' },

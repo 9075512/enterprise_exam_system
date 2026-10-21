@@ -34,6 +34,7 @@ describe('getMenuGroups · 默认（未下发菜单权限）', () => {
     const map = Object.fromEntries(getMenuGroups('admin').map((g) => [g.key, g.items.map((i) => i.key)]));
     expect(map.resources).toEqual([
       'subjects',
+      'course-manage',
       'banks',
       'question-feedback',
       'duplicate-questions',
@@ -47,7 +48,7 @@ describe('getMenuGroups · 默认（未下发菜单权限）', () => {
       'content',
     ]);
     expect(map['practice-ops']).toEqual(['practice-settings', 'practice-monitor']);
-    expect(map.learning).toEqual(['practice']);
+    expect(map.learning).toEqual(['practice', 'courses']);
     expect(map.system).toEqual([
       'departments',
       'users',
@@ -68,7 +69,7 @@ describe('getMenuGroups · 默认（未下发菜单权限）', () => {
   it('examinee 同时看到练题与考生中心', () => {
     const groups = getMenuGroups('examinee');
     expect(groups.map((g) => g.key)).toEqual(['learning', 'examinee']);
-    expect(groups[0].items.map((i) => i.key)).toEqual(['practice']);
+    expect(groups[0].items.map((i) => i.key)).toEqual(['practice', 'courses']);
     expect(groups[1].items.map((i) => i.key)).toEqual([
       'home',
       'my-exams',
@@ -86,12 +87,13 @@ describe('getMenuGroups · 默认（未下发菜单权限）', () => {
       'question-feedback',
     ]);
     expect(groups[1].items.map((i) => i.key)).toEqual(['exams', 'reviews']);
-    expect(groups[2].items.map((i) => i.key)).toEqual(['practice']);
+    expect(groups[2].items.map((i) => i.key)).toEqual(['practice', 'courses']);
   });
 
   it('科目管理仅管理员可见，并位于题库管理之前', () => {
     const adminResources = getMenuGroups('admin').find((g) => g.key === 'resources')!.items;
-    expect(adminResources.slice(0, 2).map((item) => item.key)).toEqual(['subjects', 'banks']);
+    expect(adminResources.filter(item => item.key !== 'course-manage').slice(0, 2).map((item) => item.key)).toEqual(['subjects', 'banks']);
+    expect(getMenuItems('author').some(item => item.key === 'course-manage')).toBe(false);
     expect(getMenuItems('author').some((item) => item.key === 'subjects')).toBe(false);
   });
 });

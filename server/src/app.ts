@@ -33,6 +33,7 @@ import { maintenanceRouter } from './modules/maintenance/maintenance.router.js';
 import { attachmentsRouter } from './modules/attachments/attachments.router.js';
 import { practiceRouter } from './modules/practice/practice.router.js';
 import { contentRouter } from './modules/content/content.router.js';
+import { coursesRouter } from './modules/courses/courses.router.js';
 import { homeRouter } from './modules/home/home.router.js';
 import {
   menuOverridesRouter,
@@ -96,6 +97,7 @@ export function createApp(): Express {
     // 富文本附件对象存储（v1.8④ U4）：上传需登录；读取走签名 URL（见模块注释）
     api.use('/attachments', attachmentsRouter);
     api.use('/content', contentRouter);
+    api.use('/courses', coursesRouter);
     api.use('/home', homeRouter);
     api.use('/subjects', subjectsRouter);
     api.use('/positions', positionsRouter);

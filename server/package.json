@@ -10,6 +10,7 @@
     "start": "node dist/index.js",
     "admin:recover": "node dist/scripts/recoverAdmin.js",
     "db:init": "tsx src/db/init.ts",
+    "db:migrate:courses": "tsx src/db/migrateCourses.ts",
     "db:reset": "tsx src/db/init.ts --reset",
     "test": "vitest run",
     "test:watch": "vitest",
