@@ -3,19 +3,21 @@ import { computed } from 'vue';
 import { ArrowDown, CircleCheckFilled, VideoPlay } from '@element-plus/icons-vue';
 import { courseLessons, type Course } from '@/data/courses';
 import type { LessonProgress } from '@/composables/useCourseProgress';
-const props = defineProps<{ course: Course; activeId: string; progress: Record<string, LessonProgress> }>();
+const props = defineProps<{ course: Course; activeId: string; progress: Record<string, LessonProgress>; overview?: boolean }>();
 defineEmits<{ select: [id: string] }>();
 const lessons = computed(() => courseLessons(props.course));
 const completed = computed(() => lessons.value.filter(lesson => props.progress[lesson.id]?.completed).length);
+const percent = computed(() => lessons.value.length ? Math.round(completed.value / lessons.value.length * 100) : 0);
 </script>
 
 <template>
   <div class="course-outline">
-    <div class="course-outline__head"><h2>课程目录 <span>{{ lessons.length }} 小节</span></h2><p>已完成 {{ completed }} / {{ lessons.length }} 小节<span>{{ Math.round(completed / lessons.length * 100) }}%</span></p><div class="course-outline__progress"><i :style="{ width: `${completed / lessons.length * 100}%` }" /></div></div>
-    <details v-for="(chapter, index) in course.chapters" :key="chapter.id" :open="chapter.lessons.some(lesson => lesson.id === activeId)">
+    <div class="course-outline__head"><h2>课程目录 <span>{{ lessons.length }} 小节</span></h2><p>已完成 {{ completed }} / {{ lessons.length }} 小节<span>{{ percent }}%</span></p><div class="course-outline__progress"><i :style="{ width: `${percent}%` }" /></div></div>
+    <p v-if="!lessons.length" class="course-outline__foot">暂无可学习小节</p>
+    <details v-for="(chapter, index) in course.chapters" :key="chapter.id" :open="chapter.lessons.some(lesson => lesson.id === activeId) || overview && index === 0">
       <summary><span class="chapter-number">{{ String(index + 1).padStart(2, '0') }}</span><span>{{ chapter.title }}<small>{{ chapter.lessons.length }} 小节</small></span><ArrowDown /></summary>
       <div class="course-outline__lessons">
-        <button v-for="lesson in chapter.lessons" :key="lesson.id" type="button" :class="{ active: lesson.id === activeId }" :aria-current="lesson.id === activeId ? 'true' : undefined" @click="$emit('select', lesson.id)">
+        <button v-for="lesson in chapter.lessons" :key="lesson.id" type="button" :disabled="overview && !lesson.src.trim()" :class="{ active: lesson.id === activeId }" :aria-current="lesson.id === activeId ? 'true' : undefined" @click="$emit('select', lesson.id)">
           <CircleCheckFilled v-if="progress[lesson.id]?.completed" class="lesson-complete" /><VideoPlay v-else />
           <span>{{ lesson.title }}<small>{{ lesson.durationLabel }}<em>{{ progress[lesson.id]?.completed ? '已完成' : lesson.id === activeId ? '当前小节' : progress[lesson.id]?.position ? '学习中' : '未开始' }}</em></small></span>
         </button>

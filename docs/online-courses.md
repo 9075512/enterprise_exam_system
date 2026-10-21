@@ -1,6 +1,6 @@
 # 在线看课与课程管理
 
-学员入口：学习中心 → 在线看课（`/exam/courses`）。详情地址为 `/exam/courses/:courseId`，可通过 `?lesson=小节ID` 链接到指定小节。管理入口：教学资源 → 课程管理（`/admin/courses`）。
+学员入口：学习中心 → 在线看课（`/exam/courses`）。介绍地址为 `/exam/courses/:courseId`，学习地址为 `/exam/courses/:courseId/learn`。旧介绍地址携带 `?lesson=小节ID` 时兼容跳转学习页。管理入口：教学资源 → 课程管理（`/admin/courses`）。
 
 煤矿安全内容选课见[煤矿安全课程与视频资源（含出处）](coal-mine-safety-courses.md)，包含 8 组原站资源、发布机构、日期、原始链接及课程简介署名格式。
 
@@ -62,3 +62,9 @@
 分类维护：`GET/POST /api/courses/manage/categories`、`PUT/DELETE /api/courses/manage/categories/:id`，使用课程管理权限；修改和删除需要 revision，分类重名及并发冲突返回409。
 
 观看记录：`GET /api/courses/progress`、`PUT /api/courses/progress/:courseId/:lessonId`、`PUT /api/courses/progress/:courseId/selection`、`POST /api/courses/progress/import`。只允许读写当前登录账号、已上架课程的有效小节。进度写入携带 position、duration、completed、revision、clientId、sequence；来自其他设备的旧版本返回409。
+
+## 先了解，再学习
+
+课程卡片统一进入介绍页，展示封面、信息、完整富文本和章节目录；旧课程未填写图文则展示简介。简介超过三行可展开。浏览介绍、展开目录不改变最后观看小节，也不加载播放器；点击小节进入对应视频。开始学习进入第一有效小节，继续学习恢复最后有效小节，全部完成后再次学习从首节开始且保留完成标记。列表顶部继续上次学习直接进入学习页。
+
+桌面介绍与目录双栏；1050px及以下改为介绍/目录页签和底部固定学习按钮，默认介绍，保留正文底部空间。移动考生导航在介绍页让位给学习按钮，返回入口始终可用。学习页保留播放器和目录，并提供返回课程介绍入口；无有效小节时介绍仍可查看，学习按钮禁用。

@@ -195,6 +195,12 @@ const routes: RouteRecordRaw[] = [
         path: 'exam/courses/:courseId',
         name: 'course-detail',
         component: () => import('@/views/courses/CourseDetailPage.vue'),
+        meta: { roles: ['admin', 'author', 'examinee'], menuKey: 'courses', title: '课程介绍' },
+      },
+      {
+        path: 'exam/courses/:courseId/learn',
+        name: 'course-study',
+        component: () => import('@/views/courses/CourseStudyPage.vue'),
         meta: { roles: ['admin', 'author', 'examinee'], menuKey: 'courses', title: '课程学习' },
       },
       // 考试与练题共用主登录态；PC 保留考试系统框架，移动端由练题布局接管导航。

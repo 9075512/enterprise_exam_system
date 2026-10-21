@@ -43,7 +43,7 @@ const recent = computed(() => courses.value.filter(course => !!progress.lastLess
     <div class="courses-kicker"><span /> LEARNING SPACE <span class="courses-kicker__line" /></div>
     <section class="courses-hero">
       <div><span class="courses-eyebrow">学有所获，每天进步一点</span><h1>把好奇，变成你的下一项能力<span>。</span></h1><p>找到感兴趣的课程，按自己的节奏，开启一段新的学习旅程。</p>
-        <RouterLink v-if="recent" :to="`/exam/courses/${recent.id}`" class="courses-primary">继续上次学习 <ArrowRight /></RouterLink>
+        <RouterLink v-if="recent" :to="`/exam/courses/${recent.id}/learn`" class="courses-primary">继续上次学习 <ArrowRight /></RouterLink>
         <a v-else href="#course-library" class="courses-primary">探索课程 <ArrowRight /></a>
       </div>
       <div class="courses-hero__art" aria-hidden="true"><div class="hero-orbit" /><div class="hero-book"><span>LEARN<br>ONE THING<br><b>NEW.</b></span><i>每天，向前一点 ↗</i></div><span class="hero-spark">✦</span><span class="hero-caption">A LITTLE EVERY DAY</span></div>
@@ -64,8 +64,8 @@ const recent = computed(() => courses.value.filter(course => !!progress.lastLess
         <RouterLink v-for="course in filtered" :key="course.id" :to="`/exam/courses/${course.id}`" class="course-card">
           <div class="course-card__cover"><img :src="course.cover" :alt="course.title + '封面'" loading="lazy"><span class="course-card__category">{{ course.category }}</span><span class="course-card__play"><VideoPlay /></span><span class="course-card__level">{{ course.level }}<template v-if="course.isDemo"> · 演示课程</template></span></div>
           <div class="course-card__body"><div class="course-card__meta">{{ course.instructor }}<span>{{ courseLessons(course).length }} 小节</span></div><h3>{{ course.title }}</h3><p>{{ course.description }}</p>
-            <div class="course-card__progress"><span :style="{ width: `${count(course.id) / courseLessons(course).length * 100}%` }" /></div>
-            <div class="course-card__bottom"><small>{{ count(course.id) ? `已完成 ${count(course.id)} / ${courseLessons(course).length} 小节` : progress.lastLesson(course.id) ? '学习中，继续你的探索' : '准备好开始了吗？' }}</small><span>{{ count(course.id) === courseLessons(course).length ? '再次学习' : progress.lastLesson(course.id) ? '继续学习' : '开始学习' }} <ArrowRight /></span></div>
+            <div class="course-card__progress"><span :style="{ width: `${count(course.id) / (courseLessons(course).length || 1) * 100}%` }" /></div>
+            <div class="course-card__bottom"><small>{{ count(course.id) ? `已完成 ${count(course.id)} / ${courseLessons(course).length} 小节` : progress.lastLesson(course.id) ? '学习中，继续你的探索' : '准备好开始了吗？' }}</small><span>查看课程 <ArrowRight /></span></div>
           </div>
         </RouterLink>
       </div>
