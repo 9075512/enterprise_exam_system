@@ -32,6 +32,8 @@ export const MENU_CATALOG: readonly MenuDef[] = [
   { key: 'practice-settings', name: '练题端设置', defaultRoles: ['admin'], adminRequired: false },
   { key: 'practice-monitor', name: '练题监控', defaultRoles: ['admin'], adminRequired: false },
   { key: 'practice', name: '练题', defaultRoles: ['admin', 'author', 'examinee'], adminRequired: false },
+  { key: 'courses', name: '在线看课', defaultRoles: ['admin', 'author', 'examinee'], adminRequired: false },
+  { key: 'course-manage', name: '课程管理', defaultRoles: ['admin'], adminRequired: false },
   { key: 'content', name: '公告与轮播', defaultRoles: ['admin'], adminRequired: false },
   { key: 'roles', name: '角色管理', defaultRoles: ['admin'], adminRequired: true },
   { key: 'positions', name: '岗位管理', defaultRoles: ['admin'], adminRequired: false },

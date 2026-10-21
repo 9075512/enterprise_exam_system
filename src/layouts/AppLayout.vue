@@ -152,7 +152,7 @@ const menuItems = computed(() =>
 
 /** 手机考生端的一级任务导航；消息中心保留在顶部铃铛入口。 */
 const mobileNavItems = computed(() => {
-  const order = ['home', 'my-exams', 'practice', 'my-scores'];
+  const order = ['home', 'my-exams', 'courses', 'practice', 'my-scores'];
   const items = order
     .map((key) => menuItems.value.find((item) => item.key === key))
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
@@ -1059,7 +1059,7 @@ const pwdVisible = ref(false);
         inset: auto 0 0;
         z-index: 50;
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(v-bind('mobileNavItems.length'), minmax(0, 1fr));
         padding: 5px 6px calc(5px + env(safe-area-inset-bottom));
         background: rgba(255, 255, 255, 0.97);
         border-top: 1px solid $border-color;

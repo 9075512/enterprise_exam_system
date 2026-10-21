@@ -179,6 +179,24 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/common/ProfilePage.vue'),
         meta: { roles: ['admin', 'author', 'examinee'], title: '个人中心' },
       },
+      {
+        path: 'admin/courses',
+        name: 'course-manage',
+        component: () => import('@/views/admin/CourseManagePage.vue'),
+        meta: { roles: ['admin'], menuKey: 'course-manage', title: '课程管理' },
+      },
+      {
+        path: 'exam/courses',
+        name: 'course-list',
+        component: () => import('@/views/courses/CourseListPage.vue'),
+        meta: { roles: ['admin', 'author', 'examinee'], menuKey: 'courses', title: '在线看课' },
+      },
+      {
+        path: 'exam/courses/:courseId',
+        name: 'course-detail',
+        component: () => import('@/views/courses/CourseDetailPage.vue'),
+        meta: { roles: ['admin', 'author', 'examinee'], menuKey: 'courses', title: '课程学习' },
+      },
       // 考试与练题共用主登录态；PC 保留考试系统框架，移动端由练题布局接管导航。
       {
         path: 'exam/practice',

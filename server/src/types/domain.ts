@@ -1330,6 +1330,7 @@ export interface UserBatchDto {
 
 /** 审计动作（机器可读稳定 key，前端映射中文文案） */
 export type AuditAction =
+  | 'course.create' | 'course.update' | 'course.delete' | 'course.status'
   | 'role.create' | 'role.update' | 'role.delete' | 'role.members'
   | 'user.create'
   | 'user.update'
@@ -1381,6 +1382,7 @@ export type AuditAction =
 
 /** 审计目标类型 */
 export type AuditTargetType =
+  | 'course'
   | 'role'
   | 'user'
   | 'exam'
