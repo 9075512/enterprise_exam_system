@@ -5,8 +5,8 @@ import Editor from './CourseEditorDrawer.vue';
 import ManagePage from './CourseManagePage.vue';
 import type { ManagedCourse } from '@/api/courses';
 
-const api = vi.hoisted(() => ({ list: vi.fn(), get: vi.fn(), create: vi.fn(), update: vi.fn(), status: vi.fn(), remove: vi.fn(), upload: vi.fn() }));
-vi.mock('@/api/courses', () => ({ listManagedCourses: api.list, getManagedCourse: api.get, createCourse: api.create, updateCourse: api.update, setCourseStatus: api.status, deleteCourse: api.remove, uploadCourseMedia: api.upload }));
+const api = vi.hoisted(() => ({ list: vi.fn(), get: vi.fn(), create: vi.fn(), update: vi.fn(), status: vi.fn(), remove: vi.fn(), upload: vi.fn(), generate: vi.fn() }));
+vi.mock('@/api/courses', () => ({ listManagedCourses: api.list, getManagedCourse: api.get, createCourse: api.create, updateCourse: api.update, setCourseStatus: api.status, deleteCourse: api.remove, uploadCourseMedia: api.upload, generateCourseCover: api.generate }));
 vi.mock('vue-router', () => ({ onBeforeRouteLeave: vi.fn() }));
 const record = (): ManagedCourse => ({ id: 'course-1', title: '护理基础', description: '课程简介', category: '护理', instructor: '教学团队', cover: '/courses/flower.svg', level: '入门', isDemo: false, sortOrder: 0, status: 'draft', revision: 3, createdAt: '2026-10-21T00:00:00Z', updatedAt: '2026-10-21T00:00:00Z', chapters: [{ id: 'ch-1', title: '第一章', lessons: [{ id: 'lesson-1', title: '第一小节', src: 'https://example.com/a.mp4', durationLabel: '05:00', description: '' }] }] });
 let wrapper: VueWrapper | undefined;
@@ -25,6 +25,36 @@ async function page() {
   wrapper = mount(ManagePage, { attachTo: document.body, global: { plugins: [ElementPlus], stubs: { CourseEditorDrawer: true, CourseVideoPlayer: true, ElDialog: { props: ['modelValue'], template: '<section v-if="modelValue"><slot /><slot name="footer" /></section>' } } } }); await flushPromises(); return wrapper;
 }
 describe('课程编辑工作流', () => {
+  it('未填写标题不能生成；生成期间阻止保存和重复请求，完成后回填并随草稿保存', async () => {
+    await editor(); await button('生成封面').trigger('click'); expect(api.generate).not.toHaveBeenCalled();
+    expect(wrapper!.text()).toContain('请先填写课程标题，再生成封面');
+    await wrapper!.get('input[aria-label="课程标题"]').setValue('瓦斯安全');
+    await wrapper!.get('input[aria-label="课程分类"]').setValue('瓦斯防治');
+    let resolve!: (value: { url: string }) => void;
+    api.generate.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+    await button('生成封面').trigger('click'); await button('生成封面').trigger('click');
+    expect(api.generate).toHaveBeenCalledOnce(); expect(api.generate.mock.calls[0][0]).toEqual({ title: '瓦斯安全', category: '瓦斯防治', instructor: '' });
+    expect(button('保存草稿').attributes('disabled')).toBeDefined();
+    resolve({ url: '/api/courses/media/generated?t=abc' }); await flushPromises();
+    expect(wrapper!.get('img[alt="课程封面预览"]').attributes('src')).toBe('/api/courses/media/generated?t=abc');
+    api.create.mockResolvedValue(record()); await button('保存草稿').trigger('click'); await flushPromises();
+    expect(api.create.mock.calls[0][0].cover).toBe('/api/courses/media/generated?t=abc');
+  });
+  it('保留已有封面，清空后可生成；失败和取消保留输入并允许重试', async () => {
+    await editor(record()); expect(button('生成封面').attributes('disabled')).toBeDefined();
+    await button('生成封面').trigger('click'); expect(api.generate).not.toHaveBeenCalled();
+    await wrapper!.get('input[aria-label="封面地址"]').setValue('');
+    api.generate.mockRejectedValueOnce(new Error('生成服务暂不可用'));
+    await button('生成封面').trigger('click'); await flushPromises(); expect(wrapper!.text()).toContain('生成服务暂不可用');
+    expect((wrapper!.get('input[aria-label="课程标题"]').element as HTMLInputElement).value).toBe('护理基础');
+    let finish!: (value: { url: string }) => void;
+    api.generate.mockReturnValueOnce(new Promise(done => { finish = done; }));
+    await button('生成封面').trigger('click'); await button('取消生成').trigger('click');
+    expect(api.generate.mock.calls[1][1].aborted).toBe(true);
+    finish({ url: '/api/courses/media/cancelled' }); await flushPromises();
+    expect(wrapper!.find('img[alt="课程封面预览"]').exists()).toBe(false);
+    expect(button('生成封面').attributes('disabled')).toBeUndefined();
+  });
   it('新增课程校验标题，新增章节和小节，并以草稿保存完整结构', async () => {
     await editor(); await button('保存草稿').trigger('click'); expect(api.create).not.toHaveBeenCalled();
     expect(wrapper!.text()).toContain('请输入课程标题');

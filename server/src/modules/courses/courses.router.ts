@@ -6,8 +6,8 @@ import { asyncHandler } from '../../utils/asyncHandler.js';
 import { forbidden } from '../../utils/errors.js';
 import { ok } from '../../utils/response.js';
 import { getMyMenus } from '../permissions/permissions.service.js';
-import { courseBodySchema, courseIdSchema, courseListSchema, courseRevisionSchema, courseStatusSchema, courseUpdateSchema, type CourseListQuery } from './courses.schema.js';
-import { readCourseMedia, uploadCourseMedia } from './courses.media.js';
+import { courseBodySchema, courseCoverSchema, courseIdSchema, courseListSchema, courseRevisionSchema, courseStatusSchema, courseUpdateSchema, type CourseListQuery } from './courses.schema.js';
+import { generateCourseCover, readCourseMedia, uploadCourseMedia } from './courses.media.js';
 import * as service from './courses.service.js';
 
 export const coursesRouter = Router();
@@ -22,6 +22,7 @@ const manage = Router();
 manage.use(requireRole('admin'), menu('course-manage'));
 manage.get('/', validate(courseListSchema, 'query'), asyncHandler(async (req, res) => ok(res, await service.list(req.query as unknown as CourseListQuery))));
 manage.post('/media', uploadCourseMedia);
+manage.post('/cover', validate(courseCoverSchema), asyncHandler(async (req, res) => ok(res, await generateCourseCover(req.body, req.user!.id))));
 manage.post('/', validate(courseBodySchema), asyncHandler(async (req, res) => ok(res, await service.create(req.body, req.user!.id))));
 manage.get('/:id', validate(courseIdSchema, 'params'), asyncHandler(async (req, res) => ok(res, await service.find(req.params.id, true))));
 manage.put('/:id', validate(courseIdSchema, 'params'), validate(courseUpdateSchema), asyncHandler(async (req, res) => ok(res, await service.update(req.params.id, req.body.revision, req.body.course, req.user!.id))));

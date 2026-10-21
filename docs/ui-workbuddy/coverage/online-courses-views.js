@@ -2,7 +2,7 @@
 Object.assign(window.DESIGN_ORG_VIEWS, {
   CourseManagePage: () => card('课程管理', '<p>草稿 / 已上架 / 已下架真实数量，关键词及状态筛选、服务端分页。</p><button>新增课程</button>')
     + card('课程列表', '<p>封面、标题、简介、分类、讲师、章节数、展示排序与更新时间。</p><button>预览</button><button>编辑</button><button>上架 / 下架</button><button>删除</button><p class="scope">已上架课程必须先下架再编辑或删除。错误保留上下文，保存成功但列表刷新失败时不重复创建。</p>'),
-  CourseEditorDrawer: () => card('课程编辑', '<p>基本信息 / 章节与视频双页签；新课程存草稿，上架前校验完整资料。</p><input placeholder="课程标题"><input placeholder="分类与讲师"><textarea placeholder="课程简介"></textarea><p>封面上传或图片地址、难度与展示排序。</p><button>添加章节</button><button>添加小节</button><p class="scope">章节与小节支持增删、上下排序；上传视频或填写视频地址。上传可取消，保存失败保留草稿，未保存关闭需确认。</p>'),
+  CourseEditorDrawer: () => card('课程编辑', '<p>基本信息 / 章节与视频双页签；新课程存草稿，上架前校验完整资料。</p><input placeholder="课程标题"><input placeholder="分类与讲师"><textarea placeholder="课程简介"></textarea><p>封面上传或图片地址、难度与展示排序。</p><button>生成封面</button><p>未上传封面时，填写标题后一键生成深色网格封面；分类决定强调色，长标题自动换行。</p><button>添加章节</button><button>添加小节</button><p class="scope">章节与小节支持增删、上下排序；上传视频或填写视频地址。上传与生成均可取消，处理中锁定保存；失败保留草稿，未保存关闭需确认。</p>'),
   CourseListPage: () => card('把好奇，变成你的下一项能力', '<p>浅蓝学习引导区、书本插画与继续学习入口。</p>')
     + card('学习概览', '<p>3 门课程 / 已开始学习 / 已完成课程；按当前账号的浏览器记录计算。</p>')
     + card('发现好课程', '<input class="input" placeholder="搜索课程"><p>全部课程 / 影像表达 / 自然观察 / 学习中 / 已完成</p><div class="split">'
