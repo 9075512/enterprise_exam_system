@@ -31,7 +31,7 @@
 
   .layout__main > .layout__content.layout__content {
     padding-top: calc(var(--glass-header-height) + var(--glass-content-gap));
-    scroll-padding-top: calc(var(--glass-header-height) + 16px);
+    scroll-padding-top: calc(var(--glass-header-height) + var(--glass-content-gap));
   }
 
   .layout__date,
@@ -72,8 +72,8 @@
 
 @media (max-width: 900px) {
   .layout.layout.is-management-layout {
-    --glass-header-height: 74px;
-    --glass-content-gap: 16px;
+    --glass-header-height: calc(#{$mobile-header-height} + env(safe-area-inset-top));
+    --glass-content-gap: 12px;
   }
 }
 

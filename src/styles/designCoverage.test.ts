@@ -32,7 +32,7 @@ describe('全页面设计覆盖', () => {
   });
   it('生效基础尺寸与确认的设计规范一致', () => {
     const variables = readFileSync(resolve(root, 'src/styles/variables.scss'), 'utf8');
-    for (const [name, value] of [['radius-lg', spec.tokens.cardRadius], ['radius-base', spec.tokens.controlRadius], ['sidebar-width', spec.tokens.sidebar], ['header-height', spec.tokens.header], ['page-padding', spec.tokens.pagePadding]]) {
+    for (const [name, value] of [['radius-lg', spec.tokens.cardRadius], ['radius-base', spec.tokens.controlRadius], ['sidebar-width', spec.tokens.sidebar], ['header-height', spec.tokens.header], ['mobile-header-height', spec.tokens.mobileHeader], ['page-padding', spec.tokens.pagePadding]]) {
       expect(variables).toMatch(new RegExp(`\\$${name}\\s*:\\s*${value}px`));
     }
   });

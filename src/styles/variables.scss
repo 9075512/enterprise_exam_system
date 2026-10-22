@@ -61,8 +61,8 @@ $sidebar-scrollbar: #CFD7E4;
 $sidebar-width: 232px;
 $sidebar-width-collapsed: 64px;
 $header-height: 64px;
-// 移动导航抽屉的品牌区保留原有高度。
-$mobile-brand-height: 94px;
+$mobile-header-height: 56px;
+$mobile-brand-height: $mobile-header-height;
 $page-padding: 30px;
 $transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 $transition-base: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
