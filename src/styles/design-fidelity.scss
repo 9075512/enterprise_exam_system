@@ -76,6 +76,8 @@
   [data-ui-layout] .el-table .el-table-column--selection .cell { padding-inline: 0; }
   [data-ui-layout] .el-table .el-table-column--selection .el-checkbox { width: 100%; min-height: 44px; justify-content: center; }
   .layout.layout .layout__header { height: calc(#{$mobile-header-height} + env(safe-area-inset-top)); min-height: calc(#{$mobile-header-height} + env(safe-area-inset-top)); gap: 4px; padding: env(safe-area-inset-top) 12px 0; }
+  .layout.layout.is-management-layout .layout__header { height: calc(#{$management-mobile-header-height} + env(safe-area-inset-top)); min-height: calc(#{$management-mobile-header-height} + env(safe-area-inset-top)); }
+  .layout.layout.is-management-layout .layout__bell .el-badge__content { top: 6px; right: 6px; }
   .layout.layout .layout__brand { height: calc(#{$mobile-brand-height} + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); }
   .layout.layout .layout__page-context { flex: 1; }
   .layout.layout .layout__page-title { overflow: hidden; font-size: 16px; line-height: 24px; text-overflow: ellipsis; white-space: nowrap; }

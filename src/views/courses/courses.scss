@@ -158,5 +158,36 @@
 @media (max-width: 600px) { .courses-page { padding: 16px 16px 25px; } .courses-kicker { margin-bottom: 16px; } .courses-hero { grid-template-columns: 1fr; min-height: 250px; padding: 25px 22px; } .courses-hero > div:first-child { position: relative; z-index: 1; } .courses-hero h1 { font-size: 25px; max-width: 280px; } .courses-hero p { max-width: 260px; font-size: 12px; } .courses-hero__art { position: absolute; right: -75px; bottom: -85px; width: 170px; height: 210px; opacity: .13; } .courses-stats { justify-content: space-between; padding: 22px 2px; gap: 8px; } .courses-stats > div { gap: 8px; } .stat-mark { width: 32px; height: 35px; border-radius: 8px; } .stat-mark svg { width: 17px; } .courses-stats strong { font-size: 21px; } .courses-stats small { font-size: 10px; } .courses-section-head { align-items: stretch; flex-direction: column; gap: 16px; } .courses-section-head h2 { font-size: 19px; } .courses-section-head h2 span { display: inline; } .courses-search input { flex: 1; width: 100%; } .courses-library { padding-top: 24px; } .courses-filters { gap: 4px; margin: 16px 0; } .courses-filters button { padding: 7px 9px; font-size: 11px; } .courses-filters > span { display: none; } .courses-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; } .course-card__cover { aspect-ratio: 1.95; } .course-card__body { padding: 20px; } .course-card__body > p { min-height: auto; } .course-card__bottom > small, .course-card__bottom > span { font-size: 11px; } .courses-footer { line-height: 1.8; margin-top: 24px; } .course-back { margin-bottom: 18px; } .course-detail__heading { margin-bottom: 20px; } .course-detail__heading h1 { font-size: 23px; } .course-detail__heading p { line-height: 1.8; font-size: 11px; } .course-lesson-info { padding: 20px 16px; } .course-lesson-info h2 { font-size: 18px; } .course-playback-note { font-size: 9px; } .course-learning-tip { padding: 20px 2px 0; } }
 @media (prefers-reduced-motion: reduce) { .courses-page *, .courses-page *::before, .courses-page *::after { transition: none !important; } }
 
+// 列表页由外层布局提供手机页边距；详情和学习页面保留各自的布局。
+@media (max-width: 900px) {
+  .courses-page[data-ui-page='CourseListPage'] {
+    padding: 0 0 16px;
+    .courses-kicker, .courses-hero__art { display: none; }
+    .courses-hero { grid-template-columns: minmax(0, 1fr); min-height: 0; padding: 16px; border-radius: 12px; }
+    .courses-eyebrow { font-size: 11px; letter-spacing: 0; }
+    .courses-hero h1 { max-width: none; margin: 6px 0 8px; font-size: 22px; line-height: 1.4; }
+    .courses-hero p { max-width: none; margin-bottom: 12px; font-size: 12px; line-height: 1.65; }
+    .courses-primary { min-height: 44px; padding: 8px 14px; gap: 8px; }
+    .courses-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 14px 0; }
+    .courses-stats > div { min-width: 0; gap: 6px; }
+    .stat-mark { flex: 0 0 28px; width: 28px; height: 28px; border-radius: 7px; svg { width: 16px; } }
+    .courses-stats strong { font-size: 20px; }
+    .courses-stats small { margin-top: 3px; font-size: 10px; line-height: 1.4; }
+    .courses-warning { margin: 12px 0 0; padding: 8px 12px; line-height: 1.6; button { min-height: 44px; padding: 4px 6px; } }
+    .courses-library { padding-top: 16px; scroll-margin-top: 12px; }
+    .courses-section-head { flex-direction: column; align-items: stretch; gap: 10px; h2 { font-size: 18px; span { display: none; } } }
+    .courses-search { min-height: 44px; padding: 8px 12px; input { flex: 1; width: 100%; } }
+    .courses-filters { gap: 4px; margin: 12px 0; button { min-height: 44px; padding: 6px 10px; font-size: 12px; } > span { display: none; } }
+    .courses-grid { gap: 12px; }
+    .course-card__body { padding: 14px; }
+    .course-card h3 { margin: 8px 0 6px; }
+    .course-card__progress { margin-top: 14px; }
+    .course-card__bottom { margin-top: 10px; }
+    .courses-empty { min-height: 180px; padding: 20px 12px; }
+    .courses-footer { margin-top: 20px; padding-top: 16px; }
+  }
+  .layout.is-examinee-layout .courses-page[data-ui-page='CourseListPage'] .courses-library { scroll-margin-top: calc(#{$mobile-header-height} + env(safe-area-inset-top) + 12px); }
+}
+
 @media (min-width: 701px) and (max-width: 1050px) { .layout.is-management-layout .layout__aside ~ .layout__main .course-overview { --course-action-left: #{$sidebar-width}; } .layout.is-management-layout .layout__aside.is-collapsed ~ .layout__main .course-overview { --course-action-left: #{$sidebar-width-collapsed}; } }
 @media (min-width: 901px) and (max-width: 1050px) { .layout.is-examinee-layout .layout__aside ~ .layout__main .course-overview { --course-action-left: #{$sidebar-width}; } .layout.is-examinee-layout .layout__aside.is-collapsed ~ .layout__main .course-overview { --course-action-left: #{$sidebar-width-collapsed}; } }
