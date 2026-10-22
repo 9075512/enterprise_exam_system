@@ -316,7 +316,7 @@ describe('全站样式 · v3.1 方向 C 布局与表头护栏', () => {
   const layoutSource = readFileSync(resolve(process.cwd(), 'src/layouts/AppLayout.vue'), 'utf8');
 
   const VARS: Array<[string, number]> = [
-    ['header-height', 94],
+    ['header-height', 64],
     ['sidebar-width', 232],
     ['sidebar-width-collapsed', 64],
     ['page-padding', 30],
