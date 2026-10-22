@@ -72,8 +72,12 @@
 
 @media (max-width: 900px) {
   .layout.layout.is-management-layout {
-    --glass-header-height: calc(#{$mobile-header-height} + env(safe-area-inset-top));
+    --glass-header-height: calc(#{$management-mobile-header-height} + env(safe-area-inset-top));
     --glass-content-gap: 12px;
+
+    // 手机顶栏参与正常布局，正文从顶栏下方开始，避免占位与页面内距叠加。
+    .layout__header { margin-bottom: 0; }
+    .layout__main > .layout__content.layout__content { padding: var(--glass-content-gap) 12px 16px; scroll-padding-top: var(--glass-content-gap); }
   }
 }
 
