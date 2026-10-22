@@ -170,7 +170,7 @@ function backToCredentials(): void {
       <section class="login__brand">
         <div class="login__brand-inner">
           <div class="login__logo">
-            <span class="login__logo-mark">考</span>
+            <img class="login__logo-mark" src="/brand/app-icon.svg" alt="" aria-hidden="true" />
             <span class="login__logo-name">
               {{ settingsStore.publicSettings.systemShortName }}
               <small>EXAM MANAGEMENT</small>
@@ -375,18 +375,12 @@ function backToCredentials(): void {
   &__brand-inner { position: relative; z-index: 1; }
   &__logo { display: flex; align-items: center; gap: 12px; }
   &__logo-mark {
-    display: grid;
-    place-items: center;
+    display: block;
+    object-fit: contain;
     flex: 0 0 40px;
     width: 40px;
     height: 40px;
-    border: 1px solid #ffffff30;
-    border-radius: 12px;
-    background: #ffffff20;
-    box-shadow: 0 5px 12px rgba($color-primary, 0.19);
-    color: #fff;
-    font-size: 22px;
-    font-weight: 700;
+    border-radius: 10px;
   }
   &__logo-name {
     min-width: 0;

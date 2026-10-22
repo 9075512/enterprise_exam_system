@@ -268,7 +268,7 @@ const pwdVisible = ref(false);
     <button v-if="isExamMobile && examNavOpen" class="layout__exam-nav-backdrop" type="button" aria-label="关闭导航" @click="examNavOpen = false" />
     <aside id="app-main-navigation" aria-label="主导航" class="layout__aside" :class="{ 'is-collapsed': !isExamMobile && app.sidebarCollapsed }" :inert="isExamMobile && !examNavOpen ? true : undefined">
       <div class="layout__brand">
-        <span class="layout__brand-mark">考</span>
+        <img class="layout__brand-mark" src="/brand/app-icon.svg" alt="" aria-hidden="true" />
         <span class="layout__brand-name" :title="brandName">
           {{ brandName }}
           <small>EXAM CENTER</small>
@@ -326,7 +326,7 @@ const pwdVisible = ref(false);
     <div class="layout__main" :inert="isExamMobile && examNavOpen ? true : undefined">
       <header v-if="isExaminee && !isFocusedExamineeRoute" class="layout__mobile-header">
         <div class="layout__mobile-brand">
-          <span class="layout__mobile-mark">考</span>
+          <img class="layout__mobile-mark" src="/brand/app-icon.svg" alt="" aria-hidden="true" />
           <div class="layout__mobile-heading">
             <small>{{ brandName }}</small>
             <strong>{{ mobileTitle }}</strong>
@@ -531,13 +531,9 @@ const pwdVisible = ref(false);
     width: 24px;
     height: 24px;
     flex-shrink: 0;
-    display: grid;
-    place-items: center;
+    display: block;
+    object-fit: contain;
     border-radius: 6px;
-    background: $color-primary;
-    color: #fff;
-    font-size: 11.5px;
-    font-weight: 700;
   }
 
   &__brand-name {
@@ -990,16 +986,12 @@ const pwdVisible = ref(false);
       .layout__mobile-brand { min-width: 0; gap: 10px; }
       .layout__mobile-actions { flex: 0 0 auto; gap: 10px; }
       .layout__mobile-mark {
-        display: grid;
-        place-items: center;
+        display: block;
+        object-fit: contain;
         width: 30px;
         height: 30px;
         flex: 0 0 30px;
         border-radius: 8px;
-        background: $color-primary;
-        color: #fff;
-        font-size: 14px;
-        font-weight: 700;
       }
       .layout__mobile-heading {
         min-width: 0;

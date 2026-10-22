@@ -1,0 +1,32 @@
+卓达煤矿考试学习系统 · 四款 Logo 备选
+
+A · 卓达字母（a-zd）
+以 Z 的折线连接 D 的弧面，形成专属字母标。
+字母融合 / 几何构成 / 简约现代
+
+B · 矿山守护（b-mine-shield）
+山峰嵌入盾牌，以稳固轮廓表达安全与守护。
+煤矿行业 / 安全培训 / 稳重可靠
+
+C · 学有所进（c-learning-steps）
+展开的书页化为上升阶梯，寓意学有所获。
+学习成长 / 阶梯书页 / 清晰轻盈
+
+D · 知识汇聚（d-knowledge-hub）
+四块几何模块围合中心，表达知识连接与协同。
+模块连接 / 知识网络 / 精练科技
+
+每款提供：
+logo.svg / logo-512.png：透明底蓝色主标志。
+logo-white.svg：透明底白色反白标志，用于深色背景。
+app-icon.svg / app-icon-512.png：蓝底白色圆角应用图标。
+app-icon-24.png / app-icon-36.png / app-icon-64.png：各尺寸直接导出。
+logo-horizontal.svg：包含系统全称的横向组合，文字依赖微软雅黑或 Noto Sans SC。
+logo-horizontal.png：横向组合的 1120×192 透明 PNG，无字体依赖。
+
+comparison.png / comparison.svg：完整四款对比图。
+index.html：可离线打开的预览和下载页。
+
+使用规范：主色 #2563EB，墨蓝 #172338；保持纵横比，不附加渐变、阴影或描边。
+主标志与应用图标建议最小 24px；图形四周留白不少于图形宽度的 1/8。
+本次只新增独立备选素材，未替换现有网站 Logo，未修改接口或业务功能。

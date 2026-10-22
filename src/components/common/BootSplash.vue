@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * 品牌徽标脉冲全屏加载（Loading 方案 ①）。
- * 「考」徽标呼吸缩放 + 双层反向进度环 + 字距拉开的品牌字；
+ * 应用图标呼吸缩放 + 双层反向进度环 + 字距拉开的品牌字；
  * 用于冷启动 / 进入考试等 &gt; 800ms 的整页等待，dark 态用于深底场景。
  */
 withDefaults(defineProps<{ show: boolean; dark?: boolean; caption?: string }>(), {
@@ -16,7 +16,7 @@ withDefaults(defineProps<{ show: boolean; dark?: boolean; caption?: string }>(),
       <div class="boot-splash__wrap">
         <span class="boot-splash__ring" />
         <span class="boot-splash__ring boot-splash__ring--2" />
-        <span class="boot-splash__mark">考</span>
+        <img class="boot-splash__mark" src="/brand/app-icon.svg" alt="" aria-hidden="true" />
       </div>
       <span class="boot-splash__brand">EXAM CENTER</span>
       <span v-if="caption" class="boot-splash__caption">{{ caption }}</span>
@@ -56,13 +56,11 @@ withDefaults(defineProps<{ show: boolean; dark?: boolean; caption?: string }>(),
 .boot-splash__mark {
   position: absolute;
   inset: 10px;
-  display: grid;
-  place-items: center;
+  display: block;
+  width: calc(100% - 20px);
+  height: calc(100% - 20px);
+  object-fit: contain;
   border-radius: 18px; // radius-exception：品牌徽标块（同侧栏 logo 圆角语言）
-  background: linear-gradient(160deg, $color-primary, $color-primary-dark);
-  color: #fff;
-  font-size: 24px;
-  font-weight: 700;
   animation: boot-breathe 1.8s ease-in-out infinite;
 }
 

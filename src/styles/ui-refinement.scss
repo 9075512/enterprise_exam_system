@@ -54,7 +54,7 @@
 
 .layout.layout {
   .layout__brand { gap: 11px; padding: 0 20px; border-bottom: 0; }
-  .layout__brand-mark { width: 36px; height: 36px; font-size: 20px; border-radius: 10px; background: $gradient-brand; }
+  .layout__brand-mark { width: 36px; height: 36px; border-radius: 10px; }
   .layout__brand-name { color: $text-primary; font-size: 14px; font-weight: 700; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; }
   .layout__brand-name small { color: $text-secondary; font-size: 9px; letter-spacing: 1.4px; }
   .layout__menu { padding: 12px 14px; --el-menu-item-height: 44px; --el-menu-sub-item-height: 40px; }

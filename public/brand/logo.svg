@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">卓达 · 知行 Logo</title>
+  <desc id="desc">展开的书页融合向上的对勾，代表学习、考核与能力提升。</desc>
+  <defs>
+    <mask id="check"><rect width="64" height="64" fill="white"/><path d="m21 29 10 10L54 13" stroke="black" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></mask>
+  </defs>
+  <g fill="#2563EB" mask="url(#check)">
+    <path d="M8 15c8-1 15 1 22 7v31c-7-5-14-8-22-7V15Z"/>
+    <path d="M34 22c7-6 14-8 22-7v31c-8-1-15 2-22 7V22Z"/>
+  </g>
+</svg>
