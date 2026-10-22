@@ -361,11 +361,19 @@ const pwdVisible = ref(false);
         >
           <el-icon :size="18"><component :is="isExamMobile || app.sidebarCollapsed ? Expand : Fold" /></el-icon>
         </el-button>
-        <div class="layout__page-context"><el-breadcrumb separator="/">
-          <el-breadcrumb-item v-for="(title, index) in breadcrumbs" :key="index">
-            {{ title }}
-          </el-breadcrumb-item>
-        </el-breadcrumb><h1 class="layout__page-title">{{ desktopTitle }}</h1></div>
+        <div class="layout__page-context">
+          <el-breadcrumb separator="/" :class="{ 'layout__breadcrumb--root': breadcrumbs.length <= 1 }">
+            <el-breadcrumb-item
+              v-for="(title, index) in breadcrumbs"
+              :key="index"
+              :class="{ 'layout__breadcrumb-current': index === breadcrumbs.length - 1 }"
+              :title="title"
+            >
+              {{ title }}
+            </el-breadcrumb-item>
+          </el-breadcrumb>
+          <h1 class="layout__page-title" :title="desktopTitle">{{ desktopTitle }}</h1>
+        </div>
         <div class="layout__spacer" />
         <time class="layout__date" :datetime="currentDate.toISOString()">{{ dateLabel }}</time>
         <!-- 全局搜索（设计稿 .search + ⌘K 提示） -->
@@ -508,7 +516,7 @@ const pwdVisible = ref(false);
   }
 
   &__brand {
-    height: $header-height;
+    height: $mobile-brand-height;
     flex-shrink: 0;
     display: flex;
     align-items: center;

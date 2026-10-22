@@ -4,7 +4,7 @@
 .layout.layout {
   .layout__nav-label { margin: 18px 12px 7px; padding: 0; color: $text-secondary; font-size: 12px; line-height: 1.5; list-style: none; &:first-child { margin-top: 4px; } }
   .layout__menu > .el-menu-item { height: 42px; margin-bottom: 3px; padding-inline: 13px !important; border-radius: 9px; }
-  .layout__header { height: 94px; min-height: 94px; gap: 14px; padding-inline: 30px; }
+  .layout__header { height: $header-height; min-height: $header-height; gap: 14px; padding-inline: 30px; }
   .layout__page-context { min-width: 0; .el-breadcrumb { margin-bottom: 5px; font-size: 12px; line-height: 1.5; } }
   .layout__page-title { margin: 0; color: $text-primary; font-size: 22px; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
   .layout__date { flex: 0 0 auto; padding: 6px 12px; border: 1px solid $border-color; border-radius: 8px; background: $bg-paper; color: $text-secondary; font-size: 12px; white-space: nowrap; }
@@ -15,7 +15,22 @@
 }
 @media (min-width: 901px) {
   .layout.layout .layout__content { padding: 0 30px 30px; }
-  .layout.layout .layout__brand { min-height: 94px; }
+  .layout.layout .layout__brand { height: $header-height; min-height: $header-height; }
+  .layout.layout .layout__page-context {
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    .el-breadcrumb { display: flex; flex: 0 0 auto; min-width: 0; max-width: 50%; margin-bottom: 0; white-space: nowrap; }
+    .el-breadcrumb__item { display: flex; flex: 0 1 auto; min-width: 0; float: none; }
+    .el-breadcrumb__inner { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .el-breadcrumb__separator { flex-shrink: 0; }
+    .layout__breadcrumb-current, .layout__breadcrumb--root { display: none; }
+  }
+  .layout.layout .layout__page-title { min-width: 0; overflow: hidden; font-size: 18px; line-height: 24px; text-overflow: ellipsis; white-space: nowrap; }
+  .layout.layout .layout__collapse,
+  .layout.layout .layout__search,
+  .layout.layout .layout__bell,
+  .layout.layout .layout__iconbtn { flex-shrink: 0; }
   .layout.layout .layout__search { min-width: 36px; width: 36px; padding: 0; justify-content: center; .layout__search-ph, .layout__kbd { display: none; } }
   .layout .page-header__title--in-frame { display: none; }
   .layout .page-header--contextual .page-header__desc { margin-top: 0; }

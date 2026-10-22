@@ -3,7 +3,7 @@
 // 顶栏覆盖滚动正文；额外留白让首行说明避开玻璃边缘与阴影。
 @mixin desktop-glass-header {
   --glass-header-height: #{$header-height};
-  --glass-content-gap: 20px;
+  --glass-content-gap: 16px;
 
   .layout__header {
     position: relative;
