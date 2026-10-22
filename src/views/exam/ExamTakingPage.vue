@@ -348,7 +348,7 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
       <!-- 顶部固定栏（设计稿 .exambar） -->
       <header class="taking__bar">
         <div class="taking__brand">
-          <span class="taking__mark">考</span>
+          <img class="taking__mark" src="/brand/app-icon.svg" alt="" aria-hidden="true" />
           <div class="taking__brand-text">
             <span class="taking__name" :title="exam.name">{{ exam.name }}</span>
             <span class="taking__sub">
@@ -533,15 +533,11 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
 
   &__mark {
     flex: 0 0 26px;
-    display: grid;
-    place-items: center;
+    display: block;
+    object-fit: contain;
     width: 26px;
     height: 26px;
     border-radius: $radius-sm;
-    background: $color-primary;
-    font-size: 12px;
-    font-weight: 700;
-    color: #fff;
   }
 
   &__brand-text {
