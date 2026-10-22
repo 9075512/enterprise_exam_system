@@ -39,6 +39,7 @@
 @media (max-width: 900px) {
   // 手机端包含文字操作和图标按钮；仅增大命中区域，不改变权限或事件。
   .layout.layout .layout__collapse,
+  .layout.layout .layout__bell-btn,
   .layout.layout .layout__search,
   .layout.layout .layout__iconbtn,
   .layout.layout .layout__mobile-icon,
@@ -48,11 +49,7 @@
   .layout.layout .layout__search { padding: 0; justify-content: center; .layout__search-ph, .layout__kbd { display: none; } }
   .layout.layout .layout__menu > .el-menu-item { min-height: 44px; }
   .layout.layout .layout__side-user { min-height: 44px; }
-  .layout.layout .layout__page-context .el-breadcrumb { display: flex; overflow: hidden; white-space: nowrap; }
-  .layout.layout .layout__page-context .el-breadcrumb__item { display: flex; flex: 0 0 auto; float: none; min-width: 0; }
-  .layout.layout .layout__page-context .el-breadcrumb__item:last-child { flex: 0 1 auto; }
-  .layout.layout .layout__page-context .el-breadcrumb__inner { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .layout.layout .layout__mobile-heading small { font-size: 12px; }
+  .layout.layout .layout__page-context .el-breadcrumb { display: none; }
   [data-ui-layout] .el-button.el-button.is-link,
   [data-ui-layout] .el-button.el-button.is-text,
   [data-ui-layout] .density-toggle__item,
@@ -78,9 +75,12 @@
   .el-drawer .el-form .el-radio { min-height: 44px; }
   [data-ui-layout] .el-table .el-table-column--selection .cell { padding-inline: 0; }
   [data-ui-layout] .el-table .el-table-column--selection .el-checkbox { width: 100%; min-height: 44px; justify-content: center; }
-  .layout.layout .layout__header { height: 74px; min-height: 74px; gap: 8px; padding-inline: 16px; }
+  .layout.layout .layout__header { height: calc(#{$mobile-header-height} + env(safe-area-inset-top)); min-height: calc(#{$mobile-header-height} + env(safe-area-inset-top)); gap: 4px; padding: env(safe-area-inset-top) 12px 0; }
+  .layout.layout .layout__brand { height: calc(#{$mobile-brand-height} + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); }
   .layout.layout .layout__page-context { flex: 1; }
-  .layout.layout .layout__page-title { font-size: 20px; }
+  .layout.layout .layout__page-title { overflow: hidden; font-size: 16px; line-height: 24px; text-overflow: ellipsis; white-space: nowrap; }
+  .layout.layout .layout__spacer { display: none; }
+  .layout.layout .layout__bell { flex: 0 0 auto; }
   .layout.layout .layout__account-info, .layout.layout .layout__account > .el-icon { display: none; }
   .layout.layout .layout__account { padding: 4px; min-height: 40px; }
 }

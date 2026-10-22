@@ -327,7 +327,7 @@ const pwdVisible = ref(false);
       <header v-if="isExaminee && !isFocusedExamineeRoute" class="layout__mobile-header">
         <div class="layout__mobile-brand">
           <img class="layout__mobile-mark" src="/brand/app-icon.svg" alt="" aria-hidden="true" />
-          <div class="layout__mobile-heading">
+          <div class="layout__mobile-heading" :title="mobileTitle">
             <small>{{ brandName }}</small>
             <strong>{{ mobileTitle }}</strong>
           </div>
@@ -969,8 +969,8 @@ const pwdVisible = ref(false);
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        height: calc(58px + env(safe-area-inset-top));
-        padding: env(safe-area-inset-top) 16px 0;
+        height: calc(#{$mobile-header-height} + env(safe-area-inset-top));
+        padding: env(safe-area-inset-top) 12px 0;
         box-sizing: border-box;
         background: rgba(255, 255, 255, 0.96);
         border-bottom: 1px solid $border-color;
@@ -983,14 +983,15 @@ const pwdVisible = ref(false);
         align-items: center;
       }
 
-      .layout__mobile-brand { min-width: 0; gap: 10px; }
-      .layout__mobile-actions { flex: 0 0 auto; gap: 10px; }
+      .layout__mobile-brand { min-width: 0; gap: 8px; }
+      .layout__mobile-actions { flex: 0 0 auto; gap: 8px; }
+      .layout__mobile-actions :deep(.el-badge__content.is-fixed) { top: 6px; right: 6px; }
       .layout__mobile-mark {
         display: block;
         object-fit: contain;
-        width: 30px;
-        height: 30px;
-        flex: 0 0 30px;
+        width: 28px;
+        height: 28px;
+        flex: 0 0 28px;
         border-radius: 8px;
       }
       .layout__mobile-heading {
@@ -1000,17 +1001,13 @@ const pwdVisible = ref(false);
         line-height: 1.2;
 
         small {
-          overflow: hidden;
-          color: $text-secondary;
-          font-size: 10px;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+          display: none;
         }
 
         strong {
           overflow: hidden;
           color: $text-primary;
-          font-size: 15px;
+          font-size: 16px;
           font-weight: 650;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -1037,7 +1034,7 @@ const pwdVisible = ref(false);
       }
 
       .layout__content {
-        padding: 14px 12px calc(76px + env(safe-area-inset-bottom));
+        padding: 12px 12px calc(76px + env(safe-area-inset-bottom));
         scrollbar-gutter: auto;
         scroll-padding-bottom: calc(82px + env(safe-area-inset-bottom));
         background: $bg-page;
