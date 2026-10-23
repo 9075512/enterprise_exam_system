@@ -55,4 +55,13 @@ details[open] summary > svg { transform: rotate(180deg); }
 .course-outline__lessons .lesson-complete { color: #16a075; }
 .course-outline__foot { margin: 0; padding: 22px 10px; font-size: 11px; text-align: center; color: #8b97a8; }
 button:focus-visible, summary:focus-visible { outline: 2px solid $color-primary; outline-offset: -2px; }
+@media (max-width: 900px) {
+  .course-outline__head { padding: 12px; }
+  h2 { margin-bottom: 12px; }
+  summary { min-height: 44px; padding: 12px; }
+  .course-outline__lessons { padding: 0 6px 8px; }
+  .course-outline__lessons button { min-height: 44px; gap: 8px; padding: 10px 8px; }
+  .course-outline__lessons small { margin-top: 4px; }
+  .course-outline__foot { padding: 12px 10px; }
+}
 </style>
