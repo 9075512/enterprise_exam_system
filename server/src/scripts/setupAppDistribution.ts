@@ -2,15 +2,15 @@ import { parseArgs } from 'node:util';
 import { randomUUID } from 'node:crypto';
 import { copyFile, rm } from 'node:fs/promises';
 import path from 'node:path';
-import { query, closePool } from '../db/pool.js';
-import { APP_RELEASE_DDL } from '../modules/apps/apps.ddl.js';
+import { closePool } from '../db/pool.js';
+import { ensureAppReleaseSchema } from '../modules/apps/apps.schema.js';
 import { apkPath, inspectApk, prepareAppStorage } from '../modules/apps/apps.files.js';
 import { create, list, releaseSchema, setStatus } from '../modules/apps/apps.service.js';
 
 const { values } = parseArgs({ options: { file: { type: 'string' }, version: { type: 'string' }, code: { type: 'string' }, notes: { type: 'string' }, publish: { type: 'boolean', default: false } } });
 async function main() {
-  await query(APP_RELEASE_DDL);
-  console.log('App 版本表已就绪（幂等创建，不重置其他数据）');
+  await ensureAppReleaseSchema();
+  console.log('App 版本表已就绪（已有表只读检查，不重置其他数据）');
   if (!values.file) return;
   const input = releaseSchema.parse({ versionName: values.version, versionCode: values.code, releaseNotes: values.notes || '重新设计移动端登录页\n优化手机导航与学习体验\n支持课程、练题、考试和成绩查询' });
   if (!/\.apk$/i.test(values.file)) throw new Error('请选择 APK 文件');

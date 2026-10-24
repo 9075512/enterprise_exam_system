@@ -11,6 +11,19 @@ afterEach(() => { wrapper?.unmount(); document.body.innerHTML = ''; });
 function render() { wrapper = mount(AppManagePage, { attachTo: document.body, global: { plugins: [ElementPlus], stubs: { teleport: true, ElTable: true, ElTableColumn: true, ElSelect: true, ElOption: true } } }); }
 function button(text: string) { return wrapper.findAll('button').find(item => item.text() === text)!; }
 describe('App management upload', () => {
+  it('does not present failed version loading as zero releases or an unpublished app', async () => {
+    api.list.mockRejectedValue(new Error('server error'));
+    render(); await flushPromises();
+    expect(wrapper.text()).toContain('版本列表加载失败，请重试');
+    expect(wrapper.text()).toContain('暂时无法获取版本状态');
+    expect(wrapper.text()).not.toContain('待发布');
+    expect(wrapper.findAll('.app-manage__numbers strong').map(item => item.text())).toEqual(['—', '—', '—']);
+    expect(wrapper.find('.app-manage__table').exists()).toBe(false);
+    api.list.mockResolvedValue([]);
+    await button('刷新').trigger('click'); await flushPromises();
+    expect(wrapper.text()).toContain('待发布');
+    expect(wrapper.findAll('.app-manage__numbers strong').map(item => item.text())).toEqual(['0', '0', '0']);
+  });
   it('requires an APK and valid release information before creating a draft', async () => {
     render(); await flushPromises(); await button('上传新版本').trigger('click'); await flushPromises();
     await button('保存为草稿').trigger('click'); await flushPromises();
