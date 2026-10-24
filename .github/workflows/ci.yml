@@ -43,6 +43,8 @@ jobs:
           cache: npm
       - name: 校验远端部署脚本语法
         run: bash -n deploy/remote-deploy.sh
+      - name: 验证 App 缺表时阻止部署切换
+        run: bash deploy/remote-deploy.test.sh
       - run: npm ci
       - run: npm test
       - run: npm run build

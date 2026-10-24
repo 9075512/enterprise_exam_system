@@ -24,11 +24,15 @@ npm --prefix server run app:setup
 
 `app:setup` 幂等创建 `app_releases`，不会重置已有业务数据。新建环境的 `db:init` 同样包含此表。首个版本可以通过后台上传，也可在项目根目录导入现有 APK：
 
+首次建表需要数据库维护账号的 CREATE 权限；生产应用账号可继续只持有原有读写权限。维护账号可执行 `apps.ddl.ts` 导出的建表语句，或在受控迁移会话中使用维护凭据运行 `app:setup`。已有表时 `app:setup` 只读检查，不重复发送 CREATE，因此普通应用账号可以正常导入安装包。
+
 ```sh
 npm --prefix server run app:setup -- --file ../mobile/releases/zhuoda-learner-1.0.2-release.apk --version 1.0.2 --code 10002 --publish
 ```
 
 服务端构建部署后如不保留 tsx 开发依赖，可在 server 目录使用等价命令 `node dist/scripts/setupAppDistribution.js`，参数相同。
+
+自动部署在切换 `current` 前执行 `node dist/scripts/checkAppDistribution.js`，只读校验版本表及接口所需字段。该检查独立于 `RUN_DB_MIGRATIONS=false`；缺表、缺列或无读取权限会停止部署并保留旧版本。同一活动版本重试部署时也会执行检查。它不创建表、不导入或发布 APK；HTTP `/api/health` 返回成功不能代替该模块的数据结构检查。
 
 默认安装包存放于 `server/storage/app-releases`，可用 `APP_RELEASES_DIR` 设置持久化绝对路径。发布切换时应保留整个 `storage` 共享目录，并与数据库一同备份。文件由服务端生成 UUID 名称，不接受客户端存储路径。
 

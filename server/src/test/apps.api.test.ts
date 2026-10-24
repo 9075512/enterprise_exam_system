@@ -9,6 +9,7 @@ import { prepareTestDb } from './db.js';
 import { query, closePool } from '../db/pool.js';
 import { signToken } from '../middleware/auth.js';
 import { appStorage, apkPath, prepareAppStorage } from '../modules/apps/apps.files.js';
+import { checkAppReleaseSchema, ensureAppReleaseSchema } from '../modules/apps/apps.schema.js';
 
 const fixture = fileURLToPath(new URL('./fixtures/learner-1.0.2.apk', import.meta.url));
 const admin = { Authorization: 'Bearer ' + signToken({ sub: 'user-admin', role: 'admin', departmentId: '' }) };
@@ -26,6 +27,14 @@ afterAll(async () => {
   await closePool();
 });
 describe('App distribution lifecycle', () => {
+  it('checks existing schema without DDL and detects a deployment with a missing table', async () => {
+    await checkAppReleaseSchema();
+    await ensureAppReleaseSchema();
+    await query('RENAME TABLE app_releases TO app_releases_readiness_test');
+    try { await expect(checkAppReleaseSchema()).rejects.toMatchObject({ code: 'ER_NO_SUCH_TABLE' }); }
+    finally { await query('RENAME TABLE app_releases_readiness_test TO app_releases'); }
+    await checkAppReleaseSchema();
+  });
   it('serves a public empty state while protecting management from anonymous and learner/author accounts', async () => {
     expect((await request(app).get('/api/apps/latest')).body.data).toBeNull();
     expect((await request(app).get('/api/apps/manage')).status).toBe(401);
