@@ -50,3 +50,14 @@ dist-verify
 .vitest-tmp
 .backup
 .shot-*.png
+.codex-remote-attachments/
+
+# Android 本地工具、构建缓存与签名（密钥不得提交）
+.android-tools/
+mobile/android/.gradle/
+mobile/android/**/build/
+mobile/android/local.properties
+mobile/android/signing.properties
+mobile/android/*.jks
+mobile/android/*.keystore
+mobile/releases/

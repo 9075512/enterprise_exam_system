@@ -35,6 +35,7 @@ import { practiceRouter } from './modules/practice/practice.router.js';
 import { contentRouter } from './modules/content/content.router.js';
 import { coursesRouter } from './modules/courses/courses.router.js';
 import { homeRouter } from './modules/home/home.router.js';
+import { appsRouter } from './modules/apps/apps.router.js';
 import {
   menuOverridesRouter,
   positionsRouter,
@@ -99,6 +100,7 @@ export function createApp(): Express {
     api.use('/content', contentRouter);
     api.use('/courses', coursesRouter);
     api.use('/home', homeRouter);
+    api.use('/apps', appsRouter);
     api.use('/subjects', subjectsRouter);
     api.use('/positions', positionsRouter);
     api.use('/roles', rolesRouter);

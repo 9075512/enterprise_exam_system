@@ -20,6 +20,7 @@ function setup(role: Role | null, menus: string[]) {
     history: createMemoryHistory(),
     routes: [
       { path: '/login', component, meta: { public: true } },
+      { path: '/download', component, meta: { public: true, standalone: true } },
       { path: '/no-access', component },
       { path: '/admin/dashboard', component, meta: { roles: ['admin'], menuKey: 'dashboard' } },
       { path: '/admin/users', component, meta: { roles: ['admin'], menuKey: 'users' } },
@@ -38,9 +39,32 @@ beforeEach(() => {
   localStorage.clear();
   setActivePinia(createPinia());
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe('login navigation regression', () => {
+  it.each([null, 'admin', 'author', 'examinee'] as (Role | null)[])('download page stays public for %s without fetching menus', async role => {
+    const router = setup(role, []);
+    await router.push('/download');
+    expect(router.currentRoute.value.path).toBe('/download');
+    expect(api.menus).not.toHaveBeenCalled();
+  });
+  it.each(['admin', 'author'] as Role[])('Android learner app rejects a %s session', async (role) => {
+    vi.stubGlobal('navigator', { userAgent: 'Android ZhuodaLearnerAndroid/1.0.0' });
+    const router = setup(role, ['dashboard', 'banks', 'practice']);
+    await router.push('/exam/practice');
+    expect(router.currentRoute.value.path).toBe('/login');
+    expect(router.currentRoute.value.query.learnerOnly).toBe('1');
+    expect(useAuthStore().currentUser).toBeNull();
+  });
+
+  it('Android learner app restores the examinee home', async () => {
+    vi.stubGlobal('navigator', { userAgent: 'Android ZhuodaLearnerAndroid/1.0.0' });
+    const router = setup('examinee', ['home', 'practice']);
+    await router.push('/login');
+    expect(router.currentRoute.value.path).toBe('/exam/home');
+  });
+
   it('菜单加载失败时不回退到基础身份的完整权限', async () => {
     const router = setup('admin', []);
     api.menus.mockRejectedValue(new Error('network unavailable'));

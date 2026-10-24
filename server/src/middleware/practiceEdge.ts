@@ -22,7 +22,10 @@ export function practiceEdgeGuard(req: Request, _res: Response, next: NextFuncti
   }
 
   const path = req.path;
-  const isPublic = path === '/api/health' || path.startsWith('/api/practice');
+  // App 分发只开放版本读取和已发布 APK 下载；管理入口仍需内网共享密钥。
+  const isAppRead = ['GET', 'HEAD'].includes(req.method) && (path === '/api/apps/latest'
+    || /^\/api\/apps\/releases\/[a-f0-9-]{36}\/download$/.test(path));
+  const isPublic = path === '/api/health' || path.startsWith('/api/practice') || isAppRead;
   if (isPublic) {
     next();
     return;

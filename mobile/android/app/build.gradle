@@ -1,0 +1,54 @@
+plugins {
+    id 'com.android.application'
+}
+
+def signingFile = rootProject.file('signing.properties')
+def signingValues = new Properties()
+if (signingFile.exists()) signingFile.withInputStream { signingValues.load(it) }
+def defaultServer = providers.gradleProperty('serverUrl').getOrElse('http://139.9.134.68')
+if (!(defaultServer ==~ /https?:\/\/[^\s"\\]+/)) {
+    throw new GradleException('serverUrl 必须为 http(s) 地址，且不含空白、引号或反斜杠')
+}
+
+android {
+    namespace 'cn.zhuoda.learner'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'cn.zhuoda.learner'
+        minSdk 26
+        targetSdk 35
+        versionCode 10002
+        versionName '1.0.2'
+        buildConfigField 'String', 'DEFAULT_SERVER_URL', '"' + defaultServer + '"'
+    }
+
+    buildFeatures { buildConfig true }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    if (signingFile.exists()) {
+        signingConfigs {
+            release {
+                storeFile rootProject.file(signingValues['storeFile'])
+                storePassword signingValues['storePassword']
+                keyAlias signingValues['keyAlias']
+                keyPassword signingValues['keyPassword']
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (signingFile.exists()) signingConfig signingConfigs.release
+        }
+    }
+    lint { abortOnError true }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}
+
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
