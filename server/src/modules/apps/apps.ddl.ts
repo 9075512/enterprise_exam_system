@@ -1,0 +1,20 @@
+export const APP_RELEASE_DDL = `CREATE TABLE IF NOT EXISTS app_releases (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  app_name VARCHAR(60) NOT NULL,
+  version_name VARCHAR(40) NOT NULL,
+  version_code INT UNSIGNED NOT NULL,
+  min_android VARCHAR(20) NOT NULL DEFAULT '8.0',
+  release_notes TEXT NOT NULL,
+  file_key VARCHAR(80) NOT NULL,
+  file_size BIGINT UNSIGNED NOT NULL,
+  sha256 CHAR(64) NOT NULL,
+  status ENUM('draft','published','withdrawn') NOT NULL DEFAULT 'draft',
+  revision INT UNSIGNED NOT NULL DEFAULT 1,
+  download_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  created_by VARCHAR(64) NOT NULL,
+  created_at DATETIME(3) NOT NULL,
+  updated_at DATETIME(3) NOT NULL,
+  published_at DATETIME(3) NULL,
+  UNIQUE KEY uk_app_version (version_code),
+  KEY idx_app_public (status, version_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`;

@@ -4,7 +4,7 @@ import type { PracticeSettings, PublicSettings, SystemSettings } from '@/types';
 
 /** 公开设置（无需登录，登录页品牌展示用） */
 export function getPublicSettings(): Promise<PublicSettings> {
-  return get<PublicSettings>('/settings/public');
+  return get<PublicSettings>('/settings/public', undefined, { skipAuthRedirect: true, suppressErrorToast: true });
 }
 
 /** 完整设置（需登录，任意角色） */

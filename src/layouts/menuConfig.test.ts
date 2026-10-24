@@ -56,6 +56,7 @@ describe('getMenuGroups · 默认（未下发菜单权限）', () => {
       'positions',
       'permissions',
       'settings',
+      'app-management',
       'audit',
       'login-logs',
       'maintenance',

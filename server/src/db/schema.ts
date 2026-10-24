@@ -6,6 +6,7 @@
  */
 
 /** 库名（新建独立库，绝不触碰本机已有的 exam_system 库）。 */
+import { APP_RELEASE_DDL } from '../modules/apps/apps.ddl.js';
 export const DB_NAME = 'enterprise_exam_system';
 
 /** 建库语句（以 root 连接、不指定 database 时执行）。 */
@@ -14,6 +15,7 @@ export const CREATE_DATABASE_SQL = `CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\`
 
 /** 业务表 DDL（11 张考试域 + 6 张练题域），按依赖顺序排列。 */
 export const DDL_STATEMENTS: readonly string[] = [
+  APP_RELEASE_DDL,
   // 1. 科室（v1.6③ 支持多级：parent_id 自引用；名称全局唯一，便于用户导入按名解析）
   `CREATE TABLE IF NOT EXISTS departments (
     id            VARCHAR(64)  NOT NULL,
@@ -883,6 +885,7 @@ export const DDL_STATEMENTS: readonly string[] = [
 
 /** 建表完成后用于统计的核心表名列表（含练题域 6 张表）。 */
 export const TABLE_NAMES: readonly string[] = [
+  'app_releases',
   'course_progress',
   'course_categories',
   'courses',

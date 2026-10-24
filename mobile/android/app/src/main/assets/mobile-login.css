@@ -1,0 +1,131 @@
+/* Shared by the Vue mobile page and the Android compatibility layer. */
+.login-mobile-hero,
+.login-mobile-footer,
+.login-mobile-help,
+.login__title-mobile,
+.login__subtitle-mobile { display: none; }
+
+@media (max-width: 900px) {
+  .login.login.login {
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 0;
+    overflow-x: clip;
+    background:
+      radial-gradient(ellipse at 100% 0%, #dbe9ff 0, transparent 49%),
+      radial-gradient(ellipse at 0% 26%, #edf4ff 0, transparent 56%),
+      #f6f8fc;
+  }
+  .login.login.login .login__card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 480px;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: clamp(24px, 5vh, 48px) 24px max(24px, env(safe-area-inset-bottom));
+    overflow: visible;
+    box-sizing: border-box;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .login.login.login .login__brand { display: none; }
+  .login-mobile-hero { display: block; padding: 0 4px 26px; }
+  .login-mobile-brand { display: flex; align-items: center; gap: 12px; min-height: 44px; }
+  .login-mobile-brand img { width: 42px; height: 42px; flex: 0 0 42px; border-radius: 12px; }
+  .login-mobile-brand__name { color: #20324e; font-size: 15px; font-weight: 650; line-height: 1.5; overflow-wrap: anywhere; }
+  .login-mobile-brand__caption { display: block; margin-top: 2px; color: #6b7e9c; font-size: 11px; font-weight: 400; letter-spacing: 2px; }
+  .login-mobile-intro { position: relative; margin-top: 34px; }
+  .login-mobile-intro::after {
+    content: '';
+    position: absolute;
+    right: 2px;
+    top: 12px;
+    width: 54px;
+    height: 70px;
+    border: 1px solid #b6cff5;
+    border-radius: 10px;
+    background: linear-gradient(155deg, #ffffff8c, #e3edff66);
+    box-shadow: -10px 8px 0 -2px #e5edfb, -10px 8px 0 -1px #bfd3f1;
+    transform: rotate(13deg);
+    pointer-events: none;
+  }
+  .login-mobile-intro h1 { position: relative; z-index: 1; margin: 0; color: #152b4c; font-size: 30px; font-weight: 750; line-height: 1.45; letter-spacing: -.8px; }
+  .login-mobile-intro h1 span { color: #2563eb; }
+  .login-mobile-intro p { margin: 12px 0 0; color: #6b7e9c; font-size: 13px; line-height: 1.8; }
+  .login.login.login .login__panel {
+    display: block;
+    padding: 26px 24px 20px;
+    border: 1px solid #ffffff;
+    border-radius: 24px; /* radius-exception: mobile login form surface. */
+    background: #ffffffed;
+    box-shadow: 0 14px 40px #29497708, 0 2px 6px #29497703;
+  }
+  .login.login.login .login__title { margin: 0 0 7px; color: #172b49; font-size: 23px; font-weight: 700; line-height: 1.5; }
+  .login.login.login .login__subtitle { margin: 0 0 26px; color: #718198; font-size: 13px; line-height: 1.8; }
+  .login__title-desktop, .login__subtitle-desktop { display: none; }
+  .login__title-mobile, .login__subtitle-mobile { display: inline; }
+  .login.login.login .el-form-item { margin-bottom: 20px; }
+  .login.login.login .el-form-item__label { height: auto; margin-bottom: 8px; padding: 0; color: #40516b; font-size: 13px; font-weight: 500; line-height: 1.6; }
+  .login.login.login .el-input__wrapper {
+    min-height: 52px;
+    padding: 0 14px;
+    box-sizing: border-box;
+    border: 1px solid #e4eaf3;
+    border-radius: 12px;
+    background: #f7f9fc;
+    box-shadow: none;
+    transition: border-color .15s, box-shadow .15s, background-color .15s;
+  }
+  .login.login.login .el-input__wrapper:focus-within { border-color: #5788e9; background: #fff; box-shadow: 0 0 0 3px #2563eb0d; }
+  .login.login.login .el-input__inner { min-height: 50px; height: 50px; color: #213653; font-size: 16px; }
+  .login.login.login .el-input__inner::placeholder { color: #94a1b4; font-size: 14px; }
+  .login.login input[autocomplete="username"],
+  .login.login input[autocomplete="current-password"] { padding-left: 29px; background-repeat: no-repeat; background-position: left center; background-size: 18px; }
+  .login.login input[autocomplete="username"] { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238495ad' stroke-width='1.6' stroke-linecap='round'%3E%3Ccircle cx='12' cy='8' r='3.5'/%3E%3Cpath d='M5 21v-2a7 7 0 0 1 14 0v2'/%3E%3C/svg%3E"); }
+  .login.login input[autocomplete="current-password"] { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238495ad' stroke-width='1.6' stroke-linecap='round'%3E%3Crect x='5' y='10' width='14' height='11' rx='3'/%3E%3Cpath d='M8 10V7a4 4 0 0 1 8 0v3M12 14v3'/%3E%3C/svg%3E"); }
+  .login.login.login .el-input__password { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; min-height: 44px; margin-right: -8px; }
+  .login.login.login .login__submit {
+    width: 100%;
+    height: 52px;
+    margin-top: 4px;
+    border: 0;
+    border-radius: 12px;
+    color: #fff;
+    background: linear-gradient(110deg, #2c6aeb, #2358da);
+    box-shadow: 0 7px 16px #2563eb24;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 2px;
+  }
+  .login.login.login .login__submit:active { box-shadow: 0 3px 8px #2563eb24; }
+  .login.login.login .login__submit:focus-visible { outline: 3px solid #94b6f8; outline-offset: 3px; }
+  .login.login.login .login__back { min-height: 44px; font-size: 13px; }
+  .login.login.login .login__hint, .login.login.login .login__demo { display: none; }
+  .login-mobile-help { display: block; margin-top: 23px; padding-top: 17px; border-top: 1px solid #edf1f7; color: #718198; font-size: 12px; line-height: 1.9; }
+  .login-mobile-help summary { min-height: 36px; width: fit-content; margin: 0 auto; color: #647a9d; cursor: pointer; line-height: 36px; list-style: none; }
+  .login-mobile-help summary::-webkit-details-marker { display: none; }
+  .login-mobile-help summary::after { display: inline-block; content: '+'; margin-left: 7px; font-size: 14px; }
+  .login-mobile-help[open] summary::after { content: '−'; }
+  .login-mobile-help p { margin: 6px 0 0; }
+  .login-mobile-footer { display: block; margin-top: auto; padding: 28px 4px 0; text-align: center; }
+  .login-mobile-footer__features { margin: 0; color: #7486a1; font-size: 12px; letter-spacing: 1px; }
+  .login-mobile-footer__copyright { margin: 11px 0 0; color: #8795a9; font-size: 10px; line-height: 1.8; overflow-wrap: anywhere; }
+  .login.login.login .login__error { margin-bottom: 16px; border-radius: 10px; }
+  .login.login.login .login__twofa-hint { color: #718198; font-size: 12px; line-height: 1.8; }
+}
+
+@media (max-width: 374px), (max-width: 900px) and (max-height: 700px) {
+  .login.login.login .login__card { padding: 20px 18px; }
+  .login-mobile-hero { padding-bottom: 22px; }
+  .login-mobile-intro { margin-top: 24px; }
+  .login-mobile-intro h1 { font-size: 27px; }
+  .login-mobile-intro::after { width: 44px; height: 58px; }
+  .login.login.login .login__panel { padding: 23px 20px 16px; }
+  .login-mobile-footer { padding-top: 24px; }
+}

@@ -8,6 +8,8 @@
     "dev": "vite",
     "dev:web": "vite",
     "dev:server": "npm --prefix server run dev",
+    "android:build": "powershell -NoProfile -ExecutionPolicy Bypass -File mobile/build-android.ps1",
+    "android:debug": "powershell -NoProfile -ExecutionPolicy Bypass -File mobile/build-android.ps1 -Configuration Debug",
     "build": "vue-tsc --noEmit && vite build",
     "build:server": "npm --prefix server run build",
     "preview": "vite preview",
@@ -25,12 +27,14 @@
     "echarts": "^5.5.1",
     "element-plus": "^2.8.8",
     "pinia": "^2.2.6",
+    "qrcode": "^1.5.4",
     "vue": "^3.5.13",
     "vue-echarts": "^7.0.3",
     "vue-router": "^4.4.5"
   },
   "devDependencies": {
     "@types/node": "^22.5.0",
+    "@types/qrcode": "^1.5.5",
     "@vitejs/plugin-vue": "^5.1.4",
     "@vue/test-utils": "^2.4.6",
     "jsdom": "^26.1.0",

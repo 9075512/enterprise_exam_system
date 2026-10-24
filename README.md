@@ -4,6 +4,10 @@
 
 已从早期「纯前端 localStorage」版本迁移为 **Vue 3 前端 + Node/Express 后端 + MySQL** 的前后端分离架构。
 
+Android 学员 App 的安装、构建与签名说明见 [mobile/README.md](mobile/README.md)，默认连接现有服务器，支持学习、练题、考试和成绩。
+
+App 下载页与后台版本管理见 [部署与使用说明](docs/21-App下载与版本管理.md)：公开 `/download`，管理员 `/admin/apps`。
+
 ## 架构
 
 ```

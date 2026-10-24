@@ -38,6 +38,7 @@ export const MENU_CATALOG: readonly MenuDef[] = [
   { key: 'roles', name: '角色管理', defaultRoles: ['admin'], adminRequired: true },
   { key: 'positions', name: '岗位管理', defaultRoles: ['admin'], adminRequired: false },
   { key: 'settings', name: '系统设置', defaultRoles: ['admin'], adminRequired: true },
+  { key: 'app-management', name: 'App 管理', defaultRoles: ['admin'], adminRequired: true },
   { key: 'permissions', name: '菜单权限', defaultRoles: ['admin'], adminRequired: true },
   { key: 'audit', name: '审计日志', defaultRoles: ['admin'], adminRequired: false },
   { key: 'login-logs', name: '登录日志', defaultRoles: ['admin'], adminRequired: false },

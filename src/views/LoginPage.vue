@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 登录页：使用已确认的圆角双栏卡片；移动端收为单列表单。
+ * 登录页：桌面双栏；移动端使用品牌欢迎区与独立表单卡片。
  * 保留按需图形验证码、两步验证与公开品牌配置。
  * 登录成功按 route.query.redirect 或角色首页跳转。
  */
@@ -12,12 +12,14 @@ import { useSettingsStore } from '@/stores/settings';
 import { ApiError } from '@/api/http';
 import { validateAndFocus } from '@/composables/useFormFocus';
 import CaptchaImage from '@/components/common/CaptchaImage.vue';
+import { isLearnerAndroidApp } from '@/utils/appClient';
 import type { TwoFactorChallenge, User as UserDto } from '@/types';
 
 const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
 const settingsStore = useSettingsStore();
+const learnerApp = isLearnerAndroidApp();
 
 onMounted(() => {
   void settingsStore.loadPublic();
@@ -91,6 +93,11 @@ function homePath(role: string): string {
 
 /** 登录成功后的跳转与提示 */
 async function goHome(user: UserDto, passwordExpired?: boolean): Promise<void> {
+  if (learnerApp && user.role !== 'examinee') {
+    auth.logout();
+    errorMsg.value = '请使用学员账号登录；管理员和出题人请使用网页端。';
+    return;
+  }
   ElMessage.success('登录成功');
   if (passwordExpired) {
     ElMessage.warning('您的密码已超过有效期，请尽快在「账号安全」中修改');
@@ -101,9 +108,9 @@ async function goHome(user: UserDto, passwordExpired?: boolean): Promise<void> {
 
 /** 第一步：账号密码（+ 必要时图形验证码）。 */
 async function handleSubmit(): Promise<void> {
-  if (!formRef.value) return;
+  if (!formRef.value || loading.value) return;
   const valid = await validateAndFocus(formRef.value);
-  if (!valid) return;
+  if (!valid || loading.value) return;
 
   loading.value = true;
   errorMsg.value = '';
@@ -138,6 +145,7 @@ async function handleSubmit(): Promise<void> {
 
 /** 第二步：两步验证码。 */
 async function handleTwoFactor(): Promise<void> {
+  if (loading.value) return;
   if (!twoFactorCode.value.trim()) {
     errorMsg.value = '请输入验证码或恢复码';
     return;
@@ -166,6 +174,19 @@ function backToCredentials(): void {
 <template>
   <div data-ui-layout="login" data-ui-page="LoginPage" class="login">
     <div class="login__card">
+      <header class="login-mobile-hero">
+        <div class="login-mobile-brand">
+          <img src="/brand/app-icon.svg" alt="" aria-hidden="true" />
+          <div>
+            <div class="login-mobile-brand__name">{{ settingsStore.publicSettings.systemShortName }}</div>
+            <small class="login-mobile-brand__caption">学员学习中心</small>
+          </div>
+        </div>
+        <div class="login-mobile-intro">
+          <h1>学有所获，<br><span>每一步都算数。</span></h1>
+          <p>把知识积累，变成成长的底气。</p>
+        </div>
+      </header>
       <!-- 左：已确认稿的渐变品牌区 -->
       <section class="login__brand">
         <div class="login__brand-inner">
@@ -198,9 +219,13 @@ function backToCredentials(): void {
       <!-- 右：表单区 -->
       <section class="login__panel">
         <div class="login__form-wrap">
-          <h2 class="login__title">{{ step === 'twofa' ? '两步验证' : '登录考试系统' }}</h2>
+          <h2 class="login__title">
+            <span class="login__title-desktop">{{ step === 'twofa' ? '两步验证' : learnerApp ? '学员登录' : '登录考试系统' }}</span>
+            <span class="login__title-mobile">{{ step === 'twofa' ? '两步验证' : '欢迎回来' }}</span>
+          </h2>
           <p class="login__subtitle">
-            {{ step === 'twofa' ? '请输入动态验证码或恢复码' : '使用工作账号进入考试管理系统' }}
+            <span class="login__subtitle-desktop">{{ step === 'twofa' ? '请输入动态验证码或恢复码' : learnerApp && route.query.learnerOnly ? '请使用学员账号登录；管理员和出题人请使用网页端。' : learnerApp ? '使用工作账号开始学习、练题与考试' : '使用工作账号进入考试管理系统' }}</span>
+            <span class="login__subtitle-mobile">{{ step === 'twofa' ? '输入动态验证码或恢复码，继续登录' : learnerApp && route.query.learnerOnly ? '请使用学员账号登录；管理员和出题人请使用网页端。' : '登录工作账号，开启今天的学习' }}</span>
           </p>
 
           <el-form
@@ -218,8 +243,10 @@ function backToCredentials(): void {
                 placeholder="请输入账号或工号"
                 clearable
                 autocomplete="username"
+                autocapitalize="off"
+                :spellcheck="false"
+                enterkeyhint="next"
                 @input="clearError"
-                @keyup.enter="handleSubmit"
               />
             </el-form-item>
             <el-form-item label="登录密码" prop="password">
@@ -229,8 +256,8 @@ function backToCredentials(): void {
                 placeholder="请输入登录密码"
                 show-password
                 autocomplete="current-password"
+                enterkeyhint="go"
                 @input="clearError"
-                @keyup.enter="handleSubmit"
               />
             </el-form-item>
             <el-form-item v-if="captchaRequired" label="图形验证码" prop="captcha">
@@ -239,8 +266,8 @@ function backToCredentials(): void {
                   v-model="form.captcha"
                   placeholder="请输入图中字符"
                   maxlength="6"
+                  enterkeyhint="go"
                   @input="clearError"
-                  @keyup.enter="handleSubmit"
                 />
                 <CaptchaImage ref="captchaRef" v-model="captchaId" />
               </div>
@@ -261,7 +288,6 @@ function backToCredentials(): void {
               class="login__submit"
               :loading="loading"
               native-type="submit"
-              @click="handleSubmit"
             >
               登 录 →
             </el-button>
@@ -274,8 +300,8 @@ function backToCredentials(): void {
                 placeholder="6 位验证码，或恢复码 XXXXX-XXXXX"
                 maxlength="11"
                 autocomplete="one-time-code"
+                enterkeyhint="go"
                 @input="clearError"
-                @keyup.enter="handleTwoFactor"
               />
             </el-form-item>
             <p class="login__twofa-hint">
@@ -297,7 +323,6 @@ function backToCredentials(): void {
               class="login__submit"
               :loading="loading"
               native-type="submit"
-              @click="handleTwoFactor"
             >
               验 证
             </el-button>
@@ -307,8 +332,13 @@ function backToCredentials(): void {
           <p class="login__hint">
             首次登录请修改初始密码，账号异常请联系管理员。
           </p>
+          <RouterLink v-if="!learnerApp" to="/download" class="login__app-download">下载 Android App ↗</RouterLink>
+          <details class="login-mobile-help">
+            <summary>登录遇到问题？</summary>
+            <p>账号由单位统一分配。忘记密码或账号无法使用，请联系科室管理员重置；首次登录后请及时修改初始密码。</p>
+          </details>
 
-          <details v-if="step === 'credentials'" class="login__demo">
+          <details v-if="step === 'credentials' && !learnerApp" class="login__demo">
             <summary class="login__demo-label">演示账号 · 点击展开</summary>
             <div class="login__demo-list">
               <button
@@ -325,6 +355,10 @@ function backToCredentials(): void {
           </details>
         </div>
       </section>
+      <footer class="login-mobile-footer">
+        <p class="login-mobile-footer__features">学习课程 · 在线练题 · 考试测评</p>
+        <p v-if="settingsStore.publicSettings.copyright" class="login-mobile-footer__copyright">{{ settingsStore.publicSettings.copyright }}</p>
+      </footer>
     </div>
   </div>
 </template>
@@ -424,6 +458,7 @@ function backToCredentials(): void {
   :deep(.el-input__inner) { height: 39px; font-size: 12px; }
   &__submit { width: 100%; height: 42px; margin-top: 5px; border-radius: 8px; font-size: 12px; box-shadow: 0 3px 6px rgba($color-primary, 0.07); }
   &__hint { margin: 25px 0 0; color: $text-secondary; font-size: 12px; text-align: center; line-height: 1.8; }
+  &__app-download { display: block; width: fit-content; margin: 18px auto 0; color: $color-primary; font-size: 12px; text-decoration: none; line-height: 2; }
   &__error { margin-bottom: 14px; :deep(.el-alert__title) { font-size: 13px; line-height: 1.5; } }
   &__captcha-row { display: flex; align-items: center; gap: 8px; width: 100%; :deep(.el-input) { flex: 1; min-width: 0; } }
   &__twofa-hint { margin: -6px 0 14px; color: $text-secondary; font-size: 12px; line-height: 1.8; }

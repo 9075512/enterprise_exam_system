@@ -105,6 +105,7 @@ const ALL_MENUS: MenuItem[] = [
   { key: 'positions', text: '岗位管理', path: '/admin/positions', icon: OfficeBuilding, roles: ['admin'], group: 'system' },
   { key: 'permissions', text: '菜单权限', path: '/admin/permissions', icon: Lock, roles: ['admin'], group: 'system' },
   { key: 'settings', text: '系统设置', path: '/admin/settings', icon: Setting, roles: ['admin'], group: 'system' },
+  { key: 'app-management', text: 'App 管理', path: '/admin/apps', icon: Tools, roles: ['admin'], group: 'system' },
   { key: 'audit', text: '审计日志', path: '/admin/audit', icon: Tickets, roles: ['admin'], group: 'system' },
   { key: 'login-logs', text: '登录日志', path: '/admin/login-logs', icon: Lock, roles: ['admin'], group: 'system' },
   { key: 'maintenance', text: '系统维护', path: '/admin/maintenance', icon: Tools, roles: ['admin'], group: 'system' },

@@ -33,3 +33,5 @@ import './styles/ui-refinement.scss';
 import './styles/learner.scss';
 import './styles/design-fidelity.scss';
 import './styles/liquid-glass.scss';
+// 与安卓外壳共用移动登录样式，保持网页与已部署页面的 App 适配一致。
+import '../mobile/android/app/src/main/assets/mobile-login.css';

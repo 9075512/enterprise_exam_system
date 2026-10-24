@@ -8,6 +8,7 @@ import { installPageProgress } from '@/composables/usePageProgress';
 import { createAuthGuard } from './guard';
 
 const routes: RouteRecordRaw[] = [
+  { path: '/download', name: 'app-download', component: () => import('@/views/AppDownloadPage.vue'), meta: { public: true, standalone: true, title: '下载卓达学习' } },
   {
     path: '/no-access',
     component: () => import('@/views/common/NoAccessPage.vue'),
@@ -33,6 +34,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/layouts/AppLayout.vue'),
     redirect: '/login',
     children: [
+      { path: 'admin/apps', component: () => import('@/views/admin/AppManagePage.vue'), meta: { roles: ['admin'], menuKey: 'app-management', title: 'App 管理' } },
       // 管理员
       {
         path: 'admin/dashboard',
