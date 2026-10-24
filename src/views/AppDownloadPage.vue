@@ -30,7 +30,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="app-download">
+  <div class="app-download" data-ui-layout="app-download" data-ui-page="AppDownloadPage">
     <div v-if="showBrowserHint" class="app-download__browser-hint" role="alert">
       <div><strong>请在浏览器中打开</strong><p>点击微信右上角“···”，选择“在浏览器打开”后下载安装。</p></div>
       <button aria-label="关闭提示" @click="showBrowserHint = false"><Close /></button>
