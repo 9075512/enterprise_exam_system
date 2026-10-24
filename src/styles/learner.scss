@@ -93,7 +93,28 @@
   .practice-layout .home__tree-node .el-button { padding-inline: 10px; }
   .practice-layout .home__tree-name { font-size: 14px; }
   .practice-layout .session__top { position: sticky; top: 0; z-index: 35; }
-  .practice-layout.practice-layout .session__back { flex-basis: 44px; width: 44px; min-height: 44px; }
+  .practice-layout.practice-layout .session__row { gap: 10px; }
+  .practice-layout.practice-layout .session__back {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    font-family: inherit;
+    font-size: 24px;
+  }
+  .practice-layout.practice-layout .session__fav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: auto;
+    min-height: 44px;
+    max-width: 112px;
+    padding: 8px 12px;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.4;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
   .practice-layout.practice-layout .session__fav,
   .practice-layout.practice-layout .session__progress-row .el-button,
   .practice-layout.practice-layout .tabbar__item { min-height: 44px; }
@@ -108,8 +129,15 @@
   .practice-layout .fav__date { grid-column: 2; grid-row: 2; align-self: start; line-height: 1.7; }
   .practice-layout .session__body { padding: 16px 16px calc(100px + env(safe-area-inset-bottom)); }
   .practice-layout .session__actions { width: 100%; padding-inline: 16px; }
-  .practice-layout .session__actions .el-button { padding-inline: 8px; }
+  .practice-layout.practice-layout .session__actions .el-button { height: 48px; padding-inline: 8px; font-size: 15px; }
   .question-card.question-card { padding: 18px; }
+  .question-card.question-card .question-card__option {
+    width: 100%;
+    min-width: 0;
+    min-height: 52px;
+  }
+  .question-card.question-card :is(.el-radio__label, .el-checkbox__label) { min-width: 0; }
+  .question-card.question-card .question-card__text { color: $text-body; line-height: 1.6; }
   .question-card.question-card .el-input .el-input__wrapper { min-height: 44px; }
   .question-card.question-card .rich-editor__btn { min-width: 44px; min-height: 44px; }
   .question-card.question-card .rich-editor__area { overflow-wrap: anywhere; }
