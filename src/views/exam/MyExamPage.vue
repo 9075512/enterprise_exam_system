@@ -15,7 +15,7 @@ import { InfoFilled, Refresh, Search } from '@element-plus/icons-vue';
 import * as examsApi from '@/api/exams';
 import * as recordsApi from '@/api/records';
 import { applyRetake } from '@/api/retakes';
-import { participantsApi } from '@/api/coreFeatures';
+import AdmissionTicketPreview from '@/components/exams/AdmissionTicketPreview.vue';
 import { useRequest } from '@/composables/useRequest';
 import { useSettingsStore } from '@/stores/settings';
 import { formatDateTime, formatRange } from '@/utils/datetime';
@@ -185,10 +185,11 @@ function goDetail(recordId: string): void {
   void router.push(`/score-detail/${recordId}`);
 }
 
-async function downloadTicket(exam: ExamMy): Promise<void> {
-  const blob = await participantsApi.ticketsPdf(exam.id);
-  const url = URL.createObjectURL(blob); const a = document.createElement('a');
-  a.href = url; a.download = `${exam.name}-准考证.pdf`; a.click(); URL.revokeObjectURL(url);
+const ticketVisible = ref(false);
+const ticketExam = ref<ExamMy | null>(null);
+function previewTicket(exam: ExamMy): void {
+  ticketExam.value = exam;
+  ticketVisible.value = true;
 }
 
 function goRetakes(): void {
@@ -393,7 +394,7 @@ onMounted(() => {
                   >
                     成绩明细
                   </el-button>
-                  <el-button @click="downloadTicket(row)">准考证</el-button>
+                  <el-button @click="previewTicket(row)">准考证预览</el-button>
 
                   <el-button
                     v-if="row.canApplyRetake"
@@ -463,6 +464,7 @@ onMounted(() => {
         </div>
       </el-card>
     </template>
+    <AdmissionTicketPreview v-model="ticketVisible" :exam="ticketExam" />
   </div>
 </template>
 

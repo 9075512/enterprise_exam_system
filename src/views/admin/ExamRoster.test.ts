@@ -6,11 +6,11 @@ import { useAuthStore } from '@/stores/auth';
 import type { User } from '@/types';
 import ExamManagePage from './ExamManagePage.vue';
 
-const api = vi.hoisted(() => ({ exams: vi.fn(), departments: vi.fn(), participants: vi.fn(), pdf: vi.fn(), tickets: vi.fn(), remove: vi.fn() }));
+const api = vi.hoisted(() => ({ exams: vi.fn(), departments: vi.fn(), participants: vi.fn(), pdf: vi.fn(), tickets: vi.fn(), ticketData: vi.fn(), remove: vi.fn() }));
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock('@/api/exams', () => ({ list: api.exams, exportPdf: api.pdf, remove: api.remove }));
 vi.mock('@/api/departments', () => ({ list: api.departments }));
-vi.mock('@/api/coreFeatures', () => ({ participantsApi: { list: api.participants, ticketsPdf: api.tickets } }));
+vi.mock('@/api/coreFeatures', () => ({ participantsApi: { list: api.participants, tickets: api.ticketData, ticketsPdf: api.tickets } }));
 let wrapper: VueWrapper;
 function render(role = 'admin') {
   const pinia = createPinia(); useAuthStore(pinia).currentUser = { role, id: 'u', name: '测试' } as User;
@@ -25,6 +25,7 @@ beforeEach(() => {
   vi.resetAllMocks(); api.departments.mockResolvedValue([]);
   api.exams.mockResolvedValue(['first', 'second'].map(id => ({ id, name: id + '考试', bankIds: [], departmentIds: [], participantDepartmentIds: [], participantUserIds: [], authors: [], startAt: '2026-10-18T00:00:00Z', endAt: '2026-10-25T00:00:00Z', durationMinutes: 60, questionCount: 10, totalScore: 100, passScore: 60, maxAttempts: 1 })));
   api.participants.mockResolvedValue([]);
+  api.ticketData.mockResolvedValue([{ ...person('考生甲'), examId: 'first', examName: 'first考试', startTime: '2026-10-25T01:00:00Z', endTime: '2026-10-25T03:00:00Z', durationMinutes: 60, examMode: 'closed' }]);
 });
 afterEach(() => { wrapper?.unmount(); document.body.innerHTML = ''; vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
@@ -69,21 +70,15 @@ describe('考试生效名单', () => {
     expect(document.querySelector('.el-drawer')?.textContent).not.toContain('生效名单');
   });
 
-  it('准考证导出失败可重试，处理中阻止重复请求', async () => {
-    let reject!: (error: Error) => void;
-    api.tickets.mockReturnValueOnce(new Promise((_, r) => { reject = r; })).mockResolvedValueOnce(new Blob(['pdf']));
-    const create = vi.fn(() => 'blob:sample'), revoke = vi.fn();
-    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: create, revokeObjectURL: revoke }));
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  it('管理员从准考证入口先查看真实信息，再由预览下载全部 PDF', async () => {
     render(); await flushPromises();
-    const download = wrapper.findAllComponents({ name: 'ElDropdownItem' }).find(i => i.text() === '导出准考证')!;
-    download.vm.$emit('click', new MouseEvent('click')); await flushPromises();
-    download.vm.$emit('click', new MouseEvent('click')); await flushPromises();
-    expect(api.tickets).toHaveBeenCalledTimes(1);
-    reject(new Error('offline')); await flushPromises();
-    expect(wrapper.text()).toContain('准考证导出失败');
-    download.vm.$emit('click', new MouseEvent('click')); await flushPromises();
-    expect(api.tickets).toHaveBeenCalledTimes(2); expect(create).toHaveBeenCalledTimes(1); expect(revoke).toHaveBeenCalledWith('blob:sample');
+    const preview = wrapper.findAllComponents({ name: 'ElDropdownItem' }).find(i => i.text() === '准考证预览')!;
+    preview.vm.$emit('click', new MouseEvent('click')); await flushPromises();
+    expect(api.ticketData).toHaveBeenCalledWith('first');
+    expect(api.tickets).not.toHaveBeenCalled();
+    expect(document.querySelector('.admission-ticket')?.textContent).toContain('考生甲');
+    expect(document.querySelector('.admission-preview__footer')?.textContent).toContain('本场全部 1 位考生');
+    expect(document.querySelector('.admission-preview__actions')?.textContent).toContain('下载全部 PDF');
   });
 
   it('删除确认期间不重复弹框，取消后不删除且可继续操作', async () => {

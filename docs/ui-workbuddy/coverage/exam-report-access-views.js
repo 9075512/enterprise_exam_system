@@ -7,3 +7,6 @@ function permissionCardsDesign(){return card('角色菜单授权',qualityField('
 Object.assign(window.DESIGN_ORG_VIEWS,{ExamManagePage:examListDesign,ScoreReportPage:scoreReportDesign,MenuPermissionPage:permissionCardsDesign});
 Object.assign(window.DESIGN_ORG_DRAWERS,{ExamManagePage:examReadDesign,ScoreReportPage:reportReadDesign});
 Object.assign(window.DESIGN_ORG_PRIMARY,{ExamManagePage:'新建考试',ScoreReportPage:'导出成绩',MenuPermissionPage:'保存权限'});
+// 准考证预览：以下截图由实际共享组件配合隔离模拟数据生成。
+window.DESIGN_ORG_VIEWS.AdmissionTicketPreview=()=>card('先预览，再下载','<p>考生从“我的考试”查看本人准考证；管理员从考试管理打开预览，可按姓名、账号或准考证号搜索并逐张核对。PDF下载范围沿用原有接口权限。</p><p class="scope">正常、加载中、空态、失败和无权限分别处理。加载失败提供重试，下载失败保留预览；下载中阻止重复下载及关闭。</p>');
+window.DESIGN_ORG_DRAWERS.AdmissionTicketPreview=()=>'<p class="scope">实际组件验收截图 · 模拟数据，不连接业务接口。桌面860px弹窗；手机全屏、正文独立滚动、底部44px操作常驻。</p><a class="remaining-desktop" href="../full-verification/admission-ticket-preview-desktop.png"><img style="max-width:100%;height:auto" src="../full-verification/admission-ticket-preview-desktop.png" alt="桌面准考证预览：搜索和翻页、蓝白证件卡及下载全部PDF操作"></a><a class="remaining-mobile" href="../full-verification/admission-ticket-preview-mobile.png"><img style="max-width:100%;height:auto" src="../full-verification/admission-ticket-preview-mobile.png" alt="手机准考证预览：单列信息、正文滚动与固定底部下载操作"></a>';
