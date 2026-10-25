@@ -11,13 +11,14 @@ import Favorites from '../practice/PracticeFavoritesPage.vue';
 import Report from '../practice/PracticeReportPage.vue';
 import Profile from '../practice/PracticeProfilePage.vue';
 
-const api = vi.hoisted(() => ({ home: vi.fn(), exams: vi.fn(), records: vi.fn(), appeals: vi.fn(), applyAppeal: vi.fn(), retakes: vi.fn(), applyRetake: vi.fn(), notifications: vi.fn(), banks: vi.fn(), tree: vi.fn(), wrong: vi.fn(), favorites: vi.fn(), remove: vi.fn(), daily: vi.fn(), summary: vi.fn(), trend: vi.fn(), subjects: vi.fn(), bankStats: vi.fn() }));
+const api = vi.hoisted(() => ({ home: vi.fn(), exams: vi.fn(), records: vi.fn(), appeals: vi.fn(), applyAppeal: vi.fn(), retakes: vi.fn(), applyRetake: vi.fn(), notifications: vi.fn(), banks: vi.fn(), tree: vi.fn(), wrong: vi.fn(), favorites: vi.fn(), remove: vi.fn(), daily: vi.fn(), summary: vi.fn(), trend: vi.fn(), subjects: vi.fn(), bankStats: vi.fn(), tickets: vi.fn(), ticketsPdf: vi.fn() }));
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }), useRoute: () => ({ path: '/exam/practice', query: {} }) }));
 vi.mock('@/api/home', () => ({ getSummary: api.home }));
 vi.mock('@/api/exams', () => ({ my: api.exams }));
 vi.mock('@/api/records', () => ({ my: api.records }));
 vi.mock('@/api/appeals', () => ({ my: api.appeals, apply: api.applyAppeal }));
 vi.mock('@/api/retakes', () => ({ listMyRetakes: api.retakes, applyRetake: api.applyRetake }));
+vi.mock('@/api/coreFeatures', () => ({ participantsApi: { tickets: api.tickets, ticketsPdf: api.ticketsPdf } }));
 vi.mock('@/api/notifications', () => ({ listNotifications: api.notifications }));
 vi.mock('@/api/practice', () => ({ listBanks: api.banks, bankTree: api.tree, wrongBook: api.wrong, favorites: api.favorites, removeFavorite: api.remove, daily: api.daily, reportSummary: api.summary, reportTrend: api.trend, reportSubjects: api.subjects, reportBanks: api.bankStats }));
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ currentUser: { name: '考生甲', role: 'examinee' } }) }));
@@ -65,6 +66,17 @@ describe('考生和练题页面的真实数据与错误恢复', () => {
     await button('重新加载').trigger('click'); await flushPromises();
     expect(wrapper.text()).toContain('待阅卷'); expect(wrapper.text()).toContain('已免考');
     expect(wrapper.findAll('.my-exam__item').find(c => c.text().includes('免考场次'))!.find('button').attributes('disabled')).toBeDefined();
+  });
+  it('考生从我的考试先打开本人准考证预览，不直接触发下载', async () => {
+    api.exams.mockResolvedValue([{ id: 'e1', name: '安全考试', startTime: '2026-01-01T00:00:00Z', endTime: '2099-01-01T00:00:00Z', maxAttempts: 1, attemptsUsed: 0, extraAttempts: 0, passScore: 60 }]);
+    api.tickets.mockResolvedValue([{ userId: 'u1', examId: 'e1', examName: '安全考试', userName: '考生甲', username: 'student-1', admissionNo: 'NO-001', departmentName: '安全科', startTime: '2026-01-01T00:00:00Z', endTime: '2099-01-01T00:00:00Z', durationMinutes: 60, examMode: 'closed' }]);
+    render(MyExam); await flushPromises();
+    expect(api.tickets).not.toHaveBeenCalled();
+    await button('准考证预览').trigger('click'); await flushPromises();
+    expect(api.tickets).toHaveBeenCalledWith('e1'); expect(api.ticketsPdf).not.toHaveBeenCalled();
+    expect(document.querySelector('.admission-ticket')?.textContent).toContain('考生甲');
+    expect(document.querySelector('.admission-preview__actions')?.textContent).toContain('下载准考证 PDF');
+    expect(document.querySelector('.admission-preview__toolbar')).toBeNull();
   });
   it('成绩统计明确样本范围，考试资料失败仍采用答卷冻结及格线', async () => {
     api.exams.mockRejectedValue(new Error('offline'));

@@ -27,6 +27,7 @@ import TableDensityToggle from '@/components/common/TableDensityToggle.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import StatusTag from '@/components/common/StatusTag.vue';
 import ExamExceptionDialog from './ExamExceptionDialog.vue';
+import AdmissionTicketPreview from '@/components/exams/AdmissionTicketPreview.vue';
 import type { Department, Exam, ExamParticipant, ExamStatus } from '@/types';
 
 const { confirm } = useConfirm();
@@ -146,9 +147,12 @@ function openRoster(exam: Exam): void {
   rosterVisible.value = true;
 }
 
-async function exportTickets(exam: Exam): Promise<void> {
-  if (!isAdmin.value) return;
-  await downloadPdf(exam, '准考证', () => participantsApi.ticketsPdf(exam.id));
+const ticketVisible = ref(false);
+const ticketExam = ref<Exam | null>(null);
+function previewTickets(exam: Exam): void {
+  if (!isAdmin.value || deleting.value || exporting.value) return;
+  ticketExam.value = exam;
+  ticketVisible.value = true;
 }
 
 async function handleDelete(exam: Exam): Promise<void> {
@@ -250,7 +254,7 @@ async function handleDelete(exam: Exam): Promise<void> {
                 <el-dropdown-item v-if="!isAdmin && row.questionEditReason" disabled>{{ row.questionEditReason }}</el-dropdown-item>
                 <el-dropdown-item v-if="isAdmin" @click="openExceptions(row as Exam)">特殊安排</el-dropdown-item>
                 <el-dropdown-item v-if="isAdmin" @click="openRoster(row as Exam)">生效名单</el-dropdown-item>
-                <el-dropdown-item v-if="isAdmin" @click="exportTickets(row as Exam)">导出准考证</el-dropdown-item>
+                <el-dropdown-item v-if="isAdmin" @click="previewTickets(row as Exam)">准考证预览</el-dropdown-item>
                 <el-dropdown-item v-if="isAdmin" @click="openExamQueue(row as Exam, 'retakes')">补考管理</el-dropdown-item>
                 <el-dropdown-item v-if="isAdmin" @click="openExamQueue(row as Exam, 'appeals')">成绩复核</el-dropdown-item>
                 <el-dropdown-item v-if="isAdmin" @click="openExamQueue(row as Exam, 'reviews')">人工阅卷</el-dropdown-item>
@@ -273,6 +277,7 @@ async function handleDelete(exam: Exam): Promise<void> {
     </el-card>
 
     <ExamExceptionDialog v-model="exceptionVisible" :exam="exceptionExam" />
+    <AdmissionTicketPreview v-model="ticketVisible" :exam="ticketExam" batch />
     <el-drawer v-model="detailVisible" title="考试详情" size="720px" append-to-body destroy-on-close data-ui-role="detail">
       <template v-if="detailExam">
         <section class="exam-detail__context"><h3>{{ detailExam.name }}</h3><StatusTag :status="getExamStatus(detailExam)" /><p v-if="detailExam.questionsLocked">题目已锁定</p></section>
