@@ -484,10 +484,9 @@ onBeforeUnmount(() => { disposed = true; initGeneration += 1; stopHeartbeat(); }
         <div class="session__row">
           <button type="button" class="session__back" aria-label="返回" :disabled="interactionBusy" @click="goHome">‹</button>
           <span class="session__counter">
-            第 {{ index + 1 }} / {{ questions.length }} 题<template v-if="dailyProgress"> · {{ dailyProgress }}</template>
+            第 {{ index + 1 }} / {{ questions.length }} 题
           </span>
           <div class="session__right">
-            <span v-if="srcLabel" class="session__source">{{ srcLabel }}</span>
             <button
               v-if="configStore.config.favoriteEnabled"
               type="button"
@@ -501,13 +500,17 @@ onBeforeUnmount(() => { disposed = true; initGeneration += 1; stopHeartbeat(); }
             </button>
           </div>
         </div>
+        <div v-if="srcLabel || dailyProgress" class="session__context">
+          <span v-if="srcLabel" class="session__source">{{ srcLabel }}</span>
+          <span v-if="dailyProgress" class="session__daily-progress">{{ dailyProgress }}</span>
+        </div>
         <div class="session__progress-row"><PracticeProgressDots
           class="session__dots"
           :total="questions.length"
           :current="index"
           :marks="marks"
           variant="on-light"
-        /><el-button text :disabled="interactionBusy" @click="sheetVisible = true">答题卡</el-button></div>
+        /><el-button text class="session__sheet-toggle" :disabled="interactionBusy" @click="sheetVisible = true">答题卡</el-button></div>
       </div>
 
       <div class="session__body">
@@ -562,7 +565,14 @@ onBeforeUnmount(() => { disposed = true; initGeneration += 1; stopHeartbeat(); }
 .session {
   &__check-error { margin-top: 16px; overflow-wrap: anywhere; }
   &__card:focus-visible { outline: 2px solid $color-primary; outline-offset: 4px; }
-  &__progress-row { display: flex; align-items: center; gap: 12px; .session__dots { flex: 1; min-width: 0; } }
+  &__progress-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+    .session__dots { flex: 1; min-width: 0; margin-top: 0; }
+  }
+  &__sheet-toggle.el-button { flex: none; margin: 0; padding: 0 10px; color: $practice-primary; font-size: 13px; }
   &__previous { margin-top: 20px; min-height: 44px; }
   &__sheet-note { font-size: 13px; color: $text-secondary; line-height: 1.6; }
   &__sheet-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(44px,1fr)); gap: 10px; }
@@ -619,8 +629,8 @@ onBeforeUnmount(() => { disposed = true; initGeneration += 1; stopHeartbeat(); }
   }
 
   &__row {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 10px;
   }
@@ -652,8 +662,7 @@ onBeforeUnmount(() => { disposed = true; initGeneration += 1; stopHeartbeat(); }
     flex: 0 1 auto;
     min-width: 0;
     overflow: hidden;
-    white-space: normal;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
     font-size: 13px;
     font-weight: 620;
     color: $text-primary;
@@ -667,6 +676,21 @@ onBeforeUnmount(() => { disposed = true; initGeneration += 1; stopHeartbeat(); }
     align-items: center;
     gap: 8px;
     margin-left: auto;
+  }
+
+  &__context {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  &__daily-progress {
+    font-size: 12px;
+    line-height: 1.6;
+    color: $text-secondary;
+    font-variant-numeric: tabular-nums;
   }
 
   &__source {
@@ -688,7 +712,7 @@ onBeforeUnmount(() => { disposed = true; initGeneration += 1; stopHeartbeat(); }
     height: 26px;
     padding: 0 10px;
     border: 1px solid $line-strong;
-    border-radius: 99px; // radius-exception: favorite action pill
+    border-radius: $radius-sm;
     background: $bg-paper;
     font-size: 12px;
     font-weight: 580;
@@ -749,7 +773,7 @@ onBeforeUnmount(() => { disposed = true; initGeneration += 1; stopHeartbeat(); }
       flex: 1;
       min-width: 0;
       margin: 0;
-      height: 42px;
+      height: 48px;
       font-size: 14px;
       font-weight: 580;
       border-radius: $radius-sm;
@@ -818,6 +842,7 @@ onBeforeUnmount(() => { disposed = true; initGeneration += 1; stopHeartbeat(); }
 
       :deep(.el-button) {
         flex: 0 1 160px;
+        height: 42px;
       }
     }
   }
