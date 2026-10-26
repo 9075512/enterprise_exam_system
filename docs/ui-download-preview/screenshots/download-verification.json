@@ -1,0 +1,73 @@
+{
+  "environment": "production build, vite preview",
+  "report": [
+    {
+      "width": 375,
+      "overflow": false,
+      "button": {
+        "top": 385.96875,
+        "bottom": 439.96875,
+        "height": 54
+      },
+      "qr": {
+        "left": 107.5,
+        "right": 267.5,
+        "bottom": 759.25
+      }
+    },
+    {
+      "width": 768,
+      "overflow": false,
+      "button": {
+        "top": 453.375,
+        "bottom": 507.375,
+        "height": 54
+      },
+      "qr": {
+        "left": 497.40625,
+        "right": 657.40625,
+        "bottom": 506.71875
+      }
+    },
+    {
+      "width": 1024,
+      "overflow": false,
+      "button": {
+        "top": 460.109375,
+        "bottom": 514.109375,
+        "height": 54
+      },
+      "qr": {
+        "left": 698.9375,
+        "right": 858.9375,
+        "bottom": 513.453125
+      }
+    },
+    {
+      "width": 1440,
+      "overflow": false,
+      "button": {
+        "top": 472.96875,
+        "bottom": 526.96875,
+        "height": 54
+      },
+      "qr": {
+        "left": 918.421875,
+        "right": 1078.421875,
+        "bottom": 526.3125
+      }
+    }
+  ],
+  "errors": [],
+  "states": [
+    "published",
+    "empty",
+    "error-retry",
+    "iPhone",
+    "WeChat",
+    "keyboard",
+    "reduced-motion",
+    "query-isolation"
+  ],
+  "apkHead": 200
+}

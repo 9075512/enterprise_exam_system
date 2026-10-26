@@ -8,6 +8,8 @@ import { installPageProgress } from '@/composables/usePageProgress';
 import { createAuthGuard } from './guard';
 
 const routes: RouteRecordRaw[] = [
+  // 选稿入口仅在开发环境注册，正式下载页保持独立。
+  ...(import.meta.env.DEV ? [{ path: '/download-preview', name: 'download-preview', component: () => import('@/views/DownloadPreview.vue'), meta: { public: true, standalone: true, title: '下载页设计预览' } }] : []),
   { path: '/download', name: 'app-download', component: () => import('@/views/AppDownloadPage.vue'), meta: { public: true, standalone: true, title: '下载卓达学习' } },
   {
     path: '/no-access',
