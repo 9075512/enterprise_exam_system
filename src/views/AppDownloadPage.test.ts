@@ -10,13 +10,14 @@ function render() { wrapper = mount(AppDownloadPage, { global: { stubs: { Router
 beforeEach(() => vi.clearAllMocks());
 afterEach(() => wrapper?.unmount());
 describe('public App download page', () => {
-  it('uses the selected download-center layout without preview controls or phone illustrations', async () => {
+  it('uses the selected brand showcase with a real phone preview and no selection controls', async () => {
     api.latest.mockResolvedValue(null); render(); await flushPromises();
-    expect(wrapper.get('[data-ui-page="AppDownloadPage"]').attributes('data-download-design')).toBe('a');
-    expect(wrapper.find('.dl-a__card').exists()).toBe(true);
-    expect(wrapper.get('h1').text()).toBe('把学习带在身边。');
+    expect(wrapper.get('[data-ui-page="AppDownloadPage"]').attributes('data-download-design')).toBe('b');
+    expect(wrapper.find('.dl-b__hero').exists()).toBe(true);
+    expect(wrapper.get('h1').text()).toBe('随时启程，学有所成。');
     expect(wrapper.find('.download-preview').exists()).toBe(false);
-    expect(wrapper.find('.dl-phone').exists()).toBe(false);
+    expect(wrapper.get('.dl-phone img').attributes('src')).toBe('/app/login-preview.jpg');
+    expect(wrapper.find('.dl-a__card').exists()).toBe(false);
     expect(api.latest).toHaveBeenCalledTimes(1);
   });
   it('renders only a published API version and escapes release notes', async () => {

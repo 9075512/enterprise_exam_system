@@ -1,6 +1,6 @@
 # 下载页五版选稿
 
-已选定 **A · 简洁下载中心**，正式入口为 [`/download`](http://127.0.0.1:5173/download)。正式页面与预览 A 共用同一组件；B / C / D / E 作为开发环境选稿保留。
+已选定 **B · 精致品牌展示**，正式入口为 [`/download`](http://127.0.0.1:5173/download)。正式页面与预览 B 共用同一组件；A / C / D / E 作为开发环境选稿保留，选稿入口默认展示 B。
 
 正式构建截图：[桌面](screenshots/download-desktop.png)、[手机](screenshots/download-mobile.png)。生产构建浏览器验收记录见 [download-verification.json](screenshots/download-verification.json)，涵盖四种宽度、公开访问、真实版本与 APK 校验、待发布、错误重试、iPhone、微信、键盘操作及减少动态效果设置。
 
@@ -24,7 +24,7 @@
 
 ## 实现边界
 
-`/download-preview` 仅在 Vite 开发模式注册，生产构建不提供选稿入口。正式 `/download` 使用 A 版；其他布局及其样式独立放在预览组件中，生产入口仅引用简洁下载中心。五套布局共用 `useAppDownload`、下载动作、二维码、安装说明和更新说明，后端接口及 `AppRelease` 类型不变。方案标识、名称和展示色集中在 `designs.ts`。
+`/download-preview` 仅在 Vite 开发模式注册，生产构建不提供选稿入口。正式 `/download` 使用 B 版；其他布局及其样式独立放在预览组件中，生产入口仅引用共用基础样式及精致品牌展示样式。五套布局共用 `useAppDownload`、下载动作、二维码、安装说明和更新说明，后端接口及 `AppRelease` 类型不变。方案标识、名称和展示色集中在 `designs.ts`。
 
 截图记录本地接口实际发布的 v1.0.2。未发布、接口失败和 iPhone 访问时不会提供可用的 APK 下载动作；微信内点击下载会提示在浏览器打开。更新说明按纯文本渲染，二维码生成失败时仍保留正式下载页链接与重试入口。
 

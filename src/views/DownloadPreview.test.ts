@@ -41,9 +41,9 @@ describe('下载页选稿入口', () => {
     expect(wrapper.find('iframe').exists()).toBe(false);
     expect(wrapper.find('.download-preview__header').exists()).toBe(false);
   });
-  it('falls back to A and desktop for unknown query values', async () => {
+  it('falls back to the selected B design and desktop for unknown query values', async () => {
     await render('/download-preview?design=unknown&device=unknown');
-    expect(wrapper.get('iframe').attributes('src')).toBe('/download-preview?design=a&standalone=1');
+    expect(wrapper.get('iframe').attributes('src')).toBe('/download-preview?design=b&standalone=1');
     expect(wrapper.get('.download-preview__stage').classes()).toContain('download-preview__stage--desktop');
   });
 });

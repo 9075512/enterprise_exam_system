@@ -6,6 +6,6 @@ defineProps<{ design: DownloadDesignId }>();
 </script>
 
 <template>
-  <AppDownloadPage v-if="design === 'a'" />
+  <AppDownloadPage v-if="design === 'b'" />
   <DownloadAlternatives v-else :design="design" />
 </template>
