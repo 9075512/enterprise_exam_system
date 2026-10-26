@@ -1,0 +1,427 @@
+{
+  "report": [
+    {
+      "design": "a",
+      "width": 375,
+      "pageWidth": 375,
+      "scrollWidth": 375,
+      "button": {
+        "x": 45,
+        "right": 330,
+        "top": 385.96875,
+        "height": 54,
+        "bottom": 439.96875
+      },
+      "qr": {
+        "x": 107.5,
+        "top": 599.25,
+        "right": 267.5,
+        "bottom": 759.25
+      },
+      "overflow": [],
+      "href": "/api/apps/releases/de97191d-caa7-462e-904d-7eea167449e9/download"
+    },
+    {
+      "design": "a",
+      "width": 768,
+      "pageWidth": 768,
+      "scrollWidth": 768,
+      "button": {
+        "x": 83,
+        "right": 273.1875,
+        "top": 453.375,
+        "height": 54,
+        "bottom": 507.375
+      },
+      "qr": {
+        "x": 497.40625,
+        "top": 346.71875,
+        "right": 657.40625,
+        "bottom": 506.71875
+      },
+      "overflow": [],
+      "href": "/api/apps/releases/de97191d-caa7-462e-904d-7eea167449e9/download"
+    },
+    {
+      "design": "a",
+      "width": 1024,
+      "pageWidth": 1024,
+      "scrollWidth": 1024,
+      "button": {
+        "x": 83,
+        "right": 273.1875,
+        "top": 460.109375,
+        "height": 54,
+        "bottom": 514.109375
+      },
+      "qr": {
+        "x": 698.9375,
+        "top": 353.453125,
+        "right": 858.9375,
+        "bottom": 513.453125
+      },
+      "overflow": [],
+      "href": "/api/apps/releases/de97191d-caa7-462e-904d-7eea167449e9/download"
+    },
+    {
+      "design": "a",
+      "width": 1440,
+      "pageWidth": 1440,
+      "scrollWidth": 1440,
+      "button": {
+        "x": 271,
+        "right": 461.1875,
+        "top": 472.96875,
+        "height": 54,
+        "bottom": 526.96875
+      },
+      "qr": {
+        "x": 918.421875,
+        "top": 366.3125,
+        "right": 1078.421875,
+        "bottom": 526.3125
+      },
+      "overflow": [],
+      "href": "/api/apps/releases/de97191d-caa7-462e-904d-7eea167449e9/download"
+    },
+    {
+      "design": "b",
+      "width": 375,
+      "pageWidth": 375,
+      "scrollWidth": 375,
+      "button": {
+        "x": 20,
+        "right": 210.1875,
+        "top": 348.171875,
+        "height": 54,
+        "bottom": 402.171875
+      },
+      "qr": {
+        "x": 20,
+        "top": 502.15625,
+        "right": 110,
+        "bottom": 592.15625
+      },
+      "overflow": [],
+      "href": "/api/apps/releases/de97191d-caa7-462e-904d-7eea167449e9/download"
+    },
+    {
+      "design": "b",
+      "width": 768,
+      "pageWidth": 768,
+      "scrollWidth": 768,
+      "button": {
+        "x": 32,
+        "right": 222.1875,
+        "top": 409.015625,
+        "height": 54,
+        "bottom": 463.015625
+      },
+      "qr": {
+        "x": 32,
+        "top": 563,
+        "right": 122,
+        "bottom": 653
+      },
+      "overflow": [],
+      "href": "/api/apps/releases/de97191d-caa7-462e-904d-7eea167449e9/download"
+    },
+    {
+      "design": "b",
+      "width": 1024,
+      "pageWidth": 1024,
+      "scrollWidth": 1024,
+      "button": {
+        "x": 32,
+        "right": 222.1875,
+        "top": 416.96875,
+        "height": 54,
+        "bottom": 470.96875
+      },
+      "qr": {
+        "x": 32,
+        "top": 570.953125,
+        "right": 122,
+        "bottom": 660.953125
+      },
+      "overflow": [],
+      "href": "/api/apps/releases/de97191d-caa7-462e-904d-7eea167449e9/download"
+    },
+    {
+      "design": "b",
+      "width": 1440,
+      "pageWidth": 1440,
+      "scrollWidth": 1440,
+      "button": {
+        "x": 160,
+        "right": 350.1875,
+        "top": 443.890625,
+        "height": 54,
+        "bottom": 497.890625
+      },
+      "qr": {
+        "x": 160,
+        "top": 597.875,
+        "right": 250,
+        "bottom": 687.875
+      },
+      "overflow": [],
+      "href": "/api/apps/releases/de97191d-caa7-462e-904d-7eea167449e9/download"
+    },
+    {
+      "design": "c",
+      "width": 375,
+      "pageWidth": 375,
+      "scrollWidth": 375,
+      "button": {
+        "x": 43,
+        "right": 332,
+        "top": 485.96875,
+        "height": 54,
+        "bottom": 539.96875
+      },
+      "qr": {
+        "x": 115.5,
+        "top": 666.5625,
+        "right": 259.5,
+        "bottom": 810.5625
+      },
+      "overflow": [],
+      "href": "/api/apps/releases/de97191d-caa7-462e-904d-7eea167449e9/download"
+    },
+    {
+      "design": "c",
+      "width": 768,
+      "pageWidth": 768,
+      "scrollWidth": 768,
+      "button": {
+        "x": 457.40625,
+        "right": 647.59375,
+        "top": 406.265625,
+        "height": 54,
+        "bottom": 460.265625
+      },
+      "qr": {
+        "x": 261.984375,
+        "top": 582.859375,
+        "right": 357.984375,
+        "bottom": 678.859375
+      },
+      "overflow": [],
+      "href": "/api/apps/releases/de97191d-caa7-462e-904d-7eea167449e9/download"
+    },
+    {
+      "design": "c",
+      "width": 1024,
+      "pageWidth": 1024,
+      "scrollWidth": 1024,
+      "button": {
+        "x": 649.40625,
+        "right": 839.59375,
+        "top": 430.609375,
+        "height": 54,
+        "bottom": 484.609375
+      },
+      "qr": {
+        "x": 389.984375,
+        "top": 607.203125,
+        "right": 485.984375,
+        "bottom": 703.203125
+      },
+      "overflow": [],
+      "href": "/api/apps/releases/de97191d-caa7-462e-904d-7eea167449e9/download"
+    },
+    {
+      "design": "c",
+      "width": 1440,
+      "pageWidth": 1440,
+      "scrollWidth": 1440,
+      "button": {
+        "x": 624.90625,
+        "right": 815.09375,
+        "top": 460.265625,
+        "height": 54,
+        "bottom": 514.265625
+      },
+      "qr": {
+        "x": 942,
+        "top": 480.0625,
+        "right": 1038,
+        "bottom": 576.0625
+      },
+      "overflow": [],
+      "href": "/api/apps/releases/de97191d-caa7-462e-904d-7eea167449e9/download"
+    },
+    {
+      "design": "d",
+      "width": 375,
+      "pageWidth": 375,
+      "scrollWidth": 375,
+      "button": {
+        "x": 41,
+        "right": 334,
+        "top": 551.46875,
+        "height": 54,
+        "bottom": 605.46875
+      },
+      "qr": {
+        "x": 41,
+        "top": 726.0625,
+        "right": 145,
+        "bottom": 830.0625
+      },
+      "overflow": [],
+      "href": "/api/apps/releases/de97191d-caa7-462e-904d-7eea167449e9/download"
+    },
+    {
+      "design": "d",
+      "width": 768,
+      "pageWidth": 768,
+      "scrollWidth": 768,
+      "button": {
+        "x": 457.359375,
+        "right": 711,
+        "top": 263.890625,
+        "height": 54,
+        "bottom": 317.890625
+      },
+      "qr": {
+        "x": 457.359375,
+        "top": 438.484375,
+        "right": 553.359375,
+        "bottom": 534.484375
+      },
+      "overflow": [],
+      "href": "/api/apps/releases/de97191d-caa7-462e-904d-7eea167449e9/download"
+    },
+    {
+      "design": "d",
+      "width": 1024,
+      "pageWidth": 1024,
+      "scrollWidth": 1024,
+      "button": {
+        "x": 597,
+        "right": 967,
+        "top": 263.890625,
+        "height": 54,
+        "bottom": 317.890625
+      },
+      "qr": {
+        "x": 597,
+        "top": 438.484375,
+        "right": 693,
+        "bottom": 534.484375
+      },
+      "overflow": [],
+      "href": "/api/apps/releases/de97191d-caa7-462e-904d-7eea167449e9/download"
+    },
+    {
+      "design": "d",
+      "width": 1440,
+      "pageWidth": 1440,
+      "scrollWidth": 1440,
+      "button": {
+        "x": 842.8125,
+        "right": 1248.984375,
+        "top": 269.890625,
+        "height": 54,
+        "bottom": 323.890625
+      },
+      "qr": {
+        "x": 842.8125,
+        "top": 444.484375,
+        "right": 954.8125,
+        "bottom": 556.484375
+      },
+      "overflow": [],
+      "href": "/api/apps/releases/de97191d-caa7-462e-904d-7eea167449e9/download"
+    },
+    {
+      "design": "e",
+      "width": 375,
+      "pageWidth": 375,
+      "scrollWidth": 375,
+      "button": {
+        "x": 40,
+        "right": 335,
+        "top": 610.34375,
+        "height": 54,
+        "bottom": 664.34375
+      },
+      "qr": {
+        "x": 40,
+        "top": 784.9375,
+        "right": 144,
+        "bottom": 888.9375
+      },
+      "overflow": [],
+      "href": "/api/apps/releases/de97191d-caa7-462e-904d-7eea167449e9/download"
+    },
+    {
+      "design": "e",
+      "width": 768,
+      "pageWidth": 768,
+      "scrollWidth": 768,
+      "button": {
+        "x": 463.109375,
+        "right": 712,
+        "top": 317.1875,
+        "height": 54,
+        "bottom": 371.1875
+      },
+      "qr": {
+        "x": 463.109375,
+        "top": 491.78125,
+        "right": 559.109375,
+        "bottom": 587.78125
+      },
+      "overflow": [],
+      "href": "/api/apps/releases/de97191d-caa7-462e-904d-7eea167449e9/download"
+    },
+    {
+      "design": "e",
+      "width": 1024,
+      "pageWidth": 1024,
+      "scrollWidth": 1024,
+      "button": {
+        "x": 605.328125,
+        "right": 967.984375,
+        "top": 317.1875,
+        "height": 54,
+        "bottom": 371.1875
+      },
+      "qr": {
+        "x": 605.328125,
+        "top": 491.78125,
+        "right": 701.328125,
+        "bottom": 587.78125
+      },
+      "overflow": [],
+      "href": "/api/apps/releases/de97191d-caa7-462e-904d-7eea167449e9/download"
+    },
+    {
+      "design": "e",
+      "width": 1440,
+      "pageWidth": 1440,
+      "scrollWidth": 1440,
+      "button": {
+        "x": 852.21875,
+        "right": 1250,
+        "top": 323.1875,
+        "height": 54,
+        "bottom": 377.1875
+      },
+      "qr": {
+        "x": 852.21875,
+        "top": 497.78125,
+        "right": 964.21875,
+        "bottom": 609.78125
+      },
+      "overflow": [],
+      "href": "/api/apps/releases/de97191d-caa7-462e-904d-7eea167449e9/download"
+    }
+  ],
+  "errors": [],
+  "switcher": "passed",
+  "officialPage": "selected A"
+}
