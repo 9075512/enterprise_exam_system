@@ -98,7 +98,10 @@ const TAB_DESC: Record<SettingsTab, string> = {
 
 /** 表单字段 → 所属配置域（保存校验失败时自动定位到出错卡片） */
 const FIELD_TAB: Record<string, SettingsTab> = {
-  captureEnabled: 'anti', captureIntervalMinutes: 'anti', captureCameraPolicy: 'anti', captureRetentionDays: 'anti',
+  captureEnabled: 'anti',
+  captureIntervalMinutes: 'anti',
+  captureCameraPolicy: 'anti',
+  captureRetentionDays: 'anti',
   // 考试默认值
   examDefaultDuration: 'exam',
   examDefaultPassScore: 'exam',
@@ -528,6 +531,7 @@ async function handleReset(): Promise<void> {
 
         <div class="settings-page__section">
           <span class="settings-page__section-title">考试抓拍默认规则</span>
+          <span class="settings-page__section-note">设置默认抓拍规则，单场考试可覆盖；照片按保留天数自动清理</span>
         </div>
         <el-row :gutter="24">
           <el-col :xs="24" :md="12"><el-form-item label="默认开启考试抓拍" prop="captureEnabled"><el-switch v-model="form.captureEnabled" /><p class="settings-page__hint">单场考试可覆盖此设置，关闭时不请求摄像头。</p></el-form-item></el-col>
