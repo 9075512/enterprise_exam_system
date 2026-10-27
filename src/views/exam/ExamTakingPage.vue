@@ -26,6 +26,7 @@ import VisibilityGuard from './components/VisibilityGuard.vue';
 import QuestionCard from './components/QuestionCard.vue';
 import AnswerSheet from './components/AnswerSheet.vue';
 import ExamResultDialog from './components/ExamResultDialog.vue';
+import ExamCameraGuard from '@/components/exams/ExamCameraGuard.vue';
 import BootSplash from '@/components/common/BootSplash.vue';
 import type { Exam, ExamRecord } from '@/types';
 
@@ -58,8 +59,12 @@ const savedRevision = ref(0);
 const mobileQuery = window.matchMedia?.('(max-width: 900px)');
 const isMobile = ref(mobileQuery?.matches ?? false);
 function syncMobile(event: MediaQueryListEvent): void { isMobile.value = event.matches; }
+const sidebarQuery = window.matchMedia?.('(min-width: 1101px)');
+const cameraInSidebar = ref(sidebarQuery?.matches ?? false);
+function syncSidebar(event: MediaQueryListEvent): void { cameraInSidebar.value = event.matches; }
 const busy = computed(() => submitting.value || exiting.value || confirming.value);
-const answerLocked = computed(() => submitted.value || busy.value || remaining.value <= 0);
+const cameraLocked = ref(false);
+const answerLocked = computed(() => submitted.value || busy.value || remaining.value <= 0 || cameraLocked.value);
 const saveStatus = computed(() => saveError.value ? '暂存失败，答案仍保留在本页' : saving.value ? '正在暂存…' : answerRevision.value > savedRevision.value ? '等待暂存…' : '答案已暂存');
 const sheetQuestions = computed(() => questions.value.map(q => ({ id: q.questionId, type: q.question.type, blanks: blankCount(q.question.stem, q.question.answer) })));
 
@@ -119,6 +124,7 @@ async function initialize(): Promise<void> {
     }
     const examDetail = await examsApi.detail(rec.examId);
     if (disposed) return;
+    cameraLocked.value = Boolean(rec.captureConfig?.enabled && rec.captureConfig.cameraPolicy === 'required');
     record.value = rec;
     exam.value = examDetail;
     answers.value = Object.fromEntries(Object.entries(rec.answers).map(([id, value]) => [id, value.slice()]));
@@ -140,11 +146,12 @@ async function initialize(): Promise<void> {
   }
 }
 
-onMounted(() => { mobileQuery?.addEventListener('change', syncMobile); document.addEventListener('visibilitychange', refreshClock); void initialize(); });
+onMounted(() => { mobileQuery?.addEventListener('change', syncMobile); sidebarQuery?.addEventListener('change', syncSidebar); document.addEventListener('visibilitychange', refreshClock); void initialize(); });
 
 onUnmounted(() => {
   disposed = true;
   mobileQuery?.removeEventListener('change', syncMobile);
+  sidebarQuery?.removeEventListener('change', syncSidebar);
   document.removeEventListener('visibilitychange', refreshClock);
   if (tickTimer) window.clearInterval(tickTimer);
   if (saveTimer) window.clearTimeout(saveTimer);
@@ -402,12 +409,18 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
             </div>
           </div>
 
-          <section class="taking__questions" :class="{ 'is-disabled': submitted }">
+          <Teleport defer to="#taking-camera-sidebar" :disabled="!cameraInSidebar">
+            <ExamCameraGuard v-if="record.captureConfig?.enabled" :record-id="recordId" :config="record.captureConfig" :active="!submitted" :compact="cameraInSidebar" @locked-change="cameraLocked = $event" />
+          </Teleport>
+          <section class="taking__questions" :class="{ 'is-disabled': submitted, 'is-camera-blocked': cameraLocked }">
+            <div v-if="cameraLocked" class="taking__camera-shield" role="status">摄像头未就绪，请恢复后继续答题。</div>
             <div
               v-for="(item, index) in questions"
               :id="`question-${index}`"
               :key="item.questionId"
               class="taking__question"
+              :inert="cameraLocked || undefined"
+              :aria-hidden="cameraLocked"
               tabindex="-1"
               v-show="!isMobile || index === currentIndex"
               @focusin="currentIndex = index"
@@ -436,6 +449,8 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
               </span>
             </span>
           </el-card>
+
+          <div id="taking-camera-sidebar" class="taking__camera-slot" />
 
           <el-card class="taking__sheet" shadow="never">
             <AnswerSheet
@@ -476,6 +491,11 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
 
 <style scoped lang="scss">
 @use '@/styles/variables.scss' as *;
+.taking__questions.is-camera-blocked { position: relative; min-height: 180px; }
+.taking__questions.is-camera-blocked .taking__question { visibility: hidden; }
+.taking__camera-shield { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--el-fill-color-light); border-radius: 10px; text-align: center; }
+
+
 
 .taking {
   min-height: 100vh;
@@ -696,6 +716,12 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
     overflow: hidden;
   }
 
+  &__camera-slot {
+    flex: 0 0 auto;
+    min-height: 0;
+    &:empty { display: none; }
+  }
+
   // 答题卡上方的考生信息卡
   &__who {
     --el-card-padding: 10px 14px;
@@ -745,7 +771,7 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
   &__sheet {
     --el-card-padding: 14px;
     display: flex;
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 0;
     flex-direction: column;
 

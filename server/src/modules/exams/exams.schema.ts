@@ -2,6 +2,7 @@
  * 考试模块 —— zod 校验 schema（中文错误信息）。
  */
 import { z } from 'zod';
+import { captureSettingsSchema } from '../captures/captures.schema.js';
 export const examQuestionsSchema = z.object({
   bankIds: z.array(z.string().min(1)).min(1, '请选择来源题库'),
   questions: z.array(z.object({ questionId: z.string().min(1), score: z.number().finite().positive('每题分值必须为正数') })).min(1, '考试至少需要一道题目'),
@@ -15,6 +16,7 @@ const isoDate = (label: string) =>
 
 /** 新建 / 编辑考试入参。 */
 export const examSchema = z.object({
+  captureSettings: captureSettingsSchema.nullable().optional().default(null),
   name: z.string().min(1, '考试名称不能为空'),
   authorIds: z.array(z.string().min(1).max(64)).max(100).default([]),
   ...examQuestionsSchema.shape,

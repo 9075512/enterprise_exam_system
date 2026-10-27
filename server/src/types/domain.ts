@@ -409,6 +409,7 @@ export type ExamStatus = 'not_started' | 'ongoing' | 'ended';
 
 /** 考试 DTO */
 export interface ExamDto {
+  captureSettings?: CaptureSettings | null;
   /** 管理接口附加信息；考生接口不返回出题人权限信息。 */
   questionCount?: number;
   totalScore?: number;
@@ -514,6 +515,7 @@ export interface PaperSnapshot {
 
 /** 考试记录 DTO */
 export interface ExamRecordDto {
+  captureConfig?: CaptureConfig;
   id: string;
   examId: string;
   userId: string;
@@ -628,6 +630,7 @@ export type MonitorStatus = 'not_started' | 'in_progress' | 'pending_review' | '
 
 /** 监考明细行（v1.7④ T3；每个应考考生一行，取最新一次作答） */
 export interface ExamMonitorRowDto {
+  captureSummary?: CaptureSummary;
   userId: string;
   username: string;
   userName: string;
@@ -751,6 +754,10 @@ export interface MaintenanceStatsDto {
  * 读库时若旧数据缺字段，统一回退到 `modules/settings/settings.defaults.ts`。
  */
 export interface SystemSettings {
+  captureEnabled: boolean;
+  captureIntervalMinutes: number;
+  captureCameraPolicy: 'required' | 'optional';
+  captureRetentionDays: number;
   /** 按百分比降序匹配的成绩等级；不替代考试及格线。 */
   gradeBands: Array<{ name: string; minPercent: number }>;
   reviewAnonymous: boolean;
@@ -1346,6 +1353,7 @@ export type AuditAction =
   | 'exam.create'
   | 'exam.update'
   | 'exam.delete'
+  | 'capture.delete'
   | 'bank.create'
   | 'bank.update'
   | 'bank.delete'
@@ -1709,3 +1717,10 @@ export interface DuplicateQuestionGroupDto { fingerprint: string; count: number;
 export type PracticeSessionStatus = 'active' | 'completed' | 'exited' | 'offline';
 export interface PracticeSessionDto { id: string; userId: string; userName: string; departmentName: string; bankId: string; bankName: string; mode: string; questionCount: number; answeredCount: number; correctCount: number; status: PracticeSessionStatus; startedAt: string; lastSeenAt: string; endedAt: string | null }
 export interface PracticeMonitorSummaryDto { activeUsers: number; sessionTotal: number; dailyActiveUsers: number; answerTotal: number; averageCorrectRate: number; wrongConsolidationRate: number; generatedAt: string }
+
+/** 考试抓拍配置，null 表示继承全局。 */
+export interface CaptureSettings { enabled: boolean | null; intervalMinutes: number | null; cameraPolicy: 'required' | 'optional' | null }
+export interface CaptureConfig { enabled: boolean; intervalMinutes: number; cameraPolicy: 'required' | 'optional'; retentionDays: number }
+export interface CaptureSummary { enabled: boolean; count: number; lastCaptureAt: string | null; cameraStatus: string }
+export interface CapturePhoto { id: string; kind: string; receivedAt: string; expiresAt: string; expired: boolean; status: 'available' | 'expired' | 'deleted'; deletedAt: string | null; deletedBy: { id: string; name: string } | null }
+export interface CapturePage { config: CaptureConfig; items: CapturePhoto[]; total: number; page: number; pageSize: number; eventTotal: number; events: Array<{ status: string; reason: string; receivedAt: string }> }

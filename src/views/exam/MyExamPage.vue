@@ -13,6 +13,8 @@ import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { InfoFilled, Refresh, Search } from '@element-plus/icons-vue';
 import * as examsApi from '@/api/exams';
+import * as capturesApi from '@/api/captures';
+import ExamCameraPreflight from '@/components/exams/ExamCameraPreflight.vue';
 import * as recordsApi from '@/api/records';
 import { applyRetake } from '@/api/retakes';
 import AdmissionTicketPreview from '@/components/exams/AdmissionTicketPreview.vue';
@@ -165,6 +167,7 @@ function resetFilter(): void {
 }
 
 /* ------------------------------ 操作 ------------------------------ */
+const cameraPreflight = ref<InstanceType<typeof ExamCameraPreflight>>();
 const starting = ref('');
 const applying = ref('');
 
@@ -172,7 +175,14 @@ async function handleStart(exam: ExamMy): Promise<void> {
   if (starting.value || !actionState(exam).enabled) return;
   starting.value = exam.id;
   try {
-    const record = await examsApi.start(exam.id);
+    const config = await capturesApi.configForExam(exam.id);
+    let capture: import('@/api/captures').StartCapture | undefined;
+    if (config.enabled) {
+      const prepared = await cameraPreflight.value?.prepare(config);
+      if (!prepared) return;
+      capture = prepared;
+    }
+    const record = await examsApi.start(exam.id, capture);
     void router.push(`/exam/taking/${record.id}`);
   } catch {
     // 错误提示已由 http.ts 响应拦截器统一弹出
@@ -465,6 +475,7 @@ onMounted(() => {
       </el-card>
     </template>
     <AdmissionTicketPreview v-model="ticketVisible" :exam="ticketExam" />
+  <ExamCameraPreflight ref="cameraPreflight" />
   </div>
 </template>
 

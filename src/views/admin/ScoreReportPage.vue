@@ -31,6 +31,7 @@ import { formatDateTime } from '@/utils/datetime';
 import { formatPercent, formatScore } from '@/utils/format';
 import PageHeader from '@/components/common/PageHeader.vue';
 import RequestError from '@/components/common/RequestError.vue';
+import ExamCaptureDrawer from '@/components/exams/ExamCaptureDrawer.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import DataTablePagination from '@/components/common/DataTablePagination.vue';
@@ -49,6 +50,10 @@ use([BarChart, GridComponent, TooltipComponent, TitleComponent, LegendComponent,
 const DEPARTMENT_PASS_RATE_WARN = 0.9;
 
 const settingsStore = useSettingsStore();
+const captureVisible = ref(false);
+const captureRecordId = ref('');
+const captureTitle = ref('');
+function openCaptures(recordId: string, title: string) { captureRecordId.value = recordId; captureTitle.value = title; captureVisible.value = true; }
 
 const settingsError = ref(false);
 async function loadRules(): Promise<void> { try { await settingsStore.load(); settingsError.value = !settingsStore.ready; } catch { settingsError.value = true; } }
@@ -347,6 +352,11 @@ const statItems = computed(() => {
               <span v-else class="report-page__muted">正常</span>
             </template>
           </el-table-column>
+          <el-table-column label="考试抓拍" min-width="190">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="openCaptures(row.id, (row.userName || userNameMap[row.userId] || '') + ' · 第' + row.attemptNo + '次')">查看抓拍</el-button>
+            </template>
+          </el-table-column>
           <el-table-column label="交卷时间" width="170">
             <template #default="{ row }">{{ formatDateTime(row.submittedAt) }}</template>
           </el-table-column>
@@ -526,6 +536,7 @@ const statItems = computed(() => {
       <template v-else-if="detailRecord"><dl class="report-detail__meta"><div><dt>考生</dt><dd>{{ detailRecord.userName || userNameMap[detailRecord.userId] || detailRecord.userId }}</dd></div><div><dt>科室</dt><dd>{{ detailRecord.departmentName || departmentNameMap[detailRecord.departmentId] || '—' }}</dd></div><div><dt>作答次数</dt><dd>第 {{ detailRecord.attemptNo }} 次</dd></div><div><dt>交卷时间</dt><dd>{{ formatDateTime(detailRecord.submittedAt) }}</dd></div><div><dt>得分</dt><dd>{{ formatScore(detailRecord.score) }}</dd></div><div><dt>切屏合计</dt><dd>{{ cheatSummary(detailRecord) }}</dd></div></dl><p class="report-detail__scope">{{ settingsStore.ready ? '标记阈值：' + settingsStore.settings.cheatCountThreshold + ' 次或 ' + settingsStore.settings.cheatSecondsThreshold + ' 秒' : '标记规则暂未知' }}</p><CheatEventList :events="detailRecord.cheatEvents" /></template>
       <template #footer><el-button @click="detailVisible = false">关闭</el-button></template>
     </el-drawer>
+  <ExamCaptureDrawer v-model="captureVisible" :record-id="captureRecordId" :title="captureTitle" />
   </div>
 </template>
 

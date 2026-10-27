@@ -2,6 +2,7 @@
  * 服务启动入口：校验数据库连通性 → 监听端口 → 注册优雅退出。
  */
 import { app } from './app.js';
+import { startCaptureCleanup } from './modules/captures/captures.service.js';
 import { env } from './config/env.js';
 import { ping, closePool } from './db/pool.js';
 import { startArchiveScheduler } from './modules/maintenance/maintenance.service.js';
@@ -23,9 +24,11 @@ async function bootstrap(): Promise<void> {
 
   // 归档定时任务（v1.8③ U3）：每分钟检查一次；默认关闭，需在「系统维护」开启
   startArchiveScheduler();
+  const stopCaptureCleanup = startCaptureCleanup();
 
   // 优雅退出：停止接收新连接 → 关闭连接池
   const shutdown = async (signal: string): Promise<void> => {
+    stopCaptureCleanup();
     console.log(`\n[server] 收到 ${signal}，正在优雅退出…`);
     server.close(async () => {
       try {

@@ -7,6 +7,7 @@
 
 /** 库名（新建独立库，绝不触碰本机已有的 exam_system 库）。 */
 import { APP_RELEASE_DDL } from '../modules/apps/apps.ddl.js';
+import { CAPTURE_DDL } from '../modules/captures/captures.ddl.js';
 export const DB_NAME = 'enterprise_exam_system';
 
 /** 建库语句（以 root 连接、不指定 database 时执行）。 */
@@ -15,6 +16,7 @@ export const CREATE_DATABASE_SQL = `CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\`
 
 /** 业务表 DDL（11 张考试域 + 6 张练题域），按依赖顺序排列。 */
 export const DDL_STATEMENTS: readonly string[] = [
+  ...CAPTURE_DDL,
   APP_RELEASE_DDL,
   // 1. 科室（v1.6③ 支持多级：parent_id 自引用；名称全局唯一，便于用户导入按名解析）
   `CREATE TABLE IF NOT EXISTS departments (
@@ -167,6 +169,7 @@ export const DDL_STATEMENTS: readonly string[] = [
     shuffle_options  TINYINT(1)   NULL,
     allow_retake     TINYINT(1)   NULL,
     allow_appeal     TINYINT(1)   NULL,
+    capture_settings JSON NULL,
     exam_mode        ENUM('open','closed') NOT NULL DEFAULT 'closed',
     audience_mode    ENUM('dynamic','frozen') NOT NULL DEFAULT 'dynamic',
     audience_rules   JSON         NULL,
@@ -924,6 +927,9 @@ export const TABLE_NAMES: readonly string[] = [
   'exam_records_archive',
   'user_recovery_codes',
   'attachments',
+  'exam_capture_sessions',
+  'exam_captures',
+  'exam_camera_events',
   'announcements',
   'banners',
   'announcement_reads',

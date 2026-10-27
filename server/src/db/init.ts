@@ -17,6 +17,7 @@ import { fromDbDate } from '../utils/datetime.js';
 import { CREATE_DATABASE_SQL, DB_NAME, DDL_STATEMENTS, TABLE_NAMES } from './schema.js';
 import { seed } from './seed.js';
 import { migrateRoles } from './rolesMigration.js';
+import { migrateCaptures } from './capturesMigration.js';
 import { migrateCourseCatalog } from './courseCatalogMigration.js';
 
 const reset = process.argv.includes('--reset');
@@ -91,6 +92,7 @@ async function foreignDeleteRule(conn: mysql.Connection, table: string, constrai
  */
 async function applyMigrations(conn: mysql.Connection): Promise<void> {
   const changes: string[] = [];
+  await migrateCaptures(conn);
   if (!(await indexExists(conn, 'exams', 'uk_exams_paper'))) {
     await conn.query('ALTER TABLE exams ADD UNIQUE KEY uk_exams_paper (paper_id)');
     changes.push('exams.uk_exams_paper');

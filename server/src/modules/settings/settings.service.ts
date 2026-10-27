@@ -68,8 +68,13 @@ export async function updateSettings(input: unknown, operatorId: string): Promis
     }
     throw err;
   }
+  const previous = await getSettings();
   const normalized: SystemSettings = {
     ...parsed,
+    captureEnabled: parsed.captureEnabled ?? previous.captureEnabled,
+    captureIntervalMinutes: parsed.captureIntervalMinutes ?? previous.captureIntervalMinutes,
+    captureCameraPolicy: parsed.captureCameraPolicy ?? previous.captureCameraPolicy,
+    captureRetentionDays: parsed.captureRetentionDays ?? previous.captureRetentionDays,
     bankCategories: parsed.bankCategories ?? (await getSettings()).bankCategories,
     notifyTemplates: mergeTemplates(parsed.notifyTemplates),
   };

@@ -327,6 +327,7 @@ export type ExamMode = 'open' | 'closed';
 
 /** 考试 */
 export interface Exam {
+  captureSettings?: CaptureSettings | null;
   /** 管理接口附加信息；考生接口不返回出题人权限信息。 */
   questionCount?: number;
   totalScore?: number;
@@ -424,6 +425,7 @@ export interface PaperSnapshot {
 
 /** 考试记录 */
 export interface ExamRecord {
+  captureConfig?: CaptureConfig;
   id: string;
   examId: string;
   userId: string;
@@ -642,6 +644,7 @@ export interface PaperSaveInput {
 
 /** 考试保存输入（新建/编辑共用） */
 export interface ExamSaveInput {
+  captureSettings?: CaptureSettings | null;
   id?: string;
   name: string;
   authorIds: string[];
@@ -736,6 +739,7 @@ export type AuditAction =
   | 'exam.create'
   | 'exam.update'
   | 'exam.delete'
+  | 'capture.delete'
   | 'bank.create'
   | 'bank.update'
   | 'bank.delete'
@@ -876,6 +880,7 @@ export type MonitorStatus = 'not_started' | 'in_progress' | 'pending_review' | '
 
 /** 监考明细行（每人一行，取最新一次作答） */
 export interface ExamMonitorRow {
+  captureSummary?: CaptureSummary;
   userId: string;
   username: string;
   userName: string;
@@ -1026,6 +1031,10 @@ export interface ExamException {
  * 因此新增字段不会导致旧数据不可用。
  */
 export interface SystemSettings {
+  captureEnabled: boolean;
+  captureIntervalMinutes: number;
+  captureCameraPolicy: 'required' | 'optional';
+  captureRetentionDays: number;
   gradeBands: Array<{ name: string; minPercent: number }>;
   reviewAnonymous: boolean;
   scoreDetailVisible: boolean;
@@ -1575,3 +1584,10 @@ export interface DuplicateQuestionGroup { fingerprint: string; count: number; qu
 export type PracticeSessionStatus = 'active' | 'completed' | 'exited' | 'offline';
 export interface PracticeSessionMonitor { id: string; userId: string; userName: string; departmentName: string; bankId: string; bankName: string; mode: string; questionCount: number; answeredCount: number; correctCount: number; status: PracticeSessionStatus; startedAt: string; lastSeenAt: string; endedAt: string | null }
 export interface PracticeMonitorSummary { activeUsers: number; sessionTotal: number; dailyActiveUsers: number; answerTotal: number; averageCorrectRate: number; wrongConsolidationRate: number; generatedAt: string }
+
+/** 考试抓拍配置，null 表示继承全局。 */
+export interface CaptureSettings { enabled: boolean | null; intervalMinutes: number | null; cameraPolicy: 'required' | 'optional' | null }
+export interface CaptureConfig { enabled: boolean; intervalMinutes: number; cameraPolicy: 'required' | 'optional'; retentionDays: number }
+export interface CaptureSummary { enabled: boolean; count: number; lastCaptureAt: string | null; cameraStatus: string }
+export interface CapturePhoto { id: string; kind: string; receivedAt: string; expiresAt: string; expired: boolean; status: 'available' | 'expired' | 'deleted'; deletedAt: string | null; deletedBy: { id: string; name: string } | null }
+export interface CapturePage { config: CaptureConfig; items: CapturePhoto[]; total: number; page: number; pageSize: number; eventTotal: number; events: Array<{ status: string; reason: string; receivedAt: string }> }

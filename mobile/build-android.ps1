@@ -1,7 +1,7 @@
 ﻿param(
     [ValidateSet('Release', 'Debug')]
     [string]$Configuration = 'Release',
-    [string]$ServerUrl = 'http://139.9.134.68'
+    [string]$ServerUrl = 'https://139.9.134.68'
 )
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot

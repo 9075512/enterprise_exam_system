@@ -2871,6 +2871,85 @@
           "mode": "preview"
         }
       ]
+    },
+    {
+      "id": "ExamCameraPreflight",
+      "title": "考试拍照准备",
+      "route": null,
+      "file": "src/components/exams/ExamCameraPreflight.vue",
+      "layout": "overlay",
+      "sections": [
+        "拍照用途与照片保留说明",
+        "用户授权与实时预览",
+        "开考拍照及异常策略",
+        "取消与错误恢复"
+      ],
+      "reference": "可配置考试抓拍",
+      "header": "考试拍照准备",
+      "columns": [],
+      "fields": [],
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "desktop": "520px内的准备弹窗，上方说明拍照用途、间隔及保留天数，中间4:3摄像头预览，下方显示授权或拍照错误。底栏取消、开启摄像头、拍照并进入随设备状态切换；必拍模式成功采集保存首照后才开考，可选模式允许记录异常并进入。",
+      "mobile": "94vw弹窗和全宽4:3预览，说明自然换行、正文可滚动，底栏按钮换行。授权由用户点击触发；取消、退出或进入后台释放设备，准备期间不消耗新考试计时，续考沿用原计时。",
+      "overlays": [
+        {
+          "kind": "dialog",
+          "title": "考试拍照准备",
+          "fields": [
+            "用途与保留说明",
+            "摄像头预览",
+            "授权及拍照状态"
+          ],
+          "primaryAction": "开启摄像头 / 拍照并进入考试",
+          "mode": "workflow"
+        }
+      ]
+    },
+    {
+      "id": "ExamCaptureDrawer",
+      "title": "考试抓拍记录",
+      "route": null,
+      "file": "src/components/exams/ExamCaptureDrawer.vue",
+      "layout": "overlay",
+      "sections": [
+        "当前考生及作答次数",
+        "私有图片分页与大图预览",
+        "单张与本页批量删除",
+        "摄像头事件及删除记录"
+      ],
+      "reference": "管理员抓拍复核与删除",
+      "header": "考试抓拍",
+      "columns": [],
+      "fields": [],
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "desktop": "760px内的右侧抽屉，顶部展示考生和作答次数，工具栏刷新、全选本页及删除选中。网格照片通过鉴权Blob读取并支持大图，卡片显示采集及到期时间；过期或删除显示明确占位，删除项保留操作人和时间。下方展示摄像头事件及分页。",
+      "mobile": "96vw抽屉，照片自动单列或双列，工具栏换行，删除和勾选保持44px触控范围。删除确认照片数量且提示不可恢复，处理期间锁定重复提交及翻页；失败保留选择，翻页或切换答卷清空选择。仅管理员可见，关闭释放Blob。",
+      "overlays": [
+        {
+          "kind": "drawer",
+          "title": "考试抓拍记录",
+          "fields": [
+            "照片时间线与大图",
+            "本页照片勾选",
+            "摄像头事件",
+            "删除操作人及时间"
+          ],
+          "primaryAction": "删除选中",
+          "mode": "detail"
+        }
+      ]
     }
   ]
 }

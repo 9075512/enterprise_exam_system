@@ -20,6 +20,10 @@ import {
 
 /** 全部设置的默认值（数值类直接复用既有常量，保证单一来源） */
 export const SETTINGS_DEFAULTS: SystemSettings = {
+  captureEnabled: false,
+  captureIntervalMinutes: 5,
+  captureCameraPolicy: 'required',
+  captureRetentionDays: 30,
   gradeBands: [
     { name: '优秀', minPercent: 90 },
     { name: '良好', minPercent: 80 },

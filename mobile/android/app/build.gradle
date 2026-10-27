@@ -5,7 +5,7 @@ plugins {
 def signingFile = rootProject.file('signing.properties')
 def signingValues = new Properties()
 if (signingFile.exists()) signingFile.withInputStream { signingValues.load(it) }
-def defaultServer = providers.gradleProperty('serverUrl').getOrElse('http://139.9.134.68')
+def defaultServer = providers.gradleProperty('serverUrl').getOrElse('https://139.9.134.68')
 if (!(defaultServer ==~ /https?:\/\/[^\s"\\]+/)) {
     throw new GradleException('serverUrl 必须为 http(s) 地址，且不含空白、引号或反斜杠')
 }
@@ -18,8 +18,8 @@ android {
         applicationId 'cn.zhuoda.learner'
         minSdk 26
         targetSdk 35
-        versionCode 10004
-        versionName '1.0.4'
+        versionCode 10005
+        versionName '1.0.5'
         buildConfigField 'String', 'DEFAULT_SERVER_URL', '"' + defaultServer + '"'
     }
 

@@ -42,6 +42,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'exam.create': '新建考试',
   'exam.update': '编辑考试',
   'exam.delete': '删除考试',
+  'capture.delete': '删除考试抓拍',
   'bank.create': '新建题库',
   'bank.update': '编辑题库',
   'bank.delete': '删除题库',

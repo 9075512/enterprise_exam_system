@@ -22,6 +22,7 @@ import { getExamStatus } from '@/utils/examStatus';
 import { openMonitorStream, type MonitorStreamHandle, type MonitorStreamState } from '@/utils/monitorStream';
 import PageHeader from '@/components/common/PageHeader.vue';
 import RequestError from '@/components/common/RequestError.vue';
+import ExamCaptureDrawer from '@/components/exams/ExamCaptureDrawer.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import type { ExamMonitor, ExamMonitorRow, MonitorStatus } from '@/types';
@@ -29,6 +30,10 @@ import type { ExamMonitor, ExamMonitorRow, MonitorStatus } from '@/types';
 const route = useRoute();
 const router = useRouter();
 const settingsStore = useSettingsStore();
+const captureVisible = ref(false);
+const captureRecordId = ref('');
+const captureTitle = ref('');
+function openCaptures(recordId: string, title: string) { captureRecordId.value = recordId; captureTitle.value = title; captureVisible.value = true; }
 const examId = String(route.params.id ?? '');
 
 const monitor = ref<ExamMonitor | null>(null);
@@ -542,6 +547,13 @@ function goBack(): void {
               <span v-else class="monitor__muted">—</span>
             </template>
           </el-table-column>
+          <el-table-column label="考试抓拍" min-width="190">
+            <template #default="{ row }">
+              <template v-if="row.captureSummary?.enabled"><div>{{ row.captureSummary.count }} 张 · {{ ({ ready: '已开启', unavailable: '不可用', interrupted: '已中断', upload_failed: '上传失败', overdue: row.status === 'in_progress' ? '抓拍逾期' : '采集结束', unknown: '状态未知' } as Record<string, string>)[row.captureSummary.cameraStatus] || '状态未知' }}</div><small v-if="row.captureSummary.lastCaptureAt">最近 {{ formatDateTime(row.captureSummary.lastCaptureAt) }}</small></template>
+              <span v-else>未开启</span>
+              <el-button v-if="row.recordId" link type="primary" @click="openCaptures(row.recordId, row.userName + ' · 第' + row.attemptNo + '次')">查看记录</el-button>
+            </template>
+          </el-table-column>
           <el-table-column label="交卷时间" min-width="170" show-overflow-tooltip>
             <template #default="{ row }">
               <span v-if="(row as ExamMonitorRow).submittedAt">
@@ -580,6 +592,7 @@ function goBack(): void {
         </el-table>
       </el-card>
     </template>
+  <ExamCaptureDrawer v-model="captureVisible" :record-id="captureRecordId" :title="captureTitle" />
   </div>
 </template>
 

@@ -98,6 +98,10 @@ const TAB_DESC: Record<SettingsTab, string> = {
 
 /** 表单字段 → 所属配置域（保存校验失败时自动定位到出错卡片） */
 const FIELD_TAB: Record<string, SettingsTab> = {
+  captureEnabled: 'anti',
+  captureIntervalMinutes: 'anti',
+  captureCameraPolicy: 'anti',
+  captureRetentionDays: 'anti',
   // 考试默认值
   examDefaultDuration: 'exam',
   examDefaultPassScore: 'exam',
@@ -237,6 +241,8 @@ function strRules(label: string, min: number, max: number): FormItemRule[] {
 }
 
 const rules: FormRules = {
+  captureIntervalMinutes: numRules('抓拍间隔', 1, 60),
+  captureRetentionDays: numRules('抓拍照片保留天数', 1, 365),
   // 考试默认值
   examDefaultDuration: numRules('考试默认时长', 1, 600, { unit: ' 分钟' }),
   examDefaultPassScore: numRules('考试默认及格线', 1, 1000, { integer: false }),
@@ -523,6 +529,16 @@ async function handleReset(): Promise<void> {
           <div><h3>{{ TAB_LABEL.anti }}</h3><p class="settings-page__desc">{{ TAB_DESC.anti }}</p></div>
         </div>
 
+        <div class="settings-page__section">
+          <span class="settings-page__section-title">考试抓拍默认规则</span>
+          <span class="settings-page__section-note">设置默认抓拍规则，单场考试可覆盖；照片按保留天数自动清理</span>
+        </div>
+        <el-row :gutter="24">
+          <el-col :xs="24" :md="12"><el-form-item label="默认开启考试抓拍" prop="captureEnabled"><el-switch v-model="form.captureEnabled" /><p class="settings-page__hint">单场考试可覆盖此设置，关闭时不请求摄像头。</p></el-form-item></el-col>
+          <el-col :xs="24" :md="12"><el-form-item label="默认抓拍间隔（分钟）" prop="captureIntervalMinutes"><el-input-number v-input-number-aria v-model="form.captureIntervalMinutes" :min="1" :max="60" /></el-form-item></el-col>
+          <el-col :xs="24" :md="12"><el-form-item label="默认摄像头异常处理" prop="captureCameraPolicy"><el-select v-model="form.captureCameraPolicy"><el-option value="required" label="必须开启摄像头" /><el-option value="optional" label="仅提醒并记录" /></el-select></el-form-item></el-col>
+          <el-col :xs="24" :md="12"><el-form-item label="抓拍照片保留天数" prop="captureRetentionDays"><el-input-number v-input-number-aria v-model="form.captureRetentionDays" :min="1" :max="365" /><p class="settings-page__hint">新照片按本次作答冻结的保留天数到期清理，已保存照片的到期时间不变。</p></el-form-item></el-col>
+        </el-row>
         <div class="settings-page__section">
           <span class="settings-page__section-title">防作弊检测</span>
           <span class="settings-page__section-note">切屏行为判定与作答页防护</span>

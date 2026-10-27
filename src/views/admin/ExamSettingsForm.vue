@@ -39,6 +39,7 @@ const form = reactive({
   durationMinutes: 60,
   passScore: 60,
   maxAttempts: 1,
+  captureSettings: { enabled: null, intervalMinutes: null, cameraPolicy: null } as import('@/types').CaptureSettings,
   examMode: 'closed' as ExamMode,
 });
 
@@ -56,6 +57,14 @@ function toTri(v: boolean | null | undefined): TriState {
   return v ? 'on' : 'off';
 }
 
+const captureMode = computed<TriState>({ get: () => toTri(form.captureSettings.enabled), set: value => { form.captureSettings.enabled = value === 'inherit' ? null : value === 'on'; } });
+const captureInterval = computed<number | 'inherit'>({ get: () => form.captureSettings.intervalMinutes ?? 'inherit', set: value => { form.captureSettings.intervalMinutes = value === 'inherit' ? null : value; } });
+const capturePolicy = computed<'inherit' | 'required' | 'optional'>({ get: () => form.captureSettings.cameraPolicy ?? 'inherit', set: value => { form.captureSettings.cameraPolicy = value === 'inherit' ? null : value; } });
+const effectiveCapture = computed(() => ({
+  enabled: form.captureSettings.enabled ?? settingsStore.settings.captureEnabled,
+  intervalMinutes: form.captureSettings.intervalMinutes ?? settingsStore.settings.captureIntervalMinutes,
+  cameraPolicy: form.captureSettings.cameraPolicy ?? settingsStore.settings.captureCameraPolicy,
+}));
 const rules: FormRules = {
   name: [{ required: true, message: '请输入考试名称', trigger: 'blur' }],
   startTime: [{ required: true, message: '请选择开始时间', trigger: 'change' }],
@@ -64,6 +73,7 @@ const rules: FormRules = {
 
 function resetForm(): void {
   const exam = props.exam;
+  form.captureSettings = { enabled: null, intervalMinutes: null, cameraPolicy: null, ...exam?.captureSettings };
   if (exam) {
     form.name = exam.name;
     form.authorIds = (exam.authors ?? []).map(a => a.id);
@@ -143,6 +153,7 @@ function getPayload() {
       durationMinutes: form.durationMinutes,
       passScore: form.passScore,
       maxAttempts: form.maxAttempts,
+      captureSettings: { ...form.captureSettings },
       examMode: form.examMode,
       shuffleEnabled: shuffleMode.value === 'inherit' ? null : shuffleMode.value === 'on',
       shuffleOptions: shuffleOptionsMode.value === 'inherit' ? null : shuffleOptionsMode.value === 'on',
@@ -228,6 +239,15 @@ defineExpose({ validate, getPayload, form });
           <el-form-item label="成绩复核"><el-select v-model="allowAppealMode" class="exam-form__full"><el-option v-for="o in ruleOptions" :key="o.value" :label="o.label" :value="o.value" /></el-select><span class="exam-form__hint">允许考生在规定时限内申请成绩复核。</span></el-form-item>
         </div>
       </details>
+      <section class="settings-section" aria-labelledby="exam-capture-heading">
+        <header class="settings-section__head"><span class="settings-section__number">05</span><div><h3 id="exam-capture-heading">考试抓拍</h3><p>开考拍照与考试中定时抓拍，用于管理员复核。</p></div></header>
+        <div class="settings-grid">
+          <el-form-item label="考试抓拍"><el-select v-model="captureMode" class="exam-form__full"><el-option value="inherit" label="跟随全局默认" /><el-option value="on" label="开启" /><el-option value="off" label="关闭" /></el-select></el-form-item>
+          <el-form-item label="抓拍间隔"><el-select v-model="captureInterval" class="exam-form__full"><el-option value="inherit" label="跟随全局默认" /><el-option v-for="minutes in 60" :key="minutes" :value="minutes" :label="`${minutes} 分钟`" /></el-select></el-form-item>
+          <el-form-item label="摄像头异常处理"><el-select v-model="capturePolicy" class="exam-form__full"><el-option value="inherit" label="跟随全局默认" /><el-option value="required" label="必须开启摄像头" /><el-option value="optional" label="仅提醒并记录" /></el-select></el-form-item>
+        </div>
+        <p class="settings-section__note">当前生效：{{ effectiveCapture.enabled ? '开启抓拍，每 ' + effectiveCapture.intervalMinutes + ' 分钟一次，' + (effectiveCapture.cameraPolicy === 'required' ? '必须开启摄像头' : '异常仅提醒并记录') : '关闭抓拍' }}。照片保留 {{ settingsStore.settings.captureRetentionDays }} 天。开考时冻结规则，修改只影响之后新建的作答。</p>
+      </section>
     </el-form>
   </div>
 </template>

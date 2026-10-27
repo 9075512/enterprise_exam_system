@@ -1,6 +1,9 @@
 package cn.zhuoda.learner;
 
 import android.annotation.SuppressLint;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.webkit.PermissionRequest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
@@ -47,6 +50,8 @@ import org.json.JSONTokener;
 public class MainActivity extends Activity {
     private static final int PICK_FILE = 100;
     private static final int SAVE_FILE = 101;
+    private static final int CAMERA_PERMISSION = 102;
+    private PermissionRequest pendingCameraRequest;
     private static final int BLUE = 0xFF2563EB;
     private static final int BACKGROUND = 0xFFF4F7FC;
     private static final String UA_MARKER = " ZhuodaLearnerAndroid/" + BuildConfig.VERSION_NAME;
@@ -156,6 +161,7 @@ public class MainActivity extends Activity {
             }
 
             @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                denyPendingCamera();
                 // 跳转一旦离开配置站点就终止；不向外站注入脚本或转交登录态。
                 if (!ServerAddress.sameOrigin(server, url)) {
                     view.stopLoading();
@@ -193,6 +199,23 @@ public class MainActivity extends Activity {
             }
         });
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override public void onPermissionRequest(PermissionRequest request) {
+                runOnUiThread(() -> {
+                    if (!isTrustedCameraRequest(request)) { request.deny(); return; }
+                    denyPendingCamera();
+                    if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                        request.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+                    } else {
+                        pendingCameraRequest = request;
+                        requestPermissions(new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION);
+                    }
+                });
+            }
+
+            @Override public void onPermissionRequestCanceled(PermissionRequest request) {
+                runOnUiThread(() -> { if (pendingCameraRequest == request) pendingCameraRequest = null; });
+            }
+
             @Override public void onProgressChanged(WebView view, int value) { progress.setProgress(value); }
 
             @Override public void onShowCustomView(View view, CustomViewCallback callback) {
@@ -444,22 +467,55 @@ public class MainActivity extends Activity {
         }
     }
 
+    private boolean isTrustedCameraRequest(PermissionRequest request) {
+        String[] resources = request.getResources();
+        return !isFinishing() && !isDestroyed() && webView != null
+                && "https".equalsIgnoreCase(request.getOrigin().getScheme())
+                && ServerAddress.sameOrigin(server, request.getOrigin().toString())
+                && ServerAddress.sameOrigin(server, webView.getUrl())
+                && resources.length == 1 && PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resources[0]);
+    }
+
+    private void denyPendingCamera() {
+        if (pendingCameraRequest != null) {
+            pendingCameraRequest.deny();
+            pendingCameraRequest = null;
+        }
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != CAMERA_PERMISSION || pendingCameraRequest == null) return;
+        PermissionRequest request = pendingCameraRequest;
+        pendingCameraRequest = null;
+        if (grantResults.length == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED && isTrustedCameraRequest(request)) {
+            request.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+        } else request.deny();
+    }
+
     @Override protected void onPause() {
         paused = true;
         handler.removeCallbacks(downloadPoll);
-        if (webView != null) webView.onPause();
+        if (webView != null) {
+            webView.evaluateJavascript("window.dispatchEvent(new Event('zhuoda:app-background'))", null);
+            webView.onPause();
+        }
         CookieManager.getInstance().flush();
         super.onPause();
     }
 
     @Override protected void onResume() {
         super.onResume();
-        if (webView != null && paused) { webView.onResume(); paused = false; }
+        if (webView != null && paused) {
+            webView.onResume(); paused = false;
+            webView.evaluateJavascript("window.dispatchEvent(new Event('zhuoda:app-foreground'))", null);
+        }
         handler.removeCallbacks(downloadPoll);
         handler.postDelayed(downloadPoll, 750);
     }
 
     @Override protected void onDestroy() {
+        denyPendingCamera();
         handler.removeCallbacksAndMessages(null);
         pendingDownload = null;
         if (fileCallback != null) { fileCallback.onReceiveValue(null); fileCallback = null; }

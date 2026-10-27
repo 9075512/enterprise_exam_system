@@ -9,7 +9,7 @@ import type { ExamRow } from './exams.mapper.js';
 export type { ExamRow } from './exams.mapper.js';
 
 const COLUMNS =
-  'id, name, paper_id, department_ids, audience_mode, audience_rules, start_time, end_time, duration_minutes, pass_score, max_attempts, shuffle_enabled, shuffle_options, allow_retake, allow_appeal, exam_mode, created_by, created_at';
+  'id, name, paper_id, department_ids, audience_mode, audience_rules, start_time, end_time, duration_minutes, pass_score, max_attempts, shuffle_enabled, shuffle_options, allow_retake, allow_appeal, capture_settings, exam_mode, created_by, created_at';
 
 /** 全部考试（按开始时间倒序）。 */
 export async function list(): Promise<ExamRow[]> {
@@ -74,6 +74,7 @@ export async function insert(
     shuffleOptions: boolean | null;
     allowRetake: boolean | null;
     allowAppeal: boolean | null;
+    captureSettings?: unknown;
     examMode: 'open' | 'closed';
     createdBy: string;
     createdAt: string;
@@ -83,8 +84,8 @@ export async function insert(
   await runQuery(
     exec,
     `INSERT INTO exams
-       (id, name, paper_id, department_ids, audience_mode, audience_rules, start_time, end_time, duration_minutes, pass_score, max_attempts, shuffle_enabled, shuffle_options, allow_retake, allow_appeal, exam_mode, created_by, created_at)
-     VALUES (?, ?, ?, ?, 'frozen', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, name, paper_id, department_ids, audience_mode, audience_rules, start_time, end_time, duration_minutes, pass_score, max_attempts, shuffle_enabled, shuffle_options, allow_retake, allow_appeal, capture_settings, exam_mode, created_by, created_at)
+     VALUES (?, ?, ?, ?, 'frozen', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       row.id,
       row.name,
@@ -100,6 +101,7 @@ export async function insert(
       row.shuffleOptions === null ? null : row.shuffleOptions ? 1 : 0,
       row.allowRetake === null ? null : row.allowRetake ? 1 : 0,
       row.allowAppeal === null ? null : row.allowAppeal ? 1 : 0,
+      JSON.stringify(row.captureSettings ?? null),
       row.examMode,
       row.createdBy,
       row.createdAt,
@@ -124,6 +126,7 @@ export async function update(
     shuffleOptions: boolean | null;
     allowRetake: boolean | null;
     allowAppeal: boolean | null;
+    captureSettings?: unknown;
     examMode: 'open' | 'closed';
   },
   exec?: SqlExecutor,
@@ -131,7 +134,7 @@ export async function update(
   await runQuery(
     exec,
     `UPDATE exams
-       SET name = ?, paper_id = ?, department_ids = ?, audience_mode = 'frozen', audience_rules = ?, start_time = ?, end_time = ?, duration_minutes = ?, pass_score = ?, max_attempts = ?, shuffle_enabled = ?, shuffle_options = ?, allow_retake = ?, allow_appeal = ?, exam_mode = ?
+       SET name = ?, paper_id = ?, department_ids = ?, audience_mode = 'frozen', audience_rules = ?, start_time = ?, end_time = ?, duration_minutes = ?, pass_score = ?, max_attempts = ?, shuffle_enabled = ?, shuffle_options = ?, allow_retake = ?, allow_appeal = ?, capture_settings = ?, exam_mode = ?
      WHERE id = ?`,
     [
       row.name,
@@ -147,6 +150,7 @@ export async function update(
       row.shuffleOptions === null ? null : row.shuffleOptions ? 1 : 0,
       row.allowRetake === null ? null : row.allowRetake ? 1 : 0,
       row.allowAppeal === null ? null : row.allowAppeal ? 1 : 0,
+      JSON.stringify(row.captureSettings ?? null),
       row.examMode,
       id,
     ],
