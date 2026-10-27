@@ -31,6 +31,10 @@ function readCachedPublicSettings(): PublicSettings {
     const raw = localStorage.getItem(PUBLIC_SETTINGS_CACHE_KEY);
     if (!raw) return { ...PUBLIC_SETTINGS_DEFAULTS };
     const cached = JSON.parse(raw) as Record<string, unknown>;
+    // 升级旧版公开品牌缓存，避免首次刷新时闪现旧默认名称。
+    if (cached.systemName === '卓达煤矿考试学习系统') cached.systemName = PUBLIC_SETTINGS_DEFAULTS.systemName;
+    if (cached.systemShortName === '卓达煤矿考试学习系统') cached.systemShortName = PUBLIC_SETTINGS_DEFAULTS.systemShortName;
+    if (cached.copyright === '© 2026 卓达煤矿考试学习系统') cached.copyright = PUBLIC_SETTINGS_DEFAULTS.copyright;
     return {
       systemName: typeof cached.systemName === 'string' && cached.systemName.trim()
         ? cached.systemName

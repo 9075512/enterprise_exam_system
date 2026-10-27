@@ -9,7 +9,7 @@ vi.mock('@/api/apps', async importOriginal => ({ ...await importOriginal<typeof 
 vi.mock('qrcode', () => ({ default: { toDataURL: api.qr } }));
 vi.mock('@/stores/settings', () => ({ useSettingsStore: () => ({ loadPublic: api.brand, publicSettings: { copyright: '测试单位' } }) }));
 const release: AppRelease = {
-  id: 'real-release', appName: '卓达学习', versionName: '1.2.3', versionCode: 10203, minAndroid: '8.0',
+  id: 'real-release', appName: '卓达智学', versionName: '1.2.3', versionCode: 10203, minAndroid: '8.0',
   releaseNotes: '<script>alert(1)</script>\n- 优化手机学习体验', fileSize: 12 * 1024 * 1024, sha256: 'a'.repeat(64),
   status: 'published', revision: 1, downloadCount: 0, createdAt: '2026-10-20T00:00:00Z', publishedAt: '2026-10-23T00:00:00Z',
   downloadUrl: '/api/apps/releases/real-release/download',

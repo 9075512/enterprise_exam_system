@@ -17,7 +17,7 @@ const learner = { Authorization: 'Bearer ' + signToken({ sub: 'user-zhangsan', r
 const author = { Authorization: 'Bearer ' + signToken({ sub: 'user-author', role: 'author', departmentId: '' }) };
 let release: { id: string; revision: number; downloadUrl: string };
 async function upload(code = 10002, name = '1.0.2') {
-  return request(app).post('/api/apps/manage').set(admin).field('appName', '卓达学习').field('versionName', name)
+  return request(app).post('/api/apps/manage').set(admin).field('appName', '卓达智学').field('versionName', name)
     .field('versionCode', code).field('minAndroid', '8.0').field('releaseNotes', '新登录页\n手机导航优化').attach('file', fixture);
 }
 beforeAll(async () => { await prepareTestDb(); await prepareAppStorage(); });
@@ -75,7 +75,7 @@ describe('App distribution lifecycle', () => {
   it('rejects stale edits, invalid statuses and mutable version codes', async () => {
     expect((await request(app).put(`/api/apps/manage/${release.id}/status`).set(admin).send({ revision: 1, status: 'withdrawn' })).status).toBe(409);
     expect((await request(app).put(`/api/apps/manage/${release.id}/status`).set(admin).send({ revision: 2, status: 'arbitrary' })).status).toBe(400);
-    const input = { appName: '卓达学习', versionName: '1.0.3', versionCode: 10003, minAndroid: '8.0', releaseNotes: 'edit', revision: 2 };
+    const input = { appName: '卓达智学', versionName: '1.0.3', versionCode: 10003, minAndroid: '8.0', releaseNotes: 'edit', revision: 2 };
     expect((await request(app).put(`/api/apps/manage/${release.id}`).set(admin).send(input)).status).toBe(400);
   });
   it('withdraws a version and immediately prevents public file downloads', async () => {

@@ -16,7 +16,7 @@ export function useAppDownload() {
   const wechat = /MicroMessenger/i.test(navigator.userAgent);
   const pageUrl = `${location.origin}/download`;
   let disposed = false;
-  const appName = computed(() => release.value?.appName || '卓达学习');
+  const appName = computed(() => release.value?.appName || '卓达智学');
   const canDownload = computed(() => !!release.value && !loading.value && !error.value && !ios);
   const downloadUrl = computed(() => canDownload.value ? release.value?.downloadUrl : undefined);
   const buttonText = computed(() => loading.value ? '正在获取版本…' : error.value ? '版本加载失败' : !release.value ? '安装包待发布' : ios ? '此版本适用于安卓' : '下载 Android 版');
