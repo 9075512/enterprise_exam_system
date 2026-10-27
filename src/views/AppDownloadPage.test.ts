@@ -21,7 +21,7 @@ describe('public App download page', () => {
     expect(api.latest).toHaveBeenCalledTimes(1);
   });
   it('renders only a published API version and escapes release notes', async () => {
-    api.latest.mockResolvedValue({ id: 'test', appName: '卓达学习', versionName: '1.0.2', fileSize: 28573, minAndroid: '8.0', publishedAt: '2026-10-23T00:00:00Z', releaseNotes: '<script>alert(1)</script>\n优化手机登录', sha256: 'abc', downloadUrl: '/api/apps/releases/test/download' });
+    api.latest.mockResolvedValue({ id: 'test', appName: '卓达智学', versionName: '1.0.2', fileSize: 28573, minAndroid: '8.0', publishedAt: '2026-10-23T00:00:00Z', releaseNotes: '<script>alert(1)</script>\n优化手机登录', sha256: 'abc', downloadUrl: '/api/apps/releases/test/download' });
     render(); await flushPromises();
     expect(wrapper.get('.dl-button').attributes('href')).toBe('/api/apps/releases/test/download');
     expect(wrapper.text()).toContain('v1.0.2');

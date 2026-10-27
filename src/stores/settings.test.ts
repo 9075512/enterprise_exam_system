@@ -29,9 +29,9 @@ describe('系统设置请求合并', () => {
   });
   it('公开配置返回前直接使用正式品牌，刷新时不闪现占位名称', () => {
     const store = useSettingsStore();
-    expect(store.publicSettings.systemName).toBe('卓达煤矿考试学习系统');
-    expect(store.publicSettings.systemShortName).toBe('卓达煤矿考试学习系统');
-    expect(store.publicSettings.copyright).toBe('© 2026 卓达煤矿考试学习系统');
+    expect(store.publicSettings.systemName).toBe('卓达智学');
+    expect(store.publicSettings.systemShortName).toBe('卓达智学');
+    expect(store.publicSettings.copyright).toBe('© 2026 卓达智学');
   });
 
   it('刷新时同步恢复上次加载的公开品牌', () => {

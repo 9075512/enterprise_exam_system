@@ -9,7 +9,7 @@ const rows = ref<AppRelease[]>([]), loading = ref(false), error = ref(''), keywo
 const dialog = ref(false), saving = ref(false), progress = ref(0), selected = ref<File | null>(null), editing = ref<AppRelease | null>(null);
 const fileInput = ref<HTMLInputElement>(), formRef = ref<FormInstance>(), working = ref('');
 const downloadPage = `${location.origin}/download`;
-const form = reactive<ReleaseInput>({ appName: '卓达学习', versionName: '', versionCode: 0, minAndroid: '8.0', releaseNotes: '' });
+const form = reactive<ReleaseInput>({ appName: '卓达智学', versionName: '', versionCode: 0, minAndroid: '8.0', releaseNotes: '' });
 const current = computed(() => rows.value.find(item => item.status === 'published'));
 const dataReady = computed(() => !loading.value && !error.value);
 const summaryStatus = computed(() => error.value ? '加载失败' : loading.value ? '加载中' : current.value ? '正在分发' : '待发布');
@@ -33,7 +33,7 @@ async function copy(text: string) {
 }
 function openEditor(item?: AppRelease) {
   editing.value = item ?? null; selected.value = null; progress.value = 0;
-  Object.assign(form, item ? { appName: item.appName, versionName: item.versionName, versionCode: item.versionCode, minAndroid: item.minAndroid, releaseNotes: item.releaseNotes } : { appName: current.value?.appName || '卓达学习', versionName: '', versionCode: 0, minAndroid: '8.0', releaseNotes: '' });
+  Object.assign(form, item ? { appName: item.appName, versionName: item.versionName, versionCode: item.versionCode, minAndroid: item.minAndroid, releaseNotes: item.releaseNotes } : { appName: current.value?.appName || '卓达智学', versionName: '', versionCode: 0, minAndroid: '8.0', releaseNotes: '' });
   dialog.value = true;
 }
 function choose(file?: File) {
@@ -74,7 +74,7 @@ onMounted(async () => { void load(); try { qr.value = await QRCode.toDataURL(dow
     <PageHeader title="App 管理" description="管理安卓安装包，让每一次更新有序抵达学员。"><template #actions><el-button :icon="TopRight" tag="a" href="/download" target="_blank" rel="noopener">预览下载页</el-button><el-button type="primary" :icon="UploadFilled" @click="openEditor()">上传新版本</el-button></template></PageHeader>
     <div class="app-manage__overview">
       <section class="app-manage__current">
-        <div class="app-manage__current-top"><img src="/brand/app-icon.svg" alt="" /><div><span class="app-manage__eyebrow">ANDROID APPLICATION</span><h2>{{ current?.appName || '卓达学习' }} <span v-if="current && dataReady">v{{ current.versionName }}</span></h2></div><span class="app-manage__live" :class="{ 'is-empty': !current || !dataReady }">{{ summaryStatus }}</span></div>
+        <div class="app-manage__current-top"><img src="/brand/app-icon.svg" alt="" /><div><span class="app-manage__eyebrow">ANDROID APPLICATION</span><h2>{{ current?.appName || '卓达智学' }} <span v-if="current && dataReady">v{{ current.versionName }}</span></h2></div><span class="app-manage__live" :class="{ 'is-empty': !current || !dataReady }">{{ summaryStatus }}</span></div>
         <p>{{ summaryDescription }}</p>
         <div class="app-manage__numbers"><div><strong>{{ dataReady ? rows.length : '—' }}</strong><small>版本记录</small></div><div><strong>{{ dataReady ? rows.filter(item => item.status === 'published').length : '—' }}</strong><small>已发布版本</small></div><div><strong>{{ dataReady ? totalDownloads.toLocaleString() : '—' }}</strong><small>完成下载次数</small></div></div>
       </section>

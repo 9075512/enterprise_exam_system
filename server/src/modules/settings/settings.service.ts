@@ -36,6 +36,10 @@ function mergeTemplates(stored: unknown): NotifyTemplates {
 export async function getSettings(): Promise<SystemSettings> {
   const row = await repo.findRaw();
   const stored = parseJsonColumn<Partial<SystemSettings>>(row?.settings, {});
+  // 已有安装的旧默认品牌随版本升级；保留管理员填写的其他名称。
+  if (stored.systemName === '卓达煤矿考试学习系统') stored.systemName = DEFAULT_SETTINGS.systemName;
+  if (stored.systemShortName === '卓达煤矿考试学习系统') stored.systemShortName = DEFAULT_SETTINGS.systemShortName;
+  if (stored.copyright === '© 2026 卓达煤矿考试学习系统') stored.copyright = DEFAULT_SETTINGS.copyright;
   return { ...DEFAULT_SETTINGS, ...stored, notifyTemplates: mergeTemplates(stored.notifyTemplates) };
 }
 

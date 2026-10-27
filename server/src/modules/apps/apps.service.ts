@@ -7,7 +7,7 @@ import * as audit from '../audit/audit.service.js';
 import { assertApkExists } from './apps.files.js';
 
 export const releaseSchema = z.object({
-  appName: z.string().trim().min(1).max(60).default('卓达学习'),
+  appName: z.string().trim().min(1).max(60).default('卓达智学'),
   versionName: z.string().trim().regex(/^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/, '版本号格式示例：1.0.2').max(40),
   versionCode: z.coerce.number().int().min(1).max(2100000000),
   minAndroid: z.string().trim().regex(/^\d{1,2}(?:\.\d{1,2})?$/, '最低安卓版本格式示例：8.0').default('8.0'),
@@ -20,7 +20,7 @@ export interface AppRelease {
   revision: number; downloadCount: number; createdAt: string; publishedAt: string | null; downloadUrl: string;
 }
 export function dto(row: RowDataPacket): AppRelease {
-  return { id: row.id, appName: row.app_name, versionName: row.version_name, versionCode: Number(row.version_code),
+  return { id: row.id, appName: row.app_name === '卓达学习' ? '卓达智学' : row.app_name, versionName: row.version_name, versionCode: Number(row.version_code),
     minAndroid: row.min_android, releaseNotes: row.release_notes, fileSize: Number(row.file_size), sha256: row.sha256,
     status: row.status, revision: row.revision, downloadCount: Number(row.download_count),
     createdAt: fromDbDateSafe(row.created_at), publishedAt: row.published_at ? fromDbDateSafe(row.published_at) : null,
