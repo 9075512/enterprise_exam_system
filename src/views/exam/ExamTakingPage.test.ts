@@ -3,6 +3,7 @@ import { flushPromises, shallowMount } from '@vue/test-utils';
 import ExamTakingPage from './ExamTakingPage.vue';
 import QuestionCard from './components/QuestionCard.vue';
 import ExamResultDialog from './components/ExamResultDialog.vue';
+import ExamCameraGuard from '@/components/exams/ExamCameraGuard.vue';
 const api = vi.hoisted(() => ({ detail: vi.fn(), exam: vi.fn(), save: vi.fn(), submit: vi.fn(), confirm: vi.fn(), close: vi.fn(), push: vi.fn(), replace: vi.fn(), cheat: vi.fn() }));
 vi.mock('vue-router', () => ({ useRoute: () => ({ params: { recordId: 'r1' } }), useRouter: () => ({ push: api.push, replace: api.replace }) }));
 vi.mock('@/api/records', () => ({ detail: api.detail, saveAnswers: api.save, submit: api.submit, addCheatEvent: api.cheat }));
@@ -14,7 +15,7 @@ let wrapper: ReturnType<typeof shallowMount>;
 const questions = ['single', 'multiple', 'judge', 'fill', 'short'].map((type, i) => ({ questionId: `q${i}`, score: 20, question: { id: `q${i}`, type, stem: type === 'fill' ? '___ 和 ___' : '示例题干', answer: [], options: ['甲', '乙'] } }));
 const record = () => ({ id: 'r1', examId: 'e1', status: 'in_progress', answers: {}, cheatEvents: [], startedAt: new Date().toISOString(), paperSnapshot: { questions, totalScore: 100 } });
 const global = { stubs: { ElIcon: true, ElButton: { props: ['disabled', 'loading'], template: '<button :disabled="disabled || loading"><slot /></button>' }, ElDrawer: { props: ['modelValue'], template: '<div v-if="modelValue"><slot /><slot name="footer" /></div>' }, ElAlert: { props: ['title'], template: '<p>{{ title }}</p>' }, ElCard: { template: '<div><slot /></div>' } } };
-function render() { wrapper = shallowMount(ExamTakingPage, { global }); }
+function render() { wrapper = shallowMount(ExamTakingPage, { global: { ...global, stubs: { ...global.stubs, Teleport: { props: ['defer', 'to', 'disabled'], template: '<slot />' } } } }); }
 async function click(text: string) { await wrapper.findAll('button').find(b => b.text() === text)!.trigger('click'); await flushPromises(); }
 async function answer(value: number[] = [0]) { wrapper.findAllComponents(QuestionCard)[0]!.vm.$emit('update:modelValue', value); await flushPromises(); }
 beforeEach(() => {
@@ -27,6 +28,28 @@ beforeEach(() => {
 });
 afterEach(() => { wrapper?.unmount(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 describe('考试答题与安全交卷', () => {
+  it('必拍摄像头未就绪时阻止答案修改，恢复后继续作答', async () => {
+    api.detail.mockResolvedValue({ ...record(), captureConfig: { enabled: true, intervalMinutes: 5, cameraPolicy: 'required', retentionDays: 30 } });
+    render(); await flushPromises();
+    expect(wrapper.findAllComponents(QuestionCard)[0]!.props('disabled')).toBe(true);
+    await answer([1]); expect(wrapper.findAllComponents(QuestionCard)[0]!.props('modelValue')).toEqual([]);
+    wrapper.getComponent(ExamCameraGuard).vm.$emit('lockedChange', false); await flushPromises();
+    await answer([1]); expect(wrapper.findAllComponents(QuestionCard)[0]!.props('modelValue')).toEqual([1]);
+    wrapper.getComponent(ExamCameraGuard).vm.$emit('lockedChange', true); await flushPromises();
+    expect(wrapper.findAllComponents(QuestionCard)[0]!.props('disabled')).toBe(true);
+    expect(wrapper.findAllComponents(QuestionCard)[0]!.props('modelValue')).toEqual([1]);
+  });
+  it('摄像头遮挡期间仍允许手动交卷，交卷后停止抓拍', async () => {
+    api.detail.mockResolvedValue({ ...record(), captureConfig: { enabled: true, intervalMinutes: 5, cameraPolicy: 'required', retentionDays: 30 } });
+    render(); await flushPromises(); await click('交卷');
+    expect(api.submit).toHaveBeenCalledWith('r1', false);
+    expect(wrapper.getComponent(ExamCameraGuard).props('active')).toBe(false);
+  });
+  it('摄像头遮挡期间仍按原倒计时自动交卷', async () => {
+    api.detail.mockResolvedValue({ ...record(), startedAt: '2026-10-18T23:00:02Z', captureConfig: { enabled: true, intervalMinutes: 5, cameraPolicy: 'required', retentionDays: 30 } });
+    render(); await flushPromises(); await vi.advanceTimersByTimeAsync(2000); await flushPromises();
+    expect(api.submit).toHaveBeenCalledWith('r1', true);
+  });
   it('暂存失败时不退出答题页，重试成功后才返回考试列表', async () => {
     api.save.mockRejectedValueOnce(new Error('offline'));
     render(); await flushPromises(); await answer(); await click('暂存退出');

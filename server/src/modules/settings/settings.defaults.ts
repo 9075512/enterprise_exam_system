@@ -10,6 +10,10 @@ import { NOTIFY_TEMPLATES_DEFAULT } from '../../utils/notifyTemplate.js';
 
 /** 全部设置的默认值。 */
 export const DEFAULT_SETTINGS: SystemSettings = {
+  captureEnabled: false,
+  captureIntervalMinutes: 5,
+  captureCameraPolicy: 'required',
+  captureRetentionDays: 30,
   gradeBands: [
     { name: '优秀', minPercent: 90 },
     { name: '良好', minPercent: 80 },

@@ -14,6 +14,10 @@ import { z } from 'zod';
 
 /** 完整系统设置校验（PUT /settings 入参，所有字段必填）。 */
 export const settingsSchema = z.object({
+  captureEnabled: z.boolean().optional(),
+  captureIntervalMinutes: z.number().int().min(1).max(60).optional(),
+  captureCameraPolicy: z.enum(['required', 'optional']).optional(),
+  captureRetentionDays: z.number().int().min(1).max(365).optional(),
   gradeBands: z.array(z.object({
     name: z.string().trim().min(1).max(20),
     minPercent: z.number().min(0).max(100),

@@ -3,6 +3,9 @@
  * 判分核心 isAnswerCorrect()/grade() 集中于此（禁止在 UI 层判分，§9-12）。
  */
 import * as repo from './records.repo.js';
+import * as captures from '../captures/captures.service.js';
+import * as captureRepo from '../captures/captures.repo.js';
+import { captureInputSchema } from '../captures/captures.schema.js';
 import type { ExamRecordRow } from './records.repo.js';
 import { mapRecordRow, mapRecordDetailRow } from './records.mapper.js';
 import * as examsRepo from '../exams/exams.repo.js';
@@ -73,76 +76,103 @@ function assertOwner(row: ExamRecordRow, userId: string): void {
 export async function startExam(
   examId: string,
   user: { id: string; departmentId: string },
+  capture: captures.CaptureStartInput = {},
 ): Promise<ExamRecordDto> {
   const settings = await getSettings();
-  return withTransaction(async conn => {
-    const examRow = await examsRepo.findById(examId, conn, true);
-    if (!examRow) throw notFound('考试不存在或已被删除');
-    const exam = mapExamRow(examRow);
-    await participantsService.assertParticipant(examId, user.id, conn);
+  const preparedKeys: string[] = [];
+  try {
+    return await withTransaction(async conn => {
+      const examRow = await examsRepo.findById(examId, conn, true);
+      if (!examRow) throw notFound('考试不存在或已被删除');
+      const exam = mapExamRow(examRow);
+      await participantsService.assertParticipant(examId, user.id, conn);
 
-    // 特殊安排（v1.7①）：免考拒绝；加时下发；额外次数并入上限
-    const exception = await exceptionsRepo.findByExamAndUser(examId, user.id, conn);
-    const extraMinutes = exception ? Number(exception.extra_minutes) : 0;
-    const extraAttempts = exception ? Number(exception.extra_attempts) : 0;
-    if (exception && Boolean(Number(exception.exempt))) {
-      throw badRequest('你已被标记为免考，无需参加本次考试');
-    }
-
-    const status = getExamStatus(exam);
-    if (status === 'not_started') throw badRequest('考试尚未开始，请在规定时间内参加');
-    if (status === 'ended') throw badRequest('考试已结束，无法进入');
-
-    // 续考幂等：管理员恢复模式下，异常退出后必须先由管理员放行。
-    const inProgress = await repo.findInProgressByExamAndUser(examId, user.id, conn);
-    if (inProgress) {
-      if (settings.abnormalExitResumePolicy === 'admin_required' && !Boolean(inProgress.resume_allowed)) {
-        throw forbidden('本次考试需要管理员恢复后才能继续作答');
+      // 特殊安排（v1.7①）：免考拒绝；加时下发；额外次数并入上限
+      const exception = await exceptionsRepo.findByExamAndUser(examId, user.id, conn);
+      const extraMinutes = exception ? Number(exception.extra_minutes) : 0;
+      const extraAttempts = exception ? Number(exception.extra_attempts) : 0;
+      if (exception && Boolean(Number(exception.exempt))) {
+        throw badRequest('你已被标记为免考，无需参加本次考试');
       }
-      return { ...mapRecordRow(inProgress), extraMinutes };
-    }
 
-    // 次数上限校验（补考：存在已通过申请时额外授予 1 次；特殊安排：额外次数）
-    const used = await repo.countSubmittedByExamAndUser(examId, user.id, conn);
-    const retakeGranted = await retakesService.isRetakeGranted(examId, user.id, conn);
-    const maxAllowed = exam.maxAttempts + (retakeGranted ? 1 : 0) + extraAttempts;
-    if (used >= maxAllowed) {
-      throw attemptsExhausted(`答题次数已用完（最多 ${maxAllowed} 次）`);
-    }
+      const status = getExamStatus(exam);
+      if (status === 'not_started') throw badRequest('考试尚未开始，请在规定时间内参加');
+      if (status === 'ended') throw badRequest('考试已结束，无法进入');
 
-    const attemptNo = used + 1;
-    let snapshot = await papersService.getSnapshot(exam.paperId, conn);
+      // 续考幂等：管理员恢复模式下，异常退出后必须先由管理员放行。
+      const inProgress = await repo.findInProgressByExamAndUser(examId, user.id, conn);
+      if (inProgress) {
+        if (settings.abnormalExitResumePolicy === 'admin_required' && !Boolean(inProgress.resume_allowed)) {
+          throw forbidden('本次考试需要管理员恢复后才能继续作答');
+        }
+        const config = await captures.configForRecord(inProgress.id, conn);
+        if (config.enabled) {
+          const captureId = captureInputSchema.parse({ captureId: capture.captureId ?? crypto.randomUUID() }).captureId;
+          const existing = await captureRepo.findRetry(inProgress.id, captureId, conn);
+          if (!existing) {
+            if (config.cameraPolicy === 'required' && !capture.file) throw badRequest('请先开启摄像头并完成开考拍照');
+            if (capture.file) {
+              const photo = await captures.preparePhoto(capture.file);
+              preparedKeys.push(photo.storageKey);
+              await captures.savePrepared(inProgress.id, { captureId, kind: 'resume' }, photo, config, conn);
+              await captureRepo.addEvent(inProgress.id, { eventId: captureId, status: 'ready', reason: '' }, conn);
+            } else {
+              await captureRepo.addEvent(inProgress.id, { eventId: captureId, status: 'unavailable', reason: capture.reason || '未能采集摄像头画面' }, conn);
+            }
+          }
+        }
+        return { ...mapRecordRow(inProgress), extraMinutes, captureConfig: config };
+      }
 
-    // 人手一卷：考试级开关优先，NULL 时继承全局默认（shuffleDefaultEnabled / shuffleOptionsDefault）
-    const shuffleEnabled = exam.shuffleEnabled ?? settings.shuffleDefaultEnabled;
-    if (shuffleEnabled) {
-      const shuffleOptions = exam.shuffleOptions ?? settings.shuffleOptionsDefault;
-      const seed = crypto.createHash('sha1').update(`${examId}:${user.id}:${attemptNo}`).digest('hex');
-      snapshot = shuffleSnapshot(snapshot, seed, shuffleOptions);
-    }
+      // 次数上限校验（补考：存在已通过申请时额外授予 1 次；特殊安排：额外次数）
+      const used = await repo.countSubmittedByExamAndUser(examId, user.id, conn);
+      const retakeGranted = await retakesService.isRetakeGranted(examId, user.id, conn);
+      const maxAllowed = exam.maxAttempts + (retakeGranted ? 1 : 0) + extraAttempts;
+      if (used >= maxAllowed) {
+        throw attemptsExhausted(`答题次数已用完（最多 ${maxAllowed} 次）`);
+      }
 
-    const id = genId('rec-');
-    try {
+      const attemptNo = used + 1;
+      let snapshot = await papersService.getSnapshot(exam.paperId, conn);
+
+      // 人手一卷：考试级开关优先，NULL 时继承全局默认（shuffleDefaultEnabled / shuffleOptionsDefault）
+      const shuffleEnabled = exam.shuffleEnabled ?? settings.shuffleDefaultEnabled;
+      if (shuffleEnabled) {
+        const shuffleOptions = exam.shuffleOptions ?? settings.shuffleOptionsDefault;
+        const seed = crypto.createHash('sha1').update(`${examId}:${user.id}:${attemptNo}`).digest('hex');
+        snapshot = shuffleSnapshot(snapshot, seed, shuffleOptions);
+      }
+
+      const config = captures.resolveCaptureConfig(exam.captureSettings, settings);
+      const captureId = config.enabled ? captureInputSchema.parse({ captureId: capture.captureId ?? crypto.randomUUID() }).captureId : '';
+      let photo: captures.PreparedCapture | undefined;
+      if (config.enabled) {
+        if (config.cameraPolicy === 'required' && !capture.file) throw badRequest('请先开启摄像头并完成开考拍照');
+        if (capture.file) {
+          photo = await captures.preparePhoto(capture.file);
+          preparedKeys.push(photo.storageKey);
+        }
+      }
+      // The first photo is on disk before startedAt is set; rollback removes it on any failure.
+      const id = genId('rec-');
       await repo.insert({
-        id,
-        examId,
-        userId: user.id,
-        attemptNo,
-        departmentId: user.departmentId || null,
-        paperSnapshot: snapshot,
-        answers: {},
-        startedAt: nowDb(),
-        cheatEvents: [],
+        id, examId, userId: user.id, attemptNo,
+        departmentId: user.departmentId || null, paperSnapshot: snapshot,
+        answers: {}, startedAt: nowDb(), cheatEvents: [],
       }, conn);
-    } catch (err) {
-      // 并发重复插入由唯一键 uk_records_exam_user_attempt 兜住 → 回读同 attempt_no 记录
-      const again = await repo.findByExamUserAttempt(examId, user.id, attemptNo, conn);
-      if (again) return { ...mapRecordRow(again), extraMinutes };
-      throw err;
-    }
-    const created = await repo.findById(id, conn);
-    return { ...mapRecordRow(created!), extraMinutes };
-  });
+      await captureRepo.createSession({ id, examId, userId: user.id, attemptNo }, config, conn);
+      if (photo) {
+        await captures.savePrepared(id, { captureId, kind: 'entry' }, photo, config, conn);
+        await captureRepo.addEvent(id, { eventId: captureId, status: 'ready', reason: '' }, conn);
+      }
+      else if (config.enabled) await captureRepo.addEvent(id, { eventId: captureId, status: 'unavailable', reason: capture.reason || '未能采集摄像头画面' }, conn);
+      const created = await repo.findById(id, conn);
+      return { ...mapRecordRow(created!), extraMinutes, captureConfig: config };
+    });
+  } catch (error) {
+    await Promise.all(preparedKeys.map(key => captures.discardPhoto(key).catch(() => {})));
+    throw error;
+  }
 }
 
 /** 暂存答案：仅 in_progress 可写；按题型归一化（客观题排序去重，填空 trim 文本，简答富文本净化）。 */
@@ -266,7 +296,7 @@ export async function getById(recordId: string, user: { id: string; role: Role }
   const extraMinutes = exception ? Number(exception.extra_minutes) : 0;
   // 成绩复核申请状态（考生查看本人复核进度）
   const appeal = await appealsRepo.findByRecordId(recordId);
-  return { ...dto, reviewNotes, extraMinutes, appealStatus: appeal ? (appeal.status as AppealStatus) : null };
+  return { ...dto, captureConfig: await captures.configForRecord(recordId), reviewNotes, extraMinutes, appealStatus: appeal ? (appeal.status as AppealStatus) : null };
 }
 
 /** 我的成绩（仅已交卷，分页；可选按考试名称关键字筛选）。 */

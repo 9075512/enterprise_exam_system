@@ -76,6 +76,7 @@ export const env = {
    * 默认 `storage/attachments`，按 `yyyy/MM/` 分目录存放。
    */
   STORAGE_DIR: optional('STORAGE_DIR', 'storage/attachments'),
+  CAPTURE_STORAGE_DIR: optional('CAPTURE_STORAGE_DIR', 'storage/exam-captures'),
   APP_RELEASES_DIR: optional('APP_RELEASES_DIR', 'storage/app-releases'),
 
   // —— 练题（增量，架构 §10-20） ——

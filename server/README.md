@@ -70,3 +70,7 @@ unset NEW_ADMIN_PASSWORD
 - `POST /api/exams/draw-questions`：复用题型/知识点抽题规则，只返回选题草稿；`GET /api/exams/:id/export-pdf?withAnswer=1` 导出答案版，省略参数为考生版。
 - 考试与内部试卷、出题人、名单使用同一事务保存；开考和修改共用考试行锁。到达开始时间或已有任意作答（含归档）后禁止改题、调分、更换题库或修改开始时间。
 - 独立 `/api/papers` 接口已撤下；考生无法访问含答案的题目管理/导出接口。新库和空数据升级执行 `npm run db:init` 即可，不迁移历史共享试卷，也不执行清库。
+
+## 考试抓拍
+
+升级现有数据库：`npm run db:migrate:captures`。配置私有目录、HTTPS、安卓构建及验收见 [考试抓拍部署说明](../docs/exam-capture.md)。

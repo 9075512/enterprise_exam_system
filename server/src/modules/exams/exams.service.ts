@@ -3,6 +3,7 @@
  * 考试状态不落库，由时间窗实时推导（getExamStatus）；考生端做科室隔离。
  */
 import * as repo from './exams.repo.js';
+import * as captures from '../captures/captures.service.js';
 import * as exceptionsRepo from './examExceptions.repo.js';
 import * as monitorRepo from './examMonitor.repo.js';
 import type { MonitorRecordRow } from './examMonitor.repo.js';
@@ -53,6 +54,7 @@ async function validateExamInput(input: ExamInput, paperId: string, totalScore: 
   shuffleOptions: boolean | null;
   allowRetake: boolean | null;
   allowAppeal: boolean | null;
+  captureSettings: ExamInput['captureSettings'];
   examMode: 'open' | 'closed';
 }> {
   const name = input.name.trim();
@@ -96,6 +98,7 @@ async function validateExamInput(input: ExamInput, paperId: string, totalScore: 
     shuffleOptions: input.shuffleOptions ?? null,
     allowRetake: input.allowRetake ?? null,
     allowAppeal: input.allowAppeal ?? null,
+    captureSettings: input.captureSettings,
     examMode: input.examMode ?? 'closed',
   };
 }
@@ -582,6 +585,11 @@ export async function getMonitor(examId: string): Promise<ExamMonitorDto> {
         nowMs,
       ),
     );
+  }
+
+  const captureSummaries = await captures.examSummaries(examId);
+  for (const row of rows) {
+    if (row.recordId) row.captureSummary = captureSummaries.get(row.recordId);
   }
 
   // 排序：进行中（剩余少的在前）→ 未开始 → 待阅卷 → 已交卷

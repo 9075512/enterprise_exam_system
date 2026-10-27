@@ -3,6 +3,9 @@
  * 管理员维护考试；指定出题人按题库权限维护题目；考生仅能读取本人可参加的考试。
  */
 import { Router } from 'express';
+import { z } from 'zod';
+import { captureUpload } from '../captures/captures.router.js';
+import * as captures from '../captures/captures.service.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { validate } from '../../middleware/validate.js';
 import { authRequired } from '../../middleware/auth.js';
@@ -23,6 +26,7 @@ import * as participantsService from './examParticipants.service.js';
 export const examsRouter = Router();
 
 examsRouter.use(authRequired);
+examsRouter.get('/:id/capture-config', requireRole('examinee'), asyncHandler(async (req, res) => ok(res, await captures.configForExam(req.params.id, req.user!.id))));
 
 /** GET /api/exams/my —— 考生可见考试（科室隔离 + recordStatus）。 */
 examsRouter.get(
@@ -138,11 +142,12 @@ examsRouter.delete(
 examsRouter.post(
   '/:id/start',
   requireRole('examinee'),
+  captureUpload,
   asyncHandler(async (req, res) => {
     const record = await recordsService.startExam(req.params.id, {
       id: req.user!.id,
       departmentId: req.user!.departmentId,
-    });
+    }, { ...z.object({ captureId: z.string().max(64).optional(), reason: z.string().max(255).optional() }).parse(req.body ?? {}), file: req.file });
     return ok(res, record);
   }),
 );

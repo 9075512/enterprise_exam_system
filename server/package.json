@@ -15,7 +15,8 @@
     "db:reset": "tsx src/db/init.ts --reset",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:migrate:captures": "tsx src/scripts/migrateCaptures.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -23,6 +24,7 @@
     "dotenv": "^16.4.5",
     "exceljs": "^4.4.0",
     "express": "^4.21.0",
+    "jpeg-js": "^0.4.4",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.4.0",
     "mysql2": "^3.11.3",

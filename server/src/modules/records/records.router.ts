@@ -21,7 +21,10 @@ import {
 import * as recordsService from './records.service.js';
 import type { ReviewNotes } from '../../types/domain.js';
 
+import { capturesRouter } from '../captures/captures.router.js';
+
 export const recordsRouter = Router();
+recordsRouter.use('/:recordId/captures', capturesRouter);
 
 recordsRouter.use(authRequired);
 

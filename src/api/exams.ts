@@ -36,8 +36,13 @@ export function remove(id: string): Promise<null> {
 }
 
 /** 开始考试（生成记录 + 快照，幂等续考） */
-export function start(id: string): Promise<ExamRecord> {
-  return post<ExamRecord>(`/exams/${id}/start`);
+export function start(id: string, capture?: import('./captures').StartCapture): Promise<ExamRecord> {
+  if (!capture) return post<ExamRecord>(`/exams/${id}/start`);
+  const body = new FormData();
+  body.append('captureId', capture.captureId);
+  if (capture.file) body.append('file', capture.file, 'entry.jpg');
+  if (capture.reason) body.append('reason', capture.reason);
+  return post<ExamRecord>(`/exams/${id}/start`, body);
 }
 
 /* ------------------------------ 特殊考试安排（v1.7①，admin） ------------------------------ */

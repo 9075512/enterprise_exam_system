@@ -14,6 +14,7 @@ export interface ExamRow extends RowDataPacket {
   department_ids: unknown;
   audience_mode?: string;
   audience_rules?: unknown;
+  capture_settings?: unknown;
   start_time: string;
   end_time: string;
   duration_minutes: number | string;
@@ -39,6 +40,7 @@ export function mapExamRow(row: ExamRow): ExamDto {
   const rules = parseJsonColumn<{ includeUserIds?: string[]; excludeUserIds?: string[] }>(row.audience_rules, {});
   return {
     id: row.id,
+    captureSettings: parseJsonColumn(row.capture_settings, null),
     name: row.name,
     paperId: row.paper_id,
     departmentIds: parseJsonColumn<string[]>(row.department_ids, []),
