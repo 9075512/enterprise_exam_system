@@ -9,6 +9,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     AccountSecurityDialog: typeof import('./components/account/AccountSecurityDialog.vue')['default']
     AdmissionTicketPreview: typeof import('./components/exams/AdmissionTicketPreview.vue')['default']
+    AppUpdatePrompt: typeof import('./components/apps/AppUpdatePrompt.vue')['default']
     BatchActionBar: typeof import('./components/common/BatchActionBar.vue')['default']
     BootSplash: typeof import('./components/common/BootSplash.vue')['default']
     CaptchaImage: typeof import('./components/common/CaptchaImage.vue')['default']

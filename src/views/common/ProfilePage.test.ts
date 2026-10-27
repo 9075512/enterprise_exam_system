@@ -1,18 +1,32 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import ElementPlus, { ElMessage } from 'element-plus';
+import { createPinia } from 'pinia';
 import ProfilePage from './ProfilePage.vue';
 import { useAuthStore } from '@/stores/auth';
 import type { User } from '@/types';
-const api = vi.hoisted(() => ({ fetchMe: vi.fn(), logout: vi.fn(), replace: vi.fn() }));
+const api = vi.hoisted(() => ({ fetchMe: vi.fn(), logout: vi.fn(), replace: vi.fn(), latest: vi.fn() }));
+vi.mock('@/api/apps', () => ({ latestApp: api.latest }));
 vi.mock('vue-router', () => ({ useRouter: () => ({ replace: api.replace }) }));
 vi.mock('@/stores/auth', async () => { const { reactive } = await import('vue'); const state = reactive({ currentUser: null, fetchMe: api.fetchMe, logout: api.logout }); return { useAuthStore: () => state }; });
 const user: User = { id: 'sample-user', username: 'sample_account', name: '完整姓名ABCDEFGHIJKLMNOPQRSTUVWXYZ', role: 'examinee', roleId: 'examinee', roleName: '考生', departmentId: 'sample-dept', departmentName: '长科室名称', positionId: 'sample-position', positionName: '完整岗位', email: 'sample@example.test', status: 'active', twoFactorEnabled: true, passwordChangedAt: '', createdAt: '2026-10-20T00:00:00Z' };
 let wrapper: VueWrapper;
 beforeEach(() => { vi.resetAllMocks(); useAuthStore().currentUser = { ...user }; });
 afterEach(() => { wrapper?.unmount(); ElMessage.closeAll(); document.body.innerHTML = ''; vi.restoreAllMocks(); });
-async function render() { wrapper = mount(ProfilePage, { attachTo: document.body, global: { plugins: [ElementPlus], stubs: { ChangePasswordDialog: true, AccountSecurityDialog: true } } }); await flushPromises(); }
+async function render() { wrapper = mount(ProfilePage, { attachTo: document.body, global: { plugins: [createPinia(), ElementPlus], stubs: { ChangePasswordDialog: true, AccountSecurityDialog: true } } }); await flushPromises(); }
 describe('个人资料刷新与账号状态', () => {
+  it('App 手动检查显示当前版本，并允许离线失败后重试', async () => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Android 13 ZhuodaLearnerAndroid/1.0.6 ZhuodaLearnerBuild/10006');
+    const success = vi.spyOn(ElMessage, 'success'); const error = vi.spyOn(ElMessage, 'error');
+    await render();
+    const button = wrapper.findAll('button').find(b => b.text().includes('检查更新'))!;
+    expect(button.text()).toContain('1.0.6');
+    api.latest.mockRejectedValueOnce(new Error('offline'));
+    await button.trigger('click'); await flushPromises(); expect(error).toHaveBeenCalled();
+    api.latest.mockResolvedValueOnce({ versionName: '1.0.6', versionCode: 10006, status: 'published', downloadUrl: '/api/apps/releases/12345678-1234-1234-1234-123456789abc/download' });
+    await button.trigger('click'); await flushPromises(); expect(success).toHaveBeenCalledWith('当前已是最新版本');
+    expect(api.latest).toHaveBeenCalledTimes(2);
+  });
   it('连续刷新只请求一次，失败保留资料并提示当前为旧信息', async () => {
     await render(); let fail!: (error: Error) => void; api.fetchMe.mockReturnValueOnce(new Promise((_resolve, reject) => { fail = reject; }));
     const refresh = wrapper.find('button[aria-label="刷新资料"]'); await refresh.trigger('click'); await refresh.trigger('click'); expect(api.fetchMe).toHaveBeenCalledOnce();

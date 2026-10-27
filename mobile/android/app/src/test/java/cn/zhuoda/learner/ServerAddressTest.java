@@ -4,6 +4,14 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class ServerAddressTest {
+    @Test public void updateDownloadOnlyAcceptsTheConfiguredPublicApkRoute() {
+        String path = "/api/apps/releases/9432b2ba-14fe-40e6-aa62-2502614a4b38/download";
+        assertTrue(ServerAddress.isAppDownload("https://exam.example.com", "https://exam.example.com" + path));
+        assertFalse(ServerAddress.isAppDownload("https://exam.example.com", "https://evil.example.com" + path));
+        assertFalse(ServerAddress.isAppDownload("https://exam.example.com", "http://exam.example.com" + path));
+        assertFalse(ServerAddress.isAppDownload("https://exam.example.com", "https://exam.example.com" + path + "?token=secret"));
+        assertFalse(ServerAddress.isAppDownload("https://exam.example.com", "https://exam.example.com/other.apk"));
+    }
     @Test public void normalizesDeploymentAndLanAddresses() {
         assertEquals("http://139.9.134.68", ServerAddress.normalize(" http://139.9.134.68/ "));
         assertEquals("https://exam.example.com", ServerAddress.normalize("EXAM.example.com"));

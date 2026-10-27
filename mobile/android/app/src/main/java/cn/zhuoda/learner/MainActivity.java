@@ -54,7 +54,8 @@ public class MainActivity extends Activity {
     private PermissionRequest pendingCameraRequest;
     private static final int BLUE = 0xFF2563EB;
     private static final int BACKGROUND = 0xFFF4F7FC;
-    private static final String UA_MARKER = " ZhuodaLearnerAndroid/" + BuildConfig.VERSION_NAME;
+    private static final String UA_MARKER = " ZhuodaLearnerAndroid/" + BuildConfig.VERSION_NAME
+            + " ZhuodaLearnerBuild/" + BuildConfig.VERSION_CODE;
     private WebView webView;
     private FrameLayout root;
     private LinearLayout chrome;
@@ -155,6 +156,10 @@ public class MainActivity extends Activity {
         webView.setWebViewClient(new WebViewClient() {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String target = request.getUrl().toString();
+                if (request.hasGesture() && request.isForMainFrame() && ServerAddress.isAppDownload(server, target)) {
+                    openAppDownload(target);
+                    return true;
+                }
                 if (ServerAddress.sameOrigin(server, target)) return false;
                 if (request.hasGesture() && request.isForMainFrame()) openExternal(request.getUrl());
                 return true;
@@ -245,6 +250,10 @@ public class MainActivity extends Activity {
                 }
                 return true;
             }
+        });
+        webView.setDownloadListener((url, userAgent, disposition, mime, length) -> {
+            if (ServerAddress.isAppDownload(server, url)) openAppDownload(url);
+            else toast("请通过系统浏览器下载此文件");
         });
         chrome.addView(webView, new LinearLayout.LayoutParams(-1, 0, 1));
         createErrorPanel();
@@ -353,6 +362,15 @@ public class MainActivity extends Activity {
                     try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
                     catch (ActivityNotFoundException ignored) { toast("未找到浏览器"); }
                 }).show();
+    }
+
+    private void openAppDownload(String url) {
+        if (!ServerAddress.isAppDownload(server, url)) return;
+        withCurrentPath(path -> {
+            if (path.isEmpty() || path.startsWith("/exam/taking/")) { toast("请完成考试后再下载更新"); return; }
+            try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); }
+            catch (ActivityNotFoundException ignored) { toast("未找到浏览器，请在手机浏览器打开 " + server + "/download"); }
+        });
     }
 
     private void installLearnerMode() {
