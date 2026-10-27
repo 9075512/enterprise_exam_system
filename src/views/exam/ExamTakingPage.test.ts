@@ -4,6 +4,7 @@ import ExamTakingPage from './ExamTakingPage.vue';
 import QuestionCard from './components/QuestionCard.vue';
 import ExamResultDialog from './components/ExamResultDialog.vue';
 import ExamCameraGuard from '@/components/exams/ExamCameraGuard.vue';
+import { rememberStartCapture } from '@/utils/examCaptureHandoff';
 const api = vi.hoisted(() => ({ detail: vi.fn(), exam: vi.fn(), save: vi.fn(), submit: vi.fn(), confirm: vi.fn(), close: vi.fn(), push: vi.fn(), replace: vi.fn(), cheat: vi.fn() }));
 vi.mock('vue-router', () => ({ useRoute: () => ({ params: { recordId: 'r1' } }), useRouter: () => ({ push: api.push, replace: api.replace }) }));
 vi.mock('@/api/records', () => ({ detail: api.detail, saveAnswers: api.save, submit: api.submit, addCheatEvent: api.cheat }));
@@ -28,6 +29,13 @@ beforeEach(() => {
 });
 afterEach(() => { wrapper?.unmount(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 describe('考试答题与安全交卷', () => {
+  it('从拍照准备页进入传递一次首照回执，重新挂载则按续考补拍', async () => {
+    api.detail.mockResolvedValue({ ...record(), captureConfig: { enabled: true, intervalMinutes: 5, cameraPolicy: 'required', retentionDays: 30 } });
+    rememberStartCapture('r1'); render(); await flushPromises();
+    expect(wrapper.getComponent(ExamCameraGuard).props('initialCaptureSaved')).toBe(true);
+    wrapper.unmount(); render(); await flushPromises();
+    expect(wrapper.getComponent(ExamCameraGuard).props('initialCaptureSaved')).toBe(false);
+  });
   it('必拍摄像头未就绪时阻止答案修改，恢复后继续作答', async () => {
     api.detail.mockResolvedValue({ ...record(), captureConfig: { enabled: true, intervalMinutes: 5, cameraPolicy: 'required', retentionDays: 30 } });
     render(); await flushPromises();

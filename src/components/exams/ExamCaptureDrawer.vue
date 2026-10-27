@@ -20,7 +20,7 @@ const allSelected = computed(() => selectableIds.value.length > 0 && selectableI
 function selectAll(checked: boolean) { selected.value = checked ? [...selectableIds.value] : []; }
 function selectPhoto(id: string, checked: boolean) { selected.value = checked ? [...new Set([...selected.value, id])] : selected.value.filter(value => value !== id); }
 const previewUrls = computed(() => data.value?.items.map(item => urls.value[item.id]).filter((url): url is string => Boolean(url)) ?? []);
-const labels: Record<string, string> = { entry: '开考拍照', periodic: '定时抓拍', resume: '恢复拍照', ready: '摄像头恢复', interrupted: '摄像头中断', unavailable: '摄像头不可用', upload_failed: '上传失败' };
+const labels: Record<string, string> = { entry: '开考拍照', periodic: '定时抓拍', resume: '续考/恢复补拍', ready: '摄像头已就绪', interrupted: '摄像头中断', unavailable: '摄像头不可用', upload_failed: '上传失败' };
 let revision = 0;
 function clearUrls() { Object.values(urls.value).forEach(url => URL.revokeObjectURL(url)); urls.value = {}; }
 async function removePhotos(ids: string[]) {

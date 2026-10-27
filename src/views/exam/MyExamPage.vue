@@ -14,6 +14,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { InfoFilled, Refresh, Search } from '@element-plus/icons-vue';
 import * as examsApi from '@/api/exams';
 import * as capturesApi from '@/api/captures';
+import { rememberStartCapture } from '@/utils/examCaptureHandoff';
 import ExamCameraPreflight from '@/components/exams/ExamCameraPreflight.vue';
 import * as recordsApi from '@/api/records';
 import { applyRetake } from '@/api/retakes';
@@ -183,6 +184,7 @@ async function handleStart(exam: ExamMy): Promise<void> {
       capture = prepared;
     }
     const record = await examsApi.start(exam.id, capture);
+    if (capture?.file && record.captureConfig?.enabled) rememberStartCapture(record.id);
     void router.push(`/exam/taking/${record.id}`);
   } catch {
     // 错误提示已由 http.ts 响应拦截器统一弹出
