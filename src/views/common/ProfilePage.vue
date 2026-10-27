@@ -9,6 +9,8 @@ import ChangePasswordDialog from '@/components/account/ChangePasswordDialog.vue'
 import { ROLE_LABELS } from '@/constants';
 import { useAuthStore } from '@/stores/auth';
 import { formatDateTime } from '@/utils/datetime';
+import { isLearnerAndroidApp } from '@/utils/appClient';
+import { useAppUpdatesStore } from '@/stores/appUpdates';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -16,6 +18,15 @@ const passwordVisible = ref(false);
 const securityVisible = ref(false);
 const refreshing = ref(false);
 const refreshError = ref(false);
+const appUpdates = isLearnerAndroidApp() ? useAppUpdatesStore() : undefined;
+async function checkAppUpdate() {
+  if (!appUpdates) return;
+  const result = await appUpdates.check(true);
+  if (result === 'current') ElMessage.success('当前已是最新版本');
+  else if (result === 'empty') ElMessage.info('暂无已发布的更新');
+  else if (result === 'failed') ElMessage.error('检查更新失败，请检查网络后重试');
+  else if (result === 'unsupported') ElMessage.info(`新版本需要 Android ${appUpdates.release?.minAndroid} 及以上`);
+}
 const user = computed(() => auth.currentUser);
 const roleLabel = computed(() => user.value ? (user.value.roleName || ROLE_LABELS[user.value.role]) : '—');
 
@@ -115,6 +126,7 @@ async function logout(): Promise<void> {
           <el-button :icon="Lock" @click="securityVisible = true">账号安全</el-button>
         </div>
         <div class="profile-page__logout-row">
+          <el-button v-if="appUpdates" :icon="Refresh" :loading="appUpdates.checking" @click="checkAppUpdate">检查更新 · {{ appUpdates.installed?.name }}</el-button>
           <el-button class="profile-page__logout" :icon="SwitchButton" @click="logout">退出登录</el-button>
         </div>
       </el-card>
@@ -298,9 +310,14 @@ async function logout(): Promise<void> {
   }
 
   &__logout-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
     margin-top: 20px;
     padding-top: 16px;
     border-top: 1px solid $border-color;
+
+    > .el-button { width: 100%; min-height: 44px; margin-left: 0; }
   }
 
   &__logout.el-button {

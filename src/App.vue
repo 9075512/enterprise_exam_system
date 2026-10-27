@@ -15,6 +15,8 @@ import zhCn from 'element-plus/es/locale/lang/zh-cn';
 import { useRouter } from 'vue-router';
 import BootSplash from '@/components/common/BootSplash.vue';
 import PageProgress from '@/components/common/PageProgress.vue';
+import AppUpdatePrompt from '@/components/apps/AppUpdatePrompt.vue';
+import { isLearnerAndroidApp } from '@/utils/appClient';
 import { useDelayedLoading } from '@/composables/useDelayedLoading';
 
 const router = useRouter();
@@ -43,6 +45,7 @@ function reload(): void {
       <el-button type="primary" @click="reload">重新加载</el-button>
     </div>
     <RouterView v-else />
+    <AppUpdatePrompt v-if="isLearnerAndroidApp() && !booting && !bootFailed" />
   </el-config-provider>
 </template>
 

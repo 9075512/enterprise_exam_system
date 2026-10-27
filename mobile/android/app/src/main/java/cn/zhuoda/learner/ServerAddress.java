@@ -41,6 +41,15 @@ final class ServerAddress {
         }
     }
 
+    static boolean isAppDownload(String server, String target) {
+        if (!sameOrigin(server, target)) return false;
+        try {
+            URI uri = new URI(target);
+            return uri.getRawQuery() == null && uri.getRawFragment() == null
+                    && uri.getRawPath().matches("/api/apps/releases/[a-f0-9-]{36}/download");
+        } catch (Exception ignored) { return false; }
+    }
+
     private static int effectivePort(URI uri) {
         return uri.getPort() != -1 ? uri.getPort() : ("https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80);
     }

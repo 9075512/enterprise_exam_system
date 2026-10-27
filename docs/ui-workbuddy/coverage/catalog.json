@@ -2950,6 +2950,45 @@
           "mode": "detail"
         }
       ]
+    },
+    {
+      "id": "AppUpdatePrompt",
+      "title": "App 发现新版本",
+      "route": null,
+      "file": "src/components/apps/AppUpdatePrompt.vue",
+      "layout": "overlay",
+      "sections": [
+        "当前版本与新版本",
+        "更新说明和安装包大小",
+        "可跳过更新与系统浏览器下载",
+        "考试期间延后展示"
+      ],
+      "reference": "安卓 App 更新提示",
+      "header": "发现新版本",
+      "columns": [],
+      "fields": [],
+      "states": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "forbidden"
+      ],
+      "desktop": "仅安卓App显示，480px以内弹窗，展示当前版本、新版本、大小及纯文本更新说明；支持稍后关闭，安装包使用可信同源公开地址，不强制安装。普通浏览器不检查版本。",
+      "mobile": "92vw弹窗，长说明在30dvh区域内滚动，44px操作。只在登录、首页和个人中心提醒，考试及拍照准备期间不弹窗；同版本推迟24小时，手动检查不受推迟限制。新外壳下载交给系统浏览器，旧外壳提供复制链接更新；断网静默，手动检查可重试。",
+      "overlays": [
+        {
+          "kind": "dialog",
+          "title": "发现新版本",
+          "fields": [
+            "当前及新版本",
+            "安装包大小",
+            "更新说明"
+          ],
+          "primaryAction": "下载更新 / 复制链接更新",
+          "mode": "workflow"
+        }
+      ]
     }
   ]
 }
