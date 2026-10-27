@@ -20,6 +20,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useSettingsStore } from '@/stores/settings';
 import { formatScore } from '@/utils/format';
 import { blankCount, isAnswered } from '@/utils/answerState';
+import { consumeStartCapture } from '@/utils/examCaptureHandoff';
 import RequestError from '@/components/common/RequestError.vue';
 import CountdownTimer from './components/CountdownTimer.vue';
 import VisibilityGuard from './components/VisibilityGuard.vue';
@@ -64,6 +65,7 @@ const cameraInSidebar = ref(sidebarQuery?.matches ?? false);
 function syncSidebar(event: MediaQueryListEvent): void { cameraInSidebar.value = event.matches; }
 const busy = computed(() => submitting.value || exiting.value || confirming.value);
 const cameraLocked = ref(false);
+const initialCaptureSaved = ref(false);
 const answerLocked = computed(() => submitted.value || busy.value || remaining.value <= 0 || cameraLocked.value);
 const saveStatus = computed(() => saveError.value ? '暂存失败，答案仍保留在本页' : saving.value ? '正在暂存…' : answerRevision.value > savedRevision.value ? '等待暂存…' : '答案已暂存');
 const sheetQuestions = computed(() => questions.value.map(q => ({ id: q.questionId, type: q.question.type, blanks: blankCount(q.question.stem, q.question.answer) })));
@@ -125,6 +127,7 @@ async function initialize(): Promise<void> {
     const examDetail = await examsApi.detail(rec.examId);
     if (disposed) return;
     cameraLocked.value = Boolean(rec.captureConfig?.enabled && rec.captureConfig.cameraPolicy === 'required');
+    initialCaptureSaved.value = Boolean(rec.captureConfig?.enabled && consumeStartCapture(rec.id));
     record.value = rec;
     exam.value = examDetail;
     answers.value = Object.fromEntries(Object.entries(rec.answers).map(([id, value]) => [id, value.slice()]));
@@ -410,7 +413,7 @@ function beforeUnloadHandler(event: BeforeUnloadEvent): void {
           </div>
 
           <Teleport defer to="#taking-camera-sidebar" :disabled="!cameraInSidebar">
-            <ExamCameraGuard v-if="record.captureConfig?.enabled" :record-id="recordId" :config="record.captureConfig" :active="!submitted" :compact="cameraInSidebar" @locked-change="cameraLocked = $event" />
+            <ExamCameraGuard v-if="record.captureConfig?.enabled" :record-id="recordId" :config="record.captureConfig" :active="!submitted" :compact="cameraInSidebar" :initial-capture-saved="initialCaptureSaved" @locked-change="cameraLocked = $event" />
           </Teleport>
           <section class="taking__questions" :class="{ 'is-disabled': submitted, 'is-camera-blocked': cameraLocked }">
             <div v-if="cameraLocked" class="taking__camera-shield" role="status">摄像头未就绪，请恢复后继续答题。</div>

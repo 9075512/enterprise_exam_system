@@ -28,8 +28,8 @@ beforeEach(() => {
   api.event.mockResolvedValue(null); api.upload.mockResolvedValue({ id: 'photo1' });
 });
 afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
-async function render(overrides = {}) {
-  wrapper = mount(ExamCameraGuard, { props: { recordId: 'r1', config: { ...config, ...overrides }, active: true }, global: { stubs: { ElButton: { template: '<button><slot /></button>' } } } });
+async function render(overrides = {}, extraProps = {}) {
+  wrapper = mount(ExamCameraGuard, { props: { recordId: 'r1', config: { ...config, ...overrides }, active: true, ...extraProps }, global: { stubs: { ElButton: { template: '<button><slot /></button>' } } } });
   await flushPromises(); return wrapper;
 }
 describe('考试摄像头采集', () => {
@@ -44,6 +44,52 @@ describe('考试摄像头采集', () => {
     await vi.advanceTimersByTimeAsync(60000); await flushPromises();
     expect(api.upload).toHaveBeenCalledTimes(2); expect(api.upload.mock.calls[1]?.[3]).toBe('periodic');
     expect(getUserMedia).toHaveBeenCalledWith(expect.objectContaining({ audio: false }));
+    expect(api.event).toHaveBeenCalledTimes(1);
+  });
+  it('开考首照已保存时不立即多拍，按完整间隔开始定时抓拍', async () => {
+    await render({}, { initialCaptureSaved: true });
+    expect(wrapper!.emitted('lockedChange')?.at(-1)?.[0]).toBe(false);
+    expect(api.upload).not.toHaveBeenCalled(); expect(api.event).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(59999); expect(api.upload).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1); await flushPromises();
+    expect(api.upload).toHaveBeenCalledTimes(1); expect(api.upload.mock.calls[0]?.[3]).toBe('periodic');
+    expect(api.event).not.toHaveBeenCalled();
+  });
+  it('健康时重复前台、可见及联网事件不重开、不补拍、不重置定时器', async () => {
+    await render(); await vi.advanceTimersByTimeAsync(30000);
+    window.dispatchEvent(new Event('zhuoda:app-foreground')); window.dispatchEvent(new Event('zhuoda:app-foreground'));
+    document.dispatchEvent(new Event('visibilitychange')); window.dispatchEvent(new Event('online'));
+    await flushPromises(); expect(getUserMedia).toHaveBeenCalledTimes(1); expect(api.upload).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(30000); expect(api.upload).toHaveBeenCalledTimes(2);
+    expect(api.upload.mock.calls[1]?.[3]).toBe('periodic'); expect(api.event).toHaveBeenCalledTimes(1);
+  });
+  it.each(['app-first', 'web-first'])('安卓与网页重复前后台事件只补拍一次（%s）', async order => {
+    await render({}, { initialCaptureSaved: true });
+    hidden = true;
+    if (order === 'app-first') window.dispatchEvent(new Event('zhuoda:app-background'));
+    document.dispatchEvent(new Event('visibilitychange'));
+    if (order === 'web-first') window.dispatchEvent(new Event('zhuoda:app-background'));
+    await flushPromises(); expect(track.stop).toHaveBeenCalledTimes(1);
+    expect(api.event).toHaveBeenCalledTimes(1);
+    if (order === 'app-first') window.dispatchEvent(new Event('zhuoda:app-foreground'));
+    hidden = false; document.dispatchEvent(new Event('visibilitychange'));
+    if (order === 'web-first') window.dispatchEvent(new Event('zhuoda:app-foreground'));
+    window.dispatchEvent(new Event('zhuoda:app-foreground'));
+    await flushPromises(); expect(getUserMedia).toHaveBeenCalledTimes(2); expect(api.upload).toHaveBeenCalledTimes(1);
+    expect(api.upload.mock.calls[0]?.[3]).toBe('resume');
+    expect(api.event.mock.calls.map(args => args[1])).toEqual(['interrupted', 'ready']);
+  });
+  it('首次开机失败后真正恢复仍补拍，首照回执不再抑制恢复采集', async () => {
+    getUserMedia.mockRejectedValueOnce(new DOMException('denied', 'NotAllowedError'));
+    await render({}, { initialCaptureSaved: true });
+    await wrapper!.get('button').trigger('click'); await flushPromises();
+    expect(api.upload).toHaveBeenCalledTimes(1); expect(api.upload.mock.calls[0]?.[3]).toBe('resume');
+    expect(api.event.mock.calls.map(args => args[1])).toEqual(['unavailable', 'ready']);
+  });
+  it('摄像头短暂静音恢复只补拍一次，不把上传成功重复记为恢复事件', async () => {
+    await render(); track.onmute?.(); await flushPromises(); track.onunmute?.(); await flushPromises();
+    expect(api.upload).toHaveBeenCalledTimes(2);
+    expect(api.event.mock.calls.map(args => args[1])).toEqual(['ready', 'interrupted', 'ready']);
   });
   it('必拍授权失败保持遮挡，可选模式只提醒并记录', async () => {
     getUserMedia.mockRejectedValue(new DOMException('denied', 'NotAllowedError'));

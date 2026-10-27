@@ -5,7 +5,7 @@ import { useExamCamera } from '@/composables/useExamCamera';
 import * as captures from '@/api/captures';
 import type { CaptureConfig } from '@/types';
 
-const props = defineProps<{ recordId: string; config: CaptureConfig; active: boolean; compact?: boolean }>();
+const props = defineProps<{ recordId: string; config: CaptureConfig; active: boolean; compact?: boolean; initialCaptureSaved?: boolean }>();
 const emit = defineEmits<{ lockedChange: [locked: boolean] }>();
 const camera = useExamCamera();
 const { video, state, error } = camera;
@@ -20,6 +20,10 @@ let frameTimer: ReturnType<typeof setTimeout> | undefined;
 let epoch = 0;
 let uploadingEpoch: number | undefined;
 let disposed = false;
+let skipInitialCapture = Boolean(props.initialCaptureSaved);
+let appInBackground = false;
+let suspended = false;
+let lastReportedEvent = '';
 let pendingEvent: { status: Parameters<typeof captures.event>[1]; reason: string; id: string } | undefined;
 let eventSending = false;
 let eventRetry: ReturnType<typeof setTimeout> | undefined;
@@ -28,6 +32,9 @@ let eventAttempts = 0;
 // Keep only the latest camera state when disconnected, with a bounded retry budget.
 function report(status: Parameters<typeof captures.event>[1], reason = '') {
   if (!props.active || disposed) return;
+  const signature = JSON.stringify([status, reason]);
+  if (pendingEvent ? JSON.stringify([pendingEvent.status, pendingEvent.reason]) === signature : lastReportedEvent === signature) return;
+  clearTimeout(eventRetry);
   pendingEvent = { status, reason, id: createCaptureId() }; eventAttempts = 0;
   void flushEvent();
 }
@@ -37,6 +44,7 @@ async function flushEvent() {
   const current = pendingEvent;
   try {
     await captures.event(props.recordId, current.status, current.reason, current.id);
+    lastReportedEvent = JSON.stringify([current.status, current.reason]);
     if (pendingEvent === current) pendingEvent = undefined;
   } catch {
     if (pendingEvent === current && ++eventAttempts < 3) eventRetry = setTimeout(() => void flushEvent(), 5000);
@@ -53,7 +61,7 @@ function cancelWork() {
   camera.stop();
 }
 async function take(kind: 'periodic' | 'resume', run = epoch) {
-  if (!props.active || document.hidden || state.value !== 'ready' || uploadingEpoch === run || run !== epoch) return;
+  if (!props.active || document.hidden || appInBackground || state.value !== 'ready' || uploadingEpoch === run || run !== epoch) return;
   uploadingEpoch = run;
   try {
     const file = await camera.photo();
@@ -91,43 +99,59 @@ async function send(file: Blob, id: string, kind: 'periodic' | 'resume', run: nu
 let retryResolve: (() => void) | undefined;
 function stop() { cancelWork(); retryResolve?.(); retryResolve = undefined; }
 async function restart() {
+  if (!props.active || !props.config.enabled || disposed) { stop(); return; }
+  if (document.hidden || appInBackground || state.value === 'opening' || state.value === 'ready') return;
+  suspended = false;
   stop();
-  if (!props.active || !props.config.enabled || document.hidden || disposed) return;
   const run = epoch;
   await camera.open();
   if (run !== epoch) return;
-  if (state.value !== 'ready') report('unavailable', error.value);
 }
 watch(state, (value, previous) => {
   if (!props.active || !props.config.enabled || disposed) return;
   if (value === 'ready' && previous !== 'ready') {
-    report('ready');
     clearInterval(timer); clearTimeout(frameTimer);
     // Wait for actual video frames; play() can resolve before dimensions are populated.
     let tries = 0;
     const run = epoch;
     const first = () => {
-      if (run !== epoch || !props.active) return;
-      if (video.value && video.value.readyState >= 2 && video.value.videoWidth) { framesReady.value = true; void take('resume', run); return; }
+      if (run !== epoch || !props.active || document.hidden || appInBackground || state.value !== 'ready') return;
+      if (video.value && video.value.readyState >= 2 && video.value.videoWidth) {
+        framesReady.value = true;
+        if (!skipInitialCapture) { report('ready'); void take('resume', run); }
+        else lastReportedEvent = JSON.stringify(['ready', '']);
+        skipInitialCapture = false;
+        timer = setInterval(() => void take('periodic'), props.config.intervalMinutes * 60000);
+        return;
+      }
       if (++tries < 40) frameTimer = setTimeout(first, 250);
-      else { uploadError.value = '摄像头没有返回可用画面，请重新开启。'; report('unavailable', uploadError.value); camera.stop(); }
+      else { skipInitialCapture = false; uploadError.value = '摄像头没有返回可用画面，请重新开启。'; report('unavailable', uploadError.value); camera.stop(); }
     };
     first();
-    timer = setInterval(() => void take('periodic'), props.config.intervalMinutes * 60000);
   } else if (value === 'interrupted' || value === 'error') {
-    clearInterval(timer); report('interrupted', error.value);
+    skipInitialCapture = false; framesReady.value = false;
+    clearInterval(timer); clearTimeout(frameTimer);
+    report(value === 'error' ? 'unavailable' : 'interrupted', error.value);
   }
 });
+function suspend(reason: string) {
+  if (!props.active || !props.config.enabled || suspended) return;
+  suspended = true; skipInitialCapture = false;
+  report('interrupted', reason); stop();
+}
 function visibility() {
   if (!props.active || !props.config.enabled) return;
-  if (document.hidden) { report('interrupted', '考试页面进入后台，摄像头采集暂停'); stop(); }
+  if (document.hidden) suspend('考试页面进入后台，摄像头采集暂停');
   else void restart();
 }
-function appBackground() { if (props.active && props.config.enabled) { report('interrupted', '安卓 App 进入后台，摄像头采集暂停'); stop(); } }
-function appForeground() { void restart(); }
-function online() { if (pendingEvent) void flushEvent(); if (state.value === 'ready') void take('resume'); }
+function appBackground() { appInBackground = true; suspend('安卓 App 进入后台，摄像头采集暂停'); }
+function appForeground() { appInBackground = false; void restart(); }
+function online() { if (pendingEvent) void flushEvent(); if (state.value === 'ready' && uploadError.value) void take('periodic'); }
 onMounted(() => {
-  watch(() => [props.active, props.config.enabled, props.recordId] as const, () => void restart(), { immediate: true });
+  watch(() => [props.active, props.config.enabled, props.recordId] as const, (current, previous) => {
+    if (previous && current[2] !== previous[2]) { stop(); skipInitialCapture = false; pendingEvent = undefined; lastReportedEvent = ''; }
+    void restart();
+  }, { immediate: true });
   document.addEventListener('visibilitychange', visibility); window.addEventListener('online', online);
   window.addEventListener('zhuoda:app-background', appBackground); window.addEventListener('zhuoda:app-foreground', appForeground);
 });
@@ -152,7 +176,7 @@ onBeforeUnmount(() => {
     </div>
     <div v-if="state !== 'ready' || uploadError" class="exam-camera__actions">
       <el-button v-if="state !== 'ready'" :loading="state === 'opening'" @click="restart">重新开启摄像头</el-button>
-      <el-button v-else-if="uploadError" @click="take('resume')">重新抓拍</el-button>
+      <el-button v-else-if="uploadError" @click="take('periodic')">重新抓拍</el-button>
     </div>
   </section>
 </template>
