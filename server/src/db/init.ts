@@ -19,6 +19,7 @@ import { seed } from './seed.js';
 import { migrateRoles } from './rolesMigration.js';
 import { migrateCaptures } from './capturesMigration.js';
 import { migrateCourseCatalog } from './courseCatalogMigration.js';
+import { migrateCourseAudience } from './courseAudienceMigration.js';
 
 const reset = process.argv.includes('--reset');
 const schemaOnly = process.argv.includes('--schema-only');
@@ -92,6 +93,7 @@ async function foreignDeleteRule(conn: mysql.Connection, table: string, constrai
  */
 async function applyMigrations(conn: mysql.Connection): Promise<void> {
   const changes: string[] = [];
+  await migrateCourseAudience(conn);
   await migrateCaptures(conn);
   if (!(await indexExists(conn, 'exams', 'uk_exams_paper'))) {
     await conn.query('ALTER TABLE exams ADD UNIQUE KEY uk_exams_paper (paper_id)');

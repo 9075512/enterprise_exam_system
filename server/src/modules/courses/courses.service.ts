@@ -7,6 +7,7 @@ import { parseJsonColumn } from '../../utils/json.js';
 import * as audit from '../audit/audit.service.js';
 import type { CourseInput, CourseListQuery, ManagedCourse } from './courses.schema.js';
 import { lockCatalog, resolveCategory } from './courseCategories.service.js';
+import { accessContext, canAccess, parseAudience } from './courseAudience.service.js';
 
 interface CourseRow extends RowDataPacket { id: string; status: ManagedCourse['status']; revision: number; content_json: unknown; created_at: string; updated_at: string }
 function dto(row: CourseRow): ManagedCourse {
@@ -17,14 +18,16 @@ function assertPublishable(course: CourseInput): void {
   if (!course.chapters.length || course.chapters.some(chapter => !chapter.lessons.length)) throw badRequest('上架前每个章节至少需要一个小节');
   if (course.chapters.some(chapter => chapter.lessons.some(lesson => !lesson.src))) throw badRequest('上架前请为所有小节配置视频');
 }
-export async function find(id: string, manage = false): Promise<ManagedCourse> {
+export async function find(id: string, manage = false, userId?: string): Promise<ManagedCourse> {
   const rows = await query<CourseRow[]>(`SELECT * FROM courses WHERE id = ? AND deleted_at IS NULL${manage ? '' : " AND status = 'published'"}`, [id]);
   if (!rows[0]) throw notFound('课程不存在或已下架');
+  if (!manage && (!userId || !canAccess(rows[0].audience_json, await accessContext(userId)))) throw notFound('课程不存在或不在学习范围内');
   return dto(rows[0]);
 }
-export async function learnerList(): Promise<ManagedCourse[]> {
+export async function learnerList(userId: string): Promise<ManagedCourse[]> {
   const rows = await query<CourseRow[]>("SELECT * FROM courses WHERE deleted_at IS NULL AND status = 'published' ORDER BY sort_order, created_at DESC, id");
-  return rows.map(dto);
+  const context = await accessContext(userId);
+  return rows.filter(row => canAccess(row.audience_json, context)).map(dto);
 }
 export async function list(input: CourseListQuery) {
   const where = ['deleted_at IS NULL'];
@@ -43,7 +46,7 @@ export async function create(input: CourseInput, actorId: string): Promise<Manag
   const id = genId('course-');
   await withTransaction(async conn => {
     await lockCatalog(conn); const course = await resolveCategory(input, conn);
-    await runQuery(conn, "INSERT INTO courses (id, title, status, sort_order, content_json, revision, created_by, updated_by, created_at, updated_at) VALUES (?, ?, 'draft', ?, ?, 1, ?, ?, NOW(3), NOW(3))", [id, course.title, course.sortOrder, JSON.stringify(course), actorId, actorId]);
+    await runQuery(conn, "INSERT INTO courses (id, title, status, sort_order, content_json, audience_json, revision, created_by, updated_by, created_at, updated_at) VALUES (?, ?, 'draft', ?, ?, ?, 1, ?, ?, NOW(3), NOW(3))", [id, course.title, course.sortOrder, JSON.stringify(course), JSON.stringify({ departmentIds: [], userIds: [] }), actorId, actorId]);
   });
   await audit.record({ actorId, action: 'course.create', targetType: 'course', targetId: id, targetName: input.title });
   return find(id, true);
@@ -73,7 +76,11 @@ export async function setStatus(id: string, revision: number, status: ManagedCou
     const current = dto(rows[0]);
     if (current.revision !== revision) throw conflict('课程已变化，请刷新后重试');
     if (status === 'draft') throw badRequest('已保存课程仅支持上架或下架');
-    if (status === 'published') { await resolveCategory(current, conn); assertPublishable(current); }
+    if (status === 'published') {
+      await resolveCategory(current, conn); assertPublishable(current);
+      const audience = parseAudience(rows[0].audience_json);
+      if (audience && !audience.departmentIds.length && !audience.userIds.length) throw badRequest('上架前请先绑定学习科室或人员');
+    }
     await runQuery(conn, 'UPDATE courses SET status = ?, revision = revision + 1, updated_by = ?, updated_at = NOW(3) WHERE id = ?', [status, actorId, id]);
     return current;
   });

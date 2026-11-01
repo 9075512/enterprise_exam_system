@@ -21,7 +21,10 @@ const input = () => ({ title: '护理培训课程', category: '护理', instruct
 ] });
 async function create(body = input()): Promise<ManagedCourse> {
   const res = await request(app).post('/api/courses/manage').set(admin).send(body);
-  expect(res.status, JSON.stringify(res.body)).toBe(200); return res.body.data;
+  expect(res.status, JSON.stringify(res.body)).toBe(200);
+  const course = res.body.data;
+  const binding = await request(app).put(`/api/courses/manage/${course.id}/audience`).set(admin).send({ revision: course.revision, departmentIds: ['dept-rd', 'dept-mkt'], userIds: [] });
+  expect(binding.status).toBe(200); return { ...course, revision: binding.body.data.revision };
 }
 beforeAll(async () => { await prepareTestDb(); const res = await request(app).post('/api/courses/manage/categories').set(admin).send({ name: '护理' }); expect(res.status).toBe(200); });
 afterAll(async () => {
@@ -61,6 +64,8 @@ describe('课程管理和学员端联动', () => {
     expect(result.status).toBe(200); const course = result.body.data;
     expect(course.detailHtml).toContain('<strong>掌握安全知识</strong>'); expect(course.detailHtml).toContain('/api/attachments/course-image?t=abc');
     expect(course.detailHtml).not.toMatch(/script|onerror|javascript:/);
+    const binding = await request(app).put(`/api/courses/manage/${course.id}/audience`).set(admin).send({ revision: course.revision, departmentIds: ['dept-rd'], userIds: [] });
+    course.revision = binding.body.data.revision;
     await request(app).put(`/api/courses/manage/${course.id}/status`).set(admin).send({ status: 'published', revision: course.revision });
     expect((await request(app).get(`/api/courses/${course.id}`).set(learner)).body.data.detailHtml).toBe(course.detailHtml);
     expect((await request(app).post('/api/courses/manage').set(admin).send({ ...input(), detailHtml: '字'.repeat(20001) })).status).toBe(400);

@@ -67,7 +67,7 @@ function onProgress(courseId: string, lessonId: string, value: PlaybackProgress)
     <nav class="course-study-back" aria-label="课程导航"><RouterLink :to="`/exam/courses/${route.params.courseId}`" class="course-back"><ArrowLeft />课程介绍</RouterLink><RouterLink to="/exam/courses" class="course-back">全部课程</RouterLink></nav>
     <LoadingSkeleton v-if="loading" :rows="7" />
     <RequestError v-else-if="loadError" text="课程加载失败，请检查网络后重试" @retry="load" />
-    <template v-else-if="course && lesson">
+    <template v-else-if="course && lesson && !progress.unavailableCourses.value.has(course.id)">
       <div class="course-detail__heading"><div><div class="courses-eyebrow">{{ course.category }} <span> / </span> {{ course.level }}课程</div><h1>{{ course.title }}</h1><p>{{ course.description }}</p></div><span class="course-detail__badge"><Reading />{{ lessons.length }} 小节 · 自主学习</span></div>
       <p v-if="progress.storageError.value" class="courses-warning" role="alert">{{ progress.storageError.value }} <button type="button" @click="load">重新同步</button></p>
       <div class="course-study-grid">
@@ -87,6 +87,6 @@ function onProgress(courseId: string, lessonId: string, value: PlaybackProgress)
       <el-drawer v-model="drawerOpen" title="课程目录" direction="btt" size="78%" append-to-body class="course-directory-drawer"><CourseOutline :course="course" :active-id="selectedId" :progress="savedLessons" @select="select" /></el-drawer>
       <footer class="courses-footer"><p v-if="course.isDemo">演示素材：MDN CC0 花朵短片、Blender Foundation 的 Big Buck Bunny / Sintel 公开样片。课程结构用于功能演示。</p><p>观看记录随账号保存；网络异常时暂存本机，可点击重新同步。</p></footer>
     </template>
-    <div v-else class="courses-empty"><Reading /><h1>没有找到这门课程</h1><p>课程可能已下架，请返回课程列表继续探索。</p><RouterLink to="/exam/courses" class="courses-primary">返回全部课程</RouterLink></div>
+    <div v-else class="courses-empty"><Reading /><h1>课程暂不可学习</h1><p>课程可能已下架或学习权限已变化，请返回课程列表。</p><RouterLink to="/exam/courses" class="courses-primary">返回全部课程</RouterLink></div>
   </main>
 </template>

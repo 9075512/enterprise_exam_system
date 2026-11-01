@@ -14,6 +14,21 @@ export function createCourse(course: CourseInput): Promise<ManagedCourse> { retu
 export function updateCourse(id: string, revision: number, course: CourseInput): Promise<ManagedCourse> { return put(`/courses/manage/${encodeURIComponent(id)}`, { revision, course }, { suppressErrorToast: true }); }
 export function setCourseStatus(id: string, revision: number, status: CourseStatus): Promise<ManagedCourse> { return put(`/courses/manage/${encodeURIComponent(id)}/status`, { revision, status }, { suppressErrorToast: true }); }
 export function deleteCourse(id: string, revision: number): Promise<void> { return del(`/courses/manage/${encodeURIComponent(id)}`, { revision }, { suppressErrorToast: true }); }
+export interface CourseAudience { mode: 'public' | 'assigned'; revision: number; departmentIds: string[]; userIds: string[] }
+export type CourseProgressStatus = 'not_started' | 'learning' | 'completed';
+export interface CourseProgressQuery { scope: 'current' | 'history'; keyword: string; departmentId: string; status: CourseProgressStatus | ''; page: number; pageSize: number }
+export interface CoursePersonProgress {
+  userId: string; userName: string; username: string; departmentId: string; departmentName: string; accountStatus: string;
+  scope: 'current' | 'history'; status: CourseProgressStatus; completedLessons: number; totalLessons: number; percent: number; lastLearnedAt: string;
+}
+export interface CourseLessonReport { lessonId: string; chapterTitle: string; lessonTitle: string; position: number; duration: number; completed: boolean; status: CourseProgressStatus; lastLearnedAt: string }
+export interface CourseProgressPage { courseTitle: string; list: CoursePersonProgress[]; total: number; page: number; pageSize: number; summary: { total: number; notStarted: number; learning: number; completed: number; completionRate: number } }
+export interface CoursePersonReport extends CoursePersonProgress { courseTitle: string; lessons: CourseLessonReport[] }
+export function getCourseAudience(id: string): Promise<CourseAudience> { return get(`/courses/manage/${encodeURIComponent(id)}/audience`, undefined, { suppressErrorToast: true }); }
+export function saveCourseAudience(id: string, input: Pick<CourseAudience, 'revision' | 'departmentIds' | 'userIds'>): Promise<CourseAudience> { return put(`/courses/manage/${encodeURIComponent(id)}/audience`, input, { suppressErrorToast: true }); }
+export function getCourseProgressReport(id: string, query: CourseProgressQuery): Promise<CourseProgressPage> { return get(`/courses/manage/${encodeURIComponent(id)}/progress`, { ...query }, { suppressErrorToast: true }); }
+export function getCoursePersonProgress(id: string, userId: string): Promise<CoursePersonReport> { return get(`/courses/manage/${encodeURIComponent(id)}/progress/${encodeURIComponent(userId)}`, undefined, { suppressErrorToast: true }); }
+export function exportCourseProgress(id: string, query: CourseProgressQuery): Promise<Blob> { return get(`/courses/manage/${encodeURIComponent(id)}/progress/export`, { ...query }, { responseType: 'blob', suppressErrorToast: true }); }
 export interface CourseCategory { id: string; name: string; sortOrder: number; revision: number; courseCount: number }
 export function listCourseCategories(): Promise<CourseCategory[]> { return get('/courses/manage/categories', undefined, { suppressErrorToast: true }); }
 export function createCourseCategory(input: { name: string; sortOrder: number }): Promise<CourseCategory> { return post('/courses/manage/categories', input, { suppressErrorToast: true }); }
