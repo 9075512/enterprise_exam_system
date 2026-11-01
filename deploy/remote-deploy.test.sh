@@ -10,17 +10,25 @@ sha=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 mkdir -p "$previous" "$deploy_root/shared" "$scratch/bin" "$scratch/bundle/web" "$scratch/bundle/server/dist/scripts"
 printf 'test-only\n' > "$deploy_root/shared/server.env"
 printf '<html></html>\n' > "$scratch/bundle/web/index.html"
-touch "$scratch/bundle/server/dist/index.js" "$scratch/bundle/server/dist/scripts/checkAppDistribution.js"
+touch "$scratch/bundle/server/dist/index.js" "$scratch/bundle/server/dist/scripts/checkAppDistribution.js" "$scratch/bundle/server/dist/scripts/checkCourseSchema.js"
 printf '{}\n' > "$scratch/bundle/server/package-lock.json"
 ln -s "$previous" "$deploy_root/current"
 export OPERATIONS="$scratch/operations" ACTIVE_LINK="$deploy_root/current" EXPECTED_ACTIVE="$previous"
 cat > "$scratch/bin/node" <<'MOCK'
 #!/usr/bin/env bash
 set -eu
-[[ "$1" == dist/scripts/checkAppDistribution.js ]]
 [[ "$(readlink -f "$ACTIVE_LINK")" == "$EXPECTED_ACTIVE" ]]
-echo schema >> "$OPERATIONS"
-[[ "$SCHEMA_READY" == true ]]
+case "$1" in
+  dist/scripts/checkAppDistribution.js)
+    echo schema >> "$OPERATIONS"
+    [[ "$SCHEMA_READY" == true ]]
+    ;;
+  dist/scripts/checkCourseSchema.js)
+    echo course-schema >> "$OPERATIONS"
+    [[ "$COURSE_SCHEMA_READY" == true ]]
+    ;;
+  *) exit 1 ;;
+esac
 MOCK
 for command in npm sudo curl; do
   printf '#!/usr/bin/env bash\necho %s >> "$OPERATIONS"\n' "$command" > "$scratch/bin/$command"
@@ -35,19 +43,27 @@ activate() {
   bash "$script_dir/remote-deploy.sh" "$scratch/release.tar.gz" "$checksum" "$deploy_root" "$sha" api http://localhost/api/health 5 false
 }
 # Missing schema must fail before switching or restarting, even with migrations disabled.
-export SCHEMA_READY=false
+export SCHEMA_READY=false COURSE_SCHEMA_READY=true
 package
 if activate > "$scratch/missing.log" 2>&1; then echo 'Missing schema unexpectedly activated' >&2; exit 1; fi
 [[ "$(readlink -f "$deploy_root/current")" == "$previous" ]]
 [[ ! -e "$deploy_root/releases/$sha" ]]
 [[ "$(cat "$OPERATIONS")" == $'npm\nschema' ]]
+# A missing course column must also fail before activation, even when App schema is ready.
+export SCHEMA_READY=true COURSE_SCHEMA_READY=false
+: > "$OPERATIONS"
+package
+if activate > "$scratch/course-missing.log" 2>&1; then echo 'Missing course column unexpectedly activated' >&2; exit 1; fi
+[[ "$(readlink -f "$deploy_root/current")" == "$previous" ]]
+[[ ! -e "$deploy_root/releases/$sha" ]]
+[[ "$(cat "$OPERATIONS")" == $'npm\nschema\ncourse-schema' ]]
 # A ready database activates normally; checks run before any service restart.
-export SCHEMA_READY=true
+export SCHEMA_READY=true COURSE_SCHEMA_READY=true
 : > "$OPERATIONS"
 package
 activate > "$scratch/ready.log" 2>&1
 [[ "$(readlink -f "$deploy_root/current")" == "$deploy_root/releases/$sha" ]]
-[[ "$(cat "$OPERATIONS")" == $'npm\nschema\nsudo\ncurl' ]]
+[[ "$(cat "$OPERATIONS")" == $'npm\nschema\ncourse-schema\nsudo\ncurl' ]]
 # Retrying the active revision still checks schema and leaves it intact on failure.
 export SCHEMA_READY=false EXPECTED_ACTIVE="$deploy_root/releases/$sha"
 : > "$OPERATIONS"
@@ -55,4 +71,10 @@ package
 if activate > "$scratch/retry.log" 2>&1; then echo 'Active revision skipped schema validation' >&2; exit 1; fi
 [[ -d "$deploy_root/releases/$sha" ]]
 [[ "$(cat "$OPERATIONS")" == schema ]]
-echo 'PASS: missing schema blocks activation; ready schema activates; retries validate again'
+export SCHEMA_READY=true COURSE_SCHEMA_READY=false
+: > "$OPERATIONS"
+package
+if activate > "$scratch/course-retry.log" 2>&1; then echo 'Active revision skipped course schema validation' >&2; exit 1; fi
+[[ -d "$deploy_root/releases/$sha" ]]
+[[ "$(cat "$OPERATIONS")" == $'schema\ncourse-schema' ]]
+echo 'PASS: missing App/course schema blocks activation; ready schema activates; retries validate again'

@@ -7,6 +7,7 @@ import { prepareTestDb } from './db.js';
 import { closePool, pool, query } from '../db/pool.js';
 import { signToken } from '../middleware/auth.js';
 import { migrateCourseAudience } from '../db/courseAudienceMigration.js';
+import { checkCourseSchema } from '../db/courseSchemaCheck.js';
 
 const credentials = (id: string, role: 'admin' | 'author' | 'examinee' = 'examinee') => ({ Authorization: 'Bearer ' + signToken({ sub: id, role, departmentId: '' }) });
 const admin = credentials('user-admin', 'admin'), learner = credentials('user-zhangsan'), other = credentials('user-lisi');
@@ -45,8 +46,10 @@ describe('课程绑定与人员进度', () => {
     await query("UPDATE courses SET status = 'published' WHERE id = ?", [course.id]);
     // Only the isolated *_test database is touched by this simulated pre-upgrade schema.
     await query('ALTER TABLE courses DROP COLUMN audience_json');
+    await expect(checkCourseSchema()).rejects.toMatchObject({ code: 'ER_BAD_FIELD_ERROR' });
     const conn = await pool.getConnection();
     try { await migrateCourseAudience(conn); await migrateCourseAudience(conn); } finally { conn.release(); }
+    await expect(checkCourseSchema()).resolves.toBeUndefined();
     expect((await request(app).get(`/api/courses/${course.id}`).set(other)).status).toBe(200);
     expect((await request(app).get(`/api/courses/manage/${course.id}/audience`).set(admin)).body.data).toMatchObject({ mode: 'public', revision: course.revision });
     await saveProgress(course.id, other);
