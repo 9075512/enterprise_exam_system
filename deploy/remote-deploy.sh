@@ -91,6 +91,14 @@ check_app_distribution() {
   fi
 }
 
+check_course_schema() {
+  # 应用账号仅需读取权限；缺少课程绑定字段时禁止切换，迁移由数据库维护账号执行。
+  # 旧版发布包没有该检查脚本，仍可按原流程回滚。
+  if [[ -f "$1/server/dist/scripts/checkCourseSchema.js" ]]; then
+    (cd "$1/server" && node dist/scripts/checkCourseSchema.js)
+  fi
+}
+
 trap rollback ERR
 trap cleanup_archive EXIT
 
@@ -104,6 +112,7 @@ fi
 if [[ -d "$release_dir" && -L "$current_link" && "$(readlink -f "$current_link")" == "$release_dir" ]]; then
   echo "版本已处于活动状态，重新执行服务探活：$release_id"
   check_app_distribution "$release_dir"
+  check_course_schema "$release_dir"
   restart_services
   healthcheck "$api_health_url"
   exit 0
@@ -140,6 +149,7 @@ ln -s "$shared_dir/storage" "$release_dir/server/storage"
 
 # 必须在 current 切换前验证新模块的数据结构，缺表时保留旧服务。
 check_app_distribution "$release_dir"
+check_course_schema "$release_dir"
 
 ln -s "$release_dir" "$deploy_root/current.next"
 mv -Tf "$deploy_root/current.next" "$current_link"
