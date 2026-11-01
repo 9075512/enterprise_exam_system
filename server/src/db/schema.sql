@@ -755,6 +755,7 @@ CREATE TABLE IF NOT EXISTS courses (
     status ENUM('draft','published','archived') NOT NULL DEFAULT 'draft',
     sort_order INT NOT NULL DEFAULT 0,
     content_json JSON NOT NULL,
+    audience_json JSON NULL,
     revision INT NOT NULL DEFAULT 1,
     created_by VARCHAR(64) NOT NULL,
     updated_by VARCHAR(64) NOT NULL,

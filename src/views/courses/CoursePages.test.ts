@@ -193,6 +193,14 @@ describe('课程列表和章节学习流程', () => {
     expect(page.text()).toContain('没有找到这门课程');
     expect(page.get('.courses-empty a').attributes('href')).toBe('/exam/courses');
   });
+  it('学习期间权限收回后卸载播放器，停止补传并提供返回课程入口', async () => {
+    const page = await render('/exam/courses/visual-story/learn');
+    cloudApi.save.mockRejectedValueOnce(Object.assign(new Error('not found'), { status: 404 }));
+    page.getComponent({ name: 'CourseVideoPlayer' }).vm.$emit('progress', 'visual-story', 'light', { position: 2, duration: 5, completed: false, immediate: true }); await flushPromises();
+    expect(page.find('.test-player').exists()).toBe(false); expect(page.text()).toContain('学习权限已变化');
+    expect(page.get('.courses-empty a').attributes('href')).toBe('/exam/courses');
+    const count = cloudApi.save.mock.calls.length; await vi.advanceTimersByTimeAsync(6000); expect(cloudApi.save).toHaveBeenCalledTimes(count);
+  });
   it('接口加载失败提供重试，无已上架课程时显示真实空态', async () => {
     api.list.mockRejectedValueOnce(new Error('offline'));
     const page = await render('/exam/courses');

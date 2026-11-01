@@ -21,6 +21,26 @@ beforeEach(() => {
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe('账号观看记录同步', () => {
+  it('权限收回后清理该课程补传队列，禁止继续写入；其他课程正常同步', async () => {
+    api.save.mockRejectedValueOnce(Object.assign(new Error('权限已变化'), { status: 404 }));
+    const progress = useCourseProgress('u', 'token');
+    progress.save('revoked', 'lesson', { position: 12, duration: 30, completed: false, immediate: true }); await flushPromises();
+    expect(progress.unavailableCourses.value.has('revoked')).toBe(true);
+    expect(progress.lesson('revoked', 'lesson')).toBeUndefined(); expect(progress.storageError.value).toContain('权限已变化');
+    api.save.mockClear(); api.select.mockClear();
+    progress.save('revoked', 'lesson', { position: 20, duration: 30, completed: true, immediate: true }); progress.select('revoked', 'lesson'); await progress.flush();
+    expect(api.save).not.toHaveBeenCalled(); expect(api.select).not.toHaveBeenCalled();
+    expect(JSON.parse(localStorage.getItem('course-progress:v2:u')!).pending).toHaveLength(0);
+    progress.save('allowed', 'lesson', { position: 5, duration: 30, completed: false, immediate: true }); await flushPromises();
+    expect(api.save).toHaveBeenCalledOnce(); expect(progress.lesson('allowed', 'lesson')?.position).toBe(5);
+  });
+  it('切节发现无权限时也终止播放补传，不覆盖服务端历史数据', async () => {
+    api.select.mockRejectedValueOnce(Object.assign(new Error('forbidden'), { status: 403 }));
+    const progress = useCourseProgress('u', 'token');
+    progress.select('course', 'lesson'); await flushPromises();
+    progress.save('course', 'lesson', { position: 30, duration: 30, completed: true, immediate: true }); await progress.load();
+    expect(progress.unavailableCourses.value.has('course')).toBe(true); expect(api.save).not.toHaveBeenCalled();
+  });
   it('记录上传数据库后，新设备无本地缓存也能恢复位置、最后小节及完成状态；账号隔离', async () => {
     const first = useCourseProgress('u1', 'token-one');
     first.select('course-a', 'lesson-1'); first.save('course-a', 'lesson-1', { position: 32.5, duration: 100, completed: false });

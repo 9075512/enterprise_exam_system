@@ -6,7 +6,7 @@
 
 ## 接入
 
-- 课程和章节现在从后端 API 读取，管理员上架后学员可见，草稿、下架和已删除课程不可通过学员详情接口读取。课程初始为空；`src/data/courses.ts` 的示例仅作为测试数据，不作为加载失败时的回退。
+- 课程和章节现在从后端 API 读取，上架后仅学习范围内学员可见，草稿、下架和已删除课程不可通过学员详情接口读取。升级前的课程保留原有公开范围。课程初始为空；`src/data/courses.ts` 的示例仅作为测试数据，不作为加载失败时的回退。
 - 已有环境执行 `npm --prefix server run db:migrate:courses`，幂等创建 `courses`、`course_media`、`course_categories`、`course_progress` 四张表并迁移已有课程分类，不运行历史种子、不重建数据、不改变权限。本地开发库已执行该迁移；新数据库的 `db:init` 会创建课程表。
 - 新增菜单权限 key `course-manage`（仅管理员）、`courses`（学习角色），前后端及接口校验一致。新建数据库的内置角色默认授权；已有数据库需要管理员在“菜单权限”中勾选对应入口，重新登录后生效，个人例外权限仍生效。公网 `PRACTICE_ONLY` 实例不注册课程模块。
 - 观看记录保存在 MySQL `course_progress`，按登录账号、课程及小节隔离，包含播放位置、实际时长、完成状态和最后选择的小节。同一账号换设备登录可续播；旧浏览器 v1 记录仅补充数据库中缺失的小节，不覆盖已有记录。v2 本地缓存暂存断网请求，恢复网络后重试；跨设备冲突以数据库记录为准并提示重新同步。
@@ -22,6 +22,36 @@
 - 未配置封面时，填写标题后可点击“生成封面”，根据标题、分类和讲师生成同款深色网格封面并立即预览，保存课程后生效。已有封面先清空地址再生成，避免覆盖上传图片；生成中禁用保存与重复操作，支持取消，失败保留输入。
 - 管理播放预览可切换小节，不写学员进度；保存失败保留输入，未保存退出需确认，上传或保存期间锁定重复操作。并发冲突提供重新加载入口。
 - 创建、编辑、上下架、删除及分类维护记录审计日志。
+
+## 绑定科室和人员
+
+课程管理每行的“绑定人员”可多选科室和单独指定人员，二者取并集并去重。选择父科室包含全部下级，科室成员及组织关系变化后自动更新；单独指定人员不受科室调动影响。仅启用中的考生账号纳入范围，学员仍须具备“在线看课”菜单权限。窗口显示生效名单预览，保存时再次校验科室和指定人员。
+
+新课程先存草稿，必须设置非空绑定规则后才能上架。已上架课程可直接调整人员，无需下架；保存使用课程 revision 防止覆盖其他管理员的修改，并记录 `course.audience` 审计。空名单可以保存，表示无人可看，不会变成公开。停用或已删除的指定人员需先从选择中移除。
+
+已有数据库执行 `npm --prefix server run db:migrate:courses`，为课程补充可空 `audience_json` 字段。SQL NULL 表示升级前的公开课程，迁移不改变状态、版本或观看记录，不运行历史种子，可重复执行。已有公开课程首次保存绑定后转为指定范围，界面会提示此变化。新建课程明确保存空绑定对象，不能借用 NULL 兼容规则公开。
+
+课程列表、详情、观看记录读取、保存、切节及旧记录导入共享范围判定。人员被移出后不能再访问，播放器在同步收到 403/404 时停止播放与补传并提示返回课程列表；本机待补传记录清除，服务端历史记录保留，重新纳入后可恢复。媒体签名链接仍沿用现有资源读取机制。
+
+## 后台学习进度与 Excel
+
+课程管理每行的“学习进度”默认列出当前范围内所有人员，包含未看课人员；历史公开课程按全部启用考生统计。支持按姓名或账号、科室（含下级）、学习状态查询，分页和刷新。统计卡展示当前页签及筛选条件下的总人数、未开始、学习中、已完成与完成率。
+
+人员进度按“完成的当前有效小节 / 当前有效小节总数”计算，保留一位小数。仅打开介绍或选择小节仍为未开始；有播放位置或完成记录为学习中，全部有效小节完成才为已完成；空课程进度为 0。已删小节不参与计数，更换视频生成的新小节不会继承旧记录。最近学习时间只取有实际播放数据的有效小节记录，空值显示为“—”；该字段与播放位置不代表认证学时。
+
+“小节明细”展示当前各章各节的完成状态、播放位置、视频时长和最近记录。尚未加载过视频元数据的小节没有实际视频时长，界面显示“—”，导出为 0 秒。所有时间显示为北京时间。
+
+“历史记录”页签展示已有记录但已不在当前范围的人员，包括调出、取消指定和停用人员，不计入当前名单的完成率；仍按当前课程有效小节统计。这里保留的是已有观看记录，不是历次绑定名单快照。账号永久删除仍沿用现有用户删除规则及数据库外键行为。
+
+“导出 Excel”导出当前页签、已查询筛选条件下的全部匹配人员，不受分页限制。一个工作簿包含“人员汇总”和“小节明细”，两张表来自同一次数据库快照；汇总包含课程、姓名、账号、当前科室、人员范围、状态、完成数、总小节数、进度、最近学习时间，明细增加章节、小节、小节状态、播放位置、视频时长和小节最近记录时间。时间为北京时间，缺失时间留空，未开始人员也会导出；无人员时保留表头。
+
+管理接口（均需管理员角色及 `course-manage` 菜单权限）：
+
+- `GET /api/courses/manage/:id/audience`：返回 mode（public/assigned）、revision、departmentIds、userIds。
+- `PUT /api/courses/manage/:id/audience`：提交 revision、departmentIds、userIds；版本冲突返回 409，非法科室或指定人员返回 400。
+- `GET /api/courses/manage/:id/progress`：scope=current/history，keyword、departmentId、status（not_started/learning/completed）、page、pageSize；返回 list、分页、summary。
+- `GET /api/courses/manage/:id/progress/:userId`：人员当前有效小节明细。
+- `GET /api/courses/manage/:id/progress/export`：使用相同筛选条件返回 `.xlsx` 文件，忽略分页。
 
 ## 存储与部署
 
@@ -54,6 +84,8 @@
 `npm run test -- src/composables/useCourseProgress.test.ts src/views/courses src/views/admin/CourseManagement.test.ts src/layouts/menuConfig.test.ts src/router/guard.test.ts src/styles/globalStyle.test.ts src/styles/designCoverage.test.ts`
 
 `npm --prefix server run test -- src/test/courses.test.ts`
+
+人员绑定与报表：`npm --prefix server run test -- src/test/courseAudienceReports.test.ts`；`npm run test -- src/views/admin/CourseAudienceProgress.test.ts src/composables/useCourseProgress.test.ts src/views/courses/CoursePages.test.ts src/styles/designCoverage.test.ts`。
 
 `npm run build`、`npm --prefix server run build`
 

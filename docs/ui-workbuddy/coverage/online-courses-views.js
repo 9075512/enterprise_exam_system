@@ -20,5 +20,13 @@ Object.assign(window.DESIGN_ORG_DRAWERS, {
 
 Object.assign(window.DESIGN_ORG_VIEWS, { CourseCategoriesDialog: () => card('课程分类维护', '<p>分类名称与排序，添加 / 编辑 / 删除；显示关联课程数量，使用中的分类禁止删除。加载、空态、错误重试和权限由课程管理入口控制。</p>') });
 Object.assign(window.DESIGN_ORG_DRAWERS, { CourseCategoriesDialog: () => card('课程分类维护弹窗', '<p>桌面680px，手机94vw；表单单列，名称换行，操作锁定与未保存确认。改名同步关联课程；重复及并发冲突保留输入。</p>') });
+Object.assign(window.DESIGN_ORG_VIEWS, {
+  CourseAudienceDialog: () => card('绑定学习人员', '<p>科室树与指定人员取并集，父科室包含下级；即时预览去重名单。公开课程首次保存后转为绑定范围。空名单表示无人可看，历史进度保留。</p><button>保存绑定</button>'),
+  CourseProgressDialog: () => card('课程学习进度', '<p>当前绑定人员 / 历史记录，姓名账号、科室与状态筛选；总人数、未开始、学习中、已完成与完成率。包括尚未看课人员，已完成有效小节占比展示一位小数。</p><button>小节明细</button><button>导出 Excel</button>')
+});
+Object.assign(window.DESIGN_ORG_DRAWERS, {
+  CourseAudienceDialog: () => card('绑定窗口', '<p>桌面800px以内，手机94vw；表单单列，名单表局部滚动。未保存关闭需确认，并发冲突保留选择并重新加载。保存锁定重复操作。</p>'),
+  CourseProgressDialog: () => card('进度与人员明细', '<p>桌面1180px以内，手机96vw；统计卡桌面五列、手机双列，筛选手机单列。明细显示章、节、完成状态、播放位置、实际视频时长与北京时间，导出当前筛选下全部人员。</p>')
+});
 
 Object.assign(window.DESIGN_ORG_VIEWS, { CourseDetailPage: () => card('课程介绍', '<p>封面、标题、分类、讲师、三行简介与展开、章节数量及完成进度。</p><button>开始 / 继续 / 再次学习</button>') + card('课程介绍与目录', '<p>桌面左侧完整富文本介绍，右侧折叠目录；手机介绍/目录页签和底部固定学习按钮。空图文回退简介，空目录禁用学习，加载失败重试；图片自适应，失败明确提示。浏览不产生观看记录，点击小节进入对应视频。</p>') });

@@ -30,6 +30,7 @@ export function useCourseProgress(userId: string, accessToken?: string | null) {
   const data = ref<SavedProgress>(empty());
   const cacheError = ref(''); const syncError = ref(''); const loading = ref(false);
   const storageError = computed(() => syncError.value || cacheError.value);
+  const unavailableCourses = ref(new Set<string>());
   const pending = new Map<string, Pending>();
   const selections = new Map<string, { lessonId: string; sequence: number }>();
   const inFlight = new Set<string>(); const conflicts = new Set<string>();
@@ -59,16 +60,24 @@ export function useCourseProgress(userId: string, accessToken?: string | null) {
   function ensure(courseId: string) { return data.value.courses[courseId] ??= { lessons: Object.create(null) }; }
   function lesson(courseId: string, lessonId: string) { return data.value.courses[courseId]?.lessons[lessonId]; }
   function lastLesson(courseId: string) { return data.value.courses[courseId]?.lastLessonId; }
-  function report(error: unknown): void { syncError.value = (error as { status?: number }).status === 409 ? '观看记录已在其他设备更新，请重新同步，以数据库记录为准。' : '观看记录同步失败，当前进度已暂存；恢复网络后可重新同步。'; }
+  function revoke(courseId: string): void {
+    unavailableCourses.value.add(courseId); selections.delete(courseId); delete data.value.courses[courseId];
+    for (const [id, item] of pending) if (item.courseId === courseId) { pending.delete(id); conflicts.delete(id); }
+    persist();
+  }
+  function report(error: unknown): void {
+    const status = (error as { status?: number }).status;
+    syncError.value = status === 404 || status === 403 ? '课程已下架或学习权限已变化，请返回课程列表。' : status === 409 ? '观看记录已在其他设备更新，请重新同步，以数据库记录为准。' : '观看记录同步失败，当前进度已暂存；恢复网络后可重新同步。';
+  }
   async function flush(): Promise<void> {
     clearTimeout(timer); timer = undefined;
     const requests: Promise<unknown>[] = [];
     for (const [courseId, selected] of selections) {
       const flight = `selection/${courseId}/${selected.sequence}`; if (inFlight.has(flight)) continue;
       inFlight.add(flight);
-      selectionChain = selectionChain.catch(() => {}).then(() => api.selectCourseLesson(courseId, selected.lessonId, token));
+      selectionChain = selectionChain.catch(() => {}).then(() => unavailableCourses.value.has(courseId) ? undefined : api.selectCourseLesson(courseId, selected.lessonId, token));
       requests.push(selectionChain.then(() => { if (selections.get(courseId) === selected) selections.delete(courseId); }).catch(error => {
-        if (error.status === 404 && selections.get(courseId) === selected) selections.delete(courseId);
+        if (error.status === 404 || error.status === 403) revoke(courseId);
         throw error;
       }).finally(() => inFlight.delete(flight)));
     }
@@ -77,6 +86,7 @@ export function useCourseProgress(userId: string, accessToken?: string | null) {
       const flight = `${id}/${item.write.clientId}/${item.write.sequence}`; if (inFlight.has(flight)) continue;
       inFlight.add(flight); const sent = { ...item.write };
       requests.push(api.saveCourseProgress(item.courseId, item.lessonId, sent, token).then(saved => {
+        if (unavailableCourses.value.has(item.courseId)) return;
         const current = lesson(item.courseId, item.lessonId);
         if (current && (saved.revision ?? 0) >= (current.revision ?? 0)) Object.assign(current, { revision: saved.revision, clientId: saved.clientId, sequence: saved.sequence, completed: current.completed || saved.completed });
         const queued = pending.get(id);
@@ -84,7 +94,7 @@ export function useCourseProgress(userId: string, accessToken?: string | null) {
         else if (queued) queued.write.revision = Math.max(queued.write.revision, saved.revision ?? 0);
       }).catch(error => {
         if (error.status === 409) conflicts.add(id);
-        if (error.status === 404) pending.delete(id);
+        if (error.status === 404 || error.status === 403) revoke(item.courseId);
         throw error;
       }).finally(() => inFlight.delete(flight)));
     }
@@ -95,12 +105,12 @@ export function useCourseProgress(userId: string, accessToken?: string | null) {
   }
   function schedule(): void { if (!timer && !disposed) timer = setTimeout(() => void flush(), 5000); }
   function select(courseId: string, lessonId: string): void {
-    if (!validId(courseId) || !validId(lessonId)) return;
+    if (!validId(courseId) || !validId(lessonId) || unavailableCourses.value.has(courseId)) return;
     ensure(courseId).lastLessonId = lessonId;
     selections.set(courseId, { lessonId, sequence: ++sequence }); persist(); void flush();
   }
   function save(courseId: string, lessonId: string, value: PlaybackProgress): void {
-    if (!validId(courseId) || !validId(lessonId) || !Number.isFinite(value.position) || !Number.isFinite(value.duration) || value.position < 0 || value.duration <= 0 || value.duration > 604800) return;
+    if (!validId(courseId) || !validId(lessonId) || unavailableCourses.value.has(courseId) || !Number.isFinite(value.position) || !Number.isFinite(value.duration) || value.position < 0 || value.duration <= 0 || value.duration > 604800) return;
     const old = lesson(courseId, lessonId);
     const updated: LessonProgress = { position: Math.min(value.position, value.duration), duration: value.duration, completed: old?.completed === true || value.completed, updatedAt: Date.now(), revision: old?.revision ?? 0, clientId, sequence: ++sequence };
     ensure(courseId).lessons[lessonId] = updated;
@@ -133,6 +143,7 @@ export function useCourseProgress(userId: string, accessToken?: string | null) {
         }
         for (const id of staleCourses) selections.delete(id);
         for (const [id, selected] of selections) (remote.courses[id] ??= { lessons: Object.create(null) }).lastLessonId = selected.lessonId;
+        for (const id of unavailableCourses.value) delete remote.courses[id];
         data.value = remote; conflicts.clear(); syncError.value = ''; persist();
         await flush();
       } catch (error) { report(error); }
@@ -147,5 +158,5 @@ export function useCourseProgress(userId: string, accessToken?: string | null) {
     window.addEventListener('online', retry); window.addEventListener('focus', retry); window.addEventListener('pagehide', pagehide); document.addEventListener('visibilitychange', hidden);
     onScopeDispose(() => { void flush(); disposed = true; clearTimeout(timer); window.removeEventListener('online', retry); window.removeEventListener('focus', retry); window.removeEventListener('pagehide', pagehide); document.removeEventListener('visibilitychange', hidden); });
   }
-  return { data, storageError, loading, lesson, lastLesson, select, save, load, flush, retry };
+  return { data, storageError, loading, unavailableCourses, lesson, lastLesson, select, save, load, flush, retry };
 }

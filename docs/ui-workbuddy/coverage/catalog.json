@@ -2952,6 +2952,38 @@
       ]
     },
     {
+      "id": "CourseAudienceDialog",
+      "title": "课程绑定学习人员",
+      "route": null,
+      "file": "src/views/admin/CourseAudienceDialog.vue",
+      "layout": "overlay",
+      "sections": ["公开课程兼容说明", "科室与指定人员", "生效名单预览", "版本冲突与保存"],
+      "reference": "课程管理绑定人员扩展",
+      "header": "绑定学习人员",
+      "columns": ["姓名", "账号", "科室"],
+      "fields": ["学习科室", "指定人员"],
+      "states": ["ready", "loading", "empty", "error", "forbidden"],
+      "desktop": "800px以内弹窗，顶部课程名称与可见范围说明，表单纵向排布；科室树和人员多选后即时展示并集去重预览。保存期间禁用表单，冲突保留输入并提供重新加载，未保存关闭需确认。",
+      "mobile": "94vw弹窗，表单和多选控件占满可用宽度，预览表局部滚动，标题可换行；加载与错误均有文字，空范围明确提示无人可看。",
+      "overlays": [{ "kind": "dialog", "title": "绑定学习人员", "fields": ["科室树", "人员多选", "名单预览"], "primaryAction": "保存绑定", "mode": "workflow" }]
+    },
+    {
+      "id": "CourseProgressDialog",
+      "title": "课程学习进度",
+      "route": null,
+      "file": "src/views/admin/CourseProgressDialog.vue",
+      "layout": "overlay",
+      "sections": ["当前和历史名单页签", "人员与科室筛选", "完成率统计", "进度表与分页", "人员小节明细与导出"],
+      "reference": "课程管理学习进度扩展",
+      "header": "课程学习进度",
+      "columns": ["姓名", "账号", "当前科室", "学习状态", "完成小节", "进度", "最近学习时间"],
+      "fields": ["搜索人员", "科室", "学习状态"],
+      "states": ["ready", "loading", "empty", "error", "forbidden"],
+      "desktop": "1180px以内弹窗，当前绑定与历史页签共享筛选和导出，五张统计卡展示筛选结果；列表保留未开始人员并固定明细操作。请求期间显示加载反馈，失败隐藏旧表并可重试。",
+      "mobile": "96vw弹窗，筛选控件单列，统计卡双列，数据表局部横向滚动，分页换行；明细以独立弹窗显示，状态同时使用文字，时间明确为北京时间。",
+      "overlays": [{ "kind": "dialog", "title": "课程学习进度", "fields": ["筛选", "统计", "人员进度"], "primaryAction": "导出 Excel", "mode": "detail" }, { "kind": "dialog", "title": "人员小节明细", "fields": ["章节", "小节", "状态", "播放位置与时长"], "primaryAction": "关闭明细", "mode": "detail" }]
+    },
+    {
       "id": "AppUpdatePrompt",
       "title": "App 发现新版本",
       "route": null,

@@ -10,6 +10,8 @@ import RequestError from '@/components/common/RequestError.vue';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue';
 import CourseEditorDrawer from './CourseEditorDrawer.vue';
 import CourseCategoriesDialog from './CourseCategoriesDialog.vue';
+import CourseAudienceDialog from './CourseAudienceDialog.vue';
+import CourseProgressDialog from './CourseProgressDialog.vue';
 import CourseVideoPlayer from '@/views/courses/components/CourseVideoPlayer.vue';
 import { formatDateTime } from '@/utils/datetime';
 
@@ -24,6 +26,8 @@ const stats = ref({ draft: 0, published: 0, archived: 0 });
 const busy = computed(() => loading.value || !!operation.value);
 const editorOpen = ref(false);
 const categoriesOpen = ref(false);
+const audienceOpen = ref(false), progressOpen = ref(false);
+const selectedCourse = ref<ManagedCourse>();
 const editing = ref<ManagedCourse | null>(null);
 const preview = ref<ManagedCourse>();
 const previewOpen = ref(false);
@@ -82,11 +86,13 @@ async function remove(course: ManagedCourse): Promise<void> {
   finally { operation.value = ''; }
 }
 function saved(): void { actionError.value = ''; void load(); }
+function showAudience(course: ManagedCourse): void { selectedCourse.value = course; audienceOpen.value = true; }
+function showProgress(course: ManagedCourse): void { selectedCourse.value = course; progressOpen.value = true; }
 </script>
 
 <template>
   <main class="course-manage admin-page" data-ui-layout="course-manage" data-ui-page="CourseManagePage">
-    <PageHeader title="课程管理" description="维护课程内容和章节视频，上架后同步展示到学员的在线看课页面"><template #actions><el-button :disabled="busy" @click="categoriesOpen = true">维护分类</el-button><el-button type="primary" :icon="Plus" :disabled="busy" @click="edit()">新增课程</el-button></template></PageHeader>
+    <PageHeader title="课程管理" description="维护课程内容、绑定学习人员，查看学习进度并导出报表"><template #actions><el-button :disabled="busy" @click="categoriesOpen = true">维护分类</el-button><el-button type="primary" :icon="Plus" :disabled="busy" @click="edit()">新增课程</el-button></template></PageHeader>
     <section class="course-manage__stats" aria-label="课程统计"><article v-for="(label, key) in statusLabels" :key="key"><span>{{ label }}</span><strong>{{ loading || loadError ? '—' : stats[key] }}</strong><small>{{ key === 'published' ? '学员可见' : key === 'draft' ? '继续完善内容' : '可编辑后重新上架' }}</small></article></section>
     <el-card class="course-manage__list" shadow="never">
       <div class="course-manage__toolbar"><el-input v-model="query.q" aria-label="搜索课程" :prefix-icon="Search" clearable placeholder="搜索课程标题、分类" :disabled="busy" @keyup.enter="search" /><el-select v-model="query.status" aria-label="课程状态筛选" placeholder="全部状态" :disabled="busy" @change="search"><el-option label="全部状态" value="" /><el-option v-for="(label, key) in statusLabels" :key="key" :label="label" :value="key" /></el-select><el-button type="primary" :disabled="busy" @click="search">查询</el-button><el-button :icon="Refresh" :loading="loading" :disabled="!!operation" @click="load">刷新</el-button><span>{{ loading ? '加载中' : loadError ? '数量未知' : `共 ${total} 门课程` }}</span></div>
@@ -99,7 +105,7 @@ function saved(): void { actionError.value = ''; void load(); }
           <article v-for="course in courses" :key="course.id" class="course-manage__row">
             <img v-if="course.cover" :src="course.cover" :alt="course.title + '封面'" class="course-manage__cover"><div v-else class="course-manage__cover course-manage__cover--empty"><VideoPlay /></div>
             <div class="course-manage__info"><div><h3>{{ course.title }}</h3><el-tag :type="course.status === 'published' ? 'success' : course.status === 'draft' ? 'info' : 'warning'" size="small">{{ statusLabels[course.status] }}</el-tag></div><p>{{ course.description || '尚未填写课程简介' }}</p><small>{{ course.category || '未分类' }} · {{ course.instructor || '未填讲师' }} · {{ course.chapters.length }} 章 {{ courseLessons(course).length }} 节 · 排序 {{ course.sortOrder }}<span>更新于 {{ formatDateTime(course.updatedAt) }}</span></small></div>
-            <div class="course-manage__actions"><el-button :disabled="busy" @click="showPreview(course)">预览</el-button><el-button :disabled="busy || course.status === 'published'" :title="course.status === 'published' ? '请先下架课程再编辑' : '编辑课程和章节视频'" @click="edit(course)">编辑</el-button><el-button :type="course.status === 'published' ? 'warning' : 'primary'" plain :disabled="busy" @click="status(course)">{{ course.status === 'published' ? '下架' : '上架' }}</el-button><el-button type="danger" text :disabled="busy || course.status === 'published'" @click="remove(course)">删除</el-button></div>
+            <div class="course-manage__actions"><el-button :disabled="busy" @click="showAudience(course)">绑定人员</el-button><el-button :disabled="busy" @click="showProgress(course)">学习进度</el-button><el-button :disabled="busy" @click="showPreview(course)">预览</el-button><el-button :disabled="busy || course.status === 'published'" :title="course.status === 'published' ? '请先下架课程再编辑' : '编辑课程和章节视频'" @click="edit(course)">编辑</el-button><el-button :type="course.status === 'published' ? 'warning' : 'primary'" plain :disabled="busy" @click="status(course)">{{ course.status === 'published' ? '下架' : '上架' }}</el-button><el-button type="danger" text :disabled="busy || course.status === 'published'" @click="remove(course)">删除</el-button></div>
           </article>
         </div>
         <el-pagination v-if="total" v-model:current-page="query.page" :page-size="query.pageSize" :total="total" layout="prev, pager, next" :disabled="busy" @current-change="load" />
@@ -107,6 +113,8 @@ function saved(): void { actionError.value = ''; void load(); }
     </el-card>
     <CourseEditorDrawer v-model="editorOpen" :course="editing" @saved="saved" />
     <CourseCategoriesDialog v-model="categoriesOpen" @changed="saved" />
+    <CourseAudienceDialog v-if="selectedCourse" v-model="audienceOpen" :course-id="selectedCourse.id" :course-title="selectedCourse.title" @saved="saved" />
+    <CourseProgressDialog v-if="selectedCourse" v-model="progressOpen" :course-id="selectedCourse.id" :course-title="selectedCourse.title" />
     <el-dialog v-model="previewOpen" title="课程预览" width="min(880px, 94vw)" destroy-on-close append-to-body class="course-preview-dialog">
       <template v-if="preview"><h2>{{ preview.title }}</h2><p>{{ preview.description || '暂无课程简介' }}</p><section v-if="preview.detailHtml" aria-label="课程详情预览"><h3>课程详情</h3><div class="rich-text" v-html="preview.detailHtml" /></section><el-select v-if="courseLessons(preview).length" v-model="previewId" aria-label="选择预览小节"><el-option v-for="lesson in courseLessons(preview)" :key="lesson.id" :label="lesson.title" :value="lesson.id" /></el-select><CourseVideoPlayer v-if="previewLesson?.src" :key="previewId" :course-id="preview.id" :lesson-id="previewId" :src="previewLesson.src" :title="previewLesson.title" :poster="preview.cover" :initial-position="0" :demo="preview.isDemo" /><el-empty v-else description="当前小节尚未配置视频，可在编辑中添加" /><p class="course-manage__preview-note">当前为管理预览，不记录学员观看进度。视频播放还取决于资源可用性与浏览器支持。</p></template>
       <template #footer><el-button @click="previewOpen = false">关闭预览</el-button></template>

@@ -719,7 +719,7 @@ export interface Report {
 
 /** 审计动作（与后端 domain.ts AuditAction 一致） */
 export type AuditAction =
-  | 'course.create' | 'course.update' | 'course.delete' | 'course.status'
+  | 'course.create' | 'course.update' | 'course.delete' | 'course.status' | 'course.audience'
   | 'course-category.create' | 'course-category.update' | 'course-category.delete'
   | 'role.create' | 'role.update' | 'role.delete' | 'role.members'
   | 'user.create'

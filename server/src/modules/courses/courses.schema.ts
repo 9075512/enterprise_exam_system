@@ -58,3 +58,20 @@ const playback = z.object({ position: z.number().finite().min(0).max(604800), du
 export const courseProgressSchema = playback.extend({ revision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), clientId: id, sequence: z.number().int().positive().max(Number.MAX_SAFE_INTEGER) }).refine(value => value.position <= value.duration, '播放位置不能超过视频时长');
 export type CourseProgressInput = z.infer<typeof courseProgressSchema>;
 export const courseProgressImportSchema = z.object({ lessons: z.array(playback.extend({ courseId: id, lessonId: id, selected: z.boolean().default(false) }).refine(value => value.position <= value.duration, '播放位置不能超过视频时长')).max(500) });
+
+export const courseAudienceSchema = z.object({
+  departmentIds: z.array(id).max(1000).transform(values => [...new Set(values)]),
+  userIds: z.array(id).max(5000).transform(values => [...new Set(values)]),
+});
+export type CourseAudience = z.infer<typeof courseAudienceSchema>;
+export const courseAudienceUpdateSchema = courseAudienceSchema.extend({ revision: z.number().int().positive() });
+export const courseReportQuerySchema = z.object({
+  scope: z.enum(['current', 'history']).default('current'),
+  keyword: z.string().trim().max(120).default(''),
+  departmentId: z.string().max(64).default(''),
+  status: z.enum(['', 'not_started', 'learning', 'completed']).default(''),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+export type CourseReportQuery = z.infer<typeof courseReportQuerySchema>;
+export const courseReportPersonSchema = z.object({ id, userId: id });
